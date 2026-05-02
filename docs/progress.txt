@@ -16,7 +16,7 @@
   - template routes: GET /template/list, GET /template/:id, POST /template/apply
   - 14 passing tests for template system
   - createPolicyFromTemplate() with customization options (customAllowlist, dailyLimitAmount, etc.)
-- [ ] #10 — Frontend: wallet + temporal key flow
+- [x] #10 — Frontend: wallet + temporal key flow
 - [ ] #11 — End-to-end BLOCKED demo (HITL)
 
 ## Done
@@ -70,8 +70,16 @@
   - Session management utilities: deriveWalletPDA, formatPublicKey, estimateFee
   - parseIntentParams() for type-safe param parsing
   - 43 passing tests (16 intent builder + 27 session utils)
-- #9 — Policy UI: template-based configuration
+- #9 — Policy UI: template-based configuration (commit 0a2d25e)
   - policy-templates.ts: 4 templates (whitelist-only, daily-limit, gambling-block, enterprise-control)
   - template routes: GET /template/list, GET /template/:id, POST /template/apply
   - 14 passing tests for template system
   - createPolicyFromTemplate() with customization options
+- #10 — Frontend: wallet + temporal key flow (commit cf644bc)
+  - Vite + React + TanStack Start scaffold with Tailwind CSS
+  - Wallet connection with Phantom/solana adapter fallback for demo
+  - WalletDashboard with Overview/Policy/Session Keys tabs
+  - PolicyConfigurator with 4 template-based policy templates
+  - TemporalKeyManager for granting/revoking session keys
+  - Types and API client mirroring SDK/proxy interfaces
+  - 22 passing tests for templates and types
