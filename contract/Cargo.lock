@@ -876,6 +876,7 @@ name = "contract"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "borsh",
  "litesvm",
  "solana-keypair",
  "solana-message",

@@ -18,4 +18,8 @@ pub enum ErrorCode {
     InvalidAttestation,
     #[msg("Temporal key already exists")]
     TemporalKeyExists,
+    #[msg("Destination not in allowlist")]
+    DestinationNotAllowed,
+    #[msg("Destination in blocklist")]
+    DestinationBlocked,
 }

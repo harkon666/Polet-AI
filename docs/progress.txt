@@ -2,7 +2,7 @@
 
 ## Week 1
 - [x] #1 — Wallet PDA + owner + policy hash storage
-- [ ] #2 — Execute with allow/block policy enforcement
+- [x] #2 — Execute with allow/block policy enforcement
 - [x] #3 — On-chain rate limiting (daily spend tracking)
 - [x] #4 — Temporal key grant
 - [x] #5 — Session revoke (kill switch)
@@ -16,6 +16,12 @@
 - [ ] #11 — End-to-end BLOCKED demo (HITL)
 
 ## Done
+- #2 — Allow/block policy enforcement (commit now)
+  - Policy struct: allowlist (Vec<Pubkey>) and blocklist (Vec<Pubkey>)
+  - set_policy_data instruction: stores serialized Policy in wallet
+  - enforce_policy helper: checks destination against allow/block lists
+  - Blocklist takes precedence over allowlist
+  - Tests: test_policy_allowlist_transfer_succeeds, test_policy_allowlist_transfer_blocked, test_policy_blocklist_transfer_blocked, test_policy_blocklist_precedence
 - #1 — Wallet PDA + owner + policy hash storage (commit 7a62842)
   - Wallet account struct: owner, policy_hash, daily_spent, last_reset, daily_limit
   - initialize instruction: creates PDA wallet via seeds [WALLET_SEED, owner]

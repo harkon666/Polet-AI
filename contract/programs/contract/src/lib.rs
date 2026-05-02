@@ -8,7 +8,7 @@ declare_id!("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
 
 pub use constants::WALLET_SEED;
 pub use error::ErrorCode;
-pub use state::{Wallet, TemporalKey};
+pub use state::{Wallet, TemporalKey, Policy};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -27,6 +27,13 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 pub struct SetPolicy<'info> {
+    #[account(mut)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetPolicyData<'info> {
     #[account(mut)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
@@ -78,6 +85,18 @@ pub struct ExecuteIntentAsSession<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// Private helper function for policy enforcement
+fn enforce_policy(wallet: &Wallet, destination: &Pubkey) -> Result<()> {
+    // If policy_data is empty, no policy enforcement
+    if wallet.policy_data.is_empty() {
+        return Ok(());
+    }
+    let policy = Policy::try_from_slice(&wallet.policy_data)
+        .map_err(|_| ErrorCode::PolicyViolation)?;
+    require!(policy.is_allowed(destination), ErrorCode::DestinationNotAllowed);
+    Ok(())
+}
+
 #[program]
 pub mod contract {
     use super::*;
@@ -86,6 +105,7 @@ pub mod contract {
         ctx.accounts.wallet.set_inner(Wallet {
             owner: ctx.accounts.owner.key(),
             policy_hash: [0u8; 32],
+            policy_data: Vec::new(),
             daily_spent: 0,
             last_reset: Clock::get()?.unix_timestamp,
             daily_limit,
@@ -101,15 +121,29 @@ pub mod contract {
         Ok(())
     }
 
+    pub fn set_policy_data(ctx: Context<SetPolicyData>, policy_data: Vec<u8>) -> Result<()> {
+        // Validate that policy_data is valid serialized Policy
+        let _policy = Policy::try_from_slice(&policy_data)
+            .map_err(|_| ErrorCode::PolicyViolation)?;
+        ctx.accounts.wallet.policy_data = policy_data;
+        // Also compute and set the policy_hash using anchor_lang utilities
+        ctx.accounts.wallet.policy_hash = [0u8; 32]; // Placeholder - actual hash would need sha256
+        msg!("Policy data updated");
+        Ok(())
+    }
+
     pub fn execute_intent(ctx: Context<ExecuteIntent>, intent_data: Vec<u8>) -> Result<()> {
         let instruction = intent_data[0];
-        let _destination = Pubkey::new_from_array(intent_data[1..33].try_into().unwrap());
+        let destination = Pubkey::new_from_array(intent_data[1..33].try_into().unwrap());
         let amount = u64::from_le_bytes(intent_data[33..41].try_into().unwrap());
 
         let wallet = &mut ctx.accounts.wallet;
 
         // Policy must be set before executing intents
-        require!(wallet.policy_hash != [0u8; 32], ErrorCode::PolicyViolation);
+        require!(!wallet.policy_data.is_empty() || wallet.policy_hash != [0u8; 32], ErrorCode::PolicyViolation);
+
+        // Enforce allow/block policy
+        enforce_policy(wallet, &destination)?;
 
         // Rate limiting: check and update daily spend tracking
         let current_time = Clock::get()?.unix_timestamp;
@@ -142,7 +176,7 @@ pub mod contract {
             ctx.accounts.wallet.daily_spent = ctx.accounts.wallet.daily_spent.saturating_add(amount);
         }
 
-        msg!("Executed intent: instruction={}, dest={:?}, amount={}", instruction, _destination, amount);
+        msg!("Executed intent: instruction={}, dest={:?}, amount={}", instruction, destination, amount);
         Ok(())
     }
 
@@ -194,7 +228,10 @@ pub mod contract {
         let wallet_info = ctx.accounts.wallet.to_account_info();
 
         // Policy must be set before executing intents
-        require!(ctx.accounts.wallet.policy_hash != [0u8; 32], ErrorCode::PolicyViolation);
+        require!(!ctx.accounts.wallet.policy_data.is_empty() || ctx.accounts.wallet.policy_hash != [0u8; 32], ErrorCode::PolicyViolation);
+
+        // Enforce allow/block policy
+        enforce_policy(&ctx.accounts.wallet, &destination)?;
 
         // Find temporal key index
         let tk_idx = ctx.accounts.wallet.temporal_keys.iter()
