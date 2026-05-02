@@ -9,7 +9,7 @@
 - [x] #6 — Off-chain proxy: intent parsing + routing
 
 ## Week 2
-- [ ] #7 — Off-chain proxy: transaction construction
+- [x] #7 — Off-chain proxy: transaction construction
 - [ ] #8 — SDK: intent JSON builder
 - [ ] #9 — Policy UI: template-based configuration
 - [ ] #10 — Frontend: wallet + temporal key flow
@@ -49,3 +49,10 @@
   - Mock wallet store for demo
   - 21 passing tests (TDD approach)
   - Routes: POST /intent/evaluate, /intent/execute, /intent/route
+- #7 — Off-chain proxy: transaction construction (commit 280bd5a)
+  - Real transaction building with @solana/web3.js (Transaction, PublicKey, SystemProgram)
+  - buildExecuteIntentData() creates instruction data matching on-chain format
+  - buildTransaction() for owner-signed, buildSessionTransaction() for session-signed
+  - buildIntentTransaction() high-level API from Intent object
+  - to_LE_Bytes() utility for bigint-to-little-endian conversion
+  - 4 new tests, 29 passing total
