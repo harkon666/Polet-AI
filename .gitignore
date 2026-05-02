@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+*.tgz
+
+# IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Anchor
+.anchor/
+target/
+
+# Surfpool
+test-ledger/
+.surfpool/
+
+# Yarn
+.yarn/
+
+# Misc
+*.rs.bk
+*.swp
+*.swo
