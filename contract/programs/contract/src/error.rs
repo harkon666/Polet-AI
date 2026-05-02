@@ -16,4 +16,6 @@ pub enum ErrorCode {
     SessionNotAuthorized,
     #[msg("Invalid attestation signature")]
     InvalidAttestation,
+    #[msg("Temporal key already exists")]
+    TemporalKeyExists,
 }
