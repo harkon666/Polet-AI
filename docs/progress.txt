@@ -1,0 +1,19 @@
+# Polet AI — Progress
+
+## Week 1
+- [ ] #1 — Wallet PDA + owner + policy hash storage
+- [ ] #2 — Execute with allow/block policy enforcement
+- [ ] #3 — On-chain rate limiting (daily spend tracking)
+- [ ] #4 — Temporal key grant
+- [ ] #5 — Session revoke (kill switch)
+- [ ] #6 — Off-chain proxy: intent parsing + routing
+
+## Week 2
+- [ ] #7 — Off-chain proxy: transaction construction
+- [ ] #8 — SDK: intent JSON builder
+- [ ] #9 — Policy UI: template-based configuration
+- [ ] #10 — Frontend: wallet + temporal key flow
+- [ ] #11 — End-to-end BLOCKED demo (HITL)
+
+## Done
+- (none yet)
