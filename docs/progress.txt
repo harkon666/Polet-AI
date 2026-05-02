@@ -6,7 +6,7 @@
 - [x] #3 — On-chain rate limiting (daily spend tracking)
 - [x] #4 — Temporal key grant
 - [x] #5 — Session revoke (kill switch)
-- [ ] #6 — Off-chain proxy: intent parsing + routing
+- [x] #6 — Off-chain proxy: intent parsing + routing
 
 ## Week 2
 - [ ] #7 — Off-chain proxy: transaction construction
@@ -41,3 +41,11 @@
   - Checks amount against daily_limit before executing (lines 124-128)
   - Updates daily_spent after successful transfer (line 142)
   - Test: test_execute_intent_daily_limit_exceeded
+- #6 — Off-chain proxy: intent parsing + routing (commit 40bc7a7)
+  - Bun + Hono server with CORS for AI agent SDK
+  - Intent parser: validates transfer/swap/stake/custom actions
+  - Policy engine: evaluates against allow/block lists, amount limits
+  - Transaction builder: builds Solana instruction data
+  - Mock wallet store for demo
+  - 21 passing tests (TDD approach)
+  - Routes: POST /intent/evaluate, /intent/execute, /intent/route
