@@ -11,7 +11,11 @@
 ## Week 2
 - [x] #7 — Off-chain proxy: transaction construction
 - [x] #8 — SDK: intent JSON builder
-- [ ] #9 — Policy UI: template-based configuration
+- [x] #9 — Policy UI: template-based configuration
+  - policy-templates.ts: 4 templates (whitelist-only, daily-limit, gambling-block, enterprise-control)
+  - template routes: GET /template/list, GET /template/:id, POST /template/apply
+  - 14 passing tests for template system
+  - createPolicyFromTemplate() with customization options (customAllowlist, dailyLimitAmount, etc.)
 - [ ] #10 — Frontend: wallet + temporal key flow
 - [ ] #11 — End-to-end BLOCKED demo (HITL)
 
@@ -66,3 +70,8 @@
   - Session management utilities: deriveWalletPDA, formatPublicKey, estimateFee
   - parseIntentParams() for type-safe param parsing
   - 43 passing tests (16 intent builder + 27 session utils)
+- #9 — Policy UI: template-based configuration
+  - policy-templates.ts: 4 templates (whitelist-only, daily-limit, gambling-block, enterprise-control)
+  - template routes: GET /template/list, GET /template/:id, POST /template/apply
+  - 14 passing tests for template system
+  - createPolicyFromTemplate() with customization options
