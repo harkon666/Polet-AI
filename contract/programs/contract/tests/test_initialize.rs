@@ -15,7 +15,7 @@ fn test_initialize() {
     let payer = Keypair::new();
     let mut svm = LiteSVM::new();
 
-    let bytes = std::fs::read("/home/harkon666/Dev/hackathon/Polet-AI/contract/target/debug/libcontract.so")
+    let bytes = std::fs::read("/home/harkon666/Dev/hackathon/Polet-AI/contract/target/deploy/contract.so")
         .expect("Build program first with: cargo build");
     svm.add_program(program_id, &bytes).unwrap();
     svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
@@ -55,7 +55,7 @@ fn test_set_policy() {
     let payer = Keypair::new();
     let mut svm = LiteSVM::new();
 
-    let bytes = std::fs::read("/home/harkon666/Dev/hackathon/Polet-AI/contract/target/debug/libcontract.so")
+    let bytes = std::fs::read("/home/harkon666/Dev/hackathon/Polet-AI/contract/target/deploy/contract.so")
         .expect("Build program first with: cargo build");
     svm.add_program(program_id, &bytes).unwrap();
     svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
