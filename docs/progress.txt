@@ -10,7 +10,7 @@
 
 ## Week 2
 - [x] #7 — Off-chain proxy: transaction construction
-- [ ] #8 — SDK: intent JSON builder
+- [x] #8 — SDK: intent JSON builder
 - [ ] #9 — Policy UI: template-based configuration
 - [ ] #10 — Frontend: wallet + temporal key flow
 - [ ] #11 — End-to-end BLOCKED demo (HITL)
@@ -56,3 +56,13 @@
   - buildIntentTransaction() high-level API from Intent object
   - to_LE_Bytes() utility for bigint-to-little-endian conversion
   - 4 new tests, 29 passing total
+- #8 — SDK: intent JSON builder (commit now)
+  - @polet-ai/sdk npm package for AI agent integration
+  - createTransferIntent(), createSwapIntent(), createStakeIntent(), createCustomIntent()
+  - createUnstakeIntent(), createDelegateIntent(), createUndelegateIntent()
+  - isValidIntent() validation function
+  - generateIntentId() for unique intent IDs
+  - getIntentAmount(), getIntentDestination() helper functions
+  - Session management utilities: deriveWalletPDA, formatPublicKey, estimateFee
+  - parseIntentParams() for type-safe param parsing
+  - 43 passing tests (16 intent builder + 27 session utils)

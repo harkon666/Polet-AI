@@ -1,0 +1,205 @@
+/**
+ * Polet AI SDK - Usage Examples
+ *
+ * This file demonstrates how AI agents integrate with the Polet AI SDK
+ * to submit secure wallet transactions.
+ */
+
+import {
+  createTransferIntent,
+  createSwapIntent,
+  createStakeIntent,
+  createCustomIntent,
+  isValidIntent,
+  generateIntentId,
+  formatPublicKey,
+  estimateFee,
+  lamportsToSol,
+  type Intent,
+  type TransferParams,
+} from './index.js';
+
+/**
+ * Example 1: Transfer SOL
+ *
+ * An AI agent wants to transfer 0.05 SOL from the user's wallet to another address.
+ * The session key (which has been granted temporal authority) submits this intent.
+ */
+export async function example_transfer() {
+  // Create a transfer intent
+  const intent = createTransferIntent({
+    owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2', // user's wallet
+    sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4', // AI agent's session key
+    destination: 'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3', // recipient
+    amount: 50_000_000, // 0.05 SOL in lamports
+    policyHash: 'QmXz123456789abcdef', // optional policy hash
+  });
+
+  // Validate before sending
+  if (!isValidIntent(intent)) {
+    throw new Error('Invalid intent - cannot submit to proxy');
+  }
+
+  // Submit to proxy endpoint
+  const response = await fetch('https://proxy.polet.ai/intent/evaluate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(intent),
+  });
+
+  const result = await response.json();
+  if (!result.allowed) {
+    console.error('Transfer blocked:', result.reason);
+    return;
+  }
+
+  console.log('Transfer approved! Attestation:', result.attestation);
+}
+
+/**
+ * Example 2: Swap tokens (Jupiter)
+ *
+ * An AI agent wants to swap 1 SOL for USDC via Jupiter aggregator.
+ */
+export async function example_swap() {
+  const intent = createSwapIntent({
+    owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+    sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+    inputMint: 'So11111111111111111111111111111111111111112', // wSOL
+    outputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+    inputAmount: 1_000_000_000, // 1 SOL = 1B lamports
+    minOutputAmount: 140_000_000, // minimum 140 USDC (with slippage)
+    policyHash: 'QmXz123456789abcdef',
+  });
+
+  if (!isValidIntent(intent)) {
+    throw new Error('Invalid swap intent');
+  }
+
+  // Submit to proxy
+  const response = await fetch('https://proxy.polet.ai/intent/evaluate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(intent),
+  });
+
+  const result = await response.json();
+  console.log('Swap evaluation:', result);
+}
+
+/**
+ * Example 3: Stake SOL (Marinade/Jito)
+ *
+ * An AI agent wants to stake 5 SOL to a validator.
+ */
+export async function example_stake() {
+  const intent = createStakeIntent({
+    owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+    sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+    validator: 'GGGDKtETwX7HaiMk5r1GeXFP5P4a1dK8v6y4qT1mMZ5x', // validator vote address
+    amount: 5_000_000_000, // 5 SOL
+    policyHash: 'QmXz123456789abcdef',
+  });
+
+  if (!isValidIntent(intent)) {
+    throw new Error('Invalid stake intent');
+  }
+
+  console.log('Staking', lamportsToSol(intent.params.amount), 'SOL');
+  console.log('Estimated fee:', lamportsToSol(estimateFee(1)), 'SOL');
+}
+
+/**
+ * Example 4: Custom program interaction
+ *
+ * An AI agent wants to interact with a custom program directly.
+ */
+export async function example_custom() {
+  const intent = createCustomIntent({
+    owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+    sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+    programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', // Token program
+    instructionData: 'base64EncodedInstructionData',
+    accounts: [
+      'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3', // source account
+      'DxY0lq0rDmQafX2Y22Uj36tB6jzC3mD1kN5oX8yT4zA', // destination account
+    ],
+    policyHash: 'QmXz123456789abcdef',
+  });
+
+  if (!isValidIntent(intent)) {
+    throw new Error('Invalid custom intent');
+  }
+
+  console.log('Custom program call to', formatPublicKey(intent.params.programId));
+}
+
+/**
+ * Example 5: Batch intent submission
+ *
+ * An AI agent wants to execute multiple intents in sequence.
+ */
+export async function example_batch() {
+  const intents: Intent[] = [];
+
+  // Create multiple transfer intents
+  for (let i = 0; i < 3; i++) {
+    const intent = createTransferIntent({
+      owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+      sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+      destination: `Destination${i}Base58Key111111111111111111111111`,
+      amount: 10_000_000, // 0.01 SOL each
+      intentId: generateIntentId(), // unique ID for each
+    });
+    intents.push(intent);
+  }
+
+  // Submit batch to proxy
+  const response = await fetch('https://proxy.polet.ai/intent/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ intents }),
+  });
+
+  const results = await response.json();
+  console.log('Batch results:', results);
+}
+
+/**
+ * Example 6: OpenClaw Integration Pattern
+ *
+ * This shows how an OpenClaw agent would use the SDK.
+ */
+export async function example_openclaw_integration() {
+  // In OpenClaw, the AI agent has a session key
+  const sessionKey = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
+  const userWallet = 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2';
+
+  // AI decides to execute a transfer
+  const intent = createTransferIntent({
+    owner: userWallet,
+    sessionKey: sessionKey,
+    destination: 'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+    amount: 100_000_000, // 0.1 SOL
+  });
+
+  // Validate locally first
+  if (!isValidIntent(intent)) {
+    console.error('Invalid intent - OpenClaw should not generate invalid intents');
+    return;
+  }
+
+  // Send to Polet AI proxy for policy evaluation
+  const result = await fetch('https://proxy.polet.ai/intent/evaluate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(intent),
+  }).then(r => r.json());
+
+  if (!result.allowed) {
+    console.log('[Polet AI] Blocked:', result.reason);
+    return;
+  }
+
+  console.log('[Polet AI] Approved - executing transaction');
+}

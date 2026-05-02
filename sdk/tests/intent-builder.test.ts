@@ -1,0 +1,273 @@
+import { describe, expect, test } from 'bun:test';
+import {
+  createTransferIntent,
+  createSwapIntent,
+  createStakeIntent,
+  createCustomIntent,
+  createUnstakeIntent,
+  createDelegateIntent,
+  createUndelegateIntent,
+  isValidIntent,
+  generateIntentId,
+  type Intent,
+  type TransferParams,
+  type SwapParams,
+  type StakeParams,
+  type CustomParams,
+} from '../src/index.js';
+
+/**
+ * SDK tests - these verify the public interface that AI agent developers use.
+ * Tests describe BEHAVIOR, not implementation.
+ */
+
+describe('Polet AI SDK - Intent Builder', () => {
+  describe('createTransferIntent', () => {
+    test('creates a valid transfer intent with required fields', () => {
+      const intent = createTransferIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        destination: 'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+        amount: 1000000,
+      });
+
+      expect(intent.id).toBeDefined();
+      expect(intent.owner).toBe('AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2');
+      expect(intent.sessionKey).toBe('BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4');
+      expect(intent.action).toBe('transfer');
+      expect(intent.params.destination).toBe('CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3');
+      expect(intent.params.amount).toBe(1000000);
+      expect(intent.timestamp).toBeDefined();
+      expect(typeof intent.timestamp).toBe('number');
+    });
+
+    test('creates transfer intent with mint parameter for tokens', () => {
+      const intent = createTransferIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        destination: 'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+        amount: 1000000,
+        mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC mint
+      });
+
+      expect(intent.params.mint).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+    });
+
+    test('creates transfer intent with optional policyHash', () => {
+      const intent = createTransferIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        destination: 'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+        amount: 1000000,
+        policyHash: 'policy-hash-123',
+      });
+
+      expect(intent.policyHash).toBe('policy-hash-123');
+    });
+
+    test('uses provided intentId if given', () => {
+      const intent = createTransferIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        destination: 'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+        amount: 1000000,
+        intentId: 'custom-intent-id-123',
+      });
+
+      expect(intent.id).toBe('custom-intent-id-123');
+    });
+  });
+
+  describe('createSwapIntent', () => {
+    test('creates a valid swap intent', () => {
+      const intent = createSwapIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        inputMint: 'So11111111111111111111111111111111111111112', // wSOL
+        outputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+        inputAmount: 1000000000, // 1 SOL in lamports
+        minOutputAmount: 150000000, // min 150 USDC (assuming price)
+      });
+
+      expect(intent.action).toBe('swap');
+      expect(intent.params.inputMint).toBe('So11111111111111111111111111111111111111112');
+      expect(intent.params.outputMint).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+      expect(intent.params.inputAmount).toBe(1000000000);
+      expect(intent.params.minOutputAmount).toBe(150000000);
+    });
+  });
+
+  describe('createStakeIntent', () => {
+    test('creates a valid stake intent', () => {
+      const intent = createStakeIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        validator: 'GGGDKtETwX7HaiMk5r1GeXFP5P4a1dK8v6y4qT1mMZ5x',
+        amount: 5000000000, // 5 SOL
+      });
+
+      expect(intent.action).toBe('stake');
+      expect(intent.params.validator).toBe('GGGDKtETwX7HaiMk5r1GeXFP5P4a1dK8v6y4qT1mMZ5x');
+      expect(intent.params.amount).toBe(5000000000);
+    });
+  });
+
+  describe('createCustomIntent', () => {
+    test('creates a valid custom intent for arbitrary program interaction', () => {
+      const intent = createCustomIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+        instructionData: 'base64-encoded-data',
+        accounts: [
+          'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+          'DxY0lq0rDmQafX2Y22Uj36tB6jzC3mD1kN5oX8yT4zA',
+        ],
+      });
+
+      expect(intent.action).toBe('custom');
+      expect(intent.params.programId).toBe('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+      expect(intent.params.instructionData).toBe('base64-encoded-data');
+      expect(intent.params.accounts).toHaveLength(2);
+    });
+  });
+
+  describe('createUnstakeIntent', () => {
+    test('creates a valid unstake intent', () => {
+      const intent = createUnstakeIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        validator: 'GGGDKtETwX7HaiMk5r1GeXFP5P4a1dK8v6y4qT1mMZ5x',
+        amount: 1000000000, // 1 SOL
+      });
+
+      expect(intent.action).toBe('unstake');
+      expect(intent.params.validator).toBe('GGGDKtETwX7HaiMk5r1GeXFP5P4a1dK8v6y4qT1mMZ5x');
+      expect(intent.params.amount).toBe(1000000000);
+    });
+  });
+
+  describe('createDelegateIntent', () => {
+    test('creates a valid delegate intent', () => {
+      const intent = createDelegateIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        target: 'ExZ9kp0sClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+        amount: 2500000000, // 2.5 SOL
+      });
+
+      expect(intent.action).toBe('delegate');
+      expect(intent.params.target).toBe('ExZ9kp0sClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3');
+      expect(intent.params.amount).toBe(2500000000);
+    });
+  });
+
+  describe('createUndelegateIntent', () => {
+    test('creates a valid undelegate intent', () => {
+      const intent = createUndelegateIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        target: 'ExZ9kp0sClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+        amount: 1000000000,
+      });
+
+      expect(intent.action).toBe('undelegate');
+      expect(intent.params.target).toBe('ExZ9kp0sClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3');
+      expect(intent.params.amount).toBe(1000000000);
+    });
+  });
+
+  describe('isValidIntent', () => {
+    test('returns true for a valid intent', () => {
+      const intent = createTransferIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        destination: 'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+        amount: 1000000,
+      });
+
+      expect(isValidIntent(intent)).toBe(true);
+    });
+
+    test('returns false for an invalid intent (missing fields)', () => {
+      const invalidIntent = {
+        id: 'test-id',
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        // missing sessionKey
+        action: 'transfer',
+        params: { destination: 'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3', amount: 1000000 },
+        timestamp: Date.now(),
+      } as Intent;
+
+      expect(isValidIntent(invalidIntent)).toBe(false);
+    });
+
+    test('returns false for invalid action type', () => {
+      const invalidIntent = {
+        id: 'test-id',
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        action: 'invalid_action',
+        params: {},
+        timestamp: Date.now(),
+      } as Intent;
+
+      expect(isValidIntent(invalidIntent)).toBe(false);
+    });
+  });
+
+  describe('generateIntentId', () => {
+    test('generates a unique string id', () => {
+      const id1 = generateIntentId();
+      const id2 = generateIntentId();
+
+      expect(typeof id1).toBe('string');
+      expect(id1.length).toBeGreaterThan(0);
+      expect(id1).not.toBe(id2); // should be unique
+    });
+  });
+
+  describe('end-to-end: AI agent submits intent', () => {
+    test('complete flow: create intent and validate for submission', () => {
+      // Simulate AI agent creating an intent
+      const transferIntent = createTransferIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        destination: 'CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3',
+        amount: 50000000, // 0.05 SOL
+        policyHash: 'QmXz123456789',
+      });
+
+      // Validate before sending to proxy
+      expect(isValidIntent(transferIntent)).toBe(true);
+
+      // Intent should have all fields needed for proxy submission
+      expect(transferIntent.id).toBeDefined();
+      expect(transferIntent.owner).toBeDefined();
+      expect(transferIntent.sessionKey).toBeDefined();
+      expect(transferIntent.action).toBe('transfer');
+      expect(transferIntent.timestamp).toBeDefined();
+
+      // Serialize to JSON for submission
+      const jsonPayload = JSON.stringify(transferIntent);
+      expect(() => JSON.parse(jsonPayload)).not.toThrow();
+    });
+
+    test('create swap intent for Jupiter trading', () => {
+      const swapIntent = createSwapIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        inputMint: 'So11111111111111111111111111111111111111112',
+        outputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+        inputAmount: 1000000000, // 1 SOL
+        minOutputAmount: 140000000, // min 140 USDC (with slippage)
+        policyHash: 'QmXz123456789',
+      });
+
+      expect(isValidIntent(swapIntent)).toBe(true);
+      const jsonPayload = JSON.stringify(swapIntent);
+      const parsed = JSON.parse(jsonPayload);
+      expect(parsed.action).toBe('swap');
+    });
+  });
+});
