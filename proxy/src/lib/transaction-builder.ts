@@ -1,8 +1,16 @@
-import type { Attestation } from '../types/intent.js';
+import {
+  Transaction,
+  TransactionInstruction,
+  PublicKey,
+  SystemProgram,
+  type Signer,
+  type TransactionInstructionData,
+} from '@solana/web3.js';
+import type { Attestation, Intent } from '../types/intent.js';
 
 /**
  * Transaction builder for constructing Solana transactions
- * This builds the instruction data that matches the on-chain program format
+ * Matches the on-chain program format for execute_intent instructions
  */
 
 export interface TransactionRequest {
@@ -26,7 +34,7 @@ export interface BuiltTransaction {
 }
 
 /**
- * Build an execute_intent instruction for the session key flow
+ * Build instruction data matching the Solana program's execute_intent format
  * Format: [instruction(1) + destination(32) + amount(8)]
  */
 export function buildExecuteIntentData(
@@ -44,7 +52,7 @@ export function buildExecuteIntentData(
 /**
  * Convert a bigint to little-endian bytes
  */
-function to_LE_Bytes(num: bigint): Uint8Array {
+export function to_LE_Bytes(num: bigint): Uint8Array {
   const arr = new Uint8Array(8);
   let n = num;
   for (let i = 0; i < 8; i++) {
@@ -56,70 +64,235 @@ function to_LE_Bytes(num: bigint): Uint8Array {
 
 /**
  * Build a Solana transaction for the intent
- * This is a simplified version - production would use @solana/kit
+ * Uses @solana/web3.js for proper transaction construction
  */
 export async function buildTransaction(
   request: TransactionRequest,
   programId: string,
   walletAddress: string
 ): Promise<BuiltTransaction> {
-  // Mock values for demo - in production fetch from RPC
-  const blockHash = '5UxJ1qG7fBrizK7K8Gz3D7Z3Q9L4M6N2P4R6S8T0U2V4W6X8Y0Z';
-  const slot = 123456789;
+  const connection = getConnection();
 
-  // Parse destination pubkey
-  const destinationBytes = base58ToBytes(request.destination);
-  if (destinationBytes.length !== 32) {
-    throw new Error('Invalid destination pubkey');
-  }
+  // Get recent blockhash and slot
+  const { blockhash, lastValidBlockHeight, slot } = await connection.getLatestBlockhash();
+  const recentSlot = await connection.getSlot();
 
-  // Build instruction data
-  const intentData = buildExecuteIntentData(
+  // Parse pubkeys
+  const destinationPubkey = new PublicKey(request.destination);
+  const programIdPubkey = new PublicKey(programId);
+  const walletPubkey = new PublicKey(walletAddress);
+
+  // Build instruction data: [instruction(1) + destination(32) + amount(8)]
+  const instructionData = buildExecuteIntentData(
     request.instruction,
-    destinationBytes,
+    destinationPubkey.toBytes(),
     BigInt(request.amount)
   );
 
-  // In production, this would:
-  // 1. Create the instruction using @solana/kit
-  // 2. Build a VersionedTransaction
-  // 3. Return the serialized transaction
+  // Create the execute_intent instruction
+  // The instruction account layout for execute_intent:
+  // - wallet (mutable, signer)
+  // - destination (mutable)
+  // - system_program
+  const keys = [
+    { pubkey: walletPubkey, isSigner: true, isWritable: true },
+    { pubkey: destinationPubkey, isSigner: false, isWritable: true },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  ];
+
+  const instruction = new TransactionInstruction({
+    keys,
+    programId: programIdPubkey,
+    data: instructionData,
+  });
+
+  // Build the transaction
+  const transaction = new Transaction();
+  transaction.add(instruction);
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = walletPubkey;
+
+  // Serialize the transaction
+  const serialized = transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
 
   return {
-    transaction: Buffer.from(intentData).toString('base64'),
-    blockHash,
-    slot,
+    transaction: serialized.toString('base64'),
+    blockHash: blockhash,
+    slot: recentSlot,
     signers: [request.sessionKey],
   };
 }
 
 /**
- * Convert base58 string to bytes
+ * Build a transaction for session key execution (execute_intent_as_session)
+ * This is for when the session key itself signs the transaction
  */
-function base58ToBytes(base58: string): Uint8Array {
-  const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  const bytes: number[] = [];
+export async function buildSessionTransaction(
+  request: TransactionRequest,
+  programId: string,
+  walletAddress: string
+): Promise<BuiltTransaction> {
+  const connection = getConnection();
 
-  for (let i = 0; i < base58.length; i++) {
-    let carry = alphabet.indexOf(base58[i]);
-    if (carry === -1) {
-      throw new Error(`Invalid base58 character: ${base58[i]}`);
-    }
-    for (let j = 0; j < bytes.length; j++) {
-      carry += bytes[j] * 58;
-      bytes[j] = carry % 256;
-      carry = Math.floor(carry / 256);
-    }
-    while (carry > 0) {
-      bytes.push(carry % 256);
-      carry = Math.floor(carry / 256);
-    }
+  // Get recent blockhash and slot
+  const { blockhash, lastValidBlockHeight, slot } = await connection.getLatestBlockhash();
+  const recentSlot = await connection.getSlot();
+
+  // Parse pubkeys
+  const destinationPubkey = new PublicKey(request.destination);
+  const sessionKeyPubkey = new PublicKey(request.sessionKey);
+  const programIdPubkey = new PublicKey(programId);
+  // Wallet address for the PDA seed
+  const walletPubkey = new PublicKey(walletAddress);
+
+  // Build instruction data matching execute_intent_as_session format
+  const instructionData = buildExecuteIntentData(
+    request.instruction,
+    destinationPubkey.toBytes(),
+    BigInt(request.amount)
+  );
+
+  // Create the execute_intent_as_session instruction
+  // Account layout:
+  // - wallet (mutable, PDA)
+  // - session_key (signer, but NOT a signer on the instruction itself - the tx is signed by session key)
+  // - destination (mutable)
+  // - system_program
+  const keys = [
+    { pubkey: walletPubkey, isSigner: false, isWritable: true },
+    { pubkey: sessionKeyPubkey, isSigner: true, isWritable: false },
+    { pubkey: destinationPubkey, isSigner: false, isWritable: true },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  ];
+
+  const instruction = new TransactionInstruction({
+    keys,
+    programId: programIdPubkey,
+    data: instructionData,
+  });
+
+  // Build the transaction
+  const transaction = new Transaction();
+  transaction.add(instruction);
+  transaction.recentBlockhash = blockhash;
+  // Fee payer is the session key (not the wallet, since session key pays for its own tx)
+  transaction.feePayer = sessionKeyPubkey;
+
+  // Serialize the transaction
+  const serialized = transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+
+  return {
+    transaction: serialized.toString('base64'),
+    blockHash: blockhash,
+    slot: recentSlot,
+    signers: [request.sessionKey],
+  };
+}
+
+/**
+ * Build an intent from an Intent object
+ */
+export async function buildIntentTransaction(
+  intent: Intent,
+  programId: string,
+  walletAddress: string
+): Promise<BuiltTransaction> {
+  const connection = getConnection();
+
+  // Get recent blockhash and slot
+  const { blockhash } = await connection.getLatestBlockhash();
+  const recentSlot = await connection.getSlot();
+
+  // Get destination based on action type
+  let destination: string;
+  let amount: number;
+
+  switch (intent.action) {
+    case 'transfer':
+      destination = (intent.params as { destination: string }).destination;
+      amount = (intent.params as { amount: number }).amount;
+      break;
+    case 'swap':
+      // For swap, destination is the output mint
+      destination = (intent.params as { outputMint: string }).outputMint;
+      amount = (intent.params as { minOutputAmount: number }).minOutputAmount;
+      break;
+    case 'stake':
+      destination = (intent.params as { validator: string }).validator;
+      amount = (intent.params as { amount: number }).amount;
+      break;
+    default:
+      throw new Error(`Unsupported action type: ${intent.action}`);
   }
 
-  // Handle leading zeros
-  for (let i = 0; i < base58.length && base58[i] === '1'; i++) {
-    bytes.unshift(0);
-  }
+  const destinationPubkey = new PublicKey(destination);
+  const programIdPubkey = new PublicKey(programId);
+  const walletPubkey = new PublicKey(walletAddress);
+  const sessionKeyPubkey = new PublicKey(intent.sessionKey);
 
-  return new Uint8Array(bytes);
+  // Build instruction data
+  const instructionData = buildExecuteIntentData(
+    0, // instruction 0 = transfer
+    destinationPubkey.toBytes(),
+    BigInt(amount)
+  );
+
+  // Create instruction for execute_intent_as_session
+  const keys = [
+    { pubkey: walletPubkey, isSigner: false, isWritable: true },
+    { pubkey: sessionKeyPubkey, isSigner: true, isWritable: false },
+    { pubkey: destinationPubkey, isSigner: false, isWritable: true },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  ];
+
+  const instruction = new TransactionInstruction({
+    keys,
+    programId: programIdPubkey,
+    data: instructionData,
+  });
+
+  // Build the transaction
+  const transaction = new Transaction();
+  transaction.add(instruction);
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = sessionKeyPubkey;
+
+  // Serialize
+  const serialized = transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+
+  return {
+    transaction: serialized.toString('base64'),
+    blockHash: blockhash,
+    slot: recentSlot,
+    signers: [intent.sessionKey],
+  };
+}
+
+// Singleton connection for efficiency
+let _connection: import('@solana/web3.js').Connection | null = null;
+
+function getConnection(): import('@solana/web3.js').Connection {
+  if (!_connection) {
+    // Default to localhost for development
+    // In production, this would be configured via environment
+    const rpcUrl = process.env.SOLANA_RPC_URL || 'http://127.0.0.1:8899';
+    _connection = new (require('@solana/web3.js').Connection)(rpcUrl, 'confirmed');
+  }
+  return _connection;
+}
+
+/**
+ * Set a custom connection (useful for testing)
+ */
+export function setConnection(connection: import('@solana/web3.js').Connection): void {
+  _connection = connection;
 }

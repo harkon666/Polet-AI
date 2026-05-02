@@ -10,7 +10,8 @@
       "Bash(gh issue create --title '[AFK] Frontend: wallet + temporal key flow' --body ' *)",
       "Bash(NO_DNA=1 cargo build)",
       "Bash(NO_DNA=1 cargo expand)",
-      "Bash(NO_DNA=1 cargo metadata --format-version 1)"
+      "Bash(NO_DNA=1 cargo metadata --format-version 1)",
+      "Bash(bun test *)"
     ]
   }
 }
