@@ -3,9 +3,9 @@
 ## Week 1
 - [x] #1 — Wallet PDA + owner + policy hash storage
 - [ ] #2 — Execute with allow/block policy enforcement
-- [ ] #3 — On-chain rate limiting (daily spend tracking)
-- [ ] #4 — Temporal key grant
-- [ ] #5 — Session revoke (kill switch)
+- [x] #3 — On-chain rate limiting (daily spend tracking)
+- [x] #4 — Temporal key grant
+- [x] #5 — Session revoke (kill switch)
 - [ ] #6 — Off-chain proxy: intent parsing + routing
 
 ## Week 2
@@ -21,3 +21,17 @@
   - initialize instruction: creates PDA wallet via seeds [WALLET_SEED, owner]
   - set_policy instruction: owner-only policy hash update
   - ErrorCode enum: NotOwner, PolicyViolation, DailyLimitExceeded, AmountLimitExceeded, etc.
+- #5 — Session revoke (kill switch) — implemented in commit e4ae33f (same as #4)
+  - revoke_session instruction: sets temporal key `authorized = false`
+  - Immediately blocks session key from executing intents
+  - Test: test_revoke_session
+- #4 — Temporal key grant (commit e4ae33f)
+  - TemporalKey struct: key, expires_at, authorized, daily_limit, daily_spent, last_reset
+  - grant_temporal_key instruction: owner grants temporal key to session key
+  - execute_intent_as_session: session key executes transfer within daily limit
+  - Tests: test_grant_temporal_key, test_execute_intent_as_session
+- #3 — On-chain rate limiting (commit earlier, confirmed in lib.rs)
+  - execute_intent resets daily_spent if new day passed (lines 118-122)
+  - Checks amount against daily_limit before executing (lines 124-128)
+  - Updates daily_spent after successful transfer (line 142)
+  - Test: test_execute_intent_daily_limit_exceeded
