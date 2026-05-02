@@ -1,0 +1,121 @@
+/**
+ * Intent types for the Polet AI Policy Engine Proxy
+ * These types represent the JSON interface that AI agents use to submit intents
+ */
+
+export type IntentAction = 'transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom';
+
+export interface Intent {
+  /** Unique intent identifier for tracking */
+  id: string;
+  /** Wallet owner pubkey (base58) */
+  owner: string;
+  /** Session key that is authorized to act on behalf of owner (base58) */
+  sessionKey: string;
+  /** Action type */
+  action: IntentAction;
+  /** Action parameters - varies by action type */
+  params: TransferParams | SwapParams | StakeParams | CustomParams;
+  /** Unix timestamp when intent was created */
+  timestamp: number;
+  /** Optional: policy hash to use for evaluation */
+  policyHash?: string;
+}
+
+export interface TransferParams {
+  /** Destination pubkey (base58) */
+  destination: string;
+  /** Amount in lamports or token smallest unit */
+  amount: number;
+  /** Token mint - null for SOL */
+  mint?: string;
+}
+
+export interface SwapParams {
+  /** Input token mint */
+  inputMint: string;
+  /** Output token mint */
+  outputMint: string;
+  /** Input amount */
+  inputAmount: number;
+  /** Minimum output amount (for slippage) */
+  minOutputAmount: number;
+}
+
+export interface StakeParams {
+  /** Validator vote pubkey */
+  validator: string;
+  /** Amount to stake */
+  amount: number;
+}
+
+export interface UnstakeParams {
+  /** Validator vote pubkey */
+  validator: string;
+  /** Amount to unstake */
+  amount: number;
+}
+
+export interface DelegateParams {
+  /** Target delegate pubkey */
+  target: string;
+  /** Amount */
+  amount: number;
+}
+
+export interface UndelegateParams {
+  /** Target delegate pubkey */
+  target: string;
+  /** Amount */
+  amount: number;
+}
+
+export interface CustomParams {
+  /** Program ID to interact with */
+  programId: string;
+  /** Instruction data encoded as base64 */
+  instructionData: string;
+  /** Accounts involved (array of base58 pubkeys) */
+  accounts: string[];
+}
+
+export interface Policy {
+  /** List of allowed destination pubkeys (base58) */
+  allowlist: string[];
+  /** List of blocked destination pubkeys (base58) */
+  blocklist: string[];
+  /** Maximum amount per transaction */
+  maxAmount?: number;
+  /** Maximum daily total */
+  dailyLimit?: number;
+  /** Allowed action types - empty means all allowed */
+  allowedActions?: IntentAction[];
+}
+
+export interface IntentEvaluationResult {
+  /** Whether the intent is allowed */
+  allowed: boolean;
+  /** Reason if blocked */
+  reason?: string;
+  /** Policy hash used for evaluation */
+  policyHash?: string;
+  /** Attestation data for on-chain verification */
+  attestation?: Attestation;
+}
+
+export interface Attestation {
+  /** Wallet owner pubkey */
+  owner: string;
+  /** Session key pubkey */
+  sessionKey: string;
+  /** Policy hash */
+  policyHash: string;
+  /** Intent hash */
+  intentHash: string;
+  /** Block hash to use for transaction */
+  blockHash: string;
+  /** Slot at time of attestation */
+  slot: number;
+  /** Unix timestamp */
+  timestamp: number;
+}
