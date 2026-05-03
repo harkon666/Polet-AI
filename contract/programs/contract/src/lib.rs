@@ -4,7 +4,7 @@ pub mod constants;
 pub mod error;
 pub mod state;
 
-declare_id!("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
+declare_id!("2W4wkSy2QJ9SczvUfyPNYDLgqpEZ5WVktpEXVfTzBVJP");
 
 pub use constants::WALLET_SEED;
 pub use error::ErrorCode;
@@ -27,14 +27,38 @@ pub struct Initialize<'info> {
 
 #[derive(Accounts)]
 pub struct SetPolicy<'info> {
-    #[account(mut)]
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
 }
 
 #[derive(Accounts)]
 pub struct SetPolicyData<'info> {
-    #[account(mut)]
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+}
+
+// --- #12: SetProxyKey — owner-only, updates proxy_pk ---
+#[derive(Accounts)]
+pub struct SetProxyKey<'info> {
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+}
+
+// --- #12: SetMerkleRoot — owner-only, updates merkle_root ---
+#[derive(Accounts)]
+pub struct SetMerkleRoot<'info> {
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+}
+
+// --- #12: RevokeAllSessions — owner-only, updates last_revoked_slot ---
+#[derive(Accounts)]
+pub struct RevokeAllSessions<'info> {
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
 }
@@ -57,14 +81,14 @@ pub struct ExecuteIntent<'info> {
 
 #[derive(Accounts)]
 pub struct GrantTemporalKey<'info> {
-    #[account(mut)]
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
 }
 
 #[derive(Accounts)]
 pub struct RevokeSession<'info> {
-    #[account(mut)]
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
 }
@@ -104,6 +128,12 @@ pub mod contract {
     pub fn initialize(ctx: Context<Initialize>, daily_limit: u64) -> Result<()> {
         ctx.accounts.wallet.set_inner(Wallet {
             owner: ctx.accounts.owner.key(),
+            // --- #12: New fields initialized to defaults ---
+            proxy_pk: Pubkey::default(),
+            merkle_root: [0u8; 32],
+            policy_seq: 0,
+            last_revoked_slot: 0,
+            // --- Existing fields ---
             policy_hash: [0u8; 32],
             policy_data: Vec::new(),
             daily_spent: 0,
@@ -117,7 +147,9 @@ pub mod contract {
 
     pub fn set_policy(ctx: Context<SetPolicy>, policy_hash: [u8; 32]) -> Result<()> {
         ctx.accounts.wallet.policy_hash = policy_hash;
-        msg!("Policy hash updated to: {:?}", policy_hash);
+        // --- #12: Increment policy_seq on each policy change ---
+        ctx.accounts.wallet.policy_seq = ctx.accounts.wallet.policy_seq.checked_add(1).unwrap();
+        msg!("Policy hash updated to: {:?}, policy_seq={}", policy_hash, ctx.accounts.wallet.policy_seq);
         Ok(())
     }
 
@@ -128,7 +160,33 @@ pub mod contract {
         ctx.accounts.wallet.policy_data = policy_data;
         // Also compute and set the policy_hash using anchor_lang utilities
         ctx.accounts.wallet.policy_hash = [0u8; 32]; // Placeholder - actual hash would need sha256
-        msg!("Policy data updated");
+        // --- #12: Increment policy_seq on each policy change ---
+        ctx.accounts.wallet.policy_seq = ctx.accounts.wallet.policy_seq.checked_add(1).unwrap();
+        msg!("Policy data updated, policy_seq={}", ctx.accounts.wallet.policy_seq);
+        Ok(())
+    }
+
+    // --- #12: SetProxyKey instruction — owner-only ---
+    pub fn set_proxy_key(ctx: Context<SetProxyKey>, proxy_pk: Pubkey) -> Result<()> {
+        ctx.accounts.wallet.proxy_pk = proxy_pk;
+        msg!("Proxy key updated to: {:?}", proxy_pk);
+        Ok(())
+    }
+
+    // --- #12: SetMerkleRoot instruction — owner-only ---
+    pub fn set_merkle_root(ctx: Context<SetMerkleRoot>, merkle_root: [u8; 32]) -> Result<()> {
+        ctx.accounts.wallet.merkle_root = merkle_root;
+        // Increment policy_seq since merkle root represents a policy commitment
+        ctx.accounts.wallet.policy_seq = ctx.accounts.wallet.policy_seq.checked_add(1).unwrap();
+        msg!("Merkle root updated, policy_seq={}", ctx.accounts.wallet.policy_seq);
+        Ok(())
+    }
+
+    // --- #12: RevokeAllSessions instruction — sets last_revoked_slot to current slot ---
+    pub fn revoke_all_sessions(ctx: Context<RevokeAllSessions>) -> Result<()> {
+        let current_slot = Clock::get()?.slot;
+        ctx.accounts.wallet.last_revoked_slot = current_slot;
+        msg!("All sessions revoked at slot: {}", current_slot);
         Ok(())
     }
 

@@ -42,8 +42,14 @@ pub struct TemporalKey {
 #[account]
 pub struct Wallet {
     pub owner: Pubkey,
+    // --- #12: New production fields ---
+    pub proxy_pk: Pubkey,              // Proxy's public key for this wallet
+    pub merkle_root: [u8; 32],         // Committed Merkle root (depth 10, max 1024 leaves)
+    pub policy_seq: u64,               // Increments on each policy change
+    pub last_revoked_slot: u64,        // Slot at which last revocation occurred
+    // --- Existing fields ---
     pub policy_hash: [u8; 32],
-    pub policy_data: Vec<u8>, // Serialized Policy struct
+    pub policy_data: Vec<u8>,          // Serialized Policy struct
     pub daily_spent: u64,
     pub last_reset: i64,
     pub daily_limit: u64,
@@ -51,5 +57,8 @@ pub struct Wallet {
 }
 
 impl Wallet {
-    pub const INIT_SPACE: usize = 32 + 32 + 4 + 500 + 8 + 8 + 8 + 4 + 200;
+    // owner(32) + proxy_pk(32) + merkle_root(32) + policy_seq(8) + last_revoked_slot(8)
+    // + policy_hash(32) + policy_data(4+500) + daily_spent(8) + last_reset(8) + daily_limit(8)
+    // + temporal_keys(4+200)
+    pub const INIT_SPACE: usize = 32 + 32 + 32 + 8 + 8 + 32 + 4 + 500 + 8 + 8 + 8 + 4 + 200;
 }

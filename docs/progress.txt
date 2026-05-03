@@ -25,67 +25,52 @@
   - SDK flow tests: intent creation through policy evaluation
   - 58 passing tests total in proxy
 
+## Week 3 — Production Alignment (Phase 1)
+
+## In Progress
+
+## Blocked
+
 ## Done
-- #2 — Allow/block policy enforcement (commit now)
-  - Policy struct: allowlist (Vec<Pubkey>) and blocklist (Vec<Pubkey>)
-  - set_policy_data instruction: stores serialized Policy in wallet
-  - enforce_policy helper: checks destination against allow/block lists
-  - Blocklist takes precedence over allowlist
-  - Tests: test_policy_allowlist_transfer_succeeds, test_policy_allowlist_transfer_blocked, test_policy_blocklist_transfer_blocked, test_policy_blocklist_precedence
-- #1 — Wallet PDA + owner + policy hash storage (commit 7a62842)
-  - Wallet account struct: owner, policy_hash, daily_spent, last_reset, daily_limit
-  - initialize instruction: creates PDA wallet via seeds [WALLET_SEED, owner]
-  - set_policy instruction: owner-only policy hash update
-  - ErrorCode enum: NotOwner, PolicyViolation, DailyLimitExceeded, AmountLimitExceeded, etc.
-- #5 — Session revoke (kill switch) — implemented in commit e4ae33f (same as #4)
-  - revoke_session instruction: sets temporal key `authorized = false`
-  - Immediately blocks session key from executing intents
-  - Test: test_revoke_session
-- #4 — Temporal key grant (commit e4ae33f)
-  - TemporalKey struct: key, expires_at, authorized, daily_limit, daily_spent, last_reset
-  - grant_temporal_key instruction: owner grants temporal key to session key
-  - execute_intent_as_session: session key executes transfer within daily limit
-  - Tests: test_grant_temporal_key, test_execute_intent_as_session
-- #3 — On-chain rate limiting (commit earlier, confirmed in lib.rs)
-  - execute_intent resets daily_spent if new day passed (lines 118-122)
-  - Checks amount against daily_limit before executing (lines 124-128)
-  - Updates daily_spent after successful transfer (line 142)
-  - Test: test_execute_intent_daily_limit_exceeded
-- #6 — Off-chain proxy: intent parsing + routing (commit 40bc7a7)
-  - Bun + Hono server with CORS for AI agent SDK
-  - Intent parser: validates transfer/swap/stake/custom actions
-  - Policy engine: evaluates against allow/block lists, amount limits
-  - Transaction builder: builds Solana instruction data
-  - Mock wallet store for demo
-  - 21 passing tests (TDD approach)
-  - Routes: POST /intent/evaluate, /intent/execute, /intent/route
-- #7 — Off-chain proxy: transaction construction (commit 280bd5a)
-  - Real transaction building with @solana/web3.js (Transaction, PublicKey, SystemProgram)
-  - buildExecuteIntentData() creates instruction data matching on-chain format
-  - buildTransaction() for owner-signed, buildSessionTransaction() for session-signed
-  - buildIntentTransaction() high-level API from Intent object
-  - to_LE_Bytes() utility for bigint-to-little-endian conversion
-  - 4 new tests, 29 passing total
-- #8 — SDK: intent JSON builder (commit now)
-  - @polet-ai/sdk npm package for AI agent integration
-  - createTransferIntent(), createSwapIntent(), createStakeIntent(), createCustomIntent()
-  - createUnstakeIntent(), createDelegateIntent(), createUndelegateIntent()
-  - isValidIntent() validation function
-  - generateIntentId() for unique intent IDs
-  - getIntentAmount(), getIntentDestination() helper functions
-  - Session management utilities: deriveWalletPDA, formatPublicKey, estimateFee
-  - parseIntentParams() for type-safe param parsing
-  - 43 passing tests (16 intent builder + 27 session utils)
-- #9 — Policy UI: template-based configuration (commit 0a2d25e)
-  - policy-templates.ts: 4 templates (whitelist-only, daily-limit, gambling-block, enterprise-control)
-  - template routes: GET /template/list, GET /template/:id, POST /template/apply
-  - 14 passing tests for template system
-  - createPolicyFromTemplate() with customization options
-- #10 — Frontend: wallet + temporal key flow (commit cf644bc)
-  - Vite + React + TanStack Start scaffold with Tailwind CSS
-  - Wallet connection with Phantom/solana adapter fallback for demo
-  - WalletDashboard with Overview/Policy/Session Keys tabs
-  - PolicyConfigurator with 4 template-based policy templates
-  - TemporalKeyManager for granting/revoking session keys
-  - Types and API client mirroring SDK/proxy interfaces
-  - 22 passing tests for templates and types
+- (see Week 1 and Week 2 above for earlier work)
+- [x] #12 — Wallet state extensions (proxy_pk, merkle_root, policy_seq, last_revoked_slot)
+  - Added 4 new fields to Wallet: proxy_pk, merkle_root, policy_seq, last_revoked_slot
+  - Added 3 new instructions: SetProxyKey, SetMerkleRoot, RevokeAllSessions
+  - policy_seq auto-increments on set_policy, set_policy_data, and set_merkle_root
+  - All owner-only instructions use has_one = owner constraint
+  - Fixed accidental lib.rs regression (restored SetPolicyData, GrantTemporalKey, RevokeSession, ExecuteIntentAsSession)
+  - 11 new TDD tests (22 total passing), all green
+  - Fixed declare_id to match deploy keypair
+
+## Production Issues (GitHub)
+
+### Contract (implement in dependency order: #12 first)
+- [x] #12 — Wallet state extensions (proxy_pk, merkle_root, policy_seq, last_revoked_slot)
+- [ ] #13 — Merkle proof verification in execute_intent_as_session
+- [ ] #14 — Slot-based revocation + policy seq verification
+- [ ] #15 — TEE attestation verification
+
+### Proxy
+- [ ] #16 — Wallet store → real Solana RPC (remove mock)
+- [ ] #17 — Session key generation + AES encryption
+- [ ] #18 — Wallet management endpoints (initialize, set-policy, grant-key)
+- [ ] #19 — Agent auth key registration flow
+- [ ] #20 — Merkle tree builder + proof generator
+- [ ] #21 — Replace policy-engine hash with SHA-256 + remove demo bypass
+- [ ] #22 — Wire to Solana devnet RPC
+
+### Frontend
+- [ ] #23 — Create Wallet flow + proxy initialization
+- [ ] #24 — DemoTab with real Solana addresses
+
+### Integration
+- [ ] #25 — End-to-end on real Solana devnet (HITL)
+
+## Blocked Issue Dependencies
+
+- #13, #14, #15 blocked by #12 (must complete first)
+- #18, #19 blocked by #17
+- #20 blocked by #12 (contract IDL needed)
+- #23 blocked by #18
+- #24 blocked by #21, #22
+- #25 blocked by #12–#15, #16, #17, #18, #21, #22

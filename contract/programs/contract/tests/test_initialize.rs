@@ -919,3 +919,405 @@ fn test_revoke_session() {
     let res = svm.send_transaction(tx_revoke);
     assert!(res.is_ok(), "revoke_session failed: {:?}", res);
 }
+
+// ============================================================
+// TASK #12 — Wallet State Extensions (TDD)
+// proxy_pk, merkle_root, policy_seq, last_revoked_slot
+// ============================================================
+
+/// Helper: creates a SVM instance with program loaded and payer airdropped
+fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
+    let program_id = contract::id();
+    let payer = Keypair::new();
+    let mut svm = LiteSVM::new();
+
+    let bytes = std::fs::read("/home/harkon666/Dev/hackathon/Polet-AI/contract/target/deploy/contract.so")
+        .expect("Build program first with: cargo build-sbf");
+    svm.add_program(program_id, &bytes).unwrap();
+    svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
+
+    let (wallet_pda, _bump) = anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
+        &[WALLET_SEED, payer.pubkey().as_ref()],
+        &program_id,
+    );
+
+    (svm, payer, wallet_pda)
+}
+
+/// Helper: initialize a wallet via the contract
+fn do_initialize(svm: &mut LiteSVM, payer: &Keypair, wallet_pda: anchor_lang::prelude::Pubkey, daily_limit: u64) {
+    let program_id = contract::id();
+    let init_ix = contract::instruction::Initialize { daily_limit };
+    let init_accounts = contract::accounts::Initialize {
+        wallet: wallet_pda,
+        owner: payer.pubkey(),
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: init_ix.data(),
+        accounts: init_accounts.to_account_metas(None),
+    };
+    let blockhash = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&payer.pubkey()), &blockhash);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[payer]).unwrap();
+    svm.send_transaction(tx).expect("initialize failed");
+}
+
+/// Helper: read wallet account data and deserialize
+fn read_wallet(svm: &LiteSVM, wallet_pda: anchor_lang::prelude::Pubkey) -> contract::Wallet {
+    use anchor_lang::AccountDeserialize;
+    let account = svm.get_account(&wallet_pda).expect("wallet account not found");
+    let mut data = account.data.as_slice();
+    contract::Wallet::try_deserialize(&mut data).expect("failed to deserialize wallet")
+}
+
+// --- Test: Initialize creates wallet with default proxy_pk, merkle_root, policy_seq=0, last_revoked_slot=0 ---
+#[test]
+fn test_12_initialize_defaults_for_new_fields() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+
+    // #12 fields should be zero/default after init
+    assert_eq!(wallet.proxy_pk, anchor_lang::prelude::Pubkey::default(), "proxy_pk should be default (zero) after init");
+    assert_eq!(wallet.merkle_root, [0u8; 32], "merkle_root should be zeroed after init");
+    assert_eq!(wallet.policy_seq, 0, "policy_seq should be 0 after init");
+    assert_eq!(wallet.last_revoked_slot, 0, "last_revoked_slot should be 0 after init");
+    // Existing fields still work
+    assert_eq!(wallet.owner, payer.pubkey());
+    assert_eq!(wallet.daily_limit, 50_000_000);
+}
+
+// --- Test: SetProxyKey sets proxy_pk successfully ---
+#[test]
+fn test_12_set_proxy_key() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    let new_proxy = Keypair::new().pubkey();
+
+    let ix_data = contract::instruction::SetProxyKey { proxy_pk: new_proxy };
+    let ix_accounts = contract::accounts::SetProxyKey {
+        wallet: wallet_pda,
+        owner: payer.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    let blockhash = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&payer.pubkey()), &blockhash);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&payer]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "set_proxy_key failed: {:?}", res);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert_eq!(wallet.proxy_pk, new_proxy, "proxy_pk should be updated");
+}
+
+// --- Test: SetProxyKey fails when called by non-owner ---
+#[test]
+fn test_12_set_proxy_key_non_owner_rejected() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    let attacker = Keypair::new();
+    svm.airdrop(&attacker.pubkey(), 1_000_000_000).unwrap();
+
+    let new_proxy = Keypair::new().pubkey();
+
+    let ix_data = contract::instruction::SetProxyKey { proxy_pk: new_proxy };
+    let ix_accounts = contract::accounts::SetProxyKey {
+        wallet: wallet_pda,
+        owner: attacker.pubkey(), // wrong owner!
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    let blockhash = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&attacker.pubkey()), &blockhash);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&attacker]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "set_proxy_key should fail when called by non-owner");
+}
+
+// --- Test: SetMerkleRoot sets merkle_root successfully ---
+#[test]
+fn test_12_set_merkle_root() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    let new_root = [0xabu8; 32];
+
+    let ix_data = contract::instruction::SetMerkleRoot { merkle_root: new_root };
+    let ix_accounts = contract::accounts::SetMerkleRoot {
+        wallet: wallet_pda,
+        owner: payer.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    let blockhash = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&payer.pubkey()), &blockhash);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&payer]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "set_merkle_root failed: {:?}", res);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert_eq!(wallet.merkle_root, new_root, "merkle_root should be updated");
+}
+
+// --- Test: SetMerkleRoot increments policy_seq ---
+#[test]
+fn test_12_set_merkle_root_increments_policy_seq() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    let wallet_before = read_wallet(&svm, wallet_pda);
+    assert_eq!(wallet_before.policy_seq, 0);
+
+    // Set merkle root
+    let ix_data = contract::instruction::SetMerkleRoot { merkle_root: [0xffu8; 32] };
+    let ix_accounts = contract::accounts::SetMerkleRoot {
+        wallet: wallet_pda,
+        owner: payer.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    let blockhash = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&payer.pubkey()), &blockhash);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&payer]).unwrap();
+    svm.send_transaction(tx).expect("set_merkle_root failed");
+
+    let wallet_after = read_wallet(&svm, wallet_pda);
+    assert_eq!(wallet_after.policy_seq, 1, "policy_seq should increment after set_merkle_root");
+}
+
+// --- Test: SetPolicy increments policy_seq ---
+#[test]
+fn test_12_set_policy_increments_policy_seq() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    // First set_policy call
+    let ix_data = contract::instruction::SetPolicy { policy_hash: [0xabu8; 32] };
+    let ix_accounts = contract::accounts::SetPolicy {
+        wallet: wallet_pda,
+        owner: payer.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    let blockhash = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&payer.pubkey()), &blockhash);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&payer]).unwrap();
+    svm.send_transaction(tx).expect("set_policy failed");
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert_eq!(wallet.policy_seq, 1, "policy_seq should be 1 after first set_policy");
+
+    // Second set_policy call
+    let ix_data2 = contract::instruction::SetPolicy { policy_hash: [0xcdu8; 32] };
+    let ix_accounts2 = contract::accounts::SetPolicy {
+        wallet: wallet_pda,
+        owner: payer.pubkey(),
+    };
+    let ix2 = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: ix_data2.data(),
+        accounts: ix_accounts2.to_account_metas(None),
+    };
+    let blockhash2 = svm.latest_blockhash();
+    let msg2 = Message::new_with_blockhash(&[ix2], Some(&payer.pubkey()), &blockhash2);
+    let tx2 = VersionedTransaction::try_new(VersionedMessage::Legacy(msg2), &[&payer]).unwrap();
+    svm.send_transaction(tx2).expect("set_policy 2 failed");
+
+    let wallet2 = read_wallet(&svm, wallet_pda);
+    assert_eq!(wallet2.policy_seq, 2, "policy_seq should be 2 after second set_policy");
+}
+
+// --- Test: RevokeAllSessions sets last_revoked_slot ---
+#[test]
+fn test_12_revoke_all_sessions() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    let wallet_before = read_wallet(&svm, wallet_pda);
+    assert_eq!(wallet_before.last_revoked_slot, 0);
+
+    // Warp slot forward so we get a meaningful slot value
+    svm.warp_to_slot(42);
+
+    let ix_data = contract::instruction::RevokeAllSessions {};
+    let ix_accounts = contract::accounts::RevokeAllSessions {
+        wallet: wallet_pda,
+        owner: payer.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    let blockhash = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&payer.pubkey()), &blockhash);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&payer]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "revoke_all_sessions failed: {:?}", res);
+
+    let wallet_after = read_wallet(&svm, wallet_pda);
+    assert!(wallet_after.last_revoked_slot > 0, "last_revoked_slot should be set to current slot (> 0)");
+}
+
+// --- Test: RevokeAllSessions fails when called by non-owner ---
+#[test]
+fn test_12_revoke_all_sessions_non_owner_rejected() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    let attacker = Keypair::new();
+    svm.airdrop(&attacker.pubkey(), 1_000_000_000).unwrap();
+
+    let ix_data = contract::instruction::RevokeAllSessions {};
+    let ix_accounts = contract::accounts::RevokeAllSessions {
+        wallet: wallet_pda,
+        owner: attacker.pubkey(), // wrong owner!
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    let blockhash = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&attacker.pubkey()), &blockhash);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&attacker]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "revoke_all_sessions should fail when called by non-owner");
+}
+
+// --- Test: policy_seq monotonically increases across set_policy + set_merkle_root + set_policy_data ---
+#[test]
+fn test_12_policy_seq_monotonic_across_operations() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    // 1. set_policy → policy_seq = 1
+    let ix1_data = contract::instruction::SetPolicy { policy_hash: [0x01u8; 32] };
+    let ix1_accounts = contract::accounts::SetPolicy { wallet: wallet_pda, owner: payer.pubkey() };
+    let ix1 = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: ix1_data.data(), accounts: ix1_accounts.to_account_metas(None),
+    };
+    let bh1 = svm.latest_blockhash();
+    let msg1 = Message::new_with_blockhash(&[ix1], Some(&payer.pubkey()), &bh1);
+    let tx1 = VersionedTransaction::try_new(VersionedMessage::Legacy(msg1), &[&payer]).unwrap();
+    svm.send_transaction(tx1).expect("set_policy 1 failed");
+    assert_eq!(read_wallet(&svm, wallet_pda).policy_seq, 1);
+
+    // 2. set_merkle_root → policy_seq = 2
+    let ix2_data = contract::instruction::SetMerkleRoot { merkle_root: [0x02u8; 32] };
+    let ix2_accounts = contract::accounts::SetMerkleRoot { wallet: wallet_pda, owner: payer.pubkey() };
+    let ix2 = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: ix2_data.data(), accounts: ix2_accounts.to_account_metas(None),
+    };
+    let bh2 = svm.latest_blockhash();
+    let msg2 = Message::new_with_blockhash(&[ix2], Some(&payer.pubkey()), &bh2);
+    let tx2 = VersionedTransaction::try_new(VersionedMessage::Legacy(msg2), &[&payer]).unwrap();
+    svm.send_transaction(tx2).expect("set_merkle_root failed");
+    assert_eq!(read_wallet(&svm, wallet_pda).policy_seq, 2);
+
+    // 3. set_policy_data → policy_seq = 3
+    let allowed = Keypair::new().pubkey();
+    let policy = contract::Policy { allowlist: vec![allowed], blocklist: vec![] };
+    let policy_bytes = borsh::to_vec(&policy).unwrap();
+    let ix3_data = contract::instruction::SetPolicyData { policy_data: policy_bytes };
+    let ix3_accounts = contract::accounts::SetPolicyData { wallet: wallet_pda, owner: payer.pubkey() };
+    let ix3 = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: ix3_data.data(), accounts: ix3_accounts.to_account_metas(None),
+    };
+    let bh3 = svm.latest_blockhash();
+    let msg3 = Message::new_with_blockhash(&[ix3], Some(&payer.pubkey()), &bh3);
+    let tx3 = VersionedTransaction::try_new(VersionedMessage::Legacy(msg3), &[&payer]).unwrap();
+    svm.send_transaction(tx3).expect("set_policy_data failed");
+    assert_eq!(read_wallet(&svm, wallet_pda).policy_seq, 3);
+}
+
+// --- Test: SetProxyKey can be updated (key rotation) ---
+#[test]
+fn test_12_proxy_key_rotation() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    let proxy1 = Keypair::new().pubkey();
+    let proxy2 = Keypair::new().pubkey();
+
+    // Set first proxy key
+    let ix1_data = contract::instruction::SetProxyKey { proxy_pk: proxy1 };
+    let ix1_accounts = contract::accounts::SetProxyKey { wallet: wallet_pda, owner: payer.pubkey() };
+    let ix1 = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: ix1_data.data(), accounts: ix1_accounts.to_account_metas(None),
+    };
+    let bh1 = svm.latest_blockhash();
+    let msg1 = Message::new_with_blockhash(&[ix1], Some(&payer.pubkey()), &bh1);
+    let tx1 = VersionedTransaction::try_new(VersionedMessage::Legacy(msg1), &[&payer]).unwrap();
+    svm.send_transaction(tx1).expect("set_proxy_key 1 failed");
+    assert_eq!(read_wallet(&svm, wallet_pda).proxy_pk, proxy1);
+
+    // Rotate to second proxy key
+    let ix2_data = contract::instruction::SetProxyKey { proxy_pk: proxy2 };
+    let ix2_accounts = contract::accounts::SetProxyKey { wallet: wallet_pda, owner: payer.pubkey() };
+    let ix2 = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: ix2_data.data(), accounts: ix2_accounts.to_account_metas(None),
+    };
+    let bh2 = svm.latest_blockhash();
+    let msg2 = Message::new_with_blockhash(&[ix2], Some(&payer.pubkey()), &bh2);
+    let tx2 = VersionedTransaction::try_new(VersionedMessage::Legacy(msg2), &[&payer]).unwrap();
+    svm.send_transaction(tx2).expect("set_proxy_key 2 failed");
+    assert_eq!(read_wallet(&svm, wallet_pda).proxy_pk, proxy2, "proxy_pk should rotate to new key");
+}
+
+// --- Test: SetMerkleRoot non-owner rejected ---
+#[test]
+fn test_12_set_merkle_root_non_owner_rejected() {
+    let (mut svm, payer, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    do_initialize(&mut svm, &payer, wallet_pda, 50_000_000);
+
+    let attacker = Keypair::new();
+    svm.airdrop(&attacker.pubkey(), 1_000_000_000).unwrap();
+
+    let ix_data = contract::instruction::SetMerkleRoot { merkle_root: [0xffu8; 32] };
+    let ix_accounts = contract::accounts::SetMerkleRoot {
+        wallet: wallet_pda,
+        owner: attacker.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id,
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    let blockhash = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&attacker.pubkey()), &blockhash);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&attacker]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "set_merkle_root should fail when called by non-owner");
+}
