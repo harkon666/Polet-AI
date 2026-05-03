@@ -11,7 +11,8 @@
       "Bash(NO_DNA=1 cargo build)",
       "Bash(NO_DNA=1 cargo expand)",
       "Bash(NO_DNA=1 cargo metadata --format-version 1)",
-      "Bash(bun test *)"
+      "Bash(bun test *)",
+      "Bash(timeout 10 bash -c \"NO_DNA=1 bun run dev 2>&1\")"
     ]
   }
 }

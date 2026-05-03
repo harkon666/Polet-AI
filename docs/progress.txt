@@ -17,7 +17,13 @@
   - 14 passing tests for template system
   - createPolicyFromTemplate() with customization options (customAllowlist, dailyLimitAmount, etc.)
 - [x] #10 — Frontend: wallet + temporal key flow
-- [ ] #11 — End-to-end BLOCKED demo (HITL)
+- [x] #11 — End-to-end BLOCKED demo (HITL)
+  - e2e-policy-block.test.ts: 15 passing tests covering all HITL scenarios
+  - e2e-setup.ts: mock utilities for wallet store, attestation, and policy helpers
+  - Scenario tests: daily limit, blocklist, allowlist, action type enforcement
+  - Full "wow moment" demo: $500 drain attempt blocked by $50 policy limit
+  - SDK flow tests: intent creation through policy evaluation
+  - 58 passing tests total in proxy
 
 ## Done
 - #2 — Allow/block policy enforcement (commit now)
