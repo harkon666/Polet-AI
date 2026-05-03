@@ -43,11 +43,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
       // Intent from AI agent: trying to transfer $500 (500,000,000 lamports)
       const intent = {
         id: 'demo-001',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'transfer',
         params: {
-          destination: 'DestAddr789',
+          destination: 'CFSh6EakShpR74m4ZroMZQ569pb38BRtcDba6pbVsMCH',
           amount: 500_000_000, // $500 in lamports
         },
         timestamp: Date.now(),
@@ -77,11 +77,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
       // Intent: $40 transfer (within limit)
       const intent = {
         id: 'demo-002',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'transfer',
         params: {
-          destination: 'AllowedDest',
+          destination: 'JUP6LkbZbjS1jKKwapdH673zwLsBH3M427A871qYx1W',
           amount: 40_000_000, // $40 in lamports
         },
         timestamp: Date.now(),
@@ -108,12 +108,12 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
   describe('Scenario 2: Blocklist Enforcement', () => {
     test('BLOCKS transfer to known malicious address (blocklist)', async () => {
       // Known malicious address from blocklist
-      const maliciousAddr = 'MaliciousAddr123';
+      const maliciousAddr = '3t1zd1MDRnwMJTyVdU6PcjMPrXivYLWMmQYtDB6YBWa9';
 
       const intent = {
         id: 'demo-003',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'transfer',
         params: {
           destination: maliciousAddr,
@@ -140,12 +140,12 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
 
     test('BLOCKLIST takes precedence over ALLOWLIST', async () => {
       // Address that's in both lists - blocklist should win
-      const address = 'BothListsAddr';
+      const address = '8VgN3kDSe7KvKJhg1DYTfy7eiFKw5EUtoFQesNSej9qX';
 
       const intent = {
         id: 'demo-004',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'transfer',
         params: {
           destination: address,
@@ -175,11 +175,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
     test('BLOCKS transfer to non-allowlisted destination (whitelist-only mode)', async () => {
       const intent = {
         id: 'demo-005',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'transfer',
         params: {
-          destination: 'NotAllowlisted',
+          destination: 'CFSh6EakShpR74m4ZroMZQ569pb38BRtcDba6pbVsMCH',
           amount: 1_000_000,
         },
         timestamp: Date.now(),
@@ -205,18 +205,18 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
     test('ALLOWS transfer to allowlisted destination', async () => {
       const intent = {
         id: 'demo-006',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'transfer',
         params: {
-          destination: 'AllowedDest1',
+          destination: 'JUP6LkbZbjS1jKKwapdH673zwLsBH3M427A871qYx1W',
           amount: 5_000_000,
         },
         timestamp: Date.now(),
       };
 
       const policy: TestPolicy = {
-        allowlist: ['AllowedDest1', 'AllowedDest2'],
+        allowlist: ['JUP6LkbZbjS1jKKwapdH673zwLsBH3M427A871qYx1W', 'CFSh6EakShpR74m4ZroMZQ569pb38BRtcDba6pbVsMCH'],
         blocklist: [],
       };
 
@@ -235,12 +235,12 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
     test('BLOCKS action type not in allowedActions list', async () => {
       const intent = {
         id: 'demo-007',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'swap', // Swap is NOT in allowed actions
         params: {
-          inputMint: 'TokenA',
-          outputMint: 'TokenB',
+          inputMint: 'So11111111111111111111111111111111111111112', // SOL
+          outputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
           inputAmount: 1_000_000,
           minOutputAmount: 900_000,
         },
@@ -267,11 +267,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
     test('ALLOWS action type when allowedActions is empty (all allowed)', async () => {
       const intent = {
         id: 'demo-008',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'stake',
         params: {
-          validator: 'Validator123',
+          validator: '8VgN3kDSe7KvKJhg1DYTfy7eiFKw5EUtoFQesNSej9qX',
           amount: 5_000_000,
         },
         timestamp: Date.now(),
@@ -321,25 +321,25 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
       console.log('📋 Step 1: Owner sets policy - max $50/transaction, $50/day');
 
       // Step 2: Owner grants temporal key to AI agent
-      const sessionKey = 'AI_Agent_Session_Key_xyz';
+      const sessionKey = '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7';
       console.log(`🔑 Step 2: Owner grants temporal key to AI agent session key`);
       console.log(`   Session Key: ${sessionKey.substring(0, 20)}...`);
 
       // Step 3: AI agent submits intent via SDK
       const maliciousIntent = {
         id: 'hackathon-demo-001',
-        owner: 'OwnerWallet123',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
         sessionKey: sessionKey,
         action: 'transfer' as const,
         params: {
-          destination: 'TradingBotMalicious',
+          destination: '3t1zd1MDRnwMJTyVdU6PcjMPrXivYLWMmQYtDB6YBWa9',
           amount: 500_000_000, // $500 - way over the limit!
         },
         timestamp: Date.now(),
       };
       console.log('\n🤖 AI Agent submits intent:');
       console.log(`   Action: transfer`);
-      console.log(`   Destination: TradingBotMalicious`);
+      console.log(`   Destination: 3t1zd1MDRnwMJTyVdU6PcjMPrXivYLWMmQYtDB6YBWa9`);
       console.log(`   Amount: $500 (500,000,000 lamports)`);
       console.log(`   Policy Limit: $50 (50,000,000 lamports)`);
 
@@ -372,12 +372,12 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
 
   describe('Scenario 6: Combined Policy Rules', () => {
     test('blocks when destination is on blocklist AND amount exceeds limit', async () => {
-      const maliciousDest = 'HackerAddress';
+      const maliciousDest = '3t1zd1MDRnwMJTyVdU6PcjMPrXivYLWMmQYtDB6YBWa9';
 
       const intent = {
         id: 'demo-009',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'transfer',
         params: {
           destination: maliciousDest,
@@ -411,7 +411,7 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
       const invalidIntent = {
         id: 'demo-010',
         // missing owner
-        sessionKey: 'SessionKey456',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'transfer',
         params: {
           destination: 'Dest',
@@ -429,8 +429,8 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
     test('rejects intent with negative amount', async () => {
       const invalidIntent = {
         id: 'demo-011',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'transfer',
         params: {
           destination: 'Dest',
@@ -448,8 +448,8 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
     test('rejects intent with invalid action type', async () => {
       const invalidIntent = {
         id: 'demo-012',
-        owner: 'Owner123',
-        sessionKey: 'SessionKey456',
+        owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+        sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
         action: 'hack_the_world', // Invalid action!
         params: {
           destination: 'Dest',
@@ -477,18 +477,18 @@ describe('E2E: End-to-End Intent Flow with SDK', () => {
     // Simulate SDK creating an intent
     const sdkIntent = {
       id: 'sdk-demo-001',
-      owner: 'OwnerWalletABC',
-      sessionKey: 'SessionKeyDEF',
+      owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+      sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
       action: 'transfer',
       params: {
-        destination: 'AllowlistedDest',
+        destination: 'JUP6LkbZbjS1jKKwapdH673zwLsBH3M427A871qYx1W',
         amount: 30_000_000, // $30 - within limit
       },
       timestamp: Date.now(),
     };
 
     const policy: TestPolicy = {
-      allowlist: ['AllowlistedDest'],
+      allowlist: ['JUP6LkbZbjS1jKKwapdH673zwLsBH3M427A871qYx1W'],
       blocklist: [],
       maxAmount: 50_000_000, // $50 max
     };
@@ -506,8 +506,8 @@ describe('E2E: End-to-End Intent Flow with SDK', () => {
   test('SDK flow: create transfer intent → evaluate → blocked by amount', async () => {
     const sdkIntent = {
       id: 'sdk-demo-002',
-      owner: 'OwnerWalletABC',
-      sessionKey: 'SessionKeyDEF',
+      owner: 'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp',
+      sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
       action: 'transfer',
       params: {
         destination: 'SomeDest',
