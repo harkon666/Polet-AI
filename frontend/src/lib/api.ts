@@ -112,4 +112,14 @@ export async function applyTemplate(templateId: TemplateId, options?: {
   return data.data.policy;
 }
 
+export async function getWalletData(owner: string) {
+  const data = await fetchJson<{
+    success: boolean;
+    data: any;
+  }>(`${PROXY_URL}/wallet/${owner}`);
+
+  return data.data;
+}
+
 export { PROXY_URL };
+

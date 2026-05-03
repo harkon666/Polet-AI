@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletButton } from './WalletButton';
 import { PolicyConfigurator } from './PolicyConfigurator';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
 import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
+import { Transaction } from '@solana/web3.js';
+import { useEffect } from 'react';
+import { getWalletData } from '../lib/api';
 import type { Policy } from '../types';
 
 interface TemporalKey {
@@ -24,29 +27,101 @@ export function WalletDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'policy' | 'temporal' | 'demo'>('overview');
   const [currentPolicy, setCurrentPolicy] = useState<Policy | null>(null);
   const [temporalKeys, setTemporalKeys] = useState<TemporalKey[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const { sendTransaction } = useWallet();
+  const { connection } = useConnection();
+
+  useEffect(() => {
+    if (connected && publicKey) {
+      refreshData();
+    }
+  }, [connected, publicKey]);
+
+  const refreshData = async () => {
+    if (!publicKey) return;
+    try {
+      const data = await getWalletData(publicKey.toBase58());
+      if (data) {
+        setIsInitialized(true);
+        // Map on-chain data to frontend state
+        if (data.temporalKeys) {
+          setTemporalKeys(data.temporalKeys.map((tk: any, i: number) => ({
+            id: `key-${i}`,
+            sessionKey: tk.key.toString(),
+            expiresAt: Number(tk.expiresAt),
+            authorized: tk.authorized,
+            dailyLimit: Number(tk.dailyLimit),
+            dailySpent: Number(tk.dailySpent),
+            createdAt: Number(tk.lastReset) * 1000,
+          })));
+        }
+        if (data.policyData && data.policyData.length > 0) {
+           try {
+             const decoded = JSON.parse(new TextDecoder().decode(new Uint8Array(data.policyData)));
+             setCurrentPolicy(decoded);
+           } catch(e) {}
+        }
+      }
+    } catch (err) {
+      console.log('Wallet not found or not initialized yet');
+      setIsInitialized(false);
+    }
+  };
+
 
   const pubkeyStr = publicKey?.toBase58();
 
-  const handleApplyPolicy = (policy: Policy) => {
-    setCurrentPolicy(policy);
-    console.log('Policy applied:', policy);
+  const handleApplyPolicy = async (policy: Policy) => {
+    if (!publicKey) return;
+    try {
+      const res = await fetch('http://localhost:3001/wallet/set-policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner: publicKey.toBase58(),
+          policy
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data.transaction) {
+        const tx = Transaction.from(Uint8Array.from(atob(data.data.transaction), c => c.charCodeAt(0)));
+        const signature = await sendTransaction(tx, connection);
+        await connection.confirmTransaction(signature, 'confirmed');
+        refreshData();
+      }
+    } catch (err) {
+      console.error('Apply policy failed:', err);
+    }
   };
 
   const handleRevokeKey = (keyId: string) => {
     setTemporalKeys(prev => prev.map(k => k.id === keyId ? { ...k, authorized: false } : k));
   };
 
-  const handleGrantKey = (sessionKey: string, expiresAt: number, dailyLimit: number) => {
-    const newKey: TemporalKey = {
-      id: `key-${Date.now()}`,
-      sessionKey,
-      expiresAt,
-      authorized: true,
-      dailyLimit,
-      dailySpent: 0,
-      createdAt: Date.now(),
-    };
-    setTemporalKeys(prev => [...prev, newKey]);
+  const handleGrantKey = async (sessionKey: string, expiresAt: number, dailyLimit: number) => {
+    if (!publicKey) return;
+    try {
+      const res = await fetch('http://localhost:3001/wallet/grant-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          owner: publicKey.toBase58(),
+          sessionKey,
+          expiresAt: Math.floor(expiresAt / 1000),
+          dailyLimit
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.data.transaction) {
+        const tx = Transaction.from(Uint8Array.from(atob(data.data.transaction), c => c.charCodeAt(0)));
+        const signature = await sendTransaction(tx, connection);
+        await connection.confirmTransaction(signature, 'confirmed');
+        refreshData();
+      }
+    } catch (err) {
+      console.error('Grant key failed:', err);
+    }
   };
 
   if (!connected || !publicKey) {
@@ -70,6 +145,8 @@ export function WalletDashboard() {
 
   const handleInitialize = async () => {
     setIsInitializing(true);
+    setError(null);
+    setStatus('Preparing transaction...');
     try {
       const res = await fetch('http://localhost:3001/wallet/initialize', {
         method: 'POST',
@@ -78,17 +155,28 @@ export function WalletDashboard() {
       });
       const data = await res.json();
       if (data.success && data.data.transaction) {
-        // In a real app we would sign and send the transaction to Solana
-        // const txBytes = Buffer.from(data.data.transaction, 'base64');
-        // const tx = VersionedTransaction.deserialize(txBytes);
-        // if (signTransaction) await signTransaction(tx);
-        console.log('Wallet initialized via proxy!', data);
+        setStatus('Waiting for wallet signature...');
+        const tx = Transaction.from(Uint8Array.from(atob(data.data.transaction), c => c.charCodeAt(0)));
+        const signature = await sendTransaction(tx, connection);
+        setStatus('Confirming transaction on-chain...');
+        const latestBlockhash = await connection.getLatestBlockhash();
+        await connection.confirmTransaction({
+          signature,
+          ...latestBlockhash
+        }, 'confirmed');
+        console.log('Wallet initialized on-chain!', signature);
+        setStatus('Wallet ready!');
         setIsInitialized(true);
+        refreshData();
+      } else {
+        throw new Error(data.error || 'Failed to get transaction from proxy');
       }
     } catch (err) {
       console.error('Initialization failed:', err);
+      setError(err instanceof Error ? err.message : 'Initialization failed');
     } finally {
       setIsInitializing(false);
+      setTimeout(() => setStatus(null), 3000);
     }
   };
 
@@ -110,8 +198,24 @@ export function WalletDashboard() {
             disabled={isInitializing}
             className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-6 py-3 font-semibold text-[var(--lagoon-deep)] transition hover:-translate-y-0.5 hover:bg-[rgba(79,184,178,0.24)] disabled:opacity-50 disabled:hover:translate-y-0"
           >
-            {isInitializing ? 'Initializing...' : 'Create Smart Wallet'}
+            {isInitializing ? (status || 'Processing...') : 'Create Smart Wallet'}
           </button>
+          
+          {error && (
+            <div className="mt-6 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-left">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
+              <div>
+                <p className="text-sm font-semibold text-red-800">Transaction Failed</p>
+                <p className="text-xs text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
+          
+          {status && !error && (
+            <p className="mt-4 text-sm font-medium text-[var(--lagoon-deep)] animate-pulse">
+              {status}
+            </p>
+          )}
         </div>
       </div>
     );

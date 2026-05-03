@@ -5,6 +5,7 @@ import { getConnection } from '../lib/transaction-builder';
 import idl from '../lib/idl.json' with { type: "json" };
 import { generateAndSaveKey } from '../lib/kms';
 import { buildPolicyTree } from '../lib/merkle-tree';
+import { getWalletData } from '../lib/wallet-store';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -218,5 +219,27 @@ walletRouter.post('/grant-key', async (c) => {
   } catch (error) {
     console.error('Grant key error:', error);
     return c.json({ success: false, error: 'Failed to build grant key transaction' }, 500);
+  }
+});
+/**
+ * GET /wallet/:owner
+ * Fetches the current on-chain state of a wallet.
+ */
+walletRouter.get('/:owner', async (c) => {
+  try {
+    const owner = c.req.param('owner');
+    const walletData = await getWalletData(owner);
+    
+    if (!walletData) {
+      return c.json({ success: false, error: 'Wallet not found' }, 404);
+    }
+
+    return c.json({
+      success: true,
+      data: walletData
+    });
+  } catch (error) {
+    console.error('Fetch wallet error:', error);
+    return c.json({ success: false, error: 'Failed to fetch wallet data' }, 500);
   }
 });
