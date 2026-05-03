@@ -34,7 +34,7 @@ agentRouter.post('/register', async (c) => {
 
     const ownerPubkey = new PublicKey(owner);
     const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("wallet"), ownerPubkey.toBuffer()],
+      [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
       PROGRAM_ID
     );
 

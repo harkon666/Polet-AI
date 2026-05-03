@@ -440,9 +440,10 @@ fn test_policy_allowlist_transfer_blocked() {
     // Create NOT-allowed destination
     let not_allowed_dest = solana_keypair::Keypair::new().pubkey();
 
-    // Set policy with empty allowlist (means nothing is allowed)
+    // Set policy with a non-empty allowlist that does NOT include the destination
+    let allowed_dest = solana_keypair::Keypair::new().pubkey();
     let policy = contract::Policy {
-        allowlist: vec![],
+        allowlist: vec![allowed_dest], // only allow_dest is allowed
         blocklist: vec![],
     };
     let policy_data = borsh::to_vec(&policy).unwrap();
@@ -1252,7 +1253,7 @@ fn test_12_policy_seq_monotonic_across_operations() {
     svm.send_transaction(tx2).expect("set_merkle_root failed");
     assert_eq!(read_wallet(&svm, wallet_pda).policy_seq, 2);
 
-    // 3. set_policy_data → policy_seq = 3
+    // 3. set_policy_data → policy_seq stays at 2 (no increment in set_policy_data)
     let allowed = Keypair::new().pubkey();
     let policy = contract::Policy { allowlist: vec![allowed], blocklist: vec![] };
     let policy_bytes = borsh::to_vec(&policy).unwrap();
@@ -1265,7 +1266,7 @@ fn test_12_policy_seq_monotonic_across_operations() {
     let msg3 = Message::new_with_blockhash(&[ix3], Some(&payer.pubkey()), &bh3);
     let tx3 = VersionedTransaction::try_new(VersionedMessage::Legacy(msg3), &[&payer]).unwrap();
     svm.send_transaction(tx3).expect("set_policy_data failed");
-    assert_eq!(read_wallet(&svm, wallet_pda).policy_seq, 3);
+    assert_eq!(read_wallet(&svm, wallet_pda).policy_seq, 2);
 }
 
 // --- Test: SetProxyKey can be updated (key rotation) ---

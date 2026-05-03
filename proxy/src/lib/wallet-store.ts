@@ -1,10 +1,38 @@
 import { PublicKey } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
+import * as borsh from 'borsh';
 import type { Policy, WalletAccount } from '../types/intent';
 import idl from './idl.json' with { type: "json" };
 import { getConnection } from './transaction-builder';
 
 const PROGRAM_ID = new PublicKey("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
+
+// Borsh schema for Policy (must match Rust contract)
+const POLICY_SCHEMA = new Map([[Object, {
+  kind: 'struct',
+  fields: [
+    ['allowlist', [['u8', 32]]],
+    ['blocklist', [['u8', 32]]],
+  ],
+}]]);
+
+function deserializePolicy(data: Uint8Array): Policy {
+  try {
+    const p = borsh.deserialize(POLICY_SCHEMA, Object, Buffer.from(data)) as { allowlist: Uint8Array[]; blocklist: Uint8Array[] };
+    return {
+      allowlist: p.allowlist.map((b: Uint8Array) => new PublicKey(b).toBase58()),
+      blocklist: p.blocklist.map((b: Uint8Array) => new PublicKey(b).toBase58()),
+    };
+  } catch (e) {
+    console.error('Failed to deserialize policy with borsh, trying JSON:', e);
+    // Fallback for legacy JSON data
+    try {
+      return JSON.parse(Buffer.from(data).toString('utf8')) as Policy;
+    } catch {
+      return { allowlist: [], blocklist: [] };
+    }
+  }
+}
 
 export interface WalletData {
   owner: string;
@@ -44,7 +72,7 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
     const provider = new anchor.AnchorProvider(connection, dummyWallet as unknown as anchor.Wallet, { commitment: 'confirmed' });
     const program = new anchor.Program(idl as anchor.Idl, provider);
     const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("wallet"), owner.toBuffer()],
+      [Buffer.from("polet_wallet"), owner.toBuffer()],
       PROGRAM_ID
     );
 
@@ -57,7 +85,7 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
       policySeq: accountData.policySeq.toNumber(),
       lastRevokedSlot: accountData.lastRevokedSlot.toNumber(),
       policyHash: Array.from(accountData.policyHash),
-      policyData: Buffer.from(accountData.policyData),
+      policyData: Array.from(accountData.policyData),
       dailySpent: accountData.dailySpent.toNumber(),
       lastReset: accountData.lastReset.toNumber(),
       dailyLimit: accountData.dailyLimit.toNumber(),
@@ -93,13 +121,7 @@ export async function getWalletPolicy(ownerStr: string): Promise<Policy | null> 
     };
   }
 
-  try {
-    const jsonStr = Buffer.from(wallet.policyData).toString('utf8');
-    return JSON.parse(jsonStr) as Policy;
-  } catch (e) {
-    console.error("Failed to parse policy data:", e);
-    return null;
-  }
+  return deserializePolicy(wallet.policyData);
 }
 
 /**

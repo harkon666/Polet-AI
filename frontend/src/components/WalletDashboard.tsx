@@ -5,10 +5,11 @@ import { PolicyConfigurator } from './PolicyConfigurator';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
 import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
-import { Transaction } from '@solana/web3.js';
+import { Transaction, PublicKey } from '@solana/web3.js';
 import { useEffect } from 'react';
 import { getWalletData } from '../lib/api';
 import type { Policy } from '../types';
+import * as borsh from 'borsh';
 
 interface TemporalKey {
   id: string;
@@ -23,12 +24,14 @@ interface TemporalKey {
 export function WalletDashboard() {
   const { connected, publicKey } = useWallet();
   const [isInitialized, setIsInitialized] = useState(false);
+  const [poletWalletPda, setPoletWalletPda] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'policy' | 'temporal' | 'demo'>('overview');
   const [currentPolicy, setCurrentPolicy] = useState<Policy | null>(null);
   const [temporalKeys, setTemporalKeys] = useState<TemporalKey[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const { sendTransaction } = useWallet();
   const { connection } = useConnection();
 
@@ -57,10 +60,21 @@ export function WalletDashboard() {
           })));
         }
         if (data.policyData && data.policyData.length > 0) {
-           try {
-             const decoded = JSON.parse(new TextDecoder().decode(new Uint8Array(data.policyData)));
-             setCurrentPolicy(decoded);
-           } catch(e) {}
+          try {
+            // Borsh deserialization (current format: Vec<Pubkey> for allowlist/blocklist)
+            const schema = new Map([[Object, { kind: 'struct', fields: [['allowlist', [['u8', 32]]], ['blocklist', [['u8', 32]]]] }]]);
+            const p = borsh.deserialize(schema, Object, Buffer.from(data.policyData)) as { allowlist: Uint8Array[]; blocklist: Uint8Array[] };
+            setCurrentPolicy({
+              allowlist: p.allowlist.map((b: Uint8Array) => new PublicKey(b).toBase58()),
+              blocklist: p.blocklist.map((b: Uint8Array) => new PublicKey(b).toBase58()),
+            });
+          } catch (e) {
+            // Fallback to JSON for legacy data
+            try {
+              const decoded = JSON.parse(new TextDecoder().decode(new Uint8Array(data.policyData)));
+              setCurrentPolicy(decoded);
+            } catch { }
+          }
         }
       }
     } catch (err) {
@@ -88,10 +102,24 @@ export function WalletDashboard() {
         const tx = Transaction.from(Uint8Array.from(atob(data.data.transaction), c => c.charCodeAt(0)));
         const signature = await sendTransaction(tx, connection);
         await connection.confirmTransaction(signature, 'confirmed');
+        setSuccessMsg('Policy updated successfully!');
         refreshData();
+        setTimeout(() => setSuccessMsg(null), 4000);
+      } else if (data.error) {
+        setError(data.error);
+        setTimeout(() => setError(null), 6000);
       }
     } catch (err) {
       console.error('Apply policy failed:', err);
+      console.error('Error details:', JSON.stringify(err, null, 2));
+      if (err && typeof err === 'object' && 'logs' in err) {
+        console.error('Transaction logs:', err.logs);
+      }
+      if (err && typeof err === 'object' && 'logs' in err && err.logs) {
+        const logs = err.logs as string[];
+        logs.forEach((log: string, i: number) => console.error(`Log ${i}:`, log));
+      }
+      setError(err instanceof Error ? err.message : 'Apply policy failed');
     }
   };
 
@@ -167,6 +195,8 @@ export function WalletDashboard() {
         console.log('Wallet initialized on-chain!', signature);
         setStatus('Wallet ready!');
         setIsInitialized(true);
+        console.log(data)
+        setPoletWalletPda(data.data.wallet);
         refreshData();
       } else {
         throw new Error(data.error || 'Failed to get transaction from proxy');
@@ -200,7 +230,7 @@ export function WalletDashboard() {
           >
             {isInitializing ? (status || 'Processing...') : 'Create Smart Wallet'}
           </button>
-          
+
           {error && (
             <div className="mt-6 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-left">
               <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
@@ -210,7 +240,7 @@ export function WalletDashboard() {
               </div>
             </div>
           )}
-          
+
           {status && !error && (
             <p className="mt-4 text-sm font-medium text-[var(--lagoon-deep)] animate-pulse">
               {status}
@@ -230,9 +260,18 @@ export function WalletDashboard() {
             <h2 className="mb-1 text-xl font-semibold text-[var(--sea-ink)]">
               Polet Smart Wallet
             </h2>
-            <p className="font-mono text-sm text-[var(--sea-ink-soft)]">
-              {pubkeyStr}
-            </p>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-[var(--sea-ink-soft)]">Owner:</span>
+                <span className="font-mono text-sm text-[var(--sea-ink)]">{pubkeyStr}</span>
+              </div>
+              {poletWalletPda && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-[var(--sea-ink-soft)]">Smart Wallet:</span>
+                  <span className="font-mono text-sm text-[var(--lagoon-deep)]">{poletWalletPda}</span>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-[rgba(79,184,178,0.3)] bg-[rgba(79,184,178,0.1)] px-3 py-1">
             <span className="h-2 w-2 rounded-full bg-[var(--lagoon-deep)]" />
@@ -247,11 +286,10 @@ export function WalletDashboard() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition ${
-              activeTab === tab
+            className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition ${activeTab === tab
                 ? 'bg-[var(--lagoon-deep)] text-white'
                 : 'text-[var(--sea-ink-soft)] hover:bg-[var(--link-bg-hover)]'
-            }`}
+              }`}
           >
             {tab === 'overview' && 'Overview'}
             {tab === 'policy' && 'Policy'}
@@ -264,9 +302,17 @@ export function WalletDashboard() {
       {/* Tab Content */}
       {activeTab === 'overview' && <OverviewTab />}
       {activeTab === 'policy' && (
+        <>
+          {successMsg && (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4 flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+              <p className="text-sm font-medium text-green-800">{successMsg}</p>
+            </div>
+          )}
         <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
           <PolicyConfigurator currentPolicy={currentPolicy} onApply={handleApplyPolicy} />
         </div>
+        </>
       )}
       {activeTab === 'temporal' && (
         <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">

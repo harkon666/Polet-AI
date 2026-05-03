@@ -9,6 +9,31 @@ import { getWalletData } from '../lib/wallet-store';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import borsh from 'borsh';
+
+// Borsh schema for Policy struct (must match Rust contract's Policy)
+// Vec<Pubkey> is serialized as: u32 count + [32-byte pubkey x count]
+class PolicyBorsh {
+  constructor(public allowlist: Uint8Array[], public blocklist: Uint8Array[]) {}
+}
+
+const POLICY_SCHEMA = new Map([
+  [PolicyBorsh, {
+    kind: 'struct',
+    fields: [
+      ['allowlist', [['u8', 32]]],  // Vec<Pubkey> as array of 32-byte arrays
+      ['blocklist', [['u8', 32]]],
+    ],
+  }],
+]);
+
+function serializePolicy(policy: { allowlist: string[], blocklist: string[] }): Buffer {
+  const obj = new PolicyBorsh(
+    policy.allowlist.map(addr => new PublicKey(addr).toBuffer()),
+    policy.blocklist.map(addr => new PublicKey(addr).toBuffer())
+  );
+  return Buffer.from(borsh.serialize(POLICY_SCHEMA, obj));
+}
 
 export const walletRouter = new Hono();
 
@@ -38,7 +63,7 @@ walletRouter.post('/initialize', async (c) => {
 
     const ownerPubkey = new PublicKey(owner);
     const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("wallet"), ownerPubkey.toBuffer()],
+      [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
       PROGRAM_ID
     );
 
@@ -103,12 +128,13 @@ walletRouter.post('/set-policy', async (c) => {
 
     const ownerPubkey = new PublicKey(owner);
     const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("wallet"), ownerPubkey.toBuffer()],
+      [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
       PROGRAM_ID
     );
 
     const program = getProgram();
-    const policyData = Buffer.from(JSON.stringify(policy));
+    // Use Borsh serialization (matching Rust contract's Policy struct)
+    const policyData = serializePolicy(policy);
     
     // Hash policy for set_policy metadata
     const policyHash = Array.from(crypto.createHash('sha256').update(policyData).digest());
@@ -127,15 +153,23 @@ walletRouter.post('/set-policy', async (c) => {
       layers: tree.layers.map(layer => layer.map(n => n.toString('hex')))
     }, null, 2));
     
-    // Instruction 1: setPolicy
-    const ixPolicy = await program.methods.setPolicy(policyHash, Buffer.from(policyData))
+    // Instruction 1: setPolicy (only policy_hash)
+    const ixPolicy = await program.methods.setPolicy(policyHash)
       .accounts({
         wallet: walletPda,
         owner: ownerPubkey,
       })
       .instruction();
 
-    // Instruction 2: setMerkleRoot
+    // Instruction 2: setPolicyData (policy data blob)
+    const ixPolicyData = await program.methods.setPolicyData(Buffer.from(policyData))
+      .accounts({
+        wallet: walletPda,
+        owner: ownerPubkey,
+      })
+      .instruction();
+
+    // Instruction 3: setMerkleRoot
     const ixMerkle = await program.methods.setMerkleRoot(tree.root)
       .accounts({
         wallet: walletPda,
@@ -146,7 +180,7 @@ walletRouter.post('/set-policy', async (c) => {
     const connection = getConnection();
     const { blockhash } = await connection.getLatestBlockhash();
 
-    const tx = new Transaction().add(ixPolicy).add(ixMerkle);
+    const tx = new Transaction().add(ixPolicy).add(ixPolicyData).add(ixMerkle);
     tx.recentBlockhash = blockhash;
     tx.feePayer = ownerPubkey;
 
@@ -181,7 +215,7 @@ walletRouter.post('/grant-key', async (c) => {
     const ownerPubkey = new PublicKey(owner);
     const sessionPubkey = new PublicKey(sessionKey);
     const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("wallet"), ownerPubkey.toBuffer()],
+      [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
       PROGRAM_ID
     );
 

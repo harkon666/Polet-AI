@@ -14,10 +14,9 @@ impl Policy {
                 return false;
             }
         }
-        // If allowlist is empty, nothing is allowed unless not in blocklist
-        // Actually for our design: empty allowlist means nothing allowed
+        // If allowlist is empty, allow anything NOT in blocklist
         if self.allowlist.is_empty() {
-            return false;
+            return true;
         }
         // Check allowlist
         for allowed in &self.allowlist {

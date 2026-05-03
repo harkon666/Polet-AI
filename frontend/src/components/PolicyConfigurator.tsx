@@ -182,9 +182,23 @@ export function PolicyConfigurator({ currentPolicy, onApply }: PolicyConfigurato
       {/* Current Policy Display */}
       {currentPolicy && (
         <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-4">
-          <h4 className="mb-3 flex items-center gap-2 font-medium text-[var(--sea-ink)]">
-            <Shield className="h-4 w-4 text-[var(--lagoon-deep)]" />
-            Current Policy
+          <h4 className="mb-3 flex items-center justify-between">
+            <span className="flex items-center gap-2 font-medium text-[var(--sea-ink)]">
+              <Shield className="h-4 w-4 text-[var(--lagoon-deep)]" />
+              Current Policy
+            </span>
+            <div className="flex items-center gap-2">
+              {currentPolicy.allowlist.length > 0 && (
+                <span className="rounded-full bg-[rgba(79,184,178,0.14)] px-2.5 py-0.5 text-xs font-semibold text-[var(--lagoon-deep)]">
+                  {currentPolicy.allowlist.length} Allowed
+                </span>
+              )}
+              {currentPolicy.blocklist.length > 0 && (
+                <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-600">
+                  {currentPolicy.blocklist.length} Blocked
+                </span>
+              )}
+            </div>
           </h4>
           <PolicyDisplay policy={currentPolicy} />
         </div>

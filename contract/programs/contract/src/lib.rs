@@ -189,15 +189,19 @@ pub mod contract {
     }
 
     pub fn set_policy_data(ctx: Context<SetPolicyData>, policy_data: Vec<u8>) -> Result<()> {
+        msg!("set_policy_data: policy_data len={}", policy_data.len());
         // Validate that policy_data is valid serialized Policy
-        let _policy = Policy::try_from_slice(&policy_data)
-            .map_err(|_| ErrorCode::PolicyViolation)?;
+        let policy = Policy::try_from_slice(&policy_data)
+            .map_err(|e| {
+            msg!("set_policy_data: deserialize error: {:?}", e);
+            ErrorCode::PolicyViolation
+        })?;
+        msg!("set_policy_data: policy allowlist len={}, blocklist len={}", policy.allowlist.len(), policy.blocklist.len());
         ctx.accounts.wallet.policy_data = policy_data;
         // Also compute and set the policy_hash using anchor_lang utilities
         ctx.accounts.wallet.policy_hash = [0u8; 32]; // Placeholder - actual hash would need sha256
-        // --- #12: Increment policy_seq on each policy change ---
-        ctx.accounts.wallet.policy_seq = ctx.accounts.wallet.policy_seq.checked_add(1).unwrap();
-        msg!("Policy data updated, policy_seq={}", ctx.accounts.wallet.policy_seq);
+        // NOTE: policy_seq is NOT incremented here - setPolicy instruction handles that
+        msg!("Policy data updated");
         Ok(())
     }
 
