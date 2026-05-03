@@ -26,7 +26,11 @@ export function DemoTab() {
   const [demoPolicy, setDemoPolicy] = useState<DemoPolicy>({
     maxAmount: '0.05',
     dailyLimit: '0.05',
-    blocklist: ['MaliciousTradingBot', 'GamblingSiteXYZ', 'DrainScamWallet'],
+    blocklist: [
+      'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp', // Malicious Bot
+      '8VgN3kDSe7KvKJhg1DYTfy7eiFKw5EUtoFQesNSej9qX', // Gambling Site
+      '3Ha99MFS34eTYM3NwjTGhQDSAZGtkktmiY1U77kKPes4'  // Drain Scam
+    ],
   });
   const [newBlockItem, setNewBlockItem] = useState('');
   const [selectedSessionKey, setSelectedSessionKey] = useState('');
@@ -93,13 +97,13 @@ export function DemoTab() {
   const runQuickDemo = (dest: string, solAmount: string, label: string) => {
     setDestination(dest);
     setAmount(solAmount);
-    setSelectedSessionKey(selectedSessionKey || 'DemoSessionKey123');
+    setSelectedSessionKey(selectedSessionKey || '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7');
     setHistory((prev) => [
       {
         intent: {
           id: `quick-${Date.now()}`,
           owner: 'DemoOwner',
-          sessionKey: 'DemoSessionKey123',
+          sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
           action: 'transfer',
           params: { destination: dest, amount: toLamports(solAmount) },
           timestamp: Date.now(),
@@ -113,7 +117,7 @@ export function DemoTab() {
           if (policy.maxAmount && lamports > policy.maxAmount) {
             return { allowed: false as const, reason: `Amount ${solAmount} SOL exceeds maximum allowed ${demoPolicy.maxAmount} SOL`, code: 'POLICY_BLOCKED' };
           }
-          return { allowed: true as const, attestation: { owner: 'DemoOwner', sessionKey: 'DemoSessionKey123', policyHash: 'demo', intentHash: '0000', blockHash: '0000', slot: 0, timestamp: Date.now() } };
+          return { allowed: true as const, attestation: { owner: 'DemoOwner', sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7', policyHash: 'demo', intentHash: '0000', blockHash: '0000', slot: 0, timestamp: Date.now() } };
         })(),
         timestamp: Date.now(),
       },
@@ -242,28 +246,28 @@ export function DemoTab() {
               description="AI tries to send 5 SOL — exceeds 0.05 SOL limit"
               badgeText="BLOCKED"
               badgeType="blocked"
-              onRun={() => runQuickDemo('DrainAttackerWallet', '5', 'drain')}
+              onRun={() => runQuickDemo('3t1zd1MDRnwMJTyVdU6PcjMPrXivYLWMmQYtDB6YBWa9', '5', 'drain')}
             />
             <QuickDemoCard
               title="Blocklist Hit"
               description="AI tries to send to known malicious address"
               badgeText="BLOCKED"
               badgeType="blocked"
-              onRun={() => runQuickDemo('MaliciousTradingBot', '0.01', 'blocklist')}
+              onRun={() => runQuickDemo('HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp', '0.01', 'blocklist')}
             />
             <QuickDemoCard
               title="Allowed Transfer"
               description="AI sends 0.01 SOL to legitimate DeFi protocol"
               badgeText="APPROVED"
               badgeType="allowed"
-              onRun={() => runQuickDemo('JupiterAggregator', '0.01', 'allowed')}
+              onRun={() => runQuickDemo('JUP6LkbZbjS1jKKwapdH673zwLsBH3M427A871qYx1W', '0.01', 'allowed')}
             />
             <QuickDemoCard
               title="Spending Limit Hit"
               description="AI tries 0.06 SOL — max is 0.05 SOL"
               badgeText="BLOCKED"
               badgeType="blocked"
-              onRun={() => runQuickDemo('RandomAddress', '0.06', 'overlimit')}
+              onRun={() => runQuickDemo('CFSh6EakShpR74m4ZroMZQ569pb38BRtcDba6pbVsMCH', '0.06', 'overlimit')}
             />
           </div>
         </div>
