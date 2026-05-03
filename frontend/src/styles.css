@@ -27,6 +27,10 @@
   --link-bg-hover: rgba(255, 255, 255, 0.9);
   --hero-a: rgba(79, 184, 178, 0.36);
   --hero-b: rgba(47, 106, 74, 0.2);
+  --input-bg: #ffffff;
+  --input-text: #173a40;
+  --input-placeholder: rgba(23, 58, 64, 0.5);
+  --island-bg: rgba(255, 255, 255, 0.6);
 }
 
 :root[data-theme="dark"] {
@@ -49,6 +53,10 @@
   --link-bg-hover: rgba(24, 44, 49, 0.8);
   --hero-a: rgba(96, 215, 207, 0.18);
   --hero-b: rgba(110, 200, 154, 0.12);
+  --input-bg: rgba(13, 28, 32, 0.8);
+  --input-text: #d7ece8;
+  --input-placeholder: rgba(175, 205, 200, 0.6);
+  --island-bg: rgba(13, 28, 32, 0.6);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -144,6 +152,22 @@ code {
   background: color-mix(in oklab, var(--surface-strong) 82%, white 18%);
   border-radius: 7px;
   padding: 2px 7px;
+}
+
+input, textarea, select {
+  background-color: var(--input-bg) !important;
+  color: var(--input-text) !important;
+  border: 1px solid var(--line) !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--input-placeholder) !important;
+  opacity: 1;
+}
+
+input:focus, textarea:focus {
+  border-color: var(--lagoon) !important;
+  box-shadow: 0 0 0 2px rgba(96, 215, 207, 0.2);
 }
 
 pre code {

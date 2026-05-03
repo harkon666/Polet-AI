@@ -112,7 +112,7 @@ export function PolicyConfigurator({ currentPolicy, onApply }: PolicyConfigurato
                 min="0"
                 value={options.dailyLimitAmount || 0.05}
                 onChange={(e) => setOptions(prev => ({ ...prev, dailyLimitAmount: parseFloat(e.target.value) }))}
-                className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
               />
             </div>
           )}
@@ -129,7 +129,7 @@ export function PolicyConfigurator({ currentPolicy, onApply }: PolicyConfigurato
                 min="0"
                 value={options.maxTransactionAmount || 0.01}
                 onChange={(e) => setOptions(prev => ({ ...prev, maxTransactionAmount: parseFloat(e.target.value) }))}
-                className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
               />
             </div>
           )}
@@ -147,7 +147,7 @@ export function PolicyConfigurator({ currentPolicy, onApply }: PolicyConfigurato
                   const lines = e.target.value.split('\n').filter(l => l.trim());
                   setOptions(prev => ({ ...prev, customAllowlist: lines }));
                 }}
-                className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
               />
             </div>
           )}
@@ -165,7 +165,7 @@ export function PolicyConfigurator({ currentPolicy, onApply }: PolicyConfigurato
                   const lines = e.target.value.split('\n').filter(l => l.trim());
                   setOptions(prev => ({ ...prev, customBlocklist: lines }));
                 }}
-                className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
               />
             </div>
           )}

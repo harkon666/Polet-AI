@@ -161,10 +161,9 @@ export function DemoTab() {
               <input
                 type="number"
                 step="0.01"
-                min="0"
                 value={demoPolicy.maxAmount}
                 onChange={(e) => setDemoPolicy((p) => ({ ...p, maxAmount: e.target.value }))}
-                className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
               />
             </div>
             <div>
@@ -177,7 +176,7 @@ export function DemoTab() {
                 min="0"
                 value={demoPolicy.dailyLimit}
                 onChange={(e) => setDemoPolicy((p) => ({ ...p, dailyLimit: e.target.value }))}
-                className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
               />
             </div>
           </div>
@@ -193,11 +192,11 @@ export function DemoTab() {
                 value={newBlockItem}
                 onChange={(e) => setNewBlockItem(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addToBlocklist()}
-                className="flex-1 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
+                className="flex-1 rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
               />
               <button
                 onClick={addToBlocklist}
-                className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium text-[var(--sea-ink)] transition hover:bg-gray-50"
+                className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm font-medium text-[var(--sea-ink)] transition hover:bg-gray-50"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -289,7 +288,7 @@ export function DemoTab() {
               placeholder="AI agent session key"
               value={selectedSessionKey}
               onChange={(e) => setSelectedSessionKey(e.target.value)}
-              className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
+              className="w-full rounded-lg border border-[var(--line)]  px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
             />
           </div>
           <div>
@@ -301,7 +300,7 @@ export function DemoTab() {
               placeholder="Solana address or label"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
+              className="w-full rounded-lg border border-[var(--line)]  px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
             />
           </div>
           <div>
@@ -315,7 +314,7 @@ export function DemoTab() {
               placeholder="0.00"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
+              className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
             />
           </div>
         </div>
@@ -363,7 +362,7 @@ function QuickDemoCard({
   onRun: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--line)] bg-white p-3">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
       <div className="flex items-center gap-3">
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold uppercase ${
@@ -381,7 +380,7 @@ function QuickDemoCard({
       </div>
       <button
         onClick={onRun}
-        className="shrink-0 rounded-full border border-[var(--line)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--sea-ink)] transition hover:bg-gray-50"
+        className="shrink-0 rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-1.5 text-xs font-medium text-[var(--sea-ink)] transition hover:opacity-80"
       >
         Run
       </button>
@@ -451,8 +450,8 @@ function IntentResultCard({
         <div
           className={`rounded-lg border px-3 py-2 text-sm ${
             result.allowed
-              ? 'border-green-200 bg-white text-green-700'
-              : 'border-red-200 bg-white text-red-700'
+              ? 'border-green-200 bg-[var(--surface-strong)] text-green-700'
+              : 'border-red-200 bg-[var(--surface-strong)] text-red-700'
           }`}
         >
           <span className="font-medium">Reason: </span>
