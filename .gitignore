@@ -31,7 +31,17 @@ test-ledger/
 # Yarn
 .yarn/
 
+# Agent skills / coding agent configs
+.agents/
+.claude/
+.devin/
+.kiro/
+.windsurf/
+
 # Misc
 *.rs.bk
 *.swp
 *.swo
+
+
+plan.md
