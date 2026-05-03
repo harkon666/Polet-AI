@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { intentRouter } from './routes/intent.js';
 import { healthRouter } from './routes/health.js';
 import { templateRouter } from './routes/template.js';
+import { walletRouter } from './routes/wallet.js';
 
 const app = new Hono();
 
@@ -17,6 +18,7 @@ app.use('/*', cors({
 app.route('/health', healthRouter);
 app.route('/intent', intentRouter);
 app.route('/template', templateRouter);
+app.route('/wallet', walletRouter);
 
 // Error handling middleware
 app.onError((err, c) => {

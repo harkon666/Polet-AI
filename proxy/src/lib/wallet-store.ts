@@ -36,7 +36,12 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
   try {
     const owner = new PublicKey(ownerStr);
     const connection = getConnection();
-    const provider = new anchor.AnchorProvider(connection, new anchor.Wallet(anchor.web3.Keypair.generate()), { commitment: 'confirmed' });
+    const dummyWallet = {
+      publicKey: anchor.web3.Keypair.generate().publicKey,
+      signTransaction: async (tx: any) => tx,
+      signAllTransactions: async (txs: any[]) => txs,
+    };
+    const provider = new anchor.AnchorProvider(connection, dummyWallet as any, { commitment: 'confirmed' });
     const program = new anchor.Program(idl as any, PROGRAM_ID, provider);
 
     const [walletPda] = PublicKey.findProgramAddressSync(
