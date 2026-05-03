@@ -49,7 +49,7 @@ describe('Policy Templates', () => {
     });
 
     test('returns null for unknown template', () => {
-      const template = getTemplateById('non-existent');
+      const template = getTemplateById('non-existent' as unknown as TemplateId);
 
       expect(template).toBeNull();
     });
@@ -94,7 +94,7 @@ describe('Policy Templates', () => {
         customAllowlist,
       });
 
-      expect(policy.allowlist).toEqual(customAllowlist);
+      expect(policy!.allowlist).toEqual(customAllowlist);
     });
 
     test('creates policy with custom daily limit', () => {
@@ -104,8 +104,8 @@ describe('Policy Templates', () => {
         maxTransactionAmount: 0.02, // 0.02 SOL = 20000000 lamports
       });
 
-      expect(policy.dailyLimit).toBe(100000000);
-      expect(policy.maxAmount).toBe(20000000);
+      expect(policy!.dailyLimit).toBe(100000000);
+      expect(policy!.maxAmount).toBe(20000000);
     });
 
     test('returns null for invalid template id', () => {

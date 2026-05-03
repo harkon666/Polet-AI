@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { VersionedTransaction } from '@solana/web3.js';
 import { WalletButton } from './WalletButton';
-import { PolicyConfigurator, PolicyDisplay } from './PolicyConfigurator';
+import { PolicyConfigurator } from './PolicyConfigurator';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
 import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
@@ -19,7 +18,7 @@ interface TemporalKey {
 }
 
 export function WalletDashboard() {
-  const { connected, publicKey, signTransaction } = useWallet();
+  const { connected, publicKey } = useWallet();
   const [isInitialized, setIsInitialized] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'policy' | 'temporal' | 'demo'>('overview');
@@ -160,9 +159,21 @@ export function WalletDashboard() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && <OverviewTab />}
-      {activeTab === 'policy' && <PolicyTab />}
-      {activeTab === 'temporal' && <TemporalKeyTab />}
-      {activeTab === 'demo' && <DemoTab currentPolicy={currentPolicy} temporalKeys={temporalKeys} />}
+      {activeTab === 'policy' && (
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
+          <PolicyConfigurator currentPolicy={currentPolicy} onApply={handleApplyPolicy} />
+        </div>
+      )}
+      {activeTab === 'temporal' && (
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
+          <TemporalKeyManager
+            keys={temporalKeys}
+            onRevoke={handleRevokeKey}
+            onGrant={handleGrantKey}
+          />
+        </div>
+      )}
+      {activeTab === 'demo' && <DemoTab />}
     </div>
   );
 }
@@ -217,26 +228,6 @@ function StatCard({
       </div>
       <p className="mb-1 text-2xl font-bold text-[var(--sea-ink)]">{value}</p>
       <p className="text-xs text-[var(--sea-ink-soft)]">{sublabel}</p>
-    </div>
-  );
-}
-
-function PolicyTab() {
-  return (
-    <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
-      <PolicyConfigurator currentPolicy={currentPolicy} onApply={handleApplyPolicy} />
-    </div>
-  );
-}
-
-function TemporalKeyTab() {
-  return (
-    <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
-      <TemporalKeyManager
-        keys={temporalKeys}
-        onRevoke={handleRevokeKey}
-        onGrant={handleGrantKey}
-      />
     </div>
   );
 }

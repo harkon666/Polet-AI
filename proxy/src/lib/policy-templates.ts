@@ -5,7 +5,7 @@
  * Users can select a template and customize it without understanding smart contract internals.
  */
 
-import type { Policy } from '../types/intent.js';
+import type { Policy } from '../types/intent';
 
 // Template ID type
 export type TemplateId = 'whitelist-only' | 'daily-limit' | 'gambling-block' | 'enterprise-control';

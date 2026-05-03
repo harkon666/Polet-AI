@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import * as crypto from 'crypto';
-import type { Policy } from '../types/intent.js';
+import type { Policy } from '../types/intent';
 
 export interface MerkleTree {
   root: number[];
@@ -17,7 +17,7 @@ export interface MerkleProof {
 /**
  * Hash two nodes together
  */
-function hashNodes(left: Buffer, right: Buffer): Buffer {
+function hashNodes(left: Uint8Array, right: Uint8Array): Buffer {
   const hasher = crypto.createHash('sha256');
   hasher.update(left);
   hasher.update(right);
@@ -127,7 +127,7 @@ export function getProof(tree: MerkleTree, index: number): MerkleProof {
  * Verifies a Merkle Proof (matches the Rust contract implementation)
  */
 export function verifyProof(proof: MerkleProof, root: number[]): boolean {
-  let computed = Buffer.from(proof.leaf);
+  let computed: Uint8Array = Uint8Array.from(proof.leaf);
   const rootBuf = Buffer.from(root);
   
   for (let i = 0; i < proof.proof.length; i++) {
@@ -141,5 +141,5 @@ export function verifyProof(proof: MerkleProof, root: number[]): boolean {
     }
   }
   
-  return computed.equals(rootBuf);
+  return Buffer.from(computed).equals(rootBuf);
 }

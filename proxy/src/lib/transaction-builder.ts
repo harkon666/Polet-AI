@@ -3,10 +3,10 @@ import {
   TransactionInstruction,
   PublicKey,
   SystemProgram,
+  Connection,
   type Signer,
-  type TransactionInstructionData,
 } from '@solana/web3.js';
-import type { Attestation, Intent } from '../types/intent.js';
+import type { Attestation, Intent } from '../types/intent';
 
 /**
  * Transaction builder for constructing Solana transactions
@@ -74,7 +74,7 @@ export async function buildTransaction(
   const connection = getConnection();
 
   // Get recent blockhash and slot
-  const { blockhash, lastValidBlockHeight, slot } = await connection.getLatestBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   const recentSlot = await connection.getSlot();
 
   // Parse pubkeys
@@ -103,7 +103,7 @@ export async function buildTransaction(
   const instruction = new TransactionInstruction({
     keys,
     programId: programIdPubkey,
-    data: instructionData,
+    data: Buffer.from(instructionData),
   });
 
   // Build the transaction
@@ -138,7 +138,7 @@ export async function buildSessionTransaction(
   const connection = getConnection();
 
   // Get recent blockhash and slot
-  const { blockhash, lastValidBlockHeight, slot } = await connection.getLatestBlockhash();
+  const { blockhash } = await connection.getLatestBlockhash();
   const recentSlot = await connection.getSlot();
 
   // Parse pubkeys
@@ -171,7 +171,7 @@ export async function buildSessionTransaction(
   const instruction = new TransactionInstruction({
     keys,
     programId: programIdPubkey,
-    data: instructionData,
+    data: Buffer.from(instructionData),
   });
 
   // Build the transaction
@@ -254,7 +254,7 @@ export async function buildIntentTransaction(
   const instruction = new TransactionInstruction({
     keys,
     programId: programIdPubkey,
-    data: instructionData,
+    data: Buffer.from(instructionData),
   });
 
   // Build the transaction
@@ -278,14 +278,14 @@ export async function buildIntentTransaction(
 }
 
 // Singleton connection for efficiency
-let _connection: import('@solana/web3.js').Connection | null = null;
+let _connection: Connection | null = null;
 
-export function getConnection(): import('@solana/web3.js').Connection {
+export function getConnection(): Connection {
   if (!_connection) {
-    // Default to localhost for development
+    // Default to devnet for hackathon
     // In production, this would be configured via environment
     const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
-    _connection = new (require('@solana/web3.js').Connection)(rpcUrl, 'confirmed');
+    _connection = new Connection(rpcUrl, 'confirmed');
   }
   return _connection;
 }
@@ -293,6 +293,6 @@ export function getConnection(): import('@solana/web3.js').Connection {
 /**
  * Set a custom connection (useful for testing)
  */
-export function setConnection(connection: import('@solana/web3.js').Connection): void {
+export function setConnection(connection: Connection): void {
   _connection = connection;
 }

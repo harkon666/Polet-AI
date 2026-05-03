@@ -1,4 +1,4 @@
-import type { Intent, TransferParams, SwapParams, StakeParams, CustomParams, IntentAction } from './intent.js';
+import type { Intent, TransferParams, SwapParams, StakeParams, CustomParams, IntentAction } from '../types/intent';
 
 /**
  * Parse and validate an intent JSON payload
@@ -68,7 +68,7 @@ export function parseIntent(payload: unknown): Intent {
     params: obj.params as TransferParams | SwapParams | StakeParams | CustomParams,
     timestamp: obj.timestamp,
     policyHash: obj.policyHash as string | undefined,
-    policy: obj.policy as import('./intent.js').Policy | undefined,
+    policy: obj.policy as import('../types/intent').Policy | undefined,
   };
 }
 
@@ -147,11 +147,10 @@ export function getIntentAmount(intent: Intent): number {
     case 'stake':
       return (intent.params as StakeParams).amount;
     case 'unstake':
-      return (intent.params as { amount: number }).amount;
+      return (intent.params as StakeParams).amount;
     case 'delegate':
-      return (intent.params as { target: string; amount: number }).amount;
     case 'undelegate':
-      return (intent.params as { target: string; amount: number }).amount;
+      return (intent.params as { amount: number }).amount;
     case 'custom':
       return 0; // Custom txs don't have a standard amount
     default:

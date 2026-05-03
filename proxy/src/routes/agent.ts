@@ -1,23 +1,23 @@
 import { Hono } from 'hono';
 import { PublicKey, Transaction } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
-import { getConnection } from '../lib/transaction-builder.js';
-import idl from '../lib/idl.json' assert { type: "json" };
-import { generateAndSaveKey } from '../lib/kms.js';
+import { getConnection } from '../lib/transaction-builder';
+import idl from '../lib/idl.json' with { type: "json" };
+import { generateAndSaveKey } from '../lib/kms';
 
 export const agentRouter = new Hono();
 
 const PROGRAM_ID = new PublicKey("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
 
-function getProgram() {
+function getProgram(): anchor.Program {
   const connection = getConnection();
   const dummyWallet = {
     publicKey: anchor.web3.Keypair.generate().publicKey,
     signTransaction: async (tx: any) => tx,
     signAllTransactions: async (txs: any[]) => txs,
   };
-  const provider = new anchor.AnchorProvider(connection, dummyWallet as any, { commitment: 'confirmed' });
-  return new anchor.Program(idl as any, PROGRAM_ID, provider);
+  const provider = new anchor.AnchorProvider(connection, dummyWallet as unknown as anchor.Wallet, { commitment: 'confirmed' });
+  return new anchor.Program(idl as anchor.Idl, provider);
 }
 
 /**

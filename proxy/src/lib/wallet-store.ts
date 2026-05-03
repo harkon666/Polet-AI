@@ -1,8 +1,8 @@
 import { PublicKey } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
-import type { Policy } from '../types/intent.js';
-import idl from './idl.json' assert { type: "json" };
-import { getConnection } from './transaction-builder.js';
+import type { Policy, WalletAccount } from '../types/intent';
+import idl from './idl.json' with { type: "json" };
+import { getConnection } from './transaction-builder';
 
 const PROGRAM_ID = new PublicKey("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
 
@@ -41,34 +41,33 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
       signTransaction: async (tx: any) => tx,
       signAllTransactions: async (txs: any[]) => txs,
     };
-    const provider = new anchor.AnchorProvider(connection, dummyWallet as any, { commitment: 'confirmed' });
-    const program = new anchor.Program(idl as any, PROGRAM_ID, provider);
-
+    const provider = new anchor.AnchorProvider(connection, dummyWallet as unknown as anchor.Wallet, { commitment: 'confirmed' });
+    const program = new anchor.Program(idl as anchor.Idl, provider);
     const [walletPda] = PublicKey.findProgramAddressSync(
       [Buffer.from("wallet"), owner.toBuffer()],
       PROGRAM_ID
     );
 
-    const accountData = await program.account.wallet.fetch(walletPda);
+    const accountData = (await (program.account as any).wallet.fetch(walletPda)) as unknown as WalletAccount;
     
     return {
       owner: accountData.owner.toString(),
       proxyPk: accountData.proxyPk.toString(),
-      merkleRoot: Array.from(accountData.merkleRoot as number[]),
-      policySeq: (accountData.policySeq as anchor.BN).toNumber(),
-      lastRevokedSlot: (accountData.lastRevokedSlot as anchor.BN).toNumber(),
-      policyHash: Array.from(accountData.policyHash as number[]),
-      policyData: Buffer.from(accountData.policyData as any),
-      dailySpent: (accountData.dailySpent as anchor.BN).toNumber(),
-      lastReset: (accountData.lastReset as anchor.BN).toNumber(),
-      dailyLimit: (accountData.dailyLimit as anchor.BN).toNumber(),
-      temporalKeys: (accountData.temporalKeys as any[]).map(tk => ({
+      merkleRoot: Array.from(accountData.merkleRoot),
+      policySeq: accountData.policySeq.toNumber(),
+      lastRevokedSlot: accountData.lastRevokedSlot.toNumber(),
+      policyHash: Array.from(accountData.policyHash),
+      policyData: Buffer.from(accountData.policyData),
+      dailySpent: accountData.dailySpent.toNumber(),
+      lastReset: accountData.lastReset.toNumber(),
+      dailyLimit: accountData.dailyLimit.toNumber(),
+      temporalKeys: accountData.temporalKeys.map(tk => ({
         key: tk.key.toString(),
-        expiresAt: (tk.expiresAt as anchor.BN).toNumber(),
-        authorized: tk.authorized as boolean,
-        dailyLimit: (tk.dailyLimit as anchor.BN).toNumber(),
-        dailySpent: (tk.dailySpent as anchor.BN).toNumber(),
-        lastReset: (tk.lastReset as anchor.BN).toNumber(),
+        expiresAt: tk.expiresAt.toNumber(),
+        authorized: tk.authorized,
+        dailyLimit: tk.dailyLimit.toNumber(),
+        dailySpent: tk.dailySpent.toNumber(),
+        lastReset: tk.lastReset.toNumber(),
       })),
     };
   } catch (error) {

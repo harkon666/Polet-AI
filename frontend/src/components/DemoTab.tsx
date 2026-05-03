@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bot, Send, Shield, X, Check, AlertTriangle, Zap, Plus, Trash2 } from 'lucide-react';
+import { Bot, Send, Shield, X, Check, AlertTriangle, Zap, Plus } from 'lucide-react';
 import { evaluateIntent } from '../lib/api';
 import type { Intent, IntentEvaluationResult } from '../types';
 
@@ -94,7 +94,7 @@ export function DemoTab() {
     }
   };
 
-  const runQuickDemo = (dest: string, solAmount: string, label: string) => {
+  const runQuickDemo = (dest: string, solAmount: string, _label: string) => {
     setDestination(dest);
     setAmount(solAmount);
     setSelectedSessionKey(selectedSessionKey || '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7');

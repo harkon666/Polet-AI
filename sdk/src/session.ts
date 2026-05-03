@@ -121,7 +121,7 @@ export function parseIntentParams<T extends ParsedParams>(
       return {
         destination: p.destination,
         amount: p.amount,
-        ...(p.mint && typeof p.mint === 'string' && { mint: p.mint }),
+        ...(p.mint && typeof p.mint === 'string' ? { mint: p.mint } : {}),
       } as T;
 
     case 'swap':

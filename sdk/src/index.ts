@@ -330,19 +330,17 @@ export function isValidIntent(intent: unknown): intent is Intent {
  * Get the amount from an intent in lamports
  */
 export function getIntentAmount(intent: Intent): number {
-  const params = intent.params as Record<string, unknown>;
-
   switch (intent.action) {
     case 'transfer':
-      return (params as TransferParams).amount;
+      return (intent.params as TransferParams).amount;
     case 'swap':
-      return (params as SwapParams).inputAmount;
+      return (intent.params as SwapParams).inputAmount;
     case 'stake':
     case 'unstake':
-      return (params as StakeParams).amount;
+      return (intent.params as StakeParams).amount;
     case 'delegate':
     case 'undelegate':
-      return (params as DelegateParams).amount;
+      return (intent.params as DelegateParams).amount;
     default:
       return 0;
   }
@@ -352,21 +350,19 @@ export function getIntentAmount(intent: Intent): number {
  * Get the destination (where funds are going) from an intent
  */
 export function getIntentDestination(intent: Intent): string | null {
-  const params = intent.params as Record<string, unknown>;
-
   switch (intent.action) {
     case 'transfer':
-      return (params as TransferParams).destination;
+      return (intent.params as TransferParams).destination;
     case 'swap':
-      return (params as SwapParams).outputMint;
+      return (intent.params as SwapParams).outputMint;
     case 'stake':
     case 'unstake':
-      return (params as StakeParams).validator;
+      return (intent.params as StakeParams).validator;
     case 'delegate':
     case 'undelegate':
-      return (params as DelegateParams).target;
+      return (intent.params as DelegateParams).target;
     case 'custom':
-      return (params as CustomParams).programId;
+      return (intent.params as CustomParams).programId;
     default:
       return null;
   }

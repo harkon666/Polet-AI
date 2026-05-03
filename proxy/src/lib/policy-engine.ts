@@ -1,5 +1,5 @@
-import type { Policy, Intent, IntentEvaluationResult, Attestation } from '../types/intent.js';
-import { getActionDestination, getIntentAmount } from './intent-parser.js';
+import type { Policy, Intent, IntentEvaluationResult, Attestation } from '../types/intent';
+import { getActionDestination, getIntentAmount } from './intent-parser';
 import * as crypto from 'crypto';
 
 /**

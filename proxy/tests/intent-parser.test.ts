@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { parseIntent, getActionDestination, getIntentAmount } from '../src/lib/intent-parser.js';
+import { parseIntent, getActionDestination, getIntentAmount } from '../src/lib/intent-parser';
+import type { Intent, TransferParams, SwapParams } from '../src/types/intent';
 
 describe('Intent Parser', () => {
   describe('parseIntent', () => {
@@ -21,8 +22,8 @@ describe('Intent Parser', () => {
       expect(result.id).toBe('test-123');
       expect(result.owner).toBe('4Nd1mBQtrMJVYVfKf2PJF9nP93qJbJbV1L1dG9m6Z8X');
       expect(result.action).toBe('transfer');
-      expect((result.params as any).destination).toBe('7nKSqW2MmLqzK7K8Gz3D7Z3Q9L4M6N2P4R6S8T0U2V');
-      expect((result.params as any).amount).toBe(1000000);
+      expect((result.params as TransferParams).destination).toBe('7nKSqW2MmLqzK7K8Gz3D7Z3Q9L4M6N2P4R6S8T0U2V');
+      expect((result.params as TransferParams).amount).toBe(1000000);
     });
 
     test('throws on missing id', () => {
@@ -80,7 +81,7 @@ describe('Intent Parser', () => {
 
       const result = parseIntent(intent);
       expect(result.action).toBe('swap');
-      expect((result.params as any).inputMint).toBe('EPjFWdd5VzqK8LS5CkF3j3gJZt8Kw7Nh8mYqG9mC1Z2S');
+      expect((result.params as SwapParams).inputMint).toBe('EPjFWdd5VzqK8LS5CkF3j3gJZt8Kw7Nh8mYqG9mC1Z2S');
     });
   });
 
@@ -95,7 +96,7 @@ describe('Intent Parser', () => {
         timestamp: 0,
       };
 
-      expect(getActionDestination(intent as any)).toBe('dest123');
+      expect(getActionDestination(intent as Intent)).toBe('dest123');
     });
 
     test('returns outputMint for swap', () => {
@@ -108,7 +109,7 @@ describe('Intent Parser', () => {
         timestamp: 0,
       };
 
-      expect(getActionDestination(intent as any)).toBe('B');
+      expect(getActionDestination(intent as Intent)).toBe('B');
     });
 
     test('returns programId for custom', () => {
@@ -121,7 +122,7 @@ describe('Intent Parser', () => {
         timestamp: 0,
       };
 
-      expect(getActionDestination(intent as any)).toBe('prog123');
+      expect(getActionDestination(intent as Intent)).toBe('prog123');
     });
   });
 
@@ -136,7 +137,7 @@ describe('Intent Parser', () => {
         timestamp: 0,
       };
 
-      expect(getIntentAmount(intent as any)).toBe(5000000);
+      expect(getIntentAmount(intent as Intent)).toBe(5000000);
     });
 
     test('returns inputAmount for swap', () => {
@@ -149,7 +150,7 @@ describe('Intent Parser', () => {
         timestamp: 0,
       };
 
-      expect(getIntentAmount(intent as any)).toBe(999);
+      expect(getIntentAmount(intent as Intent)).toBe(999);
     });
 
     test('returns 0 for custom', () => {
@@ -162,7 +163,7 @@ describe('Intent Parser', () => {
         timestamp: 0,
       };
 
-      expect(getIntentAmount(intent as any)).toBe(0);
+      expect(getIntentAmount(intent as Intent)).toBe(0);
     });
   });
 });

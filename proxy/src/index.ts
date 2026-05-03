@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { intentRouter } from './routes/intent.js';
-import { healthRouter } from './routes/health.js';
-import { templateRouter } from './routes/template.js';
-import { walletRouter } from './routes/wallet.js';
-import { agentRouter } from './routes/agent.js';
+import { intentRouter } from './routes/intent';
+import { healthRouter } from './routes/health';
+import { templateRouter } from './routes/template';
+import { walletRouter } from './routes/wallet';
+import { agentRouter } from './routes/agent';
 
 const app = new Hono();
 

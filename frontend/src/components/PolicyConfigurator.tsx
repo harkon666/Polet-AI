@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Check, X, AlertTriangle } from 'lucide-react';
+import { Shield, Check, X } from 'lucide-react';
 import { TEMPLATES, createPolicyFromTemplate, lamportsToSol } from '../lib/policy-templates';
 import type { TemplateId, Policy, CreatePolicyOptions } from '../types';
 

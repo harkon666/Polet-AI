@@ -4,8 +4,8 @@ import {
   getTemplateById,
   createPolicyFromTemplate,
   type TemplateId,
-} from '../lib/policy-templates.js';
-import type { Policy } from '../types/intent.js';
+} from '../lib/policy-templates';
+import type { Policy } from '../types/intent';
 
 export const templateRouter = new Hono();
 

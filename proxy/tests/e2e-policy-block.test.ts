@@ -16,7 +16,7 @@ export interface TestPolicy {
   blocklist: string[];
   maxAmount?: number;
   dailyLimit?: number;
-  allowedActions?: string[];
+  allowedActions?: ('transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom')[];
 }
 
 describe('E2E: Policy BLOCK Demo (HITL)', () => {

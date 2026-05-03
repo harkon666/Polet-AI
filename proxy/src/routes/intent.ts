@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
-import { parseIntent } from '../lib/intent-parser.js';
-import { evaluateIntent } from '../lib/policy-engine.js';
-import { generateAttestation } from '../lib/policy-engine.js';
-import { buildTransaction } from '../lib/transaction-builder.js';
-import { getWalletPolicy, isSessionAuthorized } from '../lib/wallet-store.js';
-import type { Intent, Policy } from '../types/intent.js';
+import { parseIntent } from '../lib/intent-parser';
+import { evaluateIntent } from '../lib/policy-engine';
+import { generateAttestation } from '../lib/policy-engine';
+import { buildTransaction } from '../lib/transaction-builder';
+import { getWalletPolicy, isSessionAuthorized } from '../lib/wallet-store';
+import type { Intent, Policy } from '../types/intent';
 
 export const intentRouter = new Hono();
 
@@ -166,7 +166,7 @@ intentRouter.post('/execute', async (c) => {
     // Build transaction
     const instruction = 0; // 0 = transfer
     const destination = intent.action === 'transfer'
-      ? (intent.params as { destination: string }).destination
+      ? (intent.params as import('../types/intent').TransferParams).destination
       : '';
 
     try {
@@ -177,7 +177,7 @@ intentRouter.post('/execute', async (c) => {
           instruction,
           destination,
           amount: intent.action === 'transfer'
-            ? (intent.params as { amount: number }).amount
+            ? (intent.params as import('../types/intent').TransferParams).amount
             : 0,
           attestation: generateAttestation(intent, '', 'mock-block-hash', 0),
         },

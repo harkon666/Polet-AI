@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { TEMPLATES, getPolicyTemplates, getTemplateById, createPolicyFromTemplate, lamportsToSol, solToLamports } from './policy-templates';
-import type { TemplateId } from '../src/types';
+import type { TemplateId } from '../types';
 
 describe('Policy Templates', () => {
   describe('getPolicyTemplates', () => {

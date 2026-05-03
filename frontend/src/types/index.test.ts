@@ -1,5 +1,5 @@
-import { describe, expect, test } from 'bun:test';
-import type { Intent, Policy, TemplateId } from './index';
+import { describe, expect, test } from 'vitest';
+import type { Intent, Policy, TemplateId, TransferParams, SwapParams } from '../types';
 
 describe('Frontend Types', () => {
   describe('Intent type', () => {
@@ -18,7 +18,7 @@ describe('Frontend Types', () => {
 
       expect(intent.id).toBe('test-123');
       expect(intent.action).toBe('transfer');
-      expect(intent.params.destination).toBe('CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3');
+      expect((intent.params as TransferParams).destination).toBe('CxX9kp9rClPzeW1X11Uj25sA5iyB2nC0lL4mN7wW6yS3');
     });
 
     test('valid swap intent structure', () => {
@@ -37,7 +37,7 @@ describe('Frontend Types', () => {
       };
 
       expect(intent.action).toBe('swap');
-      expect(intent.params.inputMint).toBeDefined();
+      expect((intent.params as SwapParams).inputMint).toBeDefined();
     });
 
     test('intent with optional policyHash', () => {

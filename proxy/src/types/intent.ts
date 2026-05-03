@@ -2,6 +2,8 @@
  * Intent types for the Polet AI Policy Engine Proxy
  * These types represent the JSON interface that AI agents use to submit intents
  */
+import type { PublicKey } from '@solana/web3.js';
+import type { BN } from '@coral-xyz/anchor';
 
 export type IntentAction = 'transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom';
 
@@ -20,6 +22,8 @@ export interface Intent {
   timestamp: number;
   /** Optional: policy hash to use for evaluation */
   policyHash?: string;
+  /** Optional: policy object for demo/bypass */
+  policy?: Policy;
 }
 
 export interface TransferParams {
@@ -118,4 +122,28 @@ export interface Attestation {
   slot: number;
   /** Unix timestamp */
   timestamp: number;
+}
+
+// On-chain account types (matching the smart contract)
+export interface TemporalKeyAccount {
+  key: PublicKey;
+  expiresAt: BN;
+  authorized: boolean;
+  dailyLimit: BN;
+  dailySpent: BN;
+  lastReset: BN;
+}
+
+export interface WalletAccount {
+  owner: PublicKey;
+  proxyPk: PublicKey;
+  merkleRoot: number[];
+  policySeq: BN;
+  lastRevokedSlot: BN;
+  policyHash: number[];
+  policyData: number[]; // bytes
+  dailySpent: BN;
+  lastReset: BN;
+  dailyLimit: BN;
+  temporalKeys: TemporalKeyAccount[];
 }
