@@ -90,7 +90,10 @@
   - Created `/agent/register` endpoint.
   - Automatically provisions an AES-encrypted session key via KMS.
   - Returns `sessionKey` public key alongside unsigned `GrantTemporalKey` transaction.
-- [ ] #20 — Merkle tree builder + proof generator
+- [x] #20 — Merkle tree builder + proof generator
+  - Created `proxy/src/lib/merkle-tree.ts` to compute policy leaves and tree structure.
+  - Implemented `buildPolicyTree`, `getProof`, and `verifyProof` matching the on-chain Rust implementation.
+  - TDD tests passed showing valid and invalid proofs.
 - [ ] #21 — Replace policy-engine hash with SHA-256 + remove demo bypass
 - [ ] #22 — Wire to Solana devnet RPC
 
