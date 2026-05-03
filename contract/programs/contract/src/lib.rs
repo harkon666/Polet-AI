@@ -4,7 +4,7 @@ pub mod constants;
 pub mod error;
 pub mod state;
 
-declare_id!("2W4wkSy2QJ9SczvUfyPNYDLgqpEZ5WVktpEXVfTzBVJP");
+declare_id!("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
 
 pub use constants::WALLET_SEED;
 pub use error::ErrorCode;

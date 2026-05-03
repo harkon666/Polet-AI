@@ -46,8 +46,8 @@ walletRouter.post('/initialize', async (c) => {
 
     const program = getProgram();
     
-    // Construct initialize instruction
-    const ix = await program.methods.initialize()
+    // Construct initialize instruction with default 100 SOL daily limit
+    const ix = await program.methods.initialize(new anchor.BN(100_000_000_000))
       .accounts({
         wallet: walletPda,
         owner: ownerPubkey,

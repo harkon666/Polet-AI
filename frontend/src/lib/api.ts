@@ -4,7 +4,7 @@
 
 import type { Intent, IntentEvaluationResult, Policy, TemplateId } from '../types';
 
-const PROXY_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3000';
+const PROXY_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001';
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {

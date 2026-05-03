@@ -71,7 +71,7 @@ export function WalletDashboard() {
   const handleInitialize = async () => {
     setIsInitializing(true);
     try {
-      const res = await fetch('http://localhost:3000/wallet/initialize', {
+      const res = await fetch('http://localhost:3001/wallet/initialize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ owner: pubkeyStr }),

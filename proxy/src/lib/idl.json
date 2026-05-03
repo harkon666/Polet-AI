@@ -163,6 +163,15 @@
         {
           "name": "attestation_policy_seq",
           "type": "u64"
+        },
+        {
+          "name": "attestation_signature",
+          "type": {
+            "array": [
+              "u8",
+              64
+            ]
+          }
         }
       ]
     },

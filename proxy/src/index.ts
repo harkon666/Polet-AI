@@ -46,6 +46,6 @@ app.notFound((c) => {
 });
 
 export default {
-  port: parseInt(process.env.PORT || '3000'),
+  port: parseInt(process.env.PORT || '3001'),
   fetch: app.fetch,
 };
