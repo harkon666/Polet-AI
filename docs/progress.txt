@@ -86,7 +86,10 @@
   - Created `/wallet/initialize` to generate proxy keys and return Init + SetProxy transactions
   - Created `/wallet/set-policy` to return SetPolicy unsigned transactions
   - Created `/wallet/grant-key` to return GrantTemporalKey unsigned transactions
-- [ ] #19 — Agent auth key registration flow
+- [x] #19 — Agent auth key registration flow
+  - Created `/agent/register` endpoint.
+  - Automatically provisions an AES-encrypted session key via KMS.
+  - Returns `sessionKey` public key alongside unsigned `GrantTemporalKey` transaction.
 - [ ] #20 — Merkle tree builder + proof generator
 - [ ] #21 — Replace policy-engine hash with SHA-256 + remove demo bypass
 - [ ] #22 — Wire to Solana devnet RPC
