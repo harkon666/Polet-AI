@@ -52,6 +52,8 @@ export interface Intent {
   params: TransferParams | SwapParams | StakeParams | UnstakeParams | DelegateParams | UndelegateParams | CustomParams;
   timestamp: number;
   policyHash?: string;
+  /** Full policy object for demo/testing - not part of production SDK */
+  policy?: Policy;
 }
 
 export interface Policy {

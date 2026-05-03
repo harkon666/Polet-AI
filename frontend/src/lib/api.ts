@@ -32,12 +32,16 @@ export interface EvaluateIntentInput {
   action?: 'transfer';
 }
 
-export async function evaluateIntent(intent: Intent): Promise<IntentEvaluationResult> {
+export async function evaluateIntent(
+  intent: Intent,
+  policy?: Intent['policy']
+): Promise<IntentEvaluationResult> {
+  const body = policy ? { ...intent, policy } : intent;
   const data = await fetchJson<{ success: boolean; data: IntentEvaluationResult }>(
     `${PROXY_URL}/intent/evaluate`,
     {
       method: 'POST',
-      body: JSON.stringify(intent),
+      body: JSON.stringify(body),
     }
   );
 

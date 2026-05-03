@@ -1,6 +1,4 @@
-import { describe, expect, test, beforeAll, afterAll } from 'bun:test';
-import type { App } from 'hono';
-import { mockAttestation, createMockWalletStore } from './e2e-setup.ts';
+import { describe, expect, test } from 'bun:test';
 
 // Re-export types for convenience
 export interface TestIntent {

@@ -68,6 +68,7 @@ export function parseIntent(payload: unknown): Intent {
     params: obj.params as TransferParams | SwapParams | StakeParams | CustomParams,
     timestamp: obj.timestamp,
     policyHash: obj.policyHash as string | undefined,
+    policy: obj.policy as import('./intent.js').Policy | undefined,
   };
 }
 

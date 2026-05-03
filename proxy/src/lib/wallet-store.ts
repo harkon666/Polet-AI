@@ -28,8 +28,8 @@ export function getWalletData(owner: string): WalletData | null {
   // 2. Fetch the wallet account from Solana
   // 3. Deserialize the wallet data
 
-  // For demo, return mock data if the owner looks valid
-  if (owner && owner.length > 30) {
+  // For demo, return mock data for any non-empty owner
+  if (owner && owner.length > 0) {
     return {
       owner,
       policyHash: [0xab, 0xcd, 0xef, ...Array(29).fill(0)],
@@ -63,6 +63,9 @@ export function isSessionAuthorized(owner: string, sessionKey: string): boolean 
   const wallet = getWalletData(owner);
   if (!wallet) return false;
 
+  // If no temporal keys registered, allow any session key for demo
+  if (wallet.temporalKeys.length === 0) return true;
+
   const currentTime = Math.floor(Date.now() / 1000);
 
   for (const tk of wallet.temporalKeys) {
@@ -71,6 +74,5 @@ export function isSessionAuthorized(owner: string, sessionKey: string): boolean 
     }
   }
 
-  // For demo, allow any session key if wallet exists
-  return true;
+  return false;
 }

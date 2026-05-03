@@ -1,11 +1,49 @@
 import { useState } from 'react';
 import { useWallet } from '../hooks/use-wallet';
 import { WalletButton } from './WalletButton';
+import { PolicyConfigurator, PolicyDisplay } from './PolicyConfigurator';
+import { TemporalKeyManager } from './TemporalKeyManager';
+import { DemoTab } from './DemoTab';
 import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
+import type { Policy } from '../types';
+
+interface TemporalKey {
+  id: string;
+  sessionKey: string;
+  expiresAt: number;
+  authorized: boolean;
+  dailyLimit: number;
+  dailySpent: number;
+  createdAt: number;
+}
 
 export function WalletDashboard() {
   const { connected, publicKey } = useWallet();
-  const [activeTab, setActiveTab] = useState<'overview' | 'policy' | 'temporal'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'policy' | 'temporal' | 'demo'>('overview');
+  const [currentPolicy, setCurrentPolicy] = useState<Policy | null>(null);
+  const [temporalKeys, setTemporalKeys] = useState<TemporalKey[]>([]);
+
+  const handleApplyPolicy = (policy: Policy) => {
+    setCurrentPolicy(policy);
+    console.log('Policy applied:', policy);
+  };
+
+  const handleRevokeKey = (keyId: string) => {
+    setTemporalKeys(prev => prev.map(k => k.id === keyId ? { ...k, authorized: false } : k));
+  };
+
+  const handleGrantKey = (sessionKey: string, expiresAt: number, dailyLimit: number) => {
+    const newKey: TemporalKey = {
+      id: `key-${Date.now()}`,
+      sessionKey,
+      expiresAt,
+      authorized: true,
+      dailyLimit,
+      dailySpent: 0,
+      createdAt: Date.now(),
+    };
+    setTemporalKeys(prev => [...prev, newKey]);
+  };
 
   if (!connected) {
     return (
@@ -48,7 +86,7 @@ export function WalletDashboard() {
 
       {/* Tab Navigation */}
       <div className="flex gap-1 rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-1">
-        {(['overview', 'policy', 'temporal'] as const).map((tab) => (
+        {(['overview', 'policy', 'temporal', 'demo'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -61,6 +99,7 @@ export function WalletDashboard() {
             {tab === 'overview' && 'Overview'}
             {tab === 'policy' && 'Policy'}
             {tab === 'temporal' && 'Session Keys'}
+            {tab === 'demo' && 'Demo'}
           </button>
         ))}
       </div>
@@ -69,6 +108,7 @@ export function WalletDashboard() {
       {activeTab === 'overview' && <OverviewTab />}
       {activeTab === 'policy' && <PolicyTab />}
       {activeTab === 'temporal' && <TemporalKeyTab />}
+      {activeTab === 'demo' && <DemoTab currentPolicy={currentPolicy} temporalKeys={temporalKeys} />}
     </div>
   );
 }
@@ -130,18 +170,7 @@ function StatCard({
 function PolicyTab() {
   return (
     <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-[var(--sea-ink)]">Policy Configuration</h3>
-        <button className="rounded-full bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5">
-          Choose Template
-        </button>
-      </div>
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <Shield className="mb-3 h-10 w-10 text-[var(--sea-ink-soft)]" />
-        <p className="text-sm text-[var(--sea-ink-soft)]">
-          No policy set. Choose a template to protect your wallet.
-        </p>
-      </div>
+      <PolicyConfigurator currentPolicy={currentPolicy} onApply={handleApplyPolicy} />
     </div>
   );
 }
@@ -149,19 +178,11 @@ function PolicyTab() {
 function TemporalKeyTab() {
   return (
     <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-[var(--sea-ink)]">Temporal Session Keys</h3>
-        <button className="rounded-full bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5">
-          Grant New Key
-        </button>
-      </div>
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <Key className="mb-3 h-10 w-10 text-[var(--sea-ink-soft)]" />
-        <p className="mb-1 text-sm font-medium text-[var(--sea-ink)]">No Session Keys</p>
-        <p className="text-xs text-[var(--sea-ink-soft)]">
-          Grant temporary keys to AI agents with expiry and spending limits.
-        </p>
-      </div>
+      <TemporalKeyManager
+        keys={temporalKeys}
+        onRevoke={handleRevokeKey}
+        onGrant={handleGrantKey}
+      />
     </div>
   );
 }
