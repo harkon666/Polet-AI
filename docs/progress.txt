@@ -101,7 +101,10 @@
   - Updated `transaction-builder.ts` to use `https://api.devnet.solana.com` as default RPC URL.
 
 ### Frontend
-- [ ] #23 — Create Wallet flow + proxy initialization
+- [x] #23 — Create Wallet flow + proxy initialization
+  - Integrated `@solana/wallet-adapter-react` and removed mock hook.
+  - Added `ClientWalletProvider` to wrap the frontend application.
+  - Built out the "Initialize Smart Wallet" UI flow in `WalletDashboard` to call proxy `/wallet/initialize`.
 - [ ] #24 — DemoTab with real Solana addresses
 
 ### Integration

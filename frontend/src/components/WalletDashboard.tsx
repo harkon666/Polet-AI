@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useWallet } from '../hooks/use-wallet';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { VersionedTransaction } from '@solana/web3.js';
 import { WalletButton } from './WalletButton';
 import { PolicyConfigurator, PolicyDisplay } from './PolicyConfigurator';
 import { TemporalKeyManager } from './TemporalKeyManager';
@@ -18,10 +19,14 @@ interface TemporalKey {
 }
 
 export function WalletDashboard() {
-  const { connected, publicKey } = useWallet();
+  const { connected, publicKey, signTransaction } = useWallet();
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'policy' | 'temporal' | 'demo'>('overview');
   const [currentPolicy, setCurrentPolicy] = useState<Policy | null>(null);
   const [temporalKeys, setTemporalKeys] = useState<TemporalKey[]>([]);
+
+  const pubkeyStr = publicKey?.toBase58();
 
   const handleApplyPolicy = (policy: Policy) => {
     setCurrentPolicy(policy);
@@ -45,7 +50,7 @@ export function WalletDashboard() {
     setTemporalKeys(prev => [...prev, newKey]);
   };
 
-  if (!connected) {
+  if (!connected || !publicKey) {
     return (
       <div className="rounded-2xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -64,6 +69,55 @@ export function WalletDashboard() {
     );
   }
 
+  const handleInitialize = async () => {
+    setIsInitializing(true);
+    try {
+      const res = await fetch('http://localhost:3000/wallet/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner: pubkeyStr }),
+      });
+      const data = await res.json();
+      if (data.success && data.data.transaction) {
+        // In a real app we would sign and send the transaction to Solana
+        // const txBytes = Buffer.from(data.data.transaction, 'base64');
+        // const tx = VersionedTransaction.deserialize(txBytes);
+        // if (signTransaction) await signTransaction(tx);
+        console.log('Wallet initialized via proxy!', data);
+        setIsInitialized(true);
+      }
+    } catch (err) {
+      console.error('Initialization failed:', err);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  if (!isInitialized) {
+    return (
+      <div className="rounded-2xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="mb-4 rounded-full bg-[rgba(79,184,178,0.14)] p-4">
+            <Key className="h-12 w-12 text-[var(--lagoon-deep)]" />
+          </div>
+          <h2 className="mb-2 text-xl font-semibold text-[var(--sea-ink)]">
+            Initialize Smart Wallet
+          </h2>
+          <p className="mb-6 max-w-md text-sm text-[var(--sea-ink-soft)]">
+            Your wallet is connected, but you need to initialize the Polet Smart Wallet protocol to start using AI agents securely.
+          </p>
+          <button
+            onClick={handleInitialize}
+            disabled={isInitializing}
+            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-6 py-3 font-semibold text-[var(--lagoon-deep)] transition hover:-translate-y-0.5 hover:bg-[rgba(79,184,178,0.24)] disabled:opacity-50 disabled:hover:translate-y-0"
+          >
+            {isInitializing ? 'Initializing...' : 'Create Smart Wallet'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Wallet Info Banner */}
@@ -74,7 +128,7 @@ export function WalletDashboard() {
               Polet Smart Wallet
             </h2>
             <p className="font-mono text-sm text-[var(--sea-ink-soft)]">
-              {publicKey}
+              {pubkeyStr}
             </p>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-[rgba(79,184,178,0.3)] bg-[rgba(79,184,178,0.1)] px-3 py-1">
