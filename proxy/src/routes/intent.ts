@@ -34,11 +34,7 @@ intentRouter.post('/evaluate', async (c) => {
     }
 
     // Validate session key is authorized
-    // In demo mode (policy in body), skip auth check; otherwise use wallet store
-    const isDemo = !!body.policy;
-    const authorized = isDemo
-      ? true
-      : isSessionAuthorized(intent.owner, intent.sessionKey);
+    const authorized = await isSessionAuthorized(intent.owner, intent.sessionKey);
     if (!authorized) {
       return c.json({
         success: false,
@@ -50,13 +46,16 @@ intentRouter.post('/evaluate', async (c) => {
     }
 
     // Get policy for wallet
-    // Priority: 1) policy passed in body (for demo/custom), 2) wallet's stored policy, 3) fallback mock
-    const policy: Policy = body.policy ?? getWalletPolicy(intent.owner) ?? {
-      allowlist: [],
-      blocklist: [],
-      maxAmount: 10_000_000_000,
-      dailyLimit: 100_000_000_000,
-    };
+    const policy: Policy | null = await getWalletPolicy(intent.owner);
+    if (!policy) {
+      return c.json({
+        success: false,
+        error: {
+          code: 'POLICY_NOT_FOUND',
+          message: 'Wallet policy not found or invalid',
+        }
+      }, 404);
+    }
 
     // Evaluate intent against policy
     const result = evaluateIntent(intent, policy);
@@ -127,11 +126,7 @@ intentRouter.post('/execute', async (c) => {
     }
 
     // Validate session key is authorized
-    // In demo mode (policy in body), skip auth check; otherwise use wallet store
-    const isDemo = !!body.policy;
-    const authorized = isDemo
-      ? true
-      : isSessionAuthorized(intent.owner, intent.sessionKey);
+    const authorized = await isSessionAuthorized(intent.owner, intent.sessionKey);
     if (!authorized) {
       return c.json({
         success: false,
@@ -143,13 +138,16 @@ intentRouter.post('/execute', async (c) => {
     }
 
     // Get policy for wallet
-    // Priority: 1) policy passed in body (for demo/custom), 2) wallet's stored policy, 3) fallback mock
-    const policy: Policy = body.policy ?? getWalletPolicy(intent.owner) ?? {
-      allowlist: [],
-      blocklist: [],
-      maxAmount: 10_000_000_000,
-      dailyLimit: 100_000_000_000,
-    };
+    const policy: Policy | null = await getWalletPolicy(intent.owner);
+    if (!policy) {
+      return c.json({
+        success: false,
+        error: {
+          code: 'POLICY_NOT_FOUND',
+          message: 'Wallet policy not found or invalid',
+        }
+      }, 404);
+    }
 
     // Evaluate intent against policy
     const result = evaluateIntent(intent, policy);

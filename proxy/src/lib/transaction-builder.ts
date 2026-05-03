@@ -280,7 +280,7 @@ export async function buildIntentTransaction(
 // Singleton connection for efficiency
 let _connection: import('@solana/web3.js').Connection | null = null;
 
-function getConnection(): import('@solana/web3.js').Connection {
+export function getConnection(): import('@solana/web3.js').Connection {
   if (!_connection) {
     // Default to localhost for development
     // In production, this would be configured via environment

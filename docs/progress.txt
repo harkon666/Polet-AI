@@ -62,6 +62,11 @@
   - Returns InvalidAttestation error code if verification fails
   - Added 3 new TDD tests: valid signature, invalid signature, skipped when no proxy_pk
   - 36 total tests passing
+- [x] #16 — Wallet store → real Solana RPC (remove mock)
+  - Installed `@coral-xyz/anchor` and copied contract IDL.
+  - Rewrote `wallet-store.ts` to asynchronously fetch `Wallet` data from Solana.
+  - Removed `isDemo` mock bypass logic in `intent.ts`.
+  - Updated API route handlers to properly `await` wallet policies and authorization checks.
 
 ## Production Issues (GitHub)
 
@@ -72,7 +77,7 @@
 - [x] #15 — TEE attestation verification
 
 ### Proxy
-- [ ] #16 — Wallet store → real Solana RPC (remove mock)
+- [x] #16 — Wallet store → real Solana RPC (remove mock)
 - [ ] #17 — Session key generation + AES encryption
 - [ ] #18 — Wallet management endpoints (initialize, set-policy, grant-key)
 - [ ] #19 — Agent auth key registration flow
