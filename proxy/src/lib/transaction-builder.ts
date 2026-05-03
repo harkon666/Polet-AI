@@ -284,7 +284,7 @@ export function getConnection(): import('@solana/web3.js').Connection {
   if (!_connection) {
     // Default to localhost for development
     // In production, this would be configured via environment
-    const rpcUrl = process.env.SOLANA_RPC_URL || 'http://127.0.0.1:8899';
+    const rpcUrl = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
     _connection = new (require('@solana/web3.js').Connection)(rpcUrl, 'confirmed');
   }
   return _connection;
