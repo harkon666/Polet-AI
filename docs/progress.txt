@@ -94,7 +94,9 @@
   - Created `proxy/src/lib/merkle-tree.ts` to compute policy leaves and tree structure.
   - Implemented `buildPolicyTree`, `getProof`, and `verifyProof` matching the on-chain Rust implementation.
   - TDD tests passed showing valid and invalid proofs.
-- [ ] #21 — Replace policy-engine hash with SHA-256 + remove demo bypass
+- [x] #21 — Replace policy-engine hash with SHA-256 + remove demo bypass
+  - Updated `policy-engine.ts` to use Node's `crypto` module for standard SHA-256 instead of mock hash.
+  - Modified `/wallet/set-policy` to compute the Merkle Tree and return `SetPolicy` + `SetMerkleRoot` instructions.
 - [ ] #22 — Wire to Solana devnet RPC
 
 ### Frontend

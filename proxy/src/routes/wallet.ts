@@ -4,6 +4,10 @@ import * as anchor from '@coral-xyz/anchor';
 import { getConnection } from '../lib/transaction-builder.js';
 import idl from '../lib/idl.json' assert { type: "json" };
 import { generateAndSaveKey } from '../lib/kms.js';
+import { buildPolicyTree } from '../lib/merkle-tree.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as crypto from 'crypto';
 
 export const walletRouter = new Hono();
 
@@ -104,10 +108,34 @@ walletRouter.post('/set-policy', async (c) => {
 
     const program = getProgram();
     const policyData = Buffer.from(JSON.stringify(policy));
-    // For MVP, we just hash the policy string directly
-    const policyHash = Array.from(Buffer.from(await crypto.subtle.digest('SHA-256', policyData)));
     
-    const ix = await program.methods.setPolicy(policyHash, Buffer.from(policyData))
+    // Hash policy for set_policy metadata
+    const policyHash = Array.from(crypto.createHash('sha256').update(policyData).digest());
+    
+    // Build Merkle Tree
+    const tree = buildPolicyTree(policy);
+    
+    // Save tree locally
+    const treeDir = path.join(process.cwd(), 'keys', ownerPubkey.toString());
+    if (!fs.existsSync(treeDir)) {
+      fs.mkdirSync(treeDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(treeDir, 'tree.json'), JSON.stringify({
+      root: tree.root,
+      leaves: tree.leaves.map(l => l.toString('hex')),
+      layers: tree.layers.map(layer => layer.map(n => n.toString('hex')))
+    }, null, 2));
+    
+    // Instruction 1: setPolicy
+    const ixPolicy = await program.methods.setPolicy(policyHash, Buffer.from(policyData))
+      .accounts({
+        wallet: walletPda,
+        owner: ownerPubkey,
+      })
+      .instruction();
+
+    // Instruction 2: setMerkleRoot
+    const ixMerkle = await program.methods.setMerkleRoot(tree.root)
       .accounts({
         wallet: walletPda,
         owner: ownerPubkey,
@@ -117,7 +145,7 @@ walletRouter.post('/set-policy', async (c) => {
     const connection = getConnection();
     const { blockhash } = await connection.getLatestBlockhash();
 
-    const tx = new Transaction().add(ix);
+    const tx = new Transaction().add(ixPolicy).add(ixMerkle);
     tx.recentBlockhash = blockhash;
     tx.feePayer = ownerPubkey;
 

@@ -1,5 +1,6 @@
 import type { Policy, Intent, IntentEvaluationResult, Attestation } from '../types/intent.js';
 import { getActionDestination, getIntentAmount } from './intent-parser.js';
+import * as crypto from 'crypto';
 
 /**
  * Evaluate an intent against a policy
@@ -98,17 +99,8 @@ export function generateAttestation(
 }
 
 /**
- * Simple string hash for demo purposes
- * In production, use crypto.subtle.digest or similar
+ * SHA-256 hash
  */
 function hashString(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  // Convert to hex string and pad
-  const hex = Math.abs(hash).toString(16);
-  return hex.padStart(64, '0');
+  return crypto.createHash('sha256').update(str).digest('hex');
 }
