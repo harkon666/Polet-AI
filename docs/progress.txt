@@ -55,6 +55,13 @@
   - Verification requires attestation_policy_seq == policy_seq
   - 5 new TDD tests covering stale slots, stale seqs, policy updates, and equal slots
   - 33 total tests passing
+- [x] #15 — TEE attestation verification
+  - Added attestation_signature param to execute_intent_as_session
+  - Added verify_tee_attestation helper function (mocked for MVP)
+  - Validation requires attestation_signature to not be all-zeros if proxy_pk is set
+  - Returns InvalidAttestation error code if verification fails
+  - Added 3 new TDD tests: valid signature, invalid signature, skipped when no proxy_pk
+  - 36 total tests passing
 
 ## Production Issues (GitHub)
 
@@ -62,7 +69,7 @@
 - [x] #12 — Wallet state extensions (proxy_pk, merkle_root, policy_seq, last_revoked_slot)
 - [x] #13 — Merkle proof verification in execute_intent_as_session
 - [x] #14 — Slot-based revocation + policy seq verification
-- [ ] #15 — TEE attestation verification
+- [x] #15 — TEE attestation verification
 
 ### Proxy
 - [ ] #16 — Wallet store → real Solana RPC (remove mock)

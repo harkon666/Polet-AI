@@ -824,7 +824,8 @@ fn test_execute_intent_as_session() {
         merkle_leaf: [0u8; 32],
         merkle_index: 0,
         attestation_slot: 0,
-        attestation_policy_seq: 1, // set_policy was called once
+        attestation_policy_seq: 1,
+        attestation_signature: [0u8; 64], // set_policy was called once
     };
 
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
@@ -1462,7 +1463,8 @@ fn test_13_merkle_proof_valid_passes() {
         merkle_leaf: leaf0,
         merkle_index: 0,
         attestation_slot: 0,
-        attestation_policy_seq: 2, // set_policy + set_merkle_root
+        attestation_policy_seq: 2,
+        attestation_signature: [0u8; 64], // set_policy + set_merkle_root
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1516,6 +1518,7 @@ fn test_13_merkle_proof_invalid_rejected() {
         merkle_index: 0,
         attestation_slot: 0,
         attestation_policy_seq: 2,
+        attestation_signature: [0u8; 64],
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1570,6 +1573,7 @@ fn test_13_merkle_proof_wrong_leaf_rejected() {
         merkle_index: 0,
         attestation_slot: 0,
         attestation_policy_seq: 2,
+        attestation_signature: [0u8; 64],
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1613,7 +1617,8 @@ fn test_13_no_merkle_root_proof_skipped() {
         merkle_leaf: [0u8; 32],
         merkle_index: 0,
         attestation_slot: 0,
-        attestation_policy_seq: 1, // only set_policy, no merkle root
+        attestation_policy_seq: 1, // only set_policy,
+        attestation_signature: [0u8; 64], // no merkle root
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1666,6 +1671,7 @@ fn test_13_merkle_proof_different_index() {
         merkle_index: 2,
         attestation_slot: 0,
         attestation_policy_seq: 2,
+        attestation_signature: [0u8; 64],
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1719,6 +1725,7 @@ fn test_13_merkle_proof_wrong_index_rejected() {
         merkle_index: 1, // WRONG index
         attestation_slot: 0,
         attestation_policy_seq: 2,
+        attestation_signature: [0u8; 64],
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1781,6 +1788,7 @@ fn test_14_stale_slot_rejected() {
         merkle_index: 0,
         attestation_slot: 50, // STALE: before revocation at slot 100
         attestation_policy_seq: 1,
+        attestation_signature: [0u8; 64],
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1838,6 +1846,7 @@ fn test_14_valid_slot_after_revocation_passes() {
         merkle_index: 0,
         attestation_slot: 200, // VALID: after revocation at slot 100
         attestation_policy_seq: 1,
+        attestation_signature: [0u8; 64],
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1882,7 +1891,8 @@ fn test_14_stale_policy_seq_rejected() {
         merkle_leaf: [0u8; 32],
         merkle_index: 0,
         attestation_slot: 0,
-        attestation_policy_seq: 0, // STALE: wallet has policy_seq = 1
+        attestation_policy_seq: 0,
+        attestation_signature: [0u8; 64], // STALE: wallet has policy_seq = 1
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1938,7 +1948,8 @@ fn test_14_policy_update_invalidates_old_seq() {
         merkle_leaf: [0u8; 32],
         merkle_index: 0,
         attestation_slot: 0,
-        attestation_policy_seq: 1, // OLD: wallet now has policy_seq = 2
+        attestation_policy_seq: 1,
+        attestation_signature: [0u8; 64], // OLD: wallet now has policy_seq = 2
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -2000,6 +2011,7 @@ fn test_14_equal_slot_rejected() {
         merkle_index: 0,
         attestation_slot: revoked_slot, // EQUAL, not greater
         attestation_policy_seq: 1,
+        attestation_signature: [0u8; 64],
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -2015,4 +2027,171 @@ fn test_14_equal_slot_rejected() {
     let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
     let res = svm.send_transaction(tx);
     assert!(res.is_err(), "attestation_slot == last_revoked_slot should be rejected (must be strictly greater)");
+}
+
+// ============================================================
+// TASK #15 — TEE Attestation Verification (TDD)
+// ============================================================
+
+// --- Test: Valid TEE signature passes ---
+#[test]
+fn test_15_valid_tee_signature_passes() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    let destination = Keypair::new().pubkey();
+
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, None);
+
+    // Set proxy key
+    let proxy_key = Keypair::new().pubkey();
+    let spk_ix = contract::instruction::SetProxyKey { proxy_pk: proxy_key };
+    let spk_accts = contract::accounts::SetProxyKey { wallet: wallet_pda, owner: owner.pubkey() };
+    let spk = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: spk_ix.data(), accounts: spk_accts.to_account_metas(None),
+    };
+    let bh_spk = svm.latest_blockhash();
+    let msg_spk = Message::new_with_blockhash(&[spk], Some(&owner.pubkey()), &bh_spk);
+    let tx_spk = VersionedTransaction::try_new(VersionedMessage::Legacy(msg_spk), &[&owner]).unwrap();
+    svm.send_transaction(tx_spk).expect("set_proxy_key failed");
+
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    // Valid mock signature (not all zeros)
+    let valid_signature = [1u8; 64];
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 1,
+        attestation_signature: valid_signature,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "Valid mock TEE signature should pass");
+}
+
+// --- Test: Invalid TEE signature rejected ---
+#[test]
+fn test_15_invalid_tee_signature_rejected() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    let destination = Keypair::new().pubkey();
+
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, None);
+
+    // Set proxy key
+    let proxy_key = Keypair::new().pubkey();
+    let spk_ix = contract::instruction::SetProxyKey { proxy_pk: proxy_key };
+    let spk_accts = contract::accounts::SetProxyKey { wallet: wallet_pda, owner: owner.pubkey() };
+    let spk = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: spk_ix.data(), accounts: spk_accts.to_account_metas(None),
+    };
+    let bh_spk = svm.latest_blockhash();
+    let msg_spk = Message::new_with_blockhash(&[spk], Some(&owner.pubkey()), &bh_spk);
+    let tx_spk = VersionedTransaction::try_new(VersionedMessage::Legacy(msg_spk), &[&owner]).unwrap();
+    svm.send_transaction(tx_spk).expect("set_proxy_key failed");
+
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    // Invalid mock signature (all zeros)
+    let invalid_signature = [0u8; 64];
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 1,
+        attestation_signature: invalid_signature,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "Invalid mock TEE signature should be rejected");
+}
+
+// --- Test: TEE check skipped if proxy_pk not set ---
+#[test]
+fn test_15_no_proxy_pk_skips_check() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    let destination = Keypair::new().pubkey();
+
+    // No proxy_pk set in setup
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, None);
+
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    // Invalid mock signature (all zeros) - but should be skipped
+    let invalid_signature = [0u8; 64];
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 1,
+        attestation_signature: invalid_signature,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "TEE signature check should be skipped if proxy_pk is default");
 }

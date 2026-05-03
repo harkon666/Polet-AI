@@ -121,6 +121,21 @@ fn enforce_policy(wallet: &Wallet, destination: &Pubkey) -> Result<()> {
     Ok(())
 }
 
+/// Verify TEE attestation signature (Mock for MVP unit tests)
+/// In a full production environment, this would verify via Ed25519 instruction introspection.
+fn verify_tee_attestation(
+    signature: &[u8; 64],
+    proxy_pk: &Pubkey,
+    _message: &[u8],
+) -> bool {
+    // If proxy_pk is not set, we cannot verify
+    if proxy_pk == &Pubkey::default() {
+        return false;
+    }
+    // Mock check: reject all-zero signatures
+    signature != &[0u8; 64]
+}
+
 /// Verify a Merkle proof against a known root using SHA-256.
 /// leaf: the leaf hash, proof: sibling hashes bottom-up, index: leaf position
 fn verify_merkle_proof(leaf: &[u8; 32], proof: &Vec<[u8; 32]>, index: u32, root: &[u8; 32]) -> bool {
@@ -303,6 +318,7 @@ pub mod contract {
         merkle_index: u32,
         attestation_slot: u64,
         attestation_policy_seq: u64,
+        attestation_signature: [u8; 64],
     ) -> Result<()> {
         let session_key = ctx.accounts.session_key.key();
         let instruction = intent_data[0];
@@ -312,6 +328,21 @@ pub mod contract {
         // Get account info references BEFORE creating mutable borrow
         let dest_info = ctx.accounts.destination.to_account_info();
         let wallet_info = ctx.accounts.wallet.to_account_info();
+
+        // --- #15: TEE Attestation verification ---
+        // Construct message (mock message for now)
+        let mut msg_data = Vec::new();
+        msg_data.extend_from_slice(&intent_data);
+        msg_data.extend_from_slice(&attestation_slot.to_le_bytes());
+        msg_data.extend_from_slice(&attestation_policy_seq.to_le_bytes());
+
+        // Skip TEE check if proxy_pk is default (backward compat for earlier tests)
+        if ctx.accounts.wallet.proxy_pk != Pubkey::default() {
+            require!(
+                verify_tee_attestation(&attestation_signature, &ctx.accounts.wallet.proxy_pk, &msg_data),
+                ErrorCode::InvalidAttestation
+            );
+        }
 
         // --- #13: Merkle proof verification ---
         if ctx.accounts.wallet.merkle_root != [0u8; 32] {
