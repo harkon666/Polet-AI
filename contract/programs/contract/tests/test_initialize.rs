@@ -823,6 +823,8 @@ fn test_execute_intent_as_session() {
         merkle_proof: vec![],
         merkle_leaf: [0u8; 32],
         merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 1, // set_policy was called once
     };
 
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
@@ -1459,6 +1461,8 @@ fn test_13_merkle_proof_valid_passes() {
         merkle_proof: proof,
         merkle_leaf: leaf0,
         merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 2, // set_policy + set_merkle_root
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1510,6 +1514,8 @@ fn test_13_merkle_proof_invalid_rejected() {
         merkle_proof: bad_proof,
         merkle_leaf: leaf0,
         merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 2,
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1562,6 +1568,8 @@ fn test_13_merkle_proof_wrong_leaf_rejected() {
         merkle_proof: proof,
         merkle_leaf: wrong_leaf,
         merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 2,
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1601,9 +1609,11 @@ fn test_13_no_merkle_root_proof_skipped() {
 
     let execute_ix = contract::instruction::ExecuteIntentAsSession {
         intent_data,
-        merkle_proof: vec![],      // no proof needed
+        merkle_proof: vec![],
         merkle_leaf: [0u8; 32],
         merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 1, // only set_policy, no merkle root
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1654,6 +1664,8 @@ fn test_13_merkle_proof_different_index() {
         merkle_proof: proof,
         merkle_leaf: leaf2,
         merkle_index: 2,
+        attestation_slot: 0,
+        attestation_policy_seq: 2,
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1705,6 +1717,8 @@ fn test_13_merkle_proof_wrong_index_rejected() {
         merkle_proof: proof,
         merkle_leaf: leaf0,
         merkle_index: 1, // WRONG index
+        attestation_slot: 0,
+        attestation_policy_seq: 2,
     };
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1720,4 +1734,285 @@ fn test_13_merkle_proof_wrong_index_rejected() {
     let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
     let res = svm.send_transaction(tx);
     assert!(res.is_err(), "wrong index with correct proof/leaf should be rejected");
+}
+
+// ============================================================
+// TASK #14 — Slot-based Revocation + Policy Seq Verification (TDD)
+// ============================================================
+
+// --- Test: Stale attestation_slot rejected after revoke_all_sessions ---
+#[test]
+fn test_14_stale_slot_rejected() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    // Setup wallet with session key (no merkle root)
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, None);
+
+    // Warp to slot 100, then revoke all sessions
+    svm.warp_to_slot(100);
+
+    let revoke_ix = contract::instruction::RevokeAllSessions {};
+    let revoke_accts = contract::accounts::RevokeAllSessions { wallet: wallet_pda, owner: owner.pubkey() };
+    let r = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: revoke_ix.data(), accounts: revoke_accts.to_account_metas(None),
+    };
+    let bh_r = svm.latest_blockhash();
+    let msg_r = Message::new_with_blockhash(&[r], Some(&owner.pubkey()), &bh_r);
+    let tx_r = VersionedTransaction::try_new(VersionedMessage::Legacy(msg_r), &[&owner]).unwrap();
+    svm.send_transaction(tx_r).expect("revoke_all_sessions failed");
+
+    // Now try execute with attestation_slot = 50 (BEFORE revocation at 100)
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+        attestation_slot: 50, // STALE: before revocation at slot 100
+        attestation_policy_seq: 1,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "stale attestation_slot (50 < 100) should be rejected");
+}
+
+// --- Test: Valid attestation_slot after revocation passes ---
+#[test]
+fn test_14_valid_slot_after_revocation_passes() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, None);
+
+    // Warp to slot 100, revoke
+    svm.warp_to_slot(100);
+
+    let revoke_ix = contract::instruction::RevokeAllSessions {};
+    let revoke_accts = contract::accounts::RevokeAllSessions { wallet: wallet_pda, owner: owner.pubkey() };
+    let r = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: revoke_ix.data(), accounts: revoke_accts.to_account_metas(None),
+    };
+    let bh_r = svm.latest_blockhash();
+    let msg_r = Message::new_with_blockhash(&[r], Some(&owner.pubkey()), &bh_r);
+    let tx_r = VersionedTransaction::try_new(VersionedMessage::Legacy(msg_r), &[&owner]).unwrap();
+    svm.send_transaction(tx_r).expect("revoke_all_sessions failed");
+
+    // Execute with attestation_slot = 200 (AFTER revocation at 100)
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+        attestation_slot: 200, // VALID: after revocation at slot 100
+        attestation_policy_seq: 1,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "valid attestation_slot (200 > 100) should pass: {:?}", res);
+}
+
+// --- Test: Wrong policy_seq rejected ---
+#[test]
+fn test_14_stale_policy_seq_rejected() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    // setup_session_wallet with no merkle root → policy_seq = 1
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, None);
+
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    // Pass attestation_policy_seq = 0 (wallet has policy_seq = 1) → STALE
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 0, // STALE: wallet has policy_seq = 1
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "stale policy_seq (0 != 1) should be rejected");
+}
+
+// --- Test: Policy update invalidates old attestation_policy_seq ---
+#[test]
+fn test_14_policy_update_invalidates_old_seq() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    // setup_session_wallet → policy_seq = 1
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, None);
+
+    // Update policy again → policy_seq = 2
+    let sp_ix = contract::instruction::SetPolicy { policy_hash: [0xcdu8; 32] };
+    let sp_accts = contract::accounts::SetPolicy { wallet: wallet_pda, owner: owner.pubkey() };
+    let sp = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: sp_ix.data(), accounts: sp_accts.to_account_metas(None),
+    };
+    let bh_sp = svm.latest_blockhash();
+    let msg_sp = Message::new_with_blockhash(&[sp], Some(&owner.pubkey()), &bh_sp);
+    let tx_sp = VersionedTransaction::try_new(VersionedMessage::Legacy(msg_sp), &[&owner]).unwrap();
+    svm.send_transaction(tx_sp).expect("set_policy 2 failed");
+
+    // Try executing with old attestation_policy_seq = 1 (wallet now has 2)
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+        attestation_slot: 0,
+        attestation_policy_seq: 1, // OLD: wallet now has policy_seq = 2
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "old policy_seq (1 != 2) after policy update should be rejected");
+}
+
+// --- Test: Equal slot to last_revoked_slot is also rejected (must be strictly greater) ---
+#[test]
+fn test_14_equal_slot_rejected() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, None);
+
+    // Warp to slot 100, revoke
+    svm.warp_to_slot(100);
+
+    let revoke_ix = contract::instruction::RevokeAllSessions {};
+    let revoke_accts = contract::accounts::RevokeAllSessions { wallet: wallet_pda, owner: owner.pubkey() };
+    let r = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: revoke_ix.data(), accounts: revoke_accts.to_account_metas(None),
+    };
+    let bh_r = svm.latest_blockhash();
+    let msg_r = Message::new_with_blockhash(&[r], Some(&owner.pubkey()), &bh_r);
+    let tx_r = VersionedTransaction::try_new(VersionedMessage::Legacy(msg_r), &[&owner]).unwrap();
+    svm.send_transaction(tx_r).expect("revoke_all_sessions failed");
+
+    // Check what slot was stored
+    let wallet = read_wallet(&svm, wallet_pda);
+    let revoked_slot = wallet.last_revoked_slot;
+
+    // Try with attestation_slot == last_revoked_slot (NOT strictly greater)
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+        attestation_slot: revoked_slot, // EQUAL, not greater
+        attestation_policy_seq: 1,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "attestation_slot == last_revoked_slot should be rejected (must be strictly greater)");
 }

@@ -48,13 +48,20 @@
   - Added solana-sha256-hasher dependency for on-chain hashing
   - 6 new TDD tests: valid proof, invalid proof, wrong leaf, no root skip, different index, wrong index
   - 28 total tests passing
+- [x] #14 — Slot-based revocation + policy seq verification
+  - Added attestation_slot and attestation_policy_seq to execute_intent_as_session
+  - ErrorCode::StaleSlot and ErrorCode::StalePolicySeq added
+  - Verification requires attestation_slot > last_revoked_slot
+  - Verification requires attestation_policy_seq == policy_seq
+  - 5 new TDD tests covering stale slots, stale seqs, policy updates, and equal slots
+  - 33 total tests passing
 
 ## Production Issues (GitHub)
 
 ### Contract (implement in dependency order: #12 first)
 - [x] #12 — Wallet state extensions (proxy_pk, merkle_root, policy_seq, last_revoked_slot)
 - [x] #13 — Merkle proof verification in execute_intent_as_session
-- [ ] #14 — Slot-based revocation + policy seq verification
+- [x] #14 — Slot-based revocation + policy seq verification
 - [ ] #15 — TEE attestation verification
 
 ### Proxy

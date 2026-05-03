@@ -24,4 +24,8 @@ pub enum ErrorCode {
     DestinationBlocked,
     #[msg("Invalid Merkle proof")]
     InvalidMerkleProof,
+    #[msg("Attestation slot is stale (before last revocation)")]
+    StaleSlot,
+    #[msg("Attestation policy_seq does not match wallet policy_seq")]
+    StalePolicySeq,
 }

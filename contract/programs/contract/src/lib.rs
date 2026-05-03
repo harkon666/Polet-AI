@@ -301,6 +301,8 @@ pub mod contract {
         merkle_proof: Vec<[u8; 32]>,
         merkle_leaf: [u8; 32],
         merkle_index: u32,
+        attestation_slot: u64,
+        attestation_policy_seq: u64,
     ) -> Result<()> {
         let session_key = ctx.accounts.session_key.key();
         let instruction = intent_data[0];
@@ -312,13 +314,28 @@ pub mod contract {
         let wallet_info = ctx.accounts.wallet.to_account_info();
 
         // --- #13: Merkle proof verification ---
-        // If merkle_root is set, proof is REQUIRED
         if ctx.accounts.wallet.merkle_root != [0u8; 32] {
             require!(
                 verify_merkle_proof(&merkle_leaf, &merkle_proof, merkle_index, &ctx.accounts.wallet.merkle_root),
                 ErrorCode::InvalidMerkleProof
             );
         }
+
+        // --- #14: Slot-based revocation ---
+        // If sessions have been revoked, attestation must be after revocation
+        if ctx.accounts.wallet.last_revoked_slot > 0 {
+            require!(
+                attestation_slot > ctx.accounts.wallet.last_revoked_slot,
+                ErrorCode::StaleSlot
+            );
+        }
+
+        // --- #14: Policy sequence verification ---
+        // Attestation must match current policy version
+        require!(
+            attestation_policy_seq == ctx.accounts.wallet.policy_seq,
+            ErrorCode::StalePolicySeq
+        );
 
         // Policy must be set before executing intents
         require!(!ctx.accounts.wallet.policy_data.is_empty() || ctx.accounts.wallet.policy_hash != [0u8; 32], ErrorCode::PolicyViolation);
