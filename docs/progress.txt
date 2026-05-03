@@ -78,7 +78,10 @@
 
 ### Proxy
 - [x] #16 — Wallet store → real Solana RPC (remove mock)
-- [ ] #17 — Session key generation + AES encryption
+- [x] #17 — Session key generation + AES encryption
+  - Created Key Management System (KMS) with AES-256-GCM encryption
+  - Added `generateAndSaveKey` and `loadKey` for proxy and session keys
+  - TDD tests passed for encryption/decryption routines
 - [ ] #18 — Wallet management endpoints (initialize, set-policy, grant-key)
 - [ ] #19 — Agent auth key registration flow
 - [ ] #20 — Merkle tree builder + proof generator
