@@ -41,12 +41,19 @@
   - Fixed accidental lib.rs regression (restored SetPolicyData, GrantTemporalKey, RevokeSession, ExecuteIntentAsSession)
   - 11 new TDD tests (22 total passing), all green
   - Fixed declare_id to match deploy keypair
+- [x] #13 — Merkle proof verification in execute_intent_as_session
+  - SHA-256 on-chain Merkle proof verifier (verify_merkle_proof)
+  - execute_intent_as_session now accepts merkle_proof, merkle_leaf, merkle_index params
+  - Verification required when merkle_root != 0, skipped otherwise (backward compat)
+  - Added solana-sha256-hasher dependency for on-chain hashing
+  - 6 new TDD tests: valid proof, invalid proof, wrong leaf, no root skip, different index, wrong index
+  - 28 total tests passing
 
 ## Production Issues (GitHub)
 
 ### Contract (implement in dependency order: #12 first)
 - [x] #12 — Wallet state extensions (proxy_pk, merkle_root, policy_seq, last_revoked_slot)
-- [ ] #13 — Merkle proof verification in execute_intent_as_session
+- [x] #13 — Merkle proof verification in execute_intent_as_session
 - [ ] #14 — Slot-based revocation + policy seq verification
 - [ ] #15 — TEE attestation verification
 

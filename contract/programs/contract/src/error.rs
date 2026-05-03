@@ -22,4 +22,6 @@ pub enum ErrorCode {
     DestinationNotAllowed,
     #[msg("Destination in blocklist")]
     DestinationBlocked,
+    #[msg("Invalid Merkle proof")]
+    InvalidMerkleProof,
 }

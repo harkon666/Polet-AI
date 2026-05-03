@@ -121,6 +121,26 @@ fn enforce_policy(wallet: &Wallet, destination: &Pubkey) -> Result<()> {
     Ok(())
 }
 
+/// Verify a Merkle proof against a known root using SHA-256.
+/// leaf: the leaf hash, proof: sibling hashes bottom-up, index: leaf position
+fn verify_merkle_proof(leaf: &[u8; 32], proof: &Vec<[u8; 32]>, index: u32, root: &[u8; 32]) -> bool {
+    let mut computed = *leaf;
+    for (i, sibling) in proof.iter().enumerate() {
+        let mut hasher_input = [0u8; 64];
+        if (index >> i) & 1 == 0 {
+            // computed is left, sibling is right
+            hasher_input[..32].copy_from_slice(&computed);
+            hasher_input[32..].copy_from_slice(sibling);
+        } else {
+            // sibling is left, computed is right
+            hasher_input[..32].copy_from_slice(sibling);
+            hasher_input[32..].copy_from_slice(&computed);
+        }
+        computed = solana_sha256_hasher::hash(&hasher_input).to_bytes();
+    }
+    computed == *root
+}
+
 #[program]
 pub mod contract {
     use super::*;
@@ -275,7 +295,13 @@ pub mod contract {
         Err(ErrorCode::SessionNotAuthorized.into())
     }
 
-    pub fn execute_intent_as_session(ctx: Context<ExecuteIntentAsSession>, intent_data: Vec<u8>) -> Result<()> {
+    pub fn execute_intent_as_session(
+        ctx: Context<ExecuteIntentAsSession>,
+        intent_data: Vec<u8>,
+        merkle_proof: Vec<[u8; 32]>,
+        merkle_leaf: [u8; 32],
+        merkle_index: u32,
+    ) -> Result<()> {
         let session_key = ctx.accounts.session_key.key();
         let instruction = intent_data[0];
         let destination = Pubkey::new_from_array(intent_data[1..33].try_into().unwrap());
@@ -284,6 +310,15 @@ pub mod contract {
         // Get account info references BEFORE creating mutable borrow
         let dest_info = ctx.accounts.destination.to_account_info();
         let wallet_info = ctx.accounts.wallet.to_account_info();
+
+        // --- #13: Merkle proof verification ---
+        // If merkle_root is set, proof is REQUIRED
+        if ctx.accounts.wallet.merkle_root != [0u8; 32] {
+            require!(
+                verify_merkle_proof(&merkle_leaf, &merkle_proof, merkle_index, &ctx.accounts.wallet.merkle_root),
+                ErrorCode::InvalidMerkleProof
+            );
+        }
 
         // Policy must be set before executing intents
         require!(!ctx.accounts.wallet.policy_data.is_empty() || ctx.accounts.wallet.policy_hash != [0u8; 32], ErrorCode::PolicyViolation);

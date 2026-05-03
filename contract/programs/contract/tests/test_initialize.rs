@@ -818,7 +818,12 @@ fn test_execute_intent_as_session() {
         data
     };
 
-    let execute_ix = contract::instruction::ExecuteIntentAsSession { intent_data };
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+    };
 
     let execute_accounts = contract::accounts::ExecuteIntentAsSession {
         wallet: wallet_pda,
@@ -1320,4 +1325,399 @@ fn test_12_set_merkle_root_non_owner_rejected() {
     let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&attacker]).unwrap();
     let res = svm.send_transaction(tx);
     assert!(res.is_err(), "set_merkle_root should fail when called by non-owner");
+}
+
+// ============================================================
+// TASK #13 — Merkle Proof Verification in execute_intent_as_session (TDD)
+// ============================================================
+
+/// Helper: SHA-256 hash (matches on-chain verifier)
+fn sha256(data: &[u8]) -> [u8; 32] {
+    solana_sha256_hasher::hash(data).to_bytes()
+}
+
+/// Helper: build a Merkle tree from leaves and return (root, all_nodes_by_level)
+/// Leaves must be a power of 2.
+fn build_merkle_tree(leaves: &[[u8; 32]]) -> ([u8; 32], Vec<Vec<[u8; 32]>>) {
+    assert!(leaves.len().is_power_of_two(), "leaves must be power of 2");
+    let mut levels: Vec<Vec<[u8; 32]>> = vec![leaves.to_vec()];
+    let mut current = leaves.to_vec();
+    while current.len() > 1 {
+        let mut next = Vec::new();
+        for chunk in current.chunks(2) {
+            let mut hasher_input = [0u8; 64];
+            hasher_input[..32].copy_from_slice(&chunk[0]);
+            hasher_input[32..].copy_from_slice(&chunk[1]);
+            next.push(sha256(&hasher_input));
+        }
+        levels.push(next.clone());
+        current = next;
+    }
+    (current[0], levels)
+}
+
+/// Helper: extract a Merkle proof for a given leaf index from the tree levels
+fn get_merkle_proof(levels: &Vec<Vec<[u8; 32]>>, index: u32) -> Vec<[u8; 32]> {
+    let mut proof = Vec::new();
+    let mut idx = index as usize;
+    for level in levels.iter().take(levels.len() - 1) {
+        // sibling is the other node in the pair
+        let sibling_idx = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
+        proof.push(level[sibling_idx]);
+        idx /= 2;
+    }
+    proof
+}
+
+/// Helper: setup wallet with session key, policy, merkle root, and funded PDA
+fn setup_session_wallet(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    session_key: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    merkle_root: Option<[u8; 32]>,
+) {
+    let program_id = contract::id();
+
+    // Initialize
+    do_initialize(svm, owner, wallet_pda, 50_000_000);
+
+    // Set policy
+    let sp_ix = contract::instruction::SetPolicy { policy_hash: [0xabu8; 32] };
+    let sp_accts = contract::accounts::SetPolicy { wallet: wallet_pda, owner: owner.pubkey() };
+    let sp = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: sp_ix.data(), accounts: sp_accts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[sp], Some(&owner.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[owner]).unwrap();
+    svm.send_transaction(tx).expect("set_policy failed");
+
+    // Set merkle root if provided
+    if let Some(root) = merkle_root {
+        let mr_ix = contract::instruction::SetMerkleRoot { merkle_root: root };
+        let mr_accts = contract::accounts::SetMerkleRoot { wallet: wallet_pda, owner: owner.pubkey() };
+        let mr = anchor_lang::solana_program::instruction::Instruction {
+            program_id, data: mr_ix.data(), accounts: mr_accts.to_account_metas(None),
+        };
+        let bh2 = svm.latest_blockhash();
+        let msg2 = Message::new_with_blockhash(&[mr], Some(&owner.pubkey()), &bh2);
+        let tx2 = VersionedTransaction::try_new(VersionedMessage::Legacy(msg2), &[owner]).unwrap();
+        svm.send_transaction(tx2).expect("set_merkle_root failed");
+    }
+
+    // Grant temporal key
+    let grant_ix = contract::instruction::GrantTemporalKey {
+        session_key: session_key.pubkey(),
+        expires_at: 1700000000 + 3600,
+        daily_limit: 50_000_000,
+    };
+    let grant_accts = contract::accounts::GrantTemporalKey { wallet: wallet_pda, owner: owner.pubkey() };
+    let g = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: grant_ix.data(), accounts: grant_accts.to_account_metas(None),
+    };
+    let bh3 = svm.latest_blockhash();
+    let msg3 = Message::new_with_blockhash(&[g], Some(&owner.pubkey()), &bh3);
+    let tx3 = VersionedTransaction::try_new(VersionedMessage::Legacy(msg3), &[owner]).unwrap();
+    svm.send_transaction(tx3).expect("grant_temporal_key failed");
+
+    // Fund wallet
+    svm.airdrop(&wallet_pda, 100_000_000).unwrap();
+}
+
+// --- Test: Valid Merkle proof passes execute_intent_as_session ---
+#[test]
+fn test_13_merkle_proof_valid_passes() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    // Build a 4-leaf Merkle tree with destination hash as leaf 0
+    let leaf0 = sha256(destination.as_ref());
+    let leaf1 = sha256(&[1u8; 32]);
+    let leaf2 = sha256(&[2u8; 32]);
+    let leaf3 = sha256(&[3u8; 32]);
+    let leaves = [leaf0, leaf1, leaf2, leaf3];
+    let (root, levels) = build_merkle_tree(&leaves);
+    let proof = get_merkle_proof(&levels, 0);
+
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, Some(root));
+
+    // Execute with valid proof
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: proof,
+        merkle_leaf: leaf0,
+        merkle_index: 0,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "execute_intent_as_session with valid merkle proof should succeed: {:?}", res);
+}
+
+// --- Test: Invalid Merkle proof is rejected ---
+#[test]
+fn test_13_merkle_proof_invalid_rejected() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    // Build tree
+    let leaf0 = sha256(destination.as_ref());
+    let leaf1 = sha256(&[1u8; 32]);
+    let leaf2 = sha256(&[2u8; 32]);
+    let leaf3 = sha256(&[3u8; 32]);
+    let leaves = [leaf0, leaf1, leaf2, leaf3];
+    let (root, _levels) = build_merkle_tree(&leaves);
+
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, Some(root));
+
+    // Execute with WRONG proof (garbage siblings)
+    let bad_proof = vec![[0xdeu8; 32], [0xadu8; 32]];
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: bad_proof,
+        merkle_leaf: leaf0,
+        merkle_index: 0,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "execute_intent_as_session with invalid merkle proof should fail");
+}
+
+// --- Test: Wrong leaf hash is rejected ---
+#[test]
+fn test_13_merkle_proof_wrong_leaf_rejected() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    // Build tree
+    let leaf0 = sha256(destination.as_ref());
+    let leaf1 = sha256(&[1u8; 32]);
+    let leaf2 = sha256(&[2u8; 32]);
+    let leaf3 = sha256(&[3u8; 32]);
+    let leaves = [leaf0, leaf1, leaf2, leaf3];
+    let (root, levels) = build_merkle_tree(&leaves);
+    let proof = get_merkle_proof(&levels, 0); // correct proof for leaf0
+
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, Some(root));
+
+    // Use WRONG leaf (some random hash) with correct proof → should fail
+    let wrong_leaf = sha256(&[0xffu8; 32]);
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: proof,
+        merkle_leaf: wrong_leaf,
+        merkle_index: 0,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "wrong leaf with correct proof should be rejected");
+}
+
+// --- Test: No merkle_root set (zero) — proof skipped, session still works ---
+#[test]
+fn test_13_no_merkle_root_proof_skipped() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    // Setup WITHOUT merkle root (None = no set_merkle_root call)
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, None);
+
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: vec![],      // no proof needed
+        merkle_leaf: [0u8; 32],
+        merkle_index: 0,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "no merkle_root set → proof should be skipped: {:?}", res);
+}
+
+// --- Test: Merkle proof at different leaf index (leaf 2 of 4) ---
+#[test]
+fn test_13_merkle_proof_different_index() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    // Build tree — destination hash is at leaf index 2
+    let leaf0 = sha256(&[0u8; 32]);
+    let leaf1 = sha256(&[1u8; 32]);
+    let leaf2 = sha256(destination.as_ref()); // target leaf
+    let leaf3 = sha256(&[3u8; 32]);
+    let leaves = [leaf0, leaf1, leaf2, leaf3];
+    let (root, levels) = build_merkle_tree(&leaves);
+    let proof = get_merkle_proof(&levels, 2); // proof for index 2
+
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, Some(root));
+
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: proof,
+        merkle_leaf: leaf2,
+        merkle_index: 2,
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_ok(), "merkle proof at index 2 should pass: {:?}", res);
+}
+
+// --- Test: Wrong index with correct proof/leaf is rejected ---
+#[test]
+fn test_13_merkle_proof_wrong_index_rejected() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let program_id = contract::id();
+    let session_key = Keypair::new();
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+
+    let destination = Keypair::new().pubkey();
+
+    // Build tree — destination hash is at leaf index 0
+    let leaf0 = sha256(destination.as_ref());
+    let leaf1 = sha256(&[1u8; 32]);
+    let leaf2 = sha256(&[2u8; 32]);
+    let leaf3 = sha256(&[3u8; 32]);
+    let leaves = [leaf0, leaf1, leaf2, leaf3];
+    let (root, levels) = build_merkle_tree(&leaves);
+    let proof = get_merkle_proof(&levels, 0); // correct proof for index 0
+
+    setup_session_wallet(&mut svm, &owner, &session_key, wallet_pda, Some(root));
+
+    let intent_data = {
+        let mut data = vec![0u8];
+        data.extend_from_slice(destination.as_ref());
+        data.extend_from_slice(&2_000_000u64.to_le_bytes());
+        data
+    };
+
+    // Use index 1 instead of 0 — should fail
+    let execute_ix = contract::instruction::ExecuteIntentAsSession {
+        intent_data,
+        merkle_proof: proof,
+        merkle_leaf: leaf0,
+        merkle_index: 1, // WRONG index
+    };
+    let execute_accounts = contract::accounts::ExecuteIntentAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id, data: execute_ix.data(), accounts: execute_accounts.to_account_metas(None),
+    };
+    let bh = svm.latest_blockhash();
+    let msg = Message::new_with_blockhash(&[ix], Some(&session_key.pubkey()), &bh);
+    let tx = VersionedTransaction::try_new(VersionedMessage::Legacy(msg), &[&session_key]).unwrap();
+    let res = svm.send_transaction(tx);
+    assert!(res.is_err(), "wrong index with correct proof/leaf should be rejected");
 }
