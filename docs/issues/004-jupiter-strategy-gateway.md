@@ -14,14 +14,14 @@ It should check token and market context with Jupiter Tokens and Price APIs, pro
 
 ## Acceptance criteria
 
-- [ ] The proxy has a Jupiter gateway module with a small testable interface.
-- [ ] The gateway can fetch token metadata, verification/risk-like fields, or equivalent token quality data from Jupiter Tokens API.
-- [ ] The gateway can fetch price data for USDC and SOL through Jupiter Price API.
-- [ ] The gateway records whether Jupiter Recurring is compatible with the Polet smart wallet flow.
-- [ ] The gateway can request Swap V2 `/build` instructions for USDC to SOL with the Polet wallet/taker model.
-- [ ] Jupiter API key configuration is documented and validated at startup or request time.
-- [ ] Tests mock Jupiter APIs and cover success, API failure, missing API key, and fallback path selection.
-- [ ] DX notes are captured during implementation for the later Jupiter report.
+- [x] The proxy has a Jupiter gateway module with a small testable interface.
+- [x] The gateway can fetch token metadata, verification/risk-like fields, or equivalent token quality data from Jupiter Tokens API.
+- [x] The gateway can fetch price data for USDC and SOL through Jupiter Price API.
+- [x] The gateway records whether Jupiter Recurring is compatible with the Polet smart wallet flow.
+- [x] The gateway can request Swap V2 `/build` instructions for USDC to SOL with the Polet wallet/taker model.
+- [x] Jupiter API key configuration is documented and validated at startup or request time.
+- [x] Tests mock Jupiter APIs and cover success, API failure, missing API key, and fallback path selection.
+- [x] DX notes are captured during implementation for the later Jupiter report.
 
 ## Blocked by
 

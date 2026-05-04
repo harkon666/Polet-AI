@@ -45,7 +45,6 @@ Track alignment:
 
 ### Critical Path
 
-- [ ] `004-jupiter-strategy-gateway` — Add Jupiter gateway for Tokens, Price, Recurring compatibility, and Swap V2 `/build` fallback.
 - [ ] `005-confidential-dca-execution-path` — Connect Run Agent Now -> Jupiter precheck -> confidential policy check -> smart wallet allow/block execution.
 
 ### Submission Polish
@@ -92,6 +91,9 @@ Track alignment:
 - [x] `003-pda-token-custody-usdc-sol-dca` — Added PDA-owned demo token custody metadata to the single wallet state plus an owner-only `register_demo_custody` instruction. The contract records USDC mint/account and SOL/wSOL mint/account references only after validating that the supplied SPL Token accounts are owned by the wallet PDA authority, so deposit addresses can be surfaced by proxy/frontend without putting funds under direct owner authority. Synced the proxy IDL to the new ABI.
   - Verification: `NO_DNA=1 anchor build` and `NO_DNA=1 cargo test` pass in `contract/`; `bun test` passes in `proxy/`.
   - Note: this slice establishes custody references and validation. Token movement from the PDA-owned accounts remains intentionally deferred to the Jupiter/confidential execution slices.
+- [x] `004-jupiter-strategy-gateway` — Added an isolated proxy Jupiter strategy gateway for Tokens V2 metadata/quality fields, Price V3 USDC/SOL pricing, Recurring compatibility recording, and Swap API V2 `/build` fallback with the Polet wallet as taker. The gateway validates `JUPITER_API_KEY` before requests, supports injected fetch for deterministic tests, and captures Jupiter DX notes for the final report.
+  - Verification: `bun test` and `bun run build` pass in `proxy/`.
+  - Note: Recurring is recorded as incompatible for the current MVP path because Polet still needs every DCA run to pass confidential PDA policy gating immediately before spending; Swap V2 `/build` remains the execution fallback.
 
 ### Planning
 
