@@ -98,9 +98,9 @@ Track alignment:
 - [x] `006-agent-sdk-strategy-intents` — Extended the SDK with `createDcaIntent`, `createRiskGatedSwapIntent`, proxy `submitIntent` and `evaluateIntentWithProxy` helpers, Jupiter USDC/SOL constants, typed proxy errors, and OpenClaw/Hermes-style agent examples. Existing transfer, swap, stake, unstake, delegate, undelegate, and custom builders remain available.
   - Verification: `bun test` and `bun run build` pass in `sdk/`.
   - Note: DCA submission targets the issue 005 proxy route `POST /intent/dca/run`; risk-gated swaps intentionally retain action `swap` for backward compatibility with the existing proxy evaluator.
-- [x] `007-consumer-demo-frontend` — Replaced the legacy transfer simulator with a user-facing confidential DCA demo. The frontend now presents Polet as a confidential USDC -> SOL DCA smart wallet, shows demo custody/deposit guidance, supports confidential policy setup with saved-value redaction, configures the normal 5 USDC DCA strategy, triggers 25 USDC blocked and 5 USDC allowed runs, keeps activity logs free of private thresholds, and supports Indonesian/English copy.
-  - Verification: `bun test` and `bun run build` pass in `frontend/`.
-  - Note: this is a consumer demo surface for the pre-alpha confidential policy flow. It does not claim production-grade privacy.
+- [x] `007-consumer-demo-frontend` — Replaced the legacy transfer simulator with a user-facing confidential DCA demo wired to real proxy/contract paths. The frontend now presents Polet as a confidential USDC -> SOL DCA smart wallet, builds owner-signed confidential policy and PDA custody setup transactions through the proxy, calls `/intent/dca/run` for 25 USDC blocked and 5 USDC allowed runs, keeps activity logs free of private thresholds, and supports Indonesian/English copy.
+  - Verification: `bun test` and `bun run build` pass in `frontend/`; `bun test` and `bun run build` pass in `proxy/`.
+  - Note: the allowed DCA path returns an unsigned smart-wallet transaction for the granted agent session key to sign. This is a pre-alpha confidential policy flow and does not claim production-grade privacy.
 
 ### Planning
 

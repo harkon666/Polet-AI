@@ -121,5 +121,89 @@ export async function getWalletData(owner: string) {
   return data.data;
 }
 
-export { PROXY_URL };
+export interface SetConfidentialPolicyInput {
+  owner: string;
+  maxPerRunUsdc: string;
+  dailyCapUsdc: string;
+  encryptionWitness: number[];
+}
 
+export interface SetupDemoCustodyInput {
+  owner: string;
+  usdcMint?: string;
+  usdcTokenAccount?: string;
+  solMint?: string;
+  solTokenAccount?: string;
+  tokenProgram?: string;
+}
+
+export interface WalletTransactionResult {
+  transaction: string;
+  wallet: string;
+  usdcTokenAccount?: string;
+  solTokenAccount?: string;
+  policyCommitment?: number[];
+  encryptionWitnessHash?: number[];
+}
+
+export async function setConfidentialPolicy(input: SetConfidentialPolicyInput): Promise<WalletTransactionResult> {
+  const data = await fetchJson<{ success: boolean; data: WalletTransactionResult }>(
+    `${PROXY_URL}/wallet/set-confidential-policy`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function setupDemoCustody(input: SetupDemoCustodyInput): Promise<WalletTransactionResult> {
+  const data = await fetchJson<{ success: boolean; data: WalletTransactionResult }>(
+    `${PROXY_URL}/wallet/setup-demo-custody`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export interface RunConfidentialDcaInput {
+  owner: string;
+  sessionKey: string;
+  amountUsdc: string;
+  encryptionWitness: number[];
+  slippageBps?: number;
+}
+
+export type RunConfidentialDcaResult = {
+  allowed: boolean;
+  code: string;
+  reason?: string;
+  amount?: string;
+  amountBaseUnits?: string;
+  executionPath?: 'recurring' | 'swap-build-fallback';
+  smartWalletAuthority?: string;
+  transaction?: {
+    transaction: string;
+    blockHash: string;
+    slot: number;
+    signers: string[];
+  };
+};
+
+export async function runConfidentialDca(input: RunConfidentialDcaInput): Promise<RunConfidentialDcaResult> {
+  const data = await fetchJson<{ success: boolean; data: RunConfidentialDcaResult }>(
+    `${PROXY_URL}/intent/dca/run`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export { PROXY_URL };

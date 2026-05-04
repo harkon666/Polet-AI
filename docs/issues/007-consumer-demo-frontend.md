@@ -30,8 +30,9 @@ The UI should support Indonesian and English copy for key flows.
 ## Completion notes
 
 - Replaced the legacy transfer simulator with the consumer confidential DCA demo flow.
-- Added policy setup with normal-view redaction after save, DCA strategy setup, 25 USDC blocked run, 5 USDC allowed run, safe activity log, deposit guidance, and ID/EN copy.
-- Verification: `bun test` and `bun run build` pass in `frontend/`.
+- Wired the demo to real proxy/contract paths instead of local allow/block simulation: owner-signed confidential policy setup, owner-signed PDA custody setup, and `/intent/dca/run` for 25 USDC blocked and 5 USDC allowed agent runs.
+- Added normal-view redaction after policy confirmation, safe activity log, deposit guidance, and ID/EN copy.
+- Verification: `bun test` and `bun run build` pass in `frontend/`; `bun test` and `bun run build` pass in `proxy/`.
 
 ## Blocked by
 

@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { Transaction } from '@solana/web3.js';
 import {
   Activity,
+  AlertTriangle,
   Bot,
   Check,
   EyeOff,
@@ -12,9 +15,18 @@ import {
   X,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import {
+  runConfidentialDca,
+  setConfidentialPolicy,
+  setupDemoCustody,
+  type RunConfidentialDcaResult,
+  type SetConfidentialPolicyInput,
+  type SetupDemoCustodyInput,
+  type WalletTransactionResult,
+} from '../lib/api';
 
 type Locale = 'id' | 'en';
-type RunStatus = 'approved' | 'blocked';
+type RunStatus = 'approved' | 'blocked' | 'setup' | 'error';
 
 interface ConfidentialPolicyDraft {
   maxPerRunUsdc: string;
@@ -31,35 +43,52 @@ interface DcaStrategy {
 interface ActivityEntry {
   id: string;
   status: RunStatus;
-  amountUsdc: string;
+  amountUsdc?: string;
   timestamp: number;
   message: string;
   route: string;
 }
 
-const DEMO_WALLET = 'Polet smart wallet PDA';
-const DEMO_USDC_ACCOUNT = 'PDA-owned USDC token account';
-const DEMO_SOL_ACCOUNT = 'PDA-owned SOL token account';
+interface DemoApi {
+  setConfidentialPolicy: (input: SetConfidentialPolicyInput) => Promise<WalletTransactionResult>;
+  setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
+  runConfidentialDca: typeof runConfidentialDca;
+}
+
+interface DemoTabContentProps {
+  owner: string | null;
+  sessionKeys?: string[];
+  signAndConfirmTransaction: (transactionBase64: string) => Promise<string>;
+  api?: DemoApi;
+}
+
+const DEFAULT_API: DemoApi = {
+  setConfidentialPolicy,
+  setupDemoCustody,
+  runConfidentialDca,
+};
 
 const COPY = {
   id: {
     language: 'Bahasa',
     title: 'Demo DCA Rahasia',
     subtitle:
-      'Smart wallet Polet menyimpan dana, menyimpan aturan numerik sebagai policy rahasia pre-alpha, lalu membatasi aksi agen sebelum swap Jupiter dibangun.',
+      'Flow ini memakai proxy dan contract Polet sungguhan: owner menandatangani setup, proxy membaca state on-chain, lalu agent run dibangun lewat policy gate dan Jupiter.',
     walletTitle: 'Smart wallet',
-    walletBody: 'Inisialisasi Polet wallet, lalu deposit USDC untuk demo DCA USDC ke SOL.',
-    initialized: 'Siap',
+    walletBody: 'Siapkan custody PDA untuk demo DCA USDC ke SOL. Tidak ada hasil palsu jika proxy atau contract belum siap.',
+    initialized: 'Owner wallet aktif',
+    setupCustody: 'Setup custody PDA',
+    custodyReady: 'Custody siap',
     deposit: 'Instruksi deposit',
     usdcAccount: 'Akun USDC',
     solAccount: 'Akun SOL',
     policyTitle: 'Policy rahasia',
-    policyBody: 'Nilai bisa diatur saat setup, tetapi setelah disimpan UI normal hanya menampilkan status terenkripsi.',
+    policyBody: 'Nilai dikirim ke proxy untuk dienkripsi/masked ke transaksi contract, lalu UI normal menyembunyikan nilai setelah transaksi dikonfirmasi.',
     maxPerRun: 'Maks per run',
     dailyCap: 'Batas harian',
-    savePolicy: 'Simpan policy rahasia',
+    savePolicy: 'Sign & simpan policy',
     editPolicy: 'Ubah policy',
-    policySaved: 'Policy tersimpan',
+    policySaved: 'Policy on-chain tersimpan',
     redacted: 'Nilai privat disembunyikan',
     encryptedMax: 'Maks per run terenkripsi',
     encryptedDaily: 'Batas harian terenkripsi',
@@ -67,36 +96,44 @@ const COPY = {
     fromTo: 'Pair',
     amount: 'Jumlah normal',
     cadence: 'Jadwal',
+    sessionKey: 'Session key agen',
+    sessionPlaceholder: 'Masukkan public key session yang sudah di-grant',
     runNow: 'Run Agent Now',
-    runAllowed: 'Jalankan 5 USDC',
-    runBlocked: 'Coba 25 USDC',
+    runAllowed: 'Run 5 USDC via proxy',
+    runBlocked: 'Try 25 USDC via proxy',
     activityTitle: 'Activity log',
     emptyLog: 'Belum ada aktivitas agen.',
     approved: 'DISETUJUI',
     blocked: 'DIBLOKIR',
-    approvedMessage: 'Policy rahasia menyetujui run ini. Transaksi smart wallet siap dibangun melalui Jupiter Swap V2 fallback.',
-    blockedMessage: 'Policy rahasia menolak run ini tanpa membuka batas privat pengguna.',
-    privacyNote: 'Log aman: tidak menampilkan threshold, sisa cap, atau nilai witness.',
+    setup: 'SETUP',
+    error: 'ERROR',
+    approvedMessage: 'Proxy mengembalikan allowed dan unsigned smart-wallet transaction untuk ditandatangani session key agen.',
+    blockedMessage: 'Proxy/contract policy path menolak run tanpa membuka batas privat pengguna.',
+    privacyNote: 'Log aman: threshold, sisa cap, dan witness tidak ditampilkan.',
     preAlpha: 'Encrypt pre-alpha demo: ini membuktikan alur enforcement, bukan klaim privasi produksi.',
+    missingOwner: 'Connect dan initialize wallet dulu sebelum menjalankan demo real.',
+    missingSession: 'Session key agen wajib diisi dan sudah harus di-grant di contract.',
   },
   en: {
     language: 'English',
     title: 'Confidential DCA Demo',
     subtitle:
-      'The Polet smart wallet custodies funds, stores numeric guardrails as a pre-alpha confidential policy, and gates agent actions before a Jupiter swap is built.',
+      'This flow uses the real Polet proxy and contract: the owner signs setup, the proxy reads on-chain state, then the agent run is built through the policy gate and Jupiter.',
     walletTitle: 'Smart wallet',
-    walletBody: 'Initialize a Polet wallet, then deposit USDC for the USDC to SOL DCA demo.',
-    initialized: 'Ready',
+    walletBody: 'Set up PDA custody for the USDC to SOL DCA demo. The UI does not fake outcomes when the proxy or contract is not ready.',
+    initialized: 'Owner wallet active',
+    setupCustody: 'Set up PDA custody',
+    custodyReady: 'Custody ready',
     deposit: 'Deposit instructions',
     usdcAccount: 'USDC account',
     solAccount: 'SOL account',
     policyTitle: 'Confidential policy',
-    policyBody: 'Values are entered during setup, but the normal saved view only shows encrypted status.',
+    policyBody: 'Values are sent to the proxy to be encrypted/masked into a contract transaction, then hidden in the normal UI after confirmation.',
     maxPerRun: 'Max per run',
     dailyCap: 'Daily cap',
-    savePolicy: 'Save confidential policy',
+    savePolicy: 'Sign & save policy',
     editPolicy: 'Edit policy',
-    policySaved: 'Policy saved',
+    policySaved: 'On-chain policy saved',
     redacted: 'Private values hidden',
     encryptedMax: 'Encrypted max per run',
     encryptedDaily: 'Encrypted daily cap',
@@ -104,28 +141,61 @@ const COPY = {
     fromTo: 'Pair',
     amount: 'Normal amount',
     cadence: 'Cadence',
+    sessionKey: 'Agent session key',
+    sessionPlaceholder: 'Enter a session public key already granted on-chain',
     runNow: 'Run Agent Now',
-    runAllowed: 'Run 5 USDC',
-    runBlocked: 'Try 25 USDC',
+    runAllowed: 'Run 5 USDC through proxy',
+    runBlocked: 'Try 25 USDC through proxy',
     activityTitle: 'Activity log',
     emptyLog: 'No agent activity yet.',
     approved: 'APPROVED',
     blocked: 'BLOCKED',
-    approvedMessage: 'Confidential policy approved this run. The smart wallet transaction can be built through the Jupiter Swap V2 fallback.',
-    blockedMessage: 'Confidential policy rejected this run without revealing the user private limits.',
+    setup: 'SETUP',
+    error: 'ERROR',
+    approvedMessage: 'The proxy returned allowed plus an unsigned smart-wallet transaction for the agent session key to sign.',
+    blockedMessage: 'The proxy/contract policy path rejected the run without revealing the user private limits.',
     privacyNote: 'Safe log: thresholds, remaining cap, and witness values are not displayed.',
     preAlpha: 'Encrypt pre-alpha demo: this proves the enforcement flow, not production privacy.',
+    missingOwner: 'Connect and initialize a wallet before running the real demo.',
+    missingSession: 'The agent session key is required and must already be granted on-chain.',
   },
 } as const;
 
 export function DemoTab() {
-  const [locale, setLocale] = useState<Locale>('id');
+  const { publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
+
+  const signAndConfirmTransaction = async (transactionBase64: string) => {
+    const transaction = Transaction.from(Uint8Array.from(atob(transactionBase64), (char) => char.charCodeAt(0)));
+    const signature = await sendTransaction(transaction, connection);
+    const latestBlockhash = await connection.getLatestBlockhash();
+    await connection.confirmTransaction({ signature, ...latestBlockhash }, 'confirmed');
+    return signature;
+  };
+
+  return (
+    <DemoTabContent
+      owner={publicKey?.toBase58() ?? null}
+      signAndConfirmTransaction={signAndConfirmTransaction}
+    />
+  );
+}
+
+export function DemoTabContent({
+  owner,
+  sessionKeys = [],
+  signAndConfirmTransaction,
+  api = DEFAULT_API,
+}: DemoTabContentProps) {
+  const [locale, setLocale] = useState<Locale>('en');
   const [policyDraft, setPolicyDraft] = useState<ConfidentialPolicyDraft>({
     maxPerRunUsdc: '10',
     dailyCapUsdc: '20',
   });
   const [policySaved, setPolicySaved] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState(true);
+  const [custody, setCustody] = useState<{ usdcTokenAccount: string; solTokenAccount: string } | null>(null);
+  const [sessionKey, setSessionKey] = useState(sessionKeys[0] ?? '');
   const [strategy, setStrategy] = useState<DcaStrategy>({
     inputMint: 'USDC',
     outputMint: 'SOL',
@@ -133,38 +203,122 @@ export function DemoTab() {
     cadence: 'Manual demo run',
   });
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const t = COPY[locale];
-  const canRun = policySaved;
+  const witness = useMemo(() => Array.from({ length: 32 }, (_, index) => index + 1), []);
+  const canRun = Boolean(owner && policySaved && sessionKey.trim() && !busy);
 
   const savedPolicyDigest = useMemo(() => {
     if (!policySaved) return 'Not configured';
-    return 'commitment: 9f42...c1a8';
+    return 'commitment: on-chain';
   }, [policySaved]);
 
-  const savePolicy = () => {
-    setPolicySaved(true);
-    setEditingPolicy(false);
+  const addActivity = (entry: Omit<ActivityEntry, 'id' | 'timestamp'>) => {
+    setActivity((prev) => [
+      { ...entry, id: `${entry.status}-${Date.now()}`, timestamp: Date.now() },
+      ...prev.slice(0, 7),
+    ]);
   };
 
-  const runAgent = (amountUsdc: string) => {
-    if (!canRun) return;
+  const recordError = (message: string) => {
+    setError(message);
+    addActivity({
+      status: 'error',
+      message,
+      route: 'Proxy / contract setup',
+    });
+  };
 
-    const numericAmount = Number(amountUsdc);
-    const maxPerRun = Number(policyDraft.maxPerRunUsdc);
-    const dailyCap = Number(policyDraft.dailyCapUsdc);
-    const status: RunStatus = numericAmount <= maxPerRun && numericAmount <= dailyCap ? 'approved' : 'blocked';
+  const setupCustodyAccounts = async () => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+    setBusy('custody');
+    setError(null);
+    try {
+      const result = await api.setupDemoCustody({ owner });
+      const signature = await signAndConfirmTransaction(result.transaction);
+      setCustody({
+        usdcTokenAccount: result.usdcTokenAccount ?? 'registered',
+        solTokenAccount: result.solTokenAccount ?? 'registered',
+      });
+      addActivity({
+        status: 'setup',
+        message: `${t.custodyReady}: ${signature.slice(0, 8)}...`,
+        route: 'Contract register_demo_custody',
+      });
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to set up demo custody');
+    } finally {
+      setBusy(null);
+    }
+  };
 
-    const entry: ActivityEntry = {
-      id: `${status}-${Date.now()}`,
-      status,
-      amountUsdc,
-      timestamp: Date.now(),
-      message: status === 'approved' ? t.approvedMessage : t.blockedMessage,
-      route: status === 'approved' ? 'Jupiter Tokens + Price + Swap V2 /build' : 'Confidential policy gate',
-    };
+  const savePolicy = async () => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+    setBusy('policy');
+    setError(null);
+    try {
+      const result = await api.setConfidentialPolicy({
+        owner,
+        maxPerRunUsdc: policyDraft.maxPerRunUsdc,
+        dailyCapUsdc: policyDraft.dailyCapUsdc,
+        encryptionWitness: witness,
+      });
+      const signature = await signAndConfirmTransaction(result.transaction);
+      setPolicySaved(true);
+      setEditingPolicy(false);
+      addActivity({
+        status: 'setup',
+        message: `${t.policySaved}: ${signature.slice(0, 8)}...`,
+        route: 'Contract set_confidential_numeric_policy',
+      });
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to save confidential policy');
+    } finally {
+      setBusy(null);
+    }
+  };
 
-    setActivity((prev) => [entry, ...prev.slice(0, 7)]);
+  const runAgent = async (amountUsdc: string) => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+    if (!sessionKey.trim()) {
+      recordError(t.missingSession);
+      return;
+    }
+
+    setBusy(`run-${amountUsdc}`);
+    setError(null);
+    try {
+      const result: RunConfidentialDcaResult = await api.runConfidentialDca({
+        owner,
+        sessionKey: sessionKey.trim(),
+        amountUsdc,
+        encryptionWitness: witness,
+        slippageBps: 100,
+      });
+      addActivity({
+        status: result.allowed ? 'approved' : 'blocked',
+        amountUsdc,
+        message: result.allowed ? t.approvedMessage : result.reason ?? t.blockedMessage,
+        route: result.allowed
+          ? `${result.executionPath ?? 'Jupiter Swap V2'} / unsigned tx`
+          : result.code,
+      });
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to run confidential DCA');
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
@@ -195,18 +349,32 @@ export function DemoTab() {
         </div>
       </section>
 
+      {error && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+          <p className="text-sm font-medium">{error}</p>
+        </div>
+      )}
+
       <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
         <Panel icon={<Wallet className="h-5 w-5" />} title={t.walletTitle}>
           <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.walletBody}</p>
           <div className="grid gap-3 sm:grid-cols-3">
-            <InfoTile label={DEMO_WALLET} value={t.initialized} tone="green" />
-            <InfoTile label={t.usdcAccount} value={DEMO_USDC_ACCOUNT} />
-            <InfoTile label={t.solAccount} value={DEMO_SOL_ACCOUNT} />
+            <InfoTile label="Owner" value={owner ? short(owner) : t.missingOwner} tone={owner ? 'green' : undefined} />
+            <InfoTile label={t.usdcAccount} value={custody?.usdcTokenAccount ? short(custody.usdcTokenAccount) : 'Not registered'} />
+            <InfoTile label={t.solAccount} value={custody?.solTokenAccount ? short(custody.solTokenAccount) : 'Not registered'} />
           </div>
+          <button
+            onClick={setupCustodyAccounts}
+            disabled={!owner || Boolean(busy)}
+            className="mt-4 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {busy === 'custody' ? 'Signing...' : t.setupCustody}
+          </button>
           <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
             <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.deposit}</p>
             <p className="mt-1 text-sm text-[var(--sea-ink)]">
-              Deposit demo USDC into the PDA-owned token account; SOL output stays under the same smart wallet authority.
+              Deposit demo USDC into the PDA-owned USDC account after custody setup confirms.
             </p>
           </div>
         </Panel>
@@ -240,9 +408,10 @@ export function DemoTab() {
               </label>
               <button
                 onClick={savePolicy}
-                className="self-end rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white"
+                disabled={!owner || Boolean(busy)}
+                className="self-end rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
-                {t.savePolicy}
+                {busy === 'policy' ? 'Signing...' : t.savePolicy}
               </button>
             </div>
           ) : (
@@ -284,6 +453,15 @@ export function DemoTab() {
                 className="w-full rounded-lg px-3 py-2 text-sm"
               />
             </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.sessionKey}</span>
+              <input
+                value={sessionKey}
+                onChange={(event) => setSessionKey(event.target.value)}
+                placeholder={t.sessionPlaceholder}
+                className="w-full rounded-lg px-3 py-2 text-sm font-mono"
+              />
+            </label>
             <InfoRow label={t.cadence} value={strategy.cadence} />
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -293,7 +471,7 @@ export function DemoTab() {
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 disabled:opacity-50"
             >
               <X className="h-4 w-4" />
-              {t.runBlocked}
+              {busy === 'run-25' ? 'Running...' : t.runBlocked}
             </button>
             <button
               onClick={() => runAgent(strategy.amountUsdc || '5')}
@@ -301,7 +479,7 @@ export function DemoTab() {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
             >
               <Play className="h-4 w-4" />
-              {t.runAllowed}
+              {busy === `run-${strategy.amountUsdc || '5'}` ? 'Running...' : t.runAllowed}
             </button>
           </div>
           <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{t.runNow}: 25 USDC block scenario, 5 USDC allow scenario.</p>
@@ -349,7 +527,7 @@ function InfoTile({ label, value, tone }: { label: string; value: string; tone?:
   return (
     <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
       <p className="text-xs font-semibold text-[var(--sea-ink-soft)]">{label}</p>
-      <p className={`mt-1 text-sm font-bold ${tone === 'green' ? 'text-green-700' : 'text-[var(--sea-ink)]'}`}>{value}</p>
+      <p className={`mt-1 break-all text-sm font-bold ${tone === 'green' ? 'text-green-700' : 'text-[var(--sea-ink)]'}`}>{value}</p>
     </div>
   );
 }
@@ -370,29 +548,36 @@ function PrivatePolicyTile({ label }: { label: string }) {
         <EyeOff className="h-4 w-4 text-[var(--lagoon-deep)]" />
         {label}
       </p>
-      <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">••••••••</p>
+      <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">********</p>
     </div>
   );
 }
 
 function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof COPY)[Locale] }) {
   const approved = entry.status === 'approved';
+  const blocked = entry.status === 'blocked';
+  const setup = entry.status === 'setup';
+  const label = approved ? labels.approved : blocked ? labels.blocked : setup ? labels.setup : labels.error;
+  const tone = approved || setup ? 'green' : blocked ? 'red' : 'amber';
+
   return (
-    <article className={`rounded-lg border p-4 ${approved ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+    <article className={`rounded-lg border p-4 ${tone === 'green' ? 'border-green-200 bg-green-50' : tone === 'red' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${approved ? 'bg-green-600' : 'bg-red-600'} text-white`}>
-            {approved ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
+          <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${tone === 'green' ? 'bg-green-600' : tone === 'red' ? 'bg-red-600' : 'bg-amber-600'} text-white`}>
+            {approved || setup ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
           </span>
           <div>
-            <p className="text-sm font-black text-[var(--sea-ink)]">{approved ? labels.approved : labels.blocked}</p>
+            <p className="text-sm font-black text-[var(--sea-ink)]">{label}</p>
             <p className="text-xs text-[var(--sea-ink-soft)]">{new Date(entry.timestamp).toLocaleTimeString()}</p>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-black text-[var(--sea-ink)]">{entry.amountUsdc} USDC</p>
-          <p className="text-xs text-[var(--sea-ink-soft)]">USDC {'->'} SOL</p>
-        </div>
+        {entry.amountUsdc && (
+          <div className="text-right">
+            <p className="text-sm font-black text-[var(--sea-ink)]">{entry.amountUsdc} USDC</p>
+            <p className="text-xs text-[var(--sea-ink-soft)]">USDC {'->'} SOL</p>
+          </div>
+        )}
       </div>
       <p className="text-sm leading-6 text-[var(--sea-ink)]">{entry.message}</p>
       <p className="mt-2 inline-flex items-center gap-2 rounded-md bg-[var(--surface-strong)] px-2 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]">
@@ -401,4 +586,8 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
       </p>
     </article>
   );
+}
+
+function short(value: string) {
+  return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }

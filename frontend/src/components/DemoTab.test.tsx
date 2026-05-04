@@ -1,7 +1,8 @@
-import { fireEvent, render, within } from '@testing-library/react';
+import { fireEvent, render, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
 import { JSDOM } from 'jsdom';
-import { DemoTab } from './DemoTab';
+import { DemoTabContent } from './DemoTab';
+import type { RunConfidentialDcaInput } from '../lib/api';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost/',
@@ -17,41 +18,96 @@ afterEach(() => {
   document.body.innerHTML = '';
 });
 
+const api = {
+  setConfidentialPolicy: async () => ({
+    transaction: 'policy-tx',
+    wallet: 'wallet-pda',
+    policyCommitment: Array.from({ length: 32 }, () => 1),
+    encryptionWitnessHash: Array.from({ length: 32 }, () => 2),
+  }),
+  setupDemoCustody: async () => ({
+    transaction: 'custody-tx',
+    wallet: 'wallet-pda',
+    usdcTokenAccount: 'USDC111111111111111111111111111111111111111',
+    solTokenAccount: 'SOL1111111111111111111111111111111111111111',
+  }),
+  runConfidentialDca: async (input: RunConfidentialDcaInput) => {
+    if (input.amountUsdc === '25') {
+      return {
+        allowed: false,
+        code: 'CONFIDENTIAL_POLICY_BLOCKED',
+        reason: 'Confidential policy blocked this DCA run.',
+      };
+    }
+
+    return {
+      allowed: true,
+      code: 'DCA_ALLOWED',
+      amount: input.amountUsdc,
+      amountBaseUnits: '5000000',
+      executionPath: 'swap-build-fallback' as const,
+      smartWalletAuthority: 'wallet-pda',
+      transaction: {
+        transaction: 'agent-tx',
+        blockHash: 'blockhash',
+        slot: 1,
+        signers: [input.sessionKey],
+      },
+    };
+  },
+};
+
+function renderDemo() {
+  return render(
+    <DemoTabContent
+      owner="AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2"
+      sessionKeys={['BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4']}
+      signAndConfirmTransaction={async () => 'sig111111'}
+      api={api}
+    />
+  );
+}
+
 describe('Consumer DCA demo frontend', () => {
-  test('hides confidential policy values after save', () => {
-    const view = render(<DemoTab />);
+  test('hides confidential policy values after confirmed save', async () => {
+    const view = renderDemo();
 
     expect(view.getByDisplayValue('10')).toBeTruthy();
     expect(view.getByDisplayValue('20')).toBeTruthy();
 
-    fireEvent.click(view.getByRole('button', { name: /simpan policy rahasia/i }));
+    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
 
+    await waitFor(() => expect(view.getByText(/nilai privat disembunyikan/i)).toBeTruthy());
     expect(view.queryByDisplayValue('10')).toBeNull();
     expect(view.queryByDisplayValue('20')).toBeNull();
-    expect(view.getByText(/nilai privat disembunyikan/i)).toBeTruthy();
     expect(view.getByText(/maks per run terenkripsi/i)).toBeTruthy();
     expect(view.getByText(/batas harian terenkripsi/i)).toBeTruthy();
   });
 
-  test('displays allowed 5 USDC and blocked 25 USDC runs', () => {
-    const view = render(<DemoTab />);
+  test('displays allowed 5 USDC and blocked 25 USDC proxy results', async () => {
+    const view = renderDemo();
 
-    fireEvent.click(view.getByRole('button', { name: /simpan policy rahasia/i }));
-    fireEvent.click(view.getByRole('button', { name: /coba 25 usdc/i }));
-    fireEvent.click(view.getByRole('button', { name: /jalankan 5 usdc/i }));
+    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+    await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
 
-    expect(view.getByText('DIBLOKIR')).toBeTruthy();
-    expect(view.getByText('DISETUJUI')).toBeTruthy();
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText('DIBLOKIR')).toBeTruthy());
+
+    fireEvent.click(view.getByRole('button', { name: /run 5 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText('DISETUJUI')).toBeTruthy());
+
     expect(view.getByText('25 USDC')).toBeTruthy();
     expect(view.getByText('5 USDC')).toBeTruthy();
   });
 
-  test('activity log does not leak private thresholds', () => {
-    const view = render(<DemoTab />);
+  test('activity log does not leak private thresholds', async () => {
+    const view = renderDemo();
 
-    fireEvent.click(view.getByRole('button', { name: /simpan policy rahasia/i }));
-    fireEvent.click(view.getByRole('button', { name: /coba 25 usdc/i }));
+    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+    await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
 
+    await waitFor(() => expect(view.getByText('DIBLOKIR')).toBeTruthy());
     const log = view.getByText(/activity log/i).closest('div');
     expect(log).toBeTruthy();
     const logText = log?.textContent ?? '';
@@ -63,20 +119,23 @@ describe('Consumer DCA demo frontend', () => {
     expect(logText).not.toContain('daily cap 20');
   });
 
-  test('language toggle updates key user-facing flow copy', () => {
-    const view = render(<DemoTab />);
+  test('language toggle updates key user-facing flow copy', async () => {
+    const view = renderDemo();
 
     fireEvent.click(view.getByRole('button', { name: /english/i }));
 
     expect(view.getByText(/confidential dca demo/i)).toBeTruthy();
-    expect(view.getByRole('button', { name: /save confidential policy/i })).toBeTruthy();
+    expect(view.getByRole('button', { name: /sign & save policy/i })).toBeTruthy();
     expect(view.getByText(/safe log/i)).toBeTruthy();
 
-    fireEvent.click(view.getByRole('button', { name: /save confidential policy/i }));
-    fireEvent.click(view.getByRole('button', { name: /try 25 usdc/i }));
+    fireEvent.click(view.getByRole('button', { name: /sign & save policy/i }));
+    await waitFor(() => expect(view.getAllByText(/on-chain policy saved/i)[0]).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc through proxy/i }));
 
-    const activityLog = view.getByText(/activity log/i).parentElement;
-    expect(activityLog).toBeTruthy();
-    expect(within(activityLog as HTMLElement).getByText('BLOCKED')).toBeTruthy();
+    await waitFor(() => {
+      const activityLog = view.getByText(/activity log/i).parentElement;
+      expect(activityLog).toBeTruthy();
+      expect(within(activityLog as HTMLElement).getByText('BLOCKED')).toBeTruthy();
+    });
   });
 });

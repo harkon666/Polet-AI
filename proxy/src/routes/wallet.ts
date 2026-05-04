@@ -38,6 +38,12 @@ function serializePolicy(policy: { allowlist: string[], blocklist: string[] }): 
 export const walletRouter = new Hono();
 
 const PROGRAM_ID = new PublicKey("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
+const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const SYSTEM_PROGRAM_ID = anchor.web3.SystemProgram.programId;
+const JUPITER_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+const JUPITER_SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
+const USDC_DECIMALS = 6;
 
 function getProgram(): anchor.Program {
   const connection = getConnection();
@@ -48,6 +54,73 @@ function getProgram(): anchor.Program {
   };
   const provider = new anchor.AnchorProvider(connection, dummyWallet as unknown as anchor.Wallet, { commitment: 'confirmed' });
   return new anchor.Program(idl as anchor.Idl, provider);
+}
+
+function deriveWalletPda(ownerPubkey: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
+    PROGRAM_ID
+  )[0];
+}
+
+function deriveAta(owner: PublicKey, mint: PublicKey, tokenProgram = TOKEN_PROGRAM_ID): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [owner.toBuffer(), tokenProgram.toBuffer(), mint.toBuffer()],
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  )[0];
+}
+
+function createAtaInstruction(payer: PublicKey, ata: PublicKey, owner: PublicKey, mint: PublicKey, tokenProgram = TOKEN_PROGRAM_ID) {
+  return new anchor.web3.TransactionInstruction({
+    programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+    keys: [
+      { pubkey: payer, isSigner: true, isWritable: true },
+      { pubkey: ata, isSigner: false, isWritable: true },
+      { pubkey: owner, isSigner: false, isWritable: false },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+      { pubkey: tokenProgram, isSigner: false, isWritable: false },
+    ],
+    data: Buffer.alloc(0),
+  });
+}
+
+function parseUsdcBaseUnits(value: unknown): bigint {
+  const raw = String(value ?? '');
+  if (!/^\d+(\.\d{1,6})?$/.test(raw)) {
+    throw new Error('USDC amount must be positive with at most 6 decimals');
+  }
+  const [whole, fraction = ''] = raw.split('.');
+  const baseUnits = BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(USDC_DECIMALS, '0'));
+  if (baseUnits <= 0n) throw new Error('USDC amount must be positive');
+  return baseUnits;
+}
+
+function witnessMask(witness: Uint8Array): bigint {
+  let value = 0n;
+  for (let index = 7; index >= 0; index -= 1) {
+    value = (value << 8n) + BigInt(witness[index]);
+  }
+  return value;
+}
+
+function encryptAmount(amount: bigint, witness: Uint8Array): bigint {
+  return amount ^ witnessMask(witness);
+}
+
+function todayIndex(): bigint {
+  return BigInt(Math.floor(Math.floor(Date.now() / 1000) / 86_400));
+}
+
+async function serializeUnsigned(ownerPubkey: PublicKey, tx: Transaction) {
+  const connection = getConnection();
+  const { blockhash } = await connection.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = ownerPubkey;
+  return tx.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  }).toString('base64');
 }
 
 /**
@@ -62,10 +135,7 @@ walletRouter.post('/initialize', async (c) => {
     }
 
     const ownerPubkey = new PublicKey(owner);
-    const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
-      PROGRAM_ID
-    );
+    const walletPda = deriveWalletPda(ownerPubkey);
 
     // Generate and save proxy key
     const proxyKeypair = generateAndSaveKey(owner, 'proxy');
@@ -127,10 +197,7 @@ walletRouter.post('/set-policy', async (c) => {
     }
 
     const ownerPubkey = new PublicKey(owner);
-    const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
-      PROGRAM_ID
-    );
+    const walletPda = deriveWalletPda(ownerPubkey);
 
     const program = getProgram();
     // Use Borsh serialization (matching Rust contract's Policy struct)
@@ -214,17 +281,13 @@ walletRouter.post('/grant-key', async (c) => {
 
     const ownerPubkey = new PublicKey(owner);
     const sessionPubkey = new PublicKey(sessionKey);
-    const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
-      PROGRAM_ID
-    );
+    const walletPda = deriveWalletPda(ownerPubkey);
 
     const program = getProgram();
     
     const ix = await program.methods.grantTemporalKey(
       sessionPubkey,
-      new anchor.BN(expiresAt),
-      new anchor.BN(dailyLimit)
+      new anchor.BN(expiresAt)
     )
       .accounts({
         wallet: walletPda,
@@ -253,6 +316,138 @@ walletRouter.post('/grant-key', async (c) => {
   } catch (error) {
     console.error('Grant key error:', error);
     return c.json({ success: false, error: 'Failed to build grant key transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/set-confidential-policy
+ * Builds an owner-signed transaction that stores masked numeric policy values on-chain.
+ */
+walletRouter.post('/set-confidential-policy', async (c) => {
+  try {
+    const { owner, maxPerRunUsdc, dailyCapUsdc, encryptionWitness } = await c.req.json();
+    if (!owner || maxPerRunUsdc === undefined || dailyCapUsdc === undefined) {
+      return c.json({ success: false, error: 'owner, maxPerRunUsdc, and dailyCapUsdc are required' }, 400);
+    }
+    if (!Array.isArray(encryptionWitness) || encryptionWitness.length !== 32) {
+      return c.json({ success: false, error: 'encryptionWitness must contain 32 bytes' }, 400);
+    }
+
+    const ownerPubkey = new PublicKey(owner);
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const witness = Uint8Array.from(encryptionWitness);
+    const witnessHash = Array.from(crypto.createHash('sha256').update(witness).digest());
+    const encryptedMaxPerRun = encryptAmount(parseUsdcBaseUnits(maxPerRunUsdc), witness);
+    const encryptedDailyCap = encryptAmount(parseUsdcBaseUnits(dailyCapUsdc), witness);
+    const encryptedDailySpent = encryptAmount(0n, witness);
+    const spentDayIndex = todayIndex();
+    const commitmentBytes = Buffer.concat([
+      Buffer.from('polet-confidential-dca-policy-v1'),
+      Buffer.from(witnessHash),
+      Buffer.from(encryptedMaxPerRun.toString()),
+      Buffer.from(encryptedDailyCap.toString()),
+      Buffer.from(spentDayIndex.toString()),
+    ]);
+    const policyCommitment = Array.from(crypto.createHash('sha256').update(commitmentBytes).digest());
+
+    const program = getProgram();
+    const ix = await program.methods.setConfidentialNumericPolicy(
+      policyCommitment,
+      witnessHash,
+      new anchor.BN(encryptedMaxPerRun.toString()),
+      new anchor.BN(encryptedDailyCap.toString()),
+      new anchor.BN(encryptedDailySpent.toString()),
+      new anchor.BN(spentDayIndex.toString())
+    )
+      .accounts({
+        wallet: walletPda,
+        owner: ownerPubkey,
+      })
+      .instruction();
+
+    const tx = new Transaction().add(ix);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(ownerPubkey, tx),
+        wallet: walletPda.toString(),
+        policyCommitment,
+        encryptionWitnessHash: witnessHash,
+      },
+    });
+  } catch (error) {
+    console.error('Set confidential policy error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build confidential policy transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/setup-demo-custody
+ * Creates PDA-owned ATAs for USDC and wrapped SOL when needed, then registers them on-chain.
+ */
+walletRouter.post('/setup-demo-custody', async (c) => {
+  try {
+    const body = await c.req.json();
+    const owner = body.owner;
+    if (!owner) {
+      return c.json({ success: false, error: 'Owner public key is required' }, 400);
+    }
+
+    const ownerPubkey = new PublicKey(owner);
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const usdcMint = body.usdcMint ? new PublicKey(body.usdcMint) : JUPITER_USDC_MINT;
+    const solMint = body.solMint ? new PublicKey(body.solMint) : JUPITER_SOL_MINT;
+    const tokenProgram = body.tokenProgram ? new PublicKey(body.tokenProgram) : TOKEN_PROGRAM_ID;
+    const usdcTokenAccount = body.usdcTokenAccount
+      ? new PublicKey(body.usdcTokenAccount)
+      : deriveAta(walletPda, usdcMint, tokenProgram);
+    const solTokenAccount = body.solTokenAccount
+      ? new PublicKey(body.solTokenAccount)
+      : deriveAta(walletPda, solMint, tokenProgram);
+
+    const connection = getConnection();
+    const instructions: anchor.web3.TransactionInstruction[] = [];
+    const [usdcAccount, solAccount] = await Promise.all([
+      connection.getAccountInfo(usdcTokenAccount),
+      connection.getAccountInfo(solTokenAccount),
+    ]);
+    if (!usdcAccount) {
+      instructions.push(createAtaInstruction(ownerPubkey, usdcTokenAccount, walletPda, usdcMint, tokenProgram));
+    }
+    if (!solAccount) {
+      instructions.push(createAtaInstruction(ownerPubkey, solTokenAccount, walletPda, solMint, tokenProgram));
+    }
+
+    const program = getProgram();
+    const registerIx = await program.methods.registerDemoCustody()
+      .accounts({
+        wallet: walletPda,
+        owner: ownerPubkey,
+        usdcMint,
+        usdcTokenAccount,
+        solMint,
+        solTokenAccount,
+        tokenProgram,
+      })
+      .instruction();
+    instructions.push(registerIx);
+
+    const tx = new Transaction().add(...instructions);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(ownerPubkey, tx),
+        wallet: walletPda.toString(),
+        usdcMint: usdcMint.toString(),
+        usdcTokenAccount: usdcTokenAccount.toString(),
+        solMint: solMint.toString(),
+        solTokenAccount: solTokenAccount.toString(),
+        tokenProgram: tokenProgram.toString(),
+      },
+    });
+  } catch (error) {
+    console.error('Setup demo custody error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build demo custody transaction' }, 500);
   }
 });
 /**
