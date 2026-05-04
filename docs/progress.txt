@@ -1,199 +1,131 @@
 # Polet AI — Progress
 
-## Week 1
-- [x] #1 — Wallet PDA + owner + policy hash storage
-- [x] #2 — Execute with allow/block policy enforcement
-- [x] #3 — On-chain rate limiting (daily spend tracking)
-- [x] #4 — Temporal key grant
-- [x] #5 — Session revoke (kill switch)
-- [x] #6 — Off-chain proxy: intent parsing + routing
+## Status Summary
 
-## Week 2
-- [x] #7 — Off-chain proxy: transaction construction
-- [x] #8 — SDK: intent JSON builder
-- [x] #9 — Policy UI: template-based configuration
-  - policy-templates.ts: 4 templates (whitelist-only, daily-limit, gambling-block, enterprise-control)
-  - template routes: GET /template/list, GET /template/:id, POST /template/apply
-  - 14 passing tests for template system
-  - createPolicyFromTemplate() with customization options (customAllowlist, dailyLimitAmount, etc.)
-- [x] #10 — Frontend: wallet + temporal key flow
-- [x] #11 — End-to-end BLOCKED demo (HITL)
-  - e2e-policy-block.test.ts: 15 passing tests covering all HITL scenarios
-  - e2e-setup.ts: mock utilities for wallet store, attestation, and policy helpers
-  - Scenario tests: daily limit, blocklist, allowlist, action type enforcement
-  - Full "wow moment" demo: $500 drain attempt blocked by $50 policy limit
-  - SDK flow tests: intent creation through policy evaluation
-  - 58 passing tests total in proxy
+Polet AI is being redirected from a public policy smart wallet into a single-contract confidential DCA smart wallet for AI agents.
 
-## Week 3 — Production Alignment (Phase 1)
+The old v1 work remains useful as prior art, but the final hackathon path may substantially refactor the contract, proxy, SDK, and frontend. The key privacy requirement is that plaintext numeric policy rules must not remain in the final confidential execution path.
+
+Primary source of truth:
+
+- PRD: `docs/prd.md`
+- Local issues: `docs/issues/*.md`
+- Agent prompt: `docs/PROMPT.md`
+
+## Product Direction
+
+**Polet AI Confidential DCA Smart Wallet**
+
+Users deposit funds into a Polet smart wallet PDA, configure confidential numeric policy rules, grant an AI agent a temporary session key, and let the agent run a Jupiter-powered USDC -> SOL DCA strategy.
+
+Core demo:
+
+- DCA run: 5 USDC -> SOL
+- Confidential max per run: 10 USDC
+- Confidential daily cap: 20 USDC
+- Block scenario: 25 USDC
+- Allow scenario: 5 USDC
+
+Track alignment:
+
+- Encrypt/Ika: confidential numeric policy enforcement is core.
+- Jupiter: Tokens + Price + Recurring compatibility + Swap V2 `/build` fallback.
+- National Campus Hackathon Indonesia: Consumer App / DeFi safety for Indonesian users.
 
 ## In Progress
 
+- None.
+
 ## Blocked
 
+- GitHub Issues mirror: local issue specs exist in `docs/issues/`, but they have not yet been published to GitHub Issues.
+- Deleted legacy docs remain deleted in the working tree: `docs/GRILL-SESSION.md`, `docs/PRD-PRODUCTION.md`, `docs/PRD.md`.
+
+## Next Issues
+
+### Critical Path
+
+- [ ] `001-confidential-smart-wallet-core` — Refactor the single contract into the core confidential smart wallet with PDA custody, owner authority, session lifecycle, policy commitment, and no plaintext numeric policy in the final execution path.
+- [ ] `002-confidential-numeric-policy-enforcement` — Add confidential max-per-run, daily-cap, and daily-spent enforcement.
+- [ ] `003-pda-token-custody-usdc-sol-dca` — Add PDA-owned token custody primitives for the USDC -> SOL DCA demo.
+- [ ] `004-jupiter-strategy-gateway` — Add Jupiter gateway for Tokens, Price, Recurring compatibility, and Swap V2 `/build` fallback.
+- [ ] `005-confidential-dca-execution-path` — Connect Run Agent Now -> Jupiter precheck -> confidential policy check -> smart wallet allow/block execution.
+
+### Submission Polish
+
+- [ ] `006-agent-sdk-strategy-intents` — Add DCA and risk-gated swap intent builders plus submit/evaluate helpers for agent-compatible SDK usage.
+- [ ] `007-consumer-demo-frontend` — Build the user-facing confidential DCA demo with deposit, policy setup, strategy setup, run-now flow, activity log, and ID/EN copy.
+- [ ] `008-hackathon-docs-and-dx-report` — Write README updates, Encrypt disclaimer, Jupiter DX report, and demo script.
+
+### Stretch
+
+- [ ] `009-real-agent-runtime-integration` — Integrate with OpenClaw/Hermes or another real agent runtime if the core MVP is already stable.
+
+## Dependency Graph
+
+```text
+001-confidential-smart-wallet-core
+├── 002-confidential-numeric-policy-enforcement
+│   └── 005-confidential-dca-execution-path
+├── 003-pda-token-custody-usdc-sol-dca
+│   └── 005-confidential-dca-execution-path
+└── 005-confidential-dca-execution-path
+
+004-jupiter-strategy-gateway
+└── 005-confidential-dca-execution-path
+
+005-confidential-dca-execution-path
+├── 006-agent-sdk-strategy-intents
+├── 007-consumer-demo-frontend
+└── 008-hackathon-docs-and-dx-report
+
+006-agent-sdk-strategy-intents
+└── 009-real-agent-runtime-integration
+```
+
 ## Done
-- (see Week 1 and Week 2 above for earlier work)
-- [x] #12 — Wallet state extensions (proxy_pk, merkle_root, policy_seq, last_revoked_slot)
-  - Added 4 new fields to Wallet: proxy_pk, merkle_root, policy_seq, last_revoked_slot
-  - Added 3 new instructions: SetProxyKey, SetMerkleRoot, RevokeAllSessions
-  - policy_seq auto-increments on set_policy, set_policy_data, and set_merkle_root
-  - All owner-only instructions use has_one = owner constraint
-  - Fixed accidental lib.rs regression (restored SetPolicyData, GrantTemporalKey, RevokeSession, ExecuteIntentAsSession)
-  - 11 new TDD tests (22 total passing), all green
-  - Fixed declare_id to match deploy keypair
-- [x] #13 — Merkle proof verification in execute_intent_as_session
-  - SHA-256 on-chain Merkle proof verifier (verify_merkle_proof)
-  - execute_intent_as_session now accepts merkle_proof, merkle_leaf, merkle_index params
-  - Verification required when merkle_root != 0, skipped otherwise (backward compat)
-  - Added solana-sha256-hasher dependency for on-chain hashing
-  - 6 new TDD tests: valid proof, invalid proof, wrong leaf, no root skip, different index, wrong index
-  - 28 total tests passing
-- [x] #14 — Slot-based revocation + policy seq verification
-  - Added attestation_slot and attestation_policy_seq to execute_intent_as_session
-  - ErrorCode::StaleSlot and ErrorCode::StalePolicySeq added
-  - Verification requires attestation_slot > last_revoked_slot
-  - Verification requires attestation_policy_seq == policy_seq
-  - 5 new TDD tests covering stale slots, stale seqs, policy updates, and equal slots
-  - 33 total tests passing
-- [x] #15 — TEE attestation verification
-  - Added attestation_signature param to execute_intent_as_session
-  - Added verify_tee_attestation helper function (mocked for MVP)
-  - Validation requires attestation_signature to not be all-zeros if proxy_pk is set
-  - Returns InvalidAttestation error code if verification fails
-  - Added 3 new TDD tests: valid signature, invalid signature, skipped when no proxy_pk
-  - 36 total tests passing
-- [x] #16 — Wallet store → real Solana RPC (remove mock)
-  - Installed `@coral-xyz/anchor` and copied contract IDL.
-  - Rewrote `wallet-store.ts` to asynchronously fetch `Wallet` data from Solana.
-  - Removed `isDemo` mock bypass logic in `intent.ts`.
-  - Updated API route handlers to properly `await` wallet policies and authorization checks.
 
-## Production Issues (GitHub)
+### Planning
 
-### Contract (implement in dependency order: #12 first)
-- [x] #12 — Wallet state extensions (proxy_pk, merkle_root, policy_seq, last_revoked_slot)
-- [x] #13 — Merkle proof verification in execute_intent_as_session
-- [x] #14 — Slot-based revocation + policy seq verification
-- [x] #15 — TEE attestation verification
+- [x] PRD created at `docs/prd.md`.
+- [x] Local issue specs created under `docs/issues/`.
+- [x] Ralph-style prompt updated at `docs/PROMPT.md`.
+- [x] Progress tracker redirected to the final confidential DCA wallet roadmap.
 
-### Proxy
-- [x] #16 — Wallet store → real Solana RPC (remove mock)
-- [x] #17 — Session key generation + AES encryption
-  - Created Key Management System (KMS) with AES-256-GCM encryption
-  - Added `generateAndSaveKey` and `loadKey` for proxy and session keys
-  - TDD tests passed for encryption/decryption routines
-- [x] #18 — Wallet management endpoints (initialize, set-policy, grant-key)
-  - Created `/wallet/initialize` to generate proxy keys and return Init + SetProxy transactions
-  - Created `/wallet/set-policy` to return SetPolicy unsigned transactions
-  - Created `/wallet/grant-key` to return GrantTemporalKey unsigned transactions
-- [x] #19 — Agent auth key registration flow
-  - Created `/agent/register` endpoint.
-  - Automatically provisions an AES-encrypted session key via KMS.
-  - Returns `sessionKey` public key alongside unsigned `GrantTemporalKey` transaction.
-- [x] #20 — Merkle tree builder + proof generator
-  - Created `proxy/src/lib/merkle-tree.ts` to compute policy leaves and tree structure.
-  - Implemented `buildPolicyTree`, `getProof`, and `verifyProof` matching the on-chain Rust implementation.
-  - TDD tests passed showing valid and invalid proofs.
-- [x] #21 — Replace policy-engine hash with SHA-256 + remove demo bypass
-  - Updated `policy-engine.ts` to use Node's `crypto` module for standard SHA-256 instead of mock hash.
-  - Modified `/wallet/set-policy` to compute the Merkle Tree and return `SetPolicy` + `SetMerkleRoot` instructions.
-- [x] #22 — Wire to Solana devnet RPC
-  - Updated `transaction-builder.ts` to use `https://api.devnet.solana.com` as default RPC URL.
+### Previous Foundation
 
-### Frontend
-- [x] #23 — Create Wallet flow + proxy initialization
-  - Integrated `@solana/wallet-adapter-react` and removed mock hook.
-  - Added `ClientWalletProvider` to wrap the frontend application.
-  - Built out the "Initialize Smart Wallet" UI flow in `WalletDashboard` to call proxy `/wallet/initialize`.
-- [x] #24 — DemoTab with real Solana addresses
-  - Replaced mock destination addresses (like `MaliciousTradingBot`) with valid `base58` Solana public keys.
-  - Replaced mock session key with a valid `base58` Solana key pair public key format.
+These completed items are prior foundation, not necessarily final architecture. Reuse concepts where useful, but refactor freely when they conflict with the final confidential product.
 
-### Integration
-- [x] #25 — End-to-end on real Solana devnet (HITL)
-  - Verified devnet RPC connectivity and blockhash retrieval.
-  - Aligned E2E tests with real `base58` Solana addresses.
-  - Confirmed the HITL (Human-In-The-Loop) flow where the owner signs transactions generated by the proxy policy engine.
+- [x] Wallet PDA + owner + policy hash storage.
+- [x] Public allow/block policy enforcement.
+- [x] Public on-chain daily spend tracking.
+- [x] Temporal key grant.
+- [x] Session revoke / kill switch.
+- [x] Off-chain proxy intent parsing and routing.
+- [x] Off-chain transaction construction.
+- [x] SDK intent JSON builder.
+- [x] Policy UI templates.
+- [x] Frontend wallet + temporal key flow.
+- [x] End-to-end blocked demo.
+- [x] Wallet state extensions: proxy key, Merkle root, policy sequence, last revoked slot.
+- [x] Merkle proof verification.
+- [x] Slot-based revocation and policy sequence verification.
+- [x] Mock TEE attestation verification.
+- [x] Wallet store integration with Solana RPC.
+- [x] AES-encrypted KMS for proxy/session keys.
+- [x] Wallet management endpoints.
+- [x] Agent auth key registration flow.
+- [x] Merkle tree builder and proof generator.
+- [x] SHA-256 policy hashing.
+- [x] Devnet RPC wiring.
+- [x] Create wallet frontend flow.
+- [x] Demo tab with real Solana addresses.
+- [x] HITL devnet flow.
 
----
+## Notes
 
-**v1 COMPLETED** 🚀🛡️
-Polet AI v1 is now a production-grade TEE-ready proxy with real Solana devnet integration, AES-256 encrypted KMS, and Merkle-tree backed policy enforcement.
-
----
-
-## Phase 2 — POLET-AI v2 (Confidential AI Agent Wallet)
-
-> **Goal:** Encrypt-native smart wallet with FHE policy enforcement, Jupiter swap integration, Solflare adapter, and Indonesian localization.
-> **Target:** Superteam Frontier Hackathon — 4 sidetracks (~$48,000+)
-> **Deadline:** May 12, 2026
-
-### Architecture Decisions
-- Single contract (POLET-AI v2) replaces v1
-- Encrypt-native: policy, daily limits, daily spent all FHE-encrypted
-- Execution layer: Jupiter Swap V2 API
-- Wallet adapter: Solflare
-- Frontend: React + Vite (ID/EN toggle)
-- PRD: see `plan.md`
-
-### v2 Issues (GitHub #27-#39)
-
-#### Contract + Core (Day 1-2)
-- [ ] #27 — v2 #1: Wallet Initialization (Encrypt-native)
-- [ ] #28 — v2 #2: Encrypted Policy Setting
-- [ ] #29 — v2 #3: Session Key Management (FHE limits)
-- [ ] #30 — v2 #4: FHE Policy Enforcement (execute_intent)
-
-#### Integration (Day 3-5)
-- [ ] #31 — v2 #5: Jupiter Swap Integration
-- [ ] #32 — v2 #6: Solflare Wallet Adapter
-
-#### Frontend Polish (Day 6)
-- [ ] #33 — v2 #7: Indonesian Localization + Mobile
-- [ ] #34 — v2 #8: Confidential UI Components
-- [ ] #35 — v2 #9: Dashboard and Portfolio View
-
-#### Deliverables (Day 7-8)
-- [ ] #36 — v2 #10: DX Report (Jupiter Developer Platform)
-- [ ] #37 — v2 #11: Demo Videos (3 tracks)
-- [ ] #38 — v2 #12: Pitch Deck (Indonesian)
-- [ ] #39 — v2 #13: Hackathon Submission (4 sidetracks)
-
-### Dependency Graph
-```
-#27 (Wallet Init)
-├── #28 (Encrypted Policy) ──┐
-├── #29 (Session Keys) ──────┤
-├── #32 (Solflare) ──────────┤
-├── #33 (Indonesian) ────────┤
-├── #34 (Confidential UI) ───┤
-│                            │
-│   #30 (FHE Enforcement) ◄──┘
-│   ├── #31 (Jupiter) ◄──────
-│   │   ├── #36 (DX Report)
-│   │
-│   #35 (Dashboard) ◄────────
-│
-├── #37 (Demo Videos) ◄──────
-├── #38 (Pitch Deck) ◄──────
-└── #39 (Submission) ◄──────
-```
-
-## Blocked Issue Dependencies
-
-### v1 (completed)
-- #13, #14, #15 blocked by #12 (must complete first)
-- #18, #19 blocked by #17
-- #20 blocked by #12 (contract IDL needed)
-- #23 blocked by #18
-- #24 blocked by #21, #22
-- #25 blocked by #12–#15, #16, #17, #18, #21, #22
-
-### v2 (in progress)
-- #28, #29, #32, #33, #34 blocked by #27
-- #30 blocked by #27, #28, #29
-- #31 blocked by #30
-- #35 blocked by #27, #28, #29, #32
-- #36 blocked by #31
-- #37, #38 blocked by #27-#35
-- #39 blocked by #27-#38
+- The final product uses one contract. Do not create a separate `polet_v2` program.
+- Encrypt pre-alpha must be described honestly. Do not claim production confidentiality.
+- Jupiter `/build` is preferred for smart wallet execution because Polet needs raw instruction control.
+- Jupiter Recurring is primary only if compatible with the smart wallet flow; otherwise use Polet scheduler + Swap V2 `/build`.
+- Encrypted allowlist/blocklist membership is out of scope for the first milestone.
