@@ -1,6 +1,7 @@
 use {
     anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas},
     litesvm::LiteSVM,
+    solana_account::Account,
     solana_keypair::Keypair,
     solana_message::{Message, VersionedMessage},
     solana_sha256_hasher::hashv,
@@ -9,6 +10,14 @@ use {
 };
 
 const WALLET_SEED: &[u8] = b"polet_wallet";
+const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
+    6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133,
+    237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
+];
+const WSOL_MINT_BYTES: [u8; 32] = [
+    6, 155, 136, 87, 254, 171, 129, 132, 251, 104, 127, 99, 70, 24, 192, 53, 218, 196, 57, 220,
+    26, 235, 59, 85, 152, 160, 240, 0, 0, 0, 0, 1,
+];
 
 fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
     let program_id = contract::id();
@@ -156,6 +165,67 @@ fn read_wallet(svm: &LiteSVM, wallet_pda: anchor_lang::prelude::Pubkey) -> contr
     contract::Wallet::try_deserialize(&mut data).expect("failed to deserialize wallet")
 }
 
+fn spl_token_program_id() -> anchor_lang::prelude::Pubkey {
+    anchor_lang::prelude::Pubkey::new_from_array(SPL_TOKEN_PROGRAM_ID_BYTES)
+}
+
+fn wsol_mint() -> anchor_lang::prelude::Pubkey {
+    anchor_lang::prelude::Pubkey::new_from_array(WSOL_MINT_BYTES)
+}
+
+fn write_mock_token_account(
+    svm: &mut LiteSVM,
+    token_account: anchor_lang::prelude::Pubkey,
+    mint: anchor_lang::prelude::Pubkey,
+    authority: anchor_lang::prelude::Pubkey,
+    amount: u64,
+) {
+    let mut data = vec![0u8; 165];
+    data[0..32].copy_from_slice(mint.as_ref());
+    data[32..64].copy_from_slice(authority.as_ref());
+    data[64..72].copy_from_slice(&amount.to_le_bytes());
+    data[108] = 1;
+
+    svm.set_account(
+        token_account,
+        Account {
+            lamports: 1_000_000_000,
+            data,
+            owner: spl_token_program_id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .expect("mock token account write failed");
+}
+
+fn register_demo_custody(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    usdc_mint: anchor_lang::prelude::Pubkey,
+    usdc_token_account: anchor_lang::prelude::Pubkey,
+    sol_mint: anchor_lang::prelude::Pubkey,
+    sol_token_account: anchor_lang::prelude::Pubkey,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::RegisterDemoCustody {};
+    let ix_accounts = contract::accounts::RegisterDemoCustody {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+        usdc_mint,
+        usdc_token_account,
+        sol_mint,
+        sol_token_account,
+        token_program: spl_token_program_id(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[], ix)
+}
+
 fn transfer_intent(destination: anchor_lang::prelude::Pubkey, amount: u64) -> Vec<u8> {
     let mut data = vec![0u8];
     data.extend_from_slice(destination.as_ref());
@@ -275,7 +345,79 @@ fn initialize_creates_pda_wallet_without_plaintext_numeric_policy() {
     assert_eq!(wallet.last_revoked_slot, 0);
     assert!(!wallet.confidential_policy.enabled);
     assert_eq!(wallet.confidential_policy.encrypted_daily_spent, 0);
+    assert!(!wallet.demo_custody.configured);
+    assert_eq!(
+        wallet.demo_custody.usdc_token_account,
+        anchor_lang::prelude::Pubkey::default()
+    );
     assert!(wallet.sessions.is_empty());
+}
+
+#[test]
+fn owner_can_register_pda_owned_demo_token_custody() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    initialize(&mut svm, &owner, wallet_pda);
+
+    let usdc_mint = Keypair::new().pubkey();
+    let usdc_token_account = Keypair::new().pubkey();
+    let sol_token_account = Keypair::new().pubkey();
+    write_mock_token_account(&mut svm, usdc_token_account, usdc_mint, wallet_pda, 25_000_000);
+    write_mock_token_account(&mut svm, sol_token_account, wsol_mint(), wallet_pda, 0);
+
+    register_demo_custody(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        usdc_mint,
+        usdc_token_account,
+        wsol_mint(),
+        sol_token_account,
+    )
+    .expect("register demo custody should pass");
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert!(wallet.demo_custody.configured);
+    assert_eq!(wallet.demo_custody.usdc_mint, usdc_mint);
+    assert_eq!(wallet.demo_custody.usdc_token_account, usdc_token_account);
+    assert_eq!(wallet.demo_custody.sol_mint, wsol_mint());
+    assert_eq!(wallet.demo_custody.sol_token_account, sol_token_account);
+    assert_eq!(wallet.demo_custody.token_program, spl_token_program_id());
+}
+
+#[test]
+fn demo_custody_rejects_token_account_not_owned_by_wallet_pda() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    initialize(&mut svm, &owner, wallet_pda);
+
+    let usdc_mint = Keypair::new().pubkey();
+    let usdc_token_account = Keypair::new().pubkey();
+    let sol_token_account = Keypair::new().pubkey();
+    let attacker_authority = Keypair::new().pubkey();
+    write_mock_token_account(
+        &mut svm,
+        usdc_token_account,
+        usdc_mint,
+        attacker_authority,
+        25_000_000,
+    );
+    write_mock_token_account(&mut svm, sol_token_account, wsol_mint(), wallet_pda, 0);
+
+    let res = register_demo_custody(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        usdc_mint,
+        usdc_token_account,
+        wsol_mint(),
+        sol_token_account,
+    );
+    assert!(
+        res.is_err(),
+        "custody account under direct owner/attacker authority must be rejected"
+    );
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert!(!wallet.demo_custody.configured);
 }
 
 #[test]

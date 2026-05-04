@@ -45,7 +45,6 @@ Track alignment:
 
 ### Critical Path
 
-- [ ] `003-pda-token-custody-usdc-sol-dca` — Add PDA-owned token custody primitives for the USDC -> SOL DCA demo.
 - [ ] `004-jupiter-strategy-gateway` — Add Jupiter gateway for Tokens, Price, Recurring compatibility, and Swap V2 `/build` fallback.
 - [ ] `005-confidential-dca-execution-path` — Connect Run Agent Now -> Jupiter precheck -> confidential policy check -> smart wallet allow/block execution.
 
@@ -90,6 +89,9 @@ Track alignment:
 - [x] `002-confidential-numeric-policy-enforcement` — Added the first pre-alpha confidential numeric policy path to the single contract. Wallet state now stores masked numeric policy values plus a commitment and witness hash instead of plaintext max-per-run, daily-cap, or daily-spent fields. Added owner policy setup and session execution gated by max-per-run, daily-cap, daily-spent update, and UTC-day reset behavior. Synced the proxy IDL to the new contract ABI.
   - Verification: `NO_DNA=1 cargo build`, `NO_DNA=1 anchor build`, and `NO_DNA=1 cargo test` all pass in `contract/`; `bun test` passes in `proxy/`.
   - Note: this is an Encrypt pre-alpha interface simulation using masked values and a witness hash. It does not claim production-grade confidentiality until real Encrypt primitives replace the witness path.
+- [x] `003-pda-token-custody-usdc-sol-dca` — Added PDA-owned demo token custody metadata to the single wallet state plus an owner-only `register_demo_custody` instruction. The contract records USDC mint/account and SOL/wSOL mint/account references only after validating that the supplied SPL Token accounts are owned by the wallet PDA authority, so deposit addresses can be surfaced by proxy/frontend without putting funds under direct owner authority. Synced the proxy IDL to the new ABI.
+  - Verification: `NO_DNA=1 anchor build` and `NO_DNA=1 cargo test` pass in `contract/`; `bun test` passes in `proxy/`.
+  - Note: this slice establishes custody references and validation. Token movement from the PDA-owned accounts remains intentionally deferred to the Jupiter/confidential execution slices.
 
 ### Planning
 

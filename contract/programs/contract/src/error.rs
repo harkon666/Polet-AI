@@ -40,4 +40,8 @@ pub enum ErrorCode {
     ConfidentialPolicyNotConfigured,
     #[msg("Invalid confidential policy witness")]
     InvalidPolicyWitness,
+    #[msg("Invalid PDA token custody account")]
+    InvalidTokenCustody,
+    #[msg("Demo token custody is not configured")]
+    TokenCustodyNotConfigured,
 }

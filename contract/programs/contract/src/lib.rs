@@ -9,7 +9,12 @@ declare_id!("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
 
 pub use constants::WALLET_SEED;
 pub use error::ErrorCode;
-pub use state::{ConfidentialNumericPolicy, SessionKey, Wallet};
+pub use state::{ConfidentialNumericPolicy, DemoTokenCustody, SessionKey, Wallet};
+
+const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
+    6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133,
+    237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
+];
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -52,6 +57,28 @@ pub struct SetConfidentialNumericPolicy<'info> {
     #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct RegisterDemoCustody<'info> {
+    #[account(
+        mut,
+        seeds = [WALLET_SEED, owner.key().as_ref()],
+        bump,
+        has_one = owner @ ErrorCode::NotOwner,
+    )]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+    /// CHECK: The mint address is recorded for the demo USDC input asset.
+    pub usdc_mint: UncheckedAccount<'info>,
+    /// CHECK: Validated as an initialized SPL Token account owned by wallet PDA.
+    pub usdc_token_account: UncheckedAccount<'info>,
+    /// CHECK: The mint address is recorded for the demo SOL/wSOL output asset.
+    pub sol_mint: UncheckedAccount<'info>,
+    /// CHECK: Validated as an initialized SPL Token account owned by wallet PDA.
+    pub sol_token_account: UncheckedAccount<'info>,
+    /// CHECK: Validated against the canonical SPL Token program id for this demo slice.
+    pub token_program: UncheckedAccount<'info>,
 }
 
 #[derive(Accounts)]
@@ -256,6 +283,49 @@ fn transfer_lamports<'info>(
     Ok(())
 }
 
+fn validate_supported_token_program(token_program: &Pubkey) -> Result<()> {
+    require!(
+        token_program.to_bytes() == SPL_TOKEN_PROGRAM_ID_BYTES,
+        ErrorCode::InvalidTokenCustody
+    );
+    Ok(())
+}
+
+fn validate_pda_token_account(
+    token_account: &AccountInfo,
+    mint: &Pubkey,
+    authority: &Pubkey,
+    token_program: &Pubkey,
+) -> Result<()> {
+    require!(
+        *token_account.owner == *token_program,
+        ErrorCode::InvalidTokenCustody
+    );
+
+    let data = token_account.try_borrow_data()?;
+    require!(data.len() >= 109, ErrorCode::InvalidTokenCustody);
+
+    let account_mint = Pubkey::new_from_array(
+        data[0..32]
+            .try_into()
+            .map_err(|_| ErrorCode::InvalidTokenCustody)?,
+    );
+    let account_authority = Pubkey::new_from_array(
+        data[32..64]
+            .try_into()
+            .map_err(|_| ErrorCode::InvalidTokenCustody)?,
+    );
+
+    require!(account_mint == *mint, ErrorCode::InvalidTokenCustody);
+    require!(
+        account_authority == *authority,
+        ErrorCode::InvalidTokenCustody
+    );
+    require!(data[108] == 1, ErrorCode::InvalidTokenCustody);
+
+    Ok(())
+}
+
 #[program]
 pub mod contract {
     use super::*;
@@ -269,9 +339,44 @@ pub mod contract {
             policy_seq: 0,
             last_revoked_slot: 0,
             confidential_policy: ConfidentialNumericPolicy::default(),
+            demo_custody: DemoTokenCustody::default(),
             sessions: Vec::new(),
         });
         msg!("Polet wallet created for: {:?}", ctx.accounts.owner.key());
+        Ok(())
+    }
+
+    pub fn register_demo_custody(ctx: Context<RegisterDemoCustody>) -> Result<()> {
+        let wallet_key = ctx.accounts.wallet.key();
+        let token_program = ctx.accounts.token_program.key();
+        validate_supported_token_program(&token_program)?;
+        validate_pda_token_account(
+            &ctx.accounts.usdc_token_account.to_account_info(),
+            &ctx.accounts.usdc_mint.key(),
+            &wallet_key,
+            &token_program,
+        )?;
+        validate_pda_token_account(
+            &ctx.accounts.sol_token_account.to_account_info(),
+            &ctx.accounts.sol_mint.key(),
+            &wallet_key,
+            &token_program,
+        )?;
+
+        ctx.accounts.wallet.demo_custody = DemoTokenCustody {
+            usdc_mint: ctx.accounts.usdc_mint.key(),
+            usdc_token_account: ctx.accounts.usdc_token_account.key(),
+            sol_mint: ctx.accounts.sol_mint.key(),
+            sol_token_account: ctx.accounts.sol_token_account.key(),
+            token_program,
+            configured: true,
+        };
+
+        msg!(
+            "Registered demo custody: usdc_token_account={:?}, sol_token_account={:?}",
+            ctx.accounts.usdc_token_account.key(),
+            ctx.accounts.sol_token_account.key()
+        );
         Ok(())
     }
 

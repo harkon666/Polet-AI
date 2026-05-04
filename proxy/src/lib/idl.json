@@ -347,6 +347,73 @@
       "args": []
     },
     {
+      "name": "register_demo_custody",
+      "discriminator": [
+        214,
+        139,
+        136,
+        215,
+        135,
+        144,
+        213,
+        175
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  101,
+                  116,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "usdc_token_account"
+        },
+        {
+          "name": "sol_mint"
+        },
+        {
+          "name": "sol_token_account"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "revoke_all_sessions",
       "discriminator": [
         18,
@@ -684,6 +751,16 @@
       "code": 6018,
       "name": "InvalidPolicyWitness",
       "msg": "Invalid confidential policy witness"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidTokenCustody",
+      "msg": "Invalid PDA token custody account"
+    },
+    {
+      "code": 6020,
+      "name": "TokenCustodyNotConfigured",
+      "msg": "Demo token custody is not configured"
     }
   ],
   "types": [
@@ -728,6 +805,38 @@
           },
           {
             "name": "enabled",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DemoTokenCustody",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "usdc_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "usdc_token_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "sol_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "sol_token_account",
+            "type": "pubkey"
+          },
+          {
+            "name": "token_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "configured",
             "type": "bool"
           }
         ]
@@ -801,6 +910,14 @@
             "type": {
               "defined": {
                 "name": "ConfidentialNumericPolicy"
+              }
+            }
+          },
+          {
+            "name": "demo_custody",
+            "type": {
+              "defined": {
+                "name": "DemoTokenCustody"
               }
             }
           },

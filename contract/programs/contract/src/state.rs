@@ -19,6 +19,16 @@ pub struct ConfidentialNumericPolicy {
     pub enabled: bool,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
+pub struct DemoTokenCustody {
+    pub usdc_mint: Pubkey,
+    pub usdc_token_account: Pubkey,
+    pub sol_mint: Pubkey,
+    pub sol_token_account: Pubkey,
+    pub token_program: Pubkey,
+    pub configured: bool,
+}
+
 #[account]
 pub struct Wallet {
     pub owner: Pubkey,
@@ -28,6 +38,7 @@ pub struct Wallet {
     pub policy_seq: u64,
     pub last_revoked_slot: u64,
     pub confidential_policy: ConfidentialNumericPolicy,
+    pub demo_custody: DemoTokenCustody,
     pub sessions: Vec<SessionKey>,
 }
 
@@ -40,6 +51,7 @@ impl Wallet {
         + 8
         + 8
         + ConfidentialNumericPolicy::SPACE
+        + DemoTokenCustody::SPACE
         + 4
         + (SessionKey::SPACE * Self::MAX_SESSIONS);
 }
@@ -50,4 +62,8 @@ impl SessionKey {
 
 impl ConfidentialNumericPolicy {
     pub const SPACE: usize = 32 + 32 + 8 + 8 + 8 + 8 + 1;
+}
+
+impl DemoTokenCustody {
+    pub const SPACE: usize = 32 + 32 + 32 + 32 + 32 + 1;
 }

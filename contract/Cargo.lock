@@ -878,6 +878,7 @@ dependencies = [
  "anchor-lang",
  "borsh",
  "litesvm",
+ "solana-account",
  "solana-hash 4.3.0",
  "solana-keypair",
  "solana-message",
