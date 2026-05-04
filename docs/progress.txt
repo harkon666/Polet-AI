@@ -46,7 +46,6 @@ Track alignment:
 
 ### Critical Path
 
-- [ ] `009-real-agent-runtime-integration` — Integrate a real or scripted AI agent runtime that submits Polet strategy intents and receives allow/block results.
 - [ ] `010-multichain-agentic-wallet-intents` — Extend intents across source chain/asset, target chain/asset, and execution rail while reusing confidential guardrails.
 - [ ] `011-ika-bridgeless-execution-request` — Produce an Ika-oriented bridgeless execution request only after Polet guardrail approval.
 - [ ] `012-hybrid-agent-demo-jupiter-ika-encrypt` — Combine agent runtime, Jupiter route/build preview, Ika bridgeless request, and Encrypt guardrails in the final demo.
@@ -112,6 +111,9 @@ Track alignment:
 - [x] `008-hackathon-docs-and-dx-report` — Added the root README, Polet-specific frontend README, Jupiter DX report, and allow/block demo script. The docs describe target users, problem/solution, demo flow, devnet program/proxy/frontend URLs, build/test/run commands, Encrypt pre-alpha limitations, Jupiter Recurring vs Swap V2 `/build` decision, and Ika as a future target rail without claiming verified settlement.
   - Verification: documentation-only change; no code tests were required.
   - Note: issue 012 remains future hybrid implementation work. The docs intentionally frame Ika as a target boundary, not a completed production execution rail.
+- [x] `009-real-agent-runtime-integration` — Added a local scripted agent runtime in the SDK that creates USDC -> SOL DCA intents with the existing SDK builder, submits them to the Polet proxy, and reports allowed/blocked decisions for 5 USDC and 25 USDC scenarios. Added a CLI runner and setup docs as the base adapter for future multichain/Ika intent slices.
+  - Verification: `bun test` and `bun run build` pass in `sdk/`.
+  - Note: the runtime does not sign or broadcast transactions. It submits agent intents to the proxy and reports the policy result plus any unsigned smart-wallet execution payload returned by the proxy.
 
 ### Planning
 

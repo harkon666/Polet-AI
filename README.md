@@ -163,4 +163,5 @@ Then open `http://localhost:3000`, connect a devnet wallet, initialize the Polet
 - Progress tracker: `docs/progress.txt`
 - Jupiter DX report: `docs/jupiter-dx-report.md`
 - Demo script: `docs/demo-script.md`
+- Local agent runtime: `docs/agent-runtime.md`
 - Local issue specs: `docs/issues/`

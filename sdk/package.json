@@ -13,6 +13,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "agent:run": "bun run src/local-agent-runner.ts",
     "test": "bun test",
     "dev": "bun test --watch"
   },

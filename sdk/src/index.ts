@@ -559,3 +559,16 @@ export function getIntentDestination(intent: Intent): string | null {
       return null;
   }
 }
+
+export {
+  createLocalAgentRuntime,
+  defaultScenarioAmount,
+  DEFAULT_AGENT_RUNTIME_WITNESS,
+  LocalAgentRuntime,
+  type AgentRuntimeResult,
+  type AgentRuntimeScenario,
+  type DcaRunData,
+  type LocalAgentRuntimeConfig,
+  type ProxyEnvelope,
+  type RunDcaScenarioInput,
+} from './local-agent-runtime.js';
