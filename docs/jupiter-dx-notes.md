@@ -1,5 +1,7 @@
 # Jupiter DX Notes
 
+Final report: `docs/jupiter-dx-report.md`.
+
 ## Issue 004: Strategy Gateway
 
 Date: 2026-05-04

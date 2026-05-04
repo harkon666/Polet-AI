@@ -51,10 +51,6 @@ Track alignment:
 - [ ] `011-ika-bridgeless-execution-request` — Produce an Ika-oriented bridgeless execution request only after Polet guardrail approval.
 - [ ] `012-hybrid-agent-demo-jupiter-ika-encrypt` — Combine agent runtime, Jupiter route/build preview, Ika bridgeless request, and Encrypt guardrails in the final demo.
 
-### Submission Polish
-
-- [ ] `008-hackathon-docs-and-dx-report` — Write README updates, Encrypt/Ika disclaimer, Jupiter DX report, and demo script after the final implementation boundary is clear.
-
 ### Stretch
 
 - None.
@@ -113,6 +109,9 @@ Track alignment:
 - [x] `007-consumer-demo-frontend` — Replaced the legacy transfer simulator with a user-facing confidential DCA demo wired to real proxy/contract paths. The frontend now presents Polet as a confidential USDC -> SOL DCA smart wallet, builds owner-signed confidential policy and PDA custody setup transactions through the proxy, calls `/intent/dca/run` for 25 USDC blocked and 5 USDC allowed runs, keeps activity logs free of private thresholds, supports Indonesian/English copy, and shows Jupiter Swap V2 route/build details for approved runs.
   - Verification: `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`; `bun test ./tests/confidential-dca-execution.test.ts ./tests/transaction-builder.test.ts` passes in `proxy/`.
   - Note: the current devnet demo proves policy gating and Jupiter route/build integration, but does not execute a mainnet Jupiter swap. Production-like swap execution requires a follow-up PDA signing/CPI path or a separate owner-signed mainnet flow.
+- [x] `008-hackathon-docs-and-dx-report` — Added the root README, Polet-specific frontend README, Jupiter DX report, and allow/block demo script. The docs describe target users, problem/solution, demo flow, devnet program/proxy/frontend URLs, build/test/run commands, Encrypt pre-alpha limitations, Jupiter Recurring vs Swap V2 `/build` decision, and Ika as a future target rail without claiming verified settlement.
+  - Verification: documentation-only change; no code tests were required.
+  - Note: issue 012 remains future hybrid implementation work. The docs intentionally frame Ika as a target boundary, not a completed production execution rail.
 
 ### Planning
 
