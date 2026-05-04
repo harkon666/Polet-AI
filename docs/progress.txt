@@ -49,7 +49,6 @@ Track alignment:
 
 ### Submission Polish
 
-- [ ] `006-agent-sdk-strategy-intents` — Add DCA and risk-gated swap intent builders plus submit/evaluate helpers for agent-compatible SDK usage.
 - [ ] `007-consumer-demo-frontend` — Build the user-facing confidential DCA demo with deposit, policy setup, strategy setup, run-now flow, activity log, and ID/EN copy.
 - [ ] `008-hackathon-docs-and-dx-report` — Write README updates, Encrypt disclaimer, Jupiter DX report, and demo script.
 
@@ -97,6 +96,9 @@ Track alignment:
 - [x] `005-confidential-dca-execution-path` — Added the proxy confidential DCA run path at `POST /intent/dca/run`, connecting wallet/session validation, Jupiter Tokens/Price/Swap V2 prechecks, pre-alpha confidential max-per-run and daily-cap witness evaluation, non-leaking block responses, and unsigned confidential session transaction construction. The allowed path uses the smart wallet PDA as Jupiter taker/payer and Polet contract wallet authority; the proxy does not sign or broadcast.
   - Verification: `bun test` and `bun run build` pass in `proxy/`.
   - Note: this remains an Encrypt pre-alpha masked witness demo path, not a production confidentiality guarantee. Jupiter Recurring remains incompatible for the MVP, so Swap V2 `/build` fallback is used.
+- [x] `006-agent-sdk-strategy-intents` — Extended the SDK with `createDcaIntent`, `createRiskGatedSwapIntent`, proxy `submitIntent` and `evaluateIntentWithProxy` helpers, Jupiter USDC/SOL constants, typed proxy errors, and OpenClaw/Hermes-style agent examples. Existing transfer, swap, stake, unstake, delegate, undelegate, and custom builders remain available.
+  - Verification: `bun test` and `bun run build` pass in `sdk/`.
+  - Note: DCA submission targets the issue 005 proxy route `POST /intent/dca/run`; risk-gated swaps intentionally retain action `swap` for backward compatibility with the existing proxy evaluator.
 
 ### Planning
 

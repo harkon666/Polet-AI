@@ -7,8 +7,15 @@ import {
   createUnstakeIntent,
   createDelegateIntent,
   createUndelegateIntent,
+  createDcaIntent,
+  createRiskGatedSwapIntent,
+  evaluateIntentWithProxy,
   isValidIntent,
+  submitIntent,
   generateIntentId,
+  ProxyRequestError,
+  JUPITER_USDC_MINT,
+  JUPITER_SOL_MINT,
   type Intent,
   type TransferParams,
   type SwapParams,
@@ -94,6 +101,60 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(intent.params.outputMint).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
       expect(intent.params.inputAmount).toBe(1000000000);
       expect(intent.params.minOutputAmount).toBe(150000000);
+    });
+  });
+
+  describe('createDcaIntent', () => {
+    test('creates a valid USDC to SOL DCA strategy intent', () => {
+      const witness = Array.from({ length: 32 }, (_, index) => index);
+      const intent = createDcaIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        amountUsdc: 5,
+        encryptionWitness: witness,
+        slippageBps: 75,
+        intentId: 'dca-demo-1',
+      });
+
+      expect(intent.id).toBe('dca-demo-1');
+      expect(intent.action).toBe('dca');
+      expect(intent.params.amountUsdc).toBe(5);
+      expect(intent.params.inputMint).toBe(JUPITER_USDC_MINT);
+      expect(intent.params.outputMint).toBe(JUPITER_SOL_MINT);
+      expect(intent.params.encryptionWitness).toEqual(witness);
+      expect(intent.params.slippageBps).toBe(75);
+      expect(isValidIntent(intent)).toBe(true);
+    });
+  });
+
+  describe('createRiskGatedSwapIntent', () => {
+    test('keeps swap compatibility while adding risk gate metadata', () => {
+      const intent = createRiskGatedSwapIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        inputMint: JUPITER_USDC_MINT,
+        outputMint: JUPITER_SOL_MINT,
+        inputAmount: 5_000_000,
+        minOutputAmount: 30_000_000,
+        slippageBps: 100,
+        risk: {
+          maxPriceImpactBps: 50,
+          requireVerifiedTokens: true,
+        },
+      });
+
+      expect(intent.action).toBe('swap');
+      expect(intent.params.inputMint).toBe(JUPITER_USDC_MINT);
+      expect(intent.params.outputMint).toBe(JUPITER_SOL_MINT);
+      expect(intent.params.inputAmount).toBe(5_000_000);
+      expect(intent.params.minOutputAmount).toBe(30_000_000);
+      expect(intent.params.strategy).toBe('risk-gated-swap');
+      expect(intent.params.risk).toEqual({
+        maxSlippageBps: 100,
+        maxPriceImpactBps: 50,
+        requireVerifiedTokens: true,
+      });
+      expect(isValidIntent(intent)).toBe(true);
     });
   });
 
@@ -268,6 +329,82 @@ describe('Polet AI SDK - Intent Builder', () => {
       const jsonPayload = JSON.stringify(swapIntent);
       const parsed = JSON.parse(jsonPayload);
       expect(parsed.action).toBe('swap');
+    });
+  });
+
+  describe('proxy helpers', () => {
+    test('submitIntent sends DCA intents to the DCA run endpoint', async () => {
+      const requests: Array<{ url: string; body: unknown }> = [];
+      const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
+        requests.push({
+          url: input.toString(),
+          body: JSON.parse(init?.body?.toString() ?? '{}'),
+        });
+        return Response.json({ success: true, data: { allowed: true, code: 'DCA_ALLOWED' } });
+      };
+
+      const result = await submitIntent(
+        createDcaIntent({
+          owner: 'owner-1',
+          sessionKey: 'session-1',
+          amountUsdc: '5',
+          encryptionWitness: Array.from({ length: 32 }, () => 1),
+        }),
+        { baseUrl: 'https://proxy.polet.ai', fetch: fetchMock }
+      );
+
+      expect(result).toEqual({ success: true, data: { allowed: true, code: 'DCA_ALLOWED' } });
+      expect(requests[0].url).toBe('https://proxy.polet.ai/intent/dca/run');
+      expect(requests[0].body).toMatchObject({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        amountUsdc: '5',
+        inputMint: JUPITER_USDC_MINT,
+        outputMint: JUPITER_SOL_MINT,
+      });
+    });
+
+    test('evaluateIntentWithProxy sends legacy intents to the evaluate endpoint', async () => {
+      const requests: string[] = [];
+      const fetchMock = async (input: URL | RequestInfo) => {
+        requests.push(input.toString());
+        return Response.json({ success: true, data: { allowed: true } });
+      };
+      const intent = createTransferIntent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        destination: 'destination-1',
+        amount: 1,
+      });
+
+      const result = await evaluateIntentWithProxy(intent, {
+        baseUrl: 'https://proxy.polet.ai/',
+        fetch: fetchMock,
+      });
+
+      expect(result).toEqual({ success: true, data: { allowed: true } });
+      expect(requests).toEqual(['https://proxy.polet.ai/intent/evaluate']);
+    });
+
+    test('submitIntent throws ProxyRequestError when the proxy rejects the request', async () => {
+      const fetchMock = async () => Response.json({
+        success: false,
+        error: {
+          code: 'SESSION_NOT_AUTHORIZED',
+          message: 'Session key is not authorized for this wallet',
+        },
+      }, { status: 403 });
+      const intent = createTransferIntent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        destination: 'destination-1',
+        amount: 1,
+      });
+
+      await expect(submitIntent(intent, {
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+      })).rejects.toThrow(ProxyRequestError);
     });
   });
 });

@@ -10,8 +10,12 @@ import {
   createSwapIntent,
   createStakeIntent,
   createCustomIntent,
+  createDcaIntent,
+  createRiskGatedSwapIntent,
   isValidIntent,
   generateIntentId,
+  submitIntent,
+  evaluateIntentWithProxy,
   formatPublicKey,
   estimateFee,
   lamportsToSol,
@@ -202,4 +206,55 @@ export async function example_openclaw_integration() {
   }
 
   console.log('[Polet AI] Approved - executing transaction');
+}
+
+/**
+ * Example 7: OpenClaw/Hermes DCA Strategy Pattern
+ *
+ * This is the confidential DCA flow used by the hackathon demo. The agent
+ * creates a structured request and lets the Polet proxy perform Jupiter
+ * prechecks, confidential policy evaluation, and unsigned transaction building.
+ */
+export async function example_agent_dca_strategy() {
+  const sessionKey = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
+  const userWallet = 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2';
+  const proxyUrl = 'https://proxy.polet.ai';
+
+  const intent = createDcaIntent({
+    owner: userWallet,
+    sessionKey,
+    amountUsdc: 5,
+    encryptionWitness: Array.from({ length: 32 }, (_, index) => index + 1),
+    slippageBps: 100,
+  });
+
+  const result = await submitIntent(intent, { baseUrl: proxyUrl });
+  console.log('[Polet AI] DCA strategy result:', result);
+}
+
+/**
+ * Example 8: Risk-Gated Jupiter Swap Evaluation
+ *
+ * Agent runtimes can ask Polet to evaluate a Jupiter swap intent before
+ * execution while preserving compatibility with the existing swap action.
+ */
+export async function example_agent_risk_gated_swap() {
+  const intent = createRiskGatedSwapIntent({
+    owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+    sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+    inputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    outputMint: 'So11111111111111111111111111111111111111112',
+    inputAmount: 5_000_000,
+    minOutputAmount: 30_000_000,
+    slippageBps: 100,
+    risk: {
+      maxPriceImpactBps: 50,
+      requireVerifiedTokens: true,
+    },
+  });
+
+  const result = await evaluateIntentWithProxy(intent, {
+    baseUrl: 'https://proxy.polet.ai',
+  });
+  console.log('[Polet AI] Risk-gated swap evaluation:', result);
 }

@@ -24,8 +24,12 @@
  * ```
  */
 
+export const JUPITER_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+export const JUPITER_SOL_MINT = 'So11111111111111111111111111111111111111112';
+
 // Intent action types
 export type IntentAction = 'transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom';
+export type StrategyIntentAction = 'dca';
 
 // Intent interface
 export interface Intent {
@@ -37,6 +41,18 @@ export interface Intent {
   timestamp: number;
   policyHash?: string;
 }
+
+export interface DcaIntent {
+  id: string;
+  owner: string;
+  sessionKey: string;
+  action: StrategyIntentAction;
+  params: DcaParams;
+  timestamp: number;
+  policyHash?: string;
+}
+
+export type PoletIntent = Intent | DcaIntent;
 
 // Transfer params
 export interface TransferParams {
@@ -51,6 +67,24 @@ export interface SwapParams {
   outputMint: string;
   inputAmount: number;
   minOutputAmount: number;
+  risk?: SwapRiskGate;
+  strategy?: 'risk-gated-swap';
+}
+
+export interface SwapRiskGate {
+  maxSlippageBps?: number;
+  maxPriceImpactBps?: number;
+  requireVerifiedTokens?: boolean;
+}
+
+export interface DcaParams {
+  amountUsdc: number | string;
+  inputMint: string;
+  outputMint: string;
+  slippageBps?: number;
+  encryptionWitness: number[];
+  destinationTokenAccount?: string;
+  nativeDestinationAccount?: string;
 }
 
 // Stake params
@@ -104,6 +138,25 @@ export interface SwapIntentInput {
   minOutputAmount: number;
   policyHash?: string;
   intentId?: string;
+}
+
+export interface DcaIntentInput {
+  owner: string;
+  sessionKey: string;
+  amountUsdc: number | string;
+  encryptionWitness: number[];
+  inputMint?: string;
+  outputMint?: string;
+  slippageBps?: number;
+  destinationTokenAccount?: string;
+  nativeDestinationAccount?: string;
+  policyHash?: string;
+  intentId?: string;
+}
+
+export interface RiskGatedSwapIntentInput extends SwapIntentInput {
+  risk?: SwapRiskGate;
+  slippageBps?: number;
 }
 
 export interface StakeIntentInput {
@@ -207,6 +260,55 @@ export function createSwapIntent(input: SwapIntentInput): Intent {
 }
 
 /**
+ * Create a USDC -> SOL confidential DCA strategy intent.
+ */
+export function createDcaIntent(input: DcaIntentInput): DcaIntent {
+  return {
+    id: input.intentId ?? generateIntentId(),
+    owner: input.owner,
+    sessionKey: input.sessionKey,
+    action: 'dca',
+    params: {
+      amountUsdc: input.amountUsdc,
+      inputMint: input.inputMint ?? JUPITER_USDC_MINT,
+      outputMint: input.outputMint ?? JUPITER_SOL_MINT,
+      encryptionWitness: input.encryptionWitness,
+      ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
+      ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
+      ...(input.nativeDestinationAccount && { nativeDestinationAccount: input.nativeDestinationAccount }),
+    },
+    timestamp: Math.floor(Date.now() / 1000),
+    ...(input.policyHash && { policyHash: input.policyHash }),
+  };
+}
+
+/**
+ * Create a swap intent that asks the proxy to apply policy and market-risk gates.
+ * The action remains "swap" so existing proxy evaluators keep accepting it.
+ */
+export function createRiskGatedSwapIntent(input: RiskGatedSwapIntentInput): Intent {
+  return {
+    id: input.intentId ?? generateIntentId(),
+    owner: input.owner,
+    sessionKey: input.sessionKey,
+    action: 'swap',
+    params: {
+      inputMint: input.inputMint,
+      outputMint: input.outputMint,
+      inputAmount: input.inputAmount,
+      minOutputAmount: input.minOutputAmount,
+      strategy: 'risk-gated-swap',
+      risk: {
+        ...(input.slippageBps !== undefined && { maxSlippageBps: input.slippageBps }),
+        ...input.risk,
+      },
+    },
+    timestamp: Math.floor(Date.now() / 1000),
+    ...(input.policyHash && { policyHash: input.policyHash }),
+  };
+}
+
+/**
  * Create a stake intent (for Marinade or Jito stake)
  */
 export function createStakeIntent(input: StakeIntentInput): Intent {
@@ -301,7 +403,7 @@ export function createCustomIntent(input: CustomIntentInput): Intent {
  * Validate an intent object
  * Returns true if the intent has all required fields and a valid action type
  */
-export function isValidIntent(intent: unknown): intent is Intent {
+export function isValidIntent(intent: unknown): intent is PoletIntent {
   if (!intent || typeof intent !== 'object') {
     return false;
   }
@@ -315,7 +417,7 @@ export function isValidIntent(intent: unknown): intent is Intent {
   if (!obj.action || typeof obj.action !== 'string') return false;
 
   // Check valid action type
-  if (!VALID_ACTIONS.includes(obj.action as IntentAction)) return false;
+  if (obj.action !== 'dca' && !VALID_ACTIONS.includes(obj.action as IntentAction)) return false;
 
   // Check params is an object
   if (!obj.params || typeof obj.params !== 'object') return false;
@@ -324,6 +426,96 @@ export function isValidIntent(intent: unknown): intent is Intent {
   if (typeof obj.timestamp !== 'number') return false;
 
   return true;
+}
+
+export interface ProxyClientOptions {
+  baseUrl: string;
+  fetch?: typeof fetch;
+}
+
+export interface SubmitIntentOptions extends ProxyClientOptions {
+  mode?: 'evaluate' | 'execute';
+}
+
+export class ProxyRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly response: unknown
+  ) {
+    super(message);
+    this.name = 'ProxyRequestError';
+  }
+}
+
+export async function evaluateIntentWithProxy<TResponse = unknown>(
+  intent: Intent,
+  options: ProxyClientOptions
+): Promise<TResponse> {
+  return requestProxy<TResponse>('/intent/evaluate', intent, options);
+}
+
+export async function submitIntent<TResponse = unknown>(
+  intent: PoletIntent,
+  options: SubmitIntentOptions
+): Promise<TResponse> {
+  if (intent.action === 'dca') {
+    return requestProxy<TResponse>('/intent/dca/run', toDcaRunRequest(intent), options);
+  }
+
+  const mode = options.mode ?? 'execute';
+  return requestProxy<TResponse>(mode === 'evaluate' ? '/intent/evaluate' : '/intent/execute', intent, options);
+}
+
+function toDcaRunRequest(intent: DcaIntent): Record<string, unknown> {
+  return {
+    owner: intent.owner,
+    sessionKey: intent.sessionKey,
+    amountUsdc: intent.params.amountUsdc,
+    inputMint: intent.params.inputMint,
+    outputMint: intent.params.outputMint,
+    encryptionWitness: intent.params.encryptionWitness,
+    ...(intent.params.slippageBps !== undefined && { slippageBps: intent.params.slippageBps }),
+    ...(intent.params.destinationTokenAccount && { destinationTokenAccount: intent.params.destinationTokenAccount }),
+    ...(intent.params.nativeDestinationAccount && { nativeDestinationAccount: intent.params.nativeDestinationAccount }),
+  };
+}
+
+async function requestProxy<TResponse>(
+  path: string,
+  payload: unknown,
+  options: ProxyClientOptions
+): Promise<TResponse> {
+  const fetchImpl = options.fetch ?? fetch;
+  const response = await fetchImpl(new URL(path, normalizeBaseUrl(options.baseUrl)), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => undefined);
+
+  if (!response.ok || isProxyFailure(data)) {
+    const message = extractProxyErrorMessage(data) ?? `Polet proxy request failed with HTTP ${response.status}`;
+    throw new ProxyRequestError(message, response.status, data);
+  }
+
+  return data as TResponse;
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+}
+
+function isProxyFailure(data: unknown): boolean {
+  return Boolean(data && typeof data === 'object' && (data as { success?: unknown }).success === false);
+}
+
+function extractProxyErrorMessage(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const error = (data as { error?: unknown }).error;
+  if (!error || typeof error !== 'object') return undefined;
+  const message = (error as { message?: unknown }).message;
+  return typeof message === 'string' ? message : undefined;
 }
 
 /**
