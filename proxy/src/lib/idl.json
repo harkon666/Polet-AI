@@ -116,7 +116,8 @@
           }
         },
         {
-          "name": "session_key"
+          "name": "session_key",
+          "signer": true
         },
         {
           "name": "destination",
@@ -208,10 +209,6 @@
         {
           "name": "expires_at",
           "type": "i64"
-        },
-        {
-          "name": "daily_limit",
-          "type": "u64"
         }
       ]
     },
@@ -267,12 +264,7 @@
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": [
-        {
-          "name": "daily_limit",
-          "type": "u64"
-        }
-      ]
+      "args": []
     },
     {
       "name": "revoke_all_sessions",
@@ -397,45 +389,13 @@
       ],
       "args": [
         {
-          "name": "policy_hash",
+          "name": "policy_commitment",
           "type": {
             "array": [
               "u8",
               32
             ]
           }
-        }
-      ]
-    },
-    {
-      "name": "set_policy_data",
-      "discriminator": [
-        60,
-        246,
-        194,
-        240,
-        95,
-        39,
-        61,
-        176
-      ],
-      "accounts": [
-        {
-          "name": "wallet",
-          "writable": true
-        },
-        {
-          "name": "owner",
-          "signer": true,
-          "relations": [
-            "wallet"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "policy_data",
-          "type": "bytes"
         }
       ]
     },
@@ -552,11 +512,31 @@
       "code": 6012,
       "name": "StalePolicySeq",
       "msg": "Attestation policy_seq does not match wallet policy_seq"
+    },
+    {
+      "code": 6013,
+      "name": "SessionGloballyRevoked",
+      "msg": "Session key was granted before the latest global revocation"
+    },
+    {
+      "code": 6014,
+      "name": "TooManySessions",
+      "msg": "Too many active or historical session keys"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidIntent",
+      "msg": "Invalid intent payload"
+    },
+    {
+      "code": 6016,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow"
     }
   ],
   "types": [
     {
-      "name": "TemporalKey",
+      "name": "SessionKey",
       "type": {
         "kind": "struct",
         "fields": [
@@ -569,20 +549,12 @@
             "type": "i64"
           },
           {
+            "name": "granted_slot",
+            "type": "u64"
+          },
+          {
             "name": "authorized",
             "type": "bool"
-          },
-          {
-            "name": "daily_limit",
-            "type": "u64"
-          },
-          {
-            "name": "daily_spent",
-            "type": "u64"
-          },
-          {
-            "name": "last_reset",
-            "type": "i64"
           }
         ]
       }
@@ -599,6 +571,15 @@
           {
             "name": "proxy_pk",
             "type": "pubkey"
+          },
+          {
+            "name": "policy_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
           },
           {
             "name": "merkle_root",
@@ -618,36 +599,11 @@
             "type": "u64"
           },
           {
-            "name": "policy_hash",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "policy_data",
-            "type": "bytes"
-          },
-          {
-            "name": "daily_spent",
-            "type": "u64"
-          },
-          {
-            "name": "last_reset",
-            "type": "i64"
-          },
-          {
-            "name": "daily_limit",
-            "type": "u64"
-          },
-          {
-            "name": "temporal_keys",
+            "name": "sessions",
             "type": {
               "vec": {
                 "defined": {
-                  "name": "TemporalKey"
+                  "name": "SessionKey"
                 }
               }
             }

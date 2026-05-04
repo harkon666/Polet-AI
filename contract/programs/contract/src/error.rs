@@ -28,4 +28,12 @@ pub enum ErrorCode {
     StaleSlot,
     #[msg("Attestation policy_seq does not match wallet policy_seq")]
     StalePolicySeq,
+    #[msg("Session key was granted before the latest global revocation")]
+    SessionGloballyRevoked,
+    #[msg("Too many active or historical session keys")]
+    TooManySessions,
+    #[msg("Invalid intent payload")]
+    InvalidIntent,
+    #[msg("Arithmetic overflow")]
+    ArithmeticOverflow,
 }
