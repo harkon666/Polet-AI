@@ -45,7 +45,6 @@ Track alignment:
 
 ### Critical Path
 
-- [ ] `002-confidential-numeric-policy-enforcement` — Add confidential max-per-run, daily-cap, and daily-spent enforcement.
 - [ ] `003-pda-token-custody-usdc-sol-dca` — Add PDA-owned token custody primitives for the USDC -> SOL DCA demo.
 - [ ] `004-jupiter-strategy-gateway` — Add Jupiter gateway for Tokens, Price, Recurring compatibility, and Swap V2 `/build` fallback.
 - [ ] `005-confidential-dca-execution-path` — Connect Run Agent Now -> Jupiter precheck -> confidential policy check -> smart wallet allow/block execution.
@@ -88,6 +87,9 @@ Track alignment:
 
 - [x] `001-confidential-smart-wallet-core` — Refactored the single contract core into a PDA wallet with owner authority, proxy metadata, policy commitment, Merkle root metadata, policy sequence, kill-switch revocation slot, and session-key records. Removed plaintext `daily_limit`, `daily_spent`, and serialized plaintext policy fields from the contract state and final session execution path. Synced the proxy IDL to the new contract ABI. Added tests for initialization, policy/proxy metadata, grant, revoke, revoke-all, expired/missing/revoked sessions, valid session execution, and stale policy sequence.
   - Verification: `NO_DNA=1 cargo build`, `NO_DNA=1 anchor build`, and `NO_DNA=1 cargo test` all pass in `contract/`.
+- [x] `002-confidential-numeric-policy-enforcement` — Added the first pre-alpha confidential numeric policy path to the single contract. Wallet state now stores masked numeric policy values plus a commitment and witness hash instead of plaintext max-per-run, daily-cap, or daily-spent fields. Added owner policy setup and session execution gated by max-per-run, daily-cap, daily-spent update, and UTC-day reset behavior. Synced the proxy IDL to the new contract ABI.
+  - Verification: `NO_DNA=1 cargo build`, `NO_DNA=1 anchor build`, and `NO_DNA=1 cargo test` all pass in `contract/`; `bun test` passes in `proxy/`.
+  - Note: this is an Encrypt pre-alpha interface simulation using masked values and a witness hash. It does not claim production-grade confidentiality until real Encrypt primitives replace the witness path.
 
 ### Planning
 

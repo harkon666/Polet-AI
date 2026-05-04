@@ -3,6 +3,7 @@ use {
     litesvm::LiteSVM,
     solana_keypair::Keypair,
     solana_message::{Message, VersionedMessage},
+    solana_sha256_hasher::hashv,
     solana_signer::Signer,
     solana_transaction::versioned::VersionedTransaction,
 };
@@ -162,6 +163,41 @@ fn transfer_intent(destination: anchor_lang::prelude::Pubkey, amount: u64) -> Ve
     data
 }
 
+fn encrypt_amount(amount: u64, witness: &[u8; 32]) -> u64 {
+    let mask = u64::from_le_bytes(witness[0..8].try_into().unwrap());
+    amount ^ mask
+}
+
+fn set_confidential_numeric_policy(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    witness: [u8; 32],
+    max_per_run: u64,
+    daily_cap: u64,
+    daily_spent: u64,
+    spent_day_index: i64,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::SetConfidentialNumericPolicy {
+        policy_commitment: [0x42u8; 32],
+        encryption_witness_hash: hashv(&[&witness]).to_bytes(),
+        encrypted_max_per_run: encrypt_amount(max_per_run, &witness),
+        encrypted_daily_cap: encrypt_amount(daily_cap, &witness),
+        encrypted_daily_spent: encrypt_amount(daily_spent, &witness),
+        spent_day_index,
+    };
+    let ix_accounts = contract::accounts::SetConfidentialNumericPolicy {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[], ix)
+}
+
 fn execute_as_session(
     svm: &mut LiteSVM,
     payer: &Keypair,
@@ -194,6 +230,37 @@ fn execute_as_session(
     send_ix(svm, payer, &[session_key], ix)
 }
 
+fn execute_confidential_as_session(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    session_key: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    destination: anchor_lang::prelude::Pubkey,
+    amount: u64,
+    attestation_slot: u64,
+    attestation_policy_seq: u64,
+    witness: [u8; 32],
+) -> Result<(), String> {
+    let ix_data = contract::instruction::ExecuteConfidentialTransferAsSession {
+        intent_data: transfer_intent(destination, amount),
+        attestation_slot,
+        attestation_policy_seq,
+        encryption_witness: witness,
+    };
+    let ix_accounts = contract::accounts::ExecuteConfidentialTransferAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        destination,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, payer, &[session_key], ix)
+}
+
 #[test]
 fn initialize_creates_pda_wallet_without_plaintext_numeric_policy() {
     let (mut svm, owner, wallet_pda) = setup_svm();
@@ -206,6 +273,8 @@ fn initialize_creates_pda_wallet_without_plaintext_numeric_policy() {
     assert_eq!(wallet.merkle_root, [0u8; 32]);
     assert_eq!(wallet.policy_seq, 0);
     assert_eq!(wallet.last_revoked_slot, 0);
+    assert!(!wallet.confidential_policy.enabled);
+    assert_eq!(wallet.confidential_policy.encrypted_daily_spent, 0);
     assert!(wallet.sessions.is_empty());
 }
 
@@ -454,4 +523,205 @@ fn stale_policy_sequence_is_rejected() {
         1,
     );
     assert!(res.is_err(), "old policy_seq should be rejected");
+}
+
+#[test]
+fn confidential_policy_allows_in_limit_action_and_updates_daily_spent() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let witness = [0x17u8; 32];
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    set_confidential_numeric_policy(&mut svm, &owner, wallet_pda, witness, 10, 20, 0, 0)
+        .expect("set confidential policy failed");
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        4_102_444_800,
+    )
+    .expect("grant session failed");
+    svm.airdrop(&wallet_pda, 100).unwrap();
+
+    let destination = Keypair::new().pubkey();
+    let res = execute_confidential_as_session(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        destination,
+        5,
+        10_000,
+        1,
+        witness,
+    );
+    assert!(
+        res.is_ok(),
+        "in-limit confidential action should pass: {res:?}"
+    );
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert_eq!(
+        wallet.confidential_policy.encrypted_daily_spent,
+        encrypt_amount(5, &witness)
+    );
+    assert!(wallet.confidential_policy.spent_day_index >= 0);
+}
+
+#[test]
+fn confidential_policy_blocks_action_above_max_per_run_without_updating_spent() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let witness = [0x29u8; 32];
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    set_confidential_numeric_policy(&mut svm, &owner, wallet_pda, witness, 10, 20, 0, 0)
+        .expect("set confidential policy failed");
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        4_102_444_800,
+    )
+    .expect("grant session failed");
+    svm.airdrop(&wallet_pda, 100).unwrap();
+
+    let destination = Keypair::new().pubkey();
+    let res = execute_confidential_as_session(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        destination,
+        25,
+        10_000,
+        1,
+        witness,
+    );
+    assert!(res.is_err(), "over max-per-run action should be blocked");
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert_eq!(
+        wallet.confidential_policy.encrypted_daily_spent,
+        encrypt_amount(0, &witness)
+    );
+}
+
+#[test]
+fn confidential_policy_blocks_action_that_would_exceed_daily_cap() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let witness = [0x31u8; 32];
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    set_confidential_numeric_policy(&mut svm, &owner, wallet_pda, witness, 10, 20, 15, 0)
+        .expect("set confidential policy failed");
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        4_102_444_800,
+    )
+    .expect("grant session failed");
+    svm.airdrop(&wallet_pda, 100).unwrap();
+
+    let destination = Keypair::new().pubkey();
+    let res = execute_confidential_as_session(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        destination,
+        10,
+        10_000,
+        1,
+        witness,
+    );
+    assert!(res.is_err(), "daily cap overflow should be blocked");
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert_eq!(
+        wallet.confidential_policy.encrypted_daily_spent,
+        encrypt_amount(15, &witness)
+    );
+}
+
+#[test]
+fn confidential_policy_resets_daily_spent_when_day_changes() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let witness = [0x43u8; 32];
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    set_confidential_numeric_policy(&mut svm, &owner, wallet_pda, witness, 10, 20, 20, -1)
+        .expect("set confidential policy failed");
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        4_102_444_800,
+    )
+    .expect("grant session failed");
+    svm.airdrop(&wallet_pda, 100).unwrap();
+
+    let destination = Keypair::new().pubkey();
+    let res = execute_confidential_as_session(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        destination,
+        5,
+        10_000,
+        1,
+        witness,
+    );
+    assert!(
+        res.is_ok(),
+        "stale daily spent should reset before applying action: {res:?}"
+    );
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert_eq!(
+        wallet.confidential_policy.encrypted_daily_spent,
+        encrypt_amount(5, &witness)
+    );
+}
+
+#[test]
+fn confidential_policy_rejects_invalid_witness_without_revealing_threshold() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let witness = [0x53u8; 32];
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    set_confidential_numeric_policy(&mut svm, &owner, wallet_pda, witness, 10, 20, 0, 0)
+        .expect("set confidential policy failed");
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        4_102_444_800,
+    )
+    .expect("grant session failed");
+    svm.airdrop(&wallet_pda, 100).unwrap();
+
+    let destination = Keypair::new().pubkey();
+    let res = execute_confidential_as_session(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        destination,
+        5,
+        10_000,
+        1,
+        [0x54u8; 32],
+    );
+    assert!(res.is_err(), "invalid witness should be rejected");
 }

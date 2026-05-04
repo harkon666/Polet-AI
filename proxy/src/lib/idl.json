@@ -8,6 +8,86 @@
   },
   "instructions": [
     {
+      "name": "execute_confidential_transfer_as_session",
+      "discriminator": [
+        142,
+        74,
+        175,
+        147,
+        39,
+        73,
+        10,
+        41
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  101,
+                  116,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet.owner",
+                "account": "Wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "session_key",
+          "signer": true
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "intent_data",
+          "type": "bytes"
+        },
+        {
+          "name": "attestation_slot",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_policy_seq",
+          "type": "u64"
+        },
+        {
+          "name": "encryption_witness",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "execute_intent",
       "discriminator": [
         53,
@@ -326,6 +406,68 @@
       ]
     },
     {
+      "name": "set_confidential_numeric_policy",
+      "discriminator": [
+        162,
+        13,
+        137,
+        153,
+        188,
+        70,
+        33,
+        183
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "policy_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encryption_witness_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encrypted_max_per_run",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_cap",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_spent",
+          "type": "u64"
+        },
+        {
+          "name": "spent_day_index",
+          "type": "i64"
+        }
+      ]
+    },
+    {
       "name": "set_merkle_root",
       "discriminator": [
         43,
@@ -532,9 +674,65 @@
       "code": 6016,
       "name": "ArithmeticOverflow",
       "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6017,
+      "name": "ConfidentialPolicyNotConfigured",
+      "msg": "Confidential numeric policy is not configured"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidPolicyWitness",
+      "msg": "Invalid confidential policy witness"
     }
   ],
   "types": [
+    {
+      "name": "ConfidentialNumericPolicy",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "policy_commitment",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "encryption_witness_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "encrypted_max_per_run",
+            "type": "u64"
+          },
+          {
+            "name": "encrypted_daily_cap",
+            "type": "u64"
+          },
+          {
+            "name": "encrypted_daily_spent",
+            "type": "u64"
+          },
+          {
+            "name": "spent_day_index",
+            "type": "i64"
+          },
+          {
+            "name": "enabled",
+            "type": "bool"
+          }
+        ]
+      }
+    },
     {
       "name": "SessionKey",
       "type": {
@@ -597,6 +795,14 @@
           {
             "name": "last_revoked_slot",
             "type": "u64"
+          },
+          {
+            "name": "confidential_policy",
+            "type": {
+              "defined": {
+                "name": "ConfidentialNumericPolicy"
+              }
+            }
           },
           {
             "name": "sessions",

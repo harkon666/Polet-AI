@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use solana_sha256_hasher::hashv;
 
 pub mod constants;
 pub mod error;
@@ -8,7 +9,7 @@ declare_id!("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
 
 pub use constants::WALLET_SEED;
 pub use error::ErrorCode;
-pub use state::{SessionKey, Wallet};
+pub use state::{ConfidentialNumericPolicy, SessionKey, Wallet};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -41,6 +42,13 @@ pub struct SetProxyKey<'info> {
 
 #[derive(Accounts)]
 pub struct SetMerkleRoot<'info> {
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetConfidentialNumericPolicy<'info> {
     #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
@@ -98,6 +106,21 @@ pub struct ExecuteIntentAsSession<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct ExecuteConfidentialTransferAsSession<'info> {
+    #[account(
+        mut,
+        seeds = [WALLET_SEED, wallet.owner.as_ref()],
+        bump,
+    )]
+    pub wallet: Account<'info, Wallet>,
+    pub session_key: Signer<'info>,
+    /// CHECK: Destination is checked against intent_data and receives lamports in this SOL-only core slice.
+    #[account(mut)]
+    pub destination: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 fn parse_transfer_intent(intent_data: &[u8], expected_destination: &Pubkey) -> Result<(u8, u64)> {
     require!(intent_data.len() == 41, ErrorCode::InvalidIntent);
 
@@ -126,6 +149,76 @@ fn require_policy_commitment(wallet: &Wallet) -> Result<()> {
         wallet.policy_commitment != [0u8; 32] || wallet.merkle_root != [0u8; 32],
         ErrorCode::PolicyViolation
     );
+    Ok(())
+}
+
+fn witness_mask(encryption_witness: &[u8; 32]) -> u64 {
+    u64::from_le_bytes(encryption_witness[0..8].try_into().expect("fixed slice"))
+}
+
+fn encrypt_amount(amount: u64, encryption_witness: &[u8; 32]) -> u64 {
+    amount ^ witness_mask(encryption_witness)
+}
+
+fn decrypt_amount(encrypted_amount: u64, encryption_witness: &[u8; 32]) -> u64 {
+    encrypted_amount ^ witness_mask(encryption_witness)
+}
+
+fn current_day_index() -> Result<i64> {
+    let timestamp = Clock::get()?.unix_timestamp;
+    Ok(timestamp.div_euclid(86_400))
+}
+
+fn verify_confidential_policy_witness(
+    policy: &ConfidentialNumericPolicy,
+    encryption_witness: &[u8; 32],
+) -> Result<()> {
+    require!(
+        policy.enabled && policy.policy_commitment != [0u8; 32],
+        ErrorCode::ConfidentialPolicyNotConfigured
+    );
+    require!(
+        hashv(&[encryption_witness]).to_bytes() == policy.encryption_witness_hash,
+        ErrorCode::InvalidPolicyWitness
+    );
+    Ok(())
+}
+
+fn enforce_confidential_numeric_policy(
+    wallet: &mut Wallet,
+    amount: u64,
+    encryption_witness: &[u8; 32],
+) -> Result<()> {
+    verify_confidential_policy_witness(&wallet.confidential_policy, encryption_witness)?;
+
+    let max_per_run = decrypt_amount(
+        wallet.confidential_policy.encrypted_max_per_run,
+        encryption_witness,
+    );
+    let daily_cap = decrypt_amount(
+        wallet.confidential_policy.encrypted_daily_cap,
+        encryption_witness,
+    );
+    let today = current_day_index()?;
+    let daily_spent = if wallet.confidential_policy.spent_day_index == today {
+        decrypt_amount(
+            wallet.confidential_policy.encrypted_daily_spent,
+            encryption_witness,
+        )
+    } else {
+        0
+    };
+
+    require!(amount <= max_per_run, ErrorCode::AmountLimitExceeded);
+    let next_daily_spent = daily_spent
+        .checked_add(amount)
+        .ok_or(ErrorCode::ArithmeticOverflow)?;
+    require!(next_daily_spent <= daily_cap, ErrorCode::DailyLimitExceeded);
+
+    wallet.confidential_policy.encrypted_daily_spent =
+        encrypt_amount(next_daily_spent, encryption_witness);
+    wallet.confidential_policy.spent_day_index = today;
+
     Ok(())
 }
 
@@ -175,6 +268,7 @@ pub mod contract {
             merkle_root: [0u8; 32],
             policy_seq: 0,
             last_revoked_slot: 0,
+            confidential_policy: ConfidentialNumericPolicy::default(),
             sessions: Vec::new(),
         });
         msg!("Polet wallet created for: {:?}", ctx.accounts.owner.key());
@@ -211,6 +305,44 @@ pub mod contract {
             .checked_add(1)
             .ok_or(ErrorCode::ArithmeticOverflow)?;
         msg!("Merkle root updated, policy_seq={}", wallet.policy_seq);
+        Ok(())
+    }
+
+    pub fn set_confidential_numeric_policy(
+        ctx: Context<SetConfidentialNumericPolicy>,
+        policy_commitment: [u8; 32],
+        encryption_witness_hash: [u8; 32],
+        encrypted_max_per_run: u64,
+        encrypted_daily_cap: u64,
+        encrypted_daily_spent: u64,
+        spent_day_index: i64,
+    ) -> Result<()> {
+        require!(policy_commitment != [0u8; 32], ErrorCode::PolicyViolation);
+        require!(
+            encryption_witness_hash != [0u8; 32],
+            ErrorCode::InvalidPolicyWitness
+        );
+
+        let wallet = &mut ctx.accounts.wallet;
+        wallet.confidential_policy = ConfidentialNumericPolicy {
+            policy_commitment,
+            encryption_witness_hash,
+            encrypted_max_per_run,
+            encrypted_daily_cap,
+            encrypted_daily_spent,
+            spent_day_index,
+            enabled: true,
+        };
+        wallet.policy_commitment = policy_commitment;
+        wallet.policy_seq = wallet
+            .policy_seq
+            .checked_add(1)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
+
+        msg!(
+            "Confidential numeric policy updated, policy_seq={}",
+            wallet.policy_seq
+        );
         Ok(())
     }
 
@@ -335,6 +467,43 @@ pub mod contract {
             instruction,
             ctx.accounts.destination.key(),
             amount
+        );
+        Ok(())
+    }
+
+    pub fn execute_confidential_transfer_as_session(
+        ctx: Context<ExecuteConfidentialTransferAsSession>,
+        intent_data: Vec<u8>,
+        attestation_slot: u64,
+        attestation_policy_seq: u64,
+        encryption_witness: [u8; 32],
+    ) -> Result<()> {
+        validate_session(&ctx.accounts.wallet, ctx.accounts.session_key.key())?;
+
+        require!(
+            attestation_policy_seq == ctx.accounts.wallet.policy_seq,
+            ErrorCode::StalePolicySeq
+        );
+        require!(
+            attestation_slot > ctx.accounts.wallet.last_revoked_slot,
+            ErrorCode::StaleSlot
+        );
+
+        let (instruction, amount) =
+            parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
+        require!(instruction == 0, ErrorCode::InvalidIntent);
+
+        enforce_confidential_numeric_policy(&mut ctx.accounts.wallet, amount, &encryption_witness)?;
+        transfer_lamports(
+            ctx.accounts.wallet.to_account_info(),
+            ctx.accounts.destination.to_account_info(),
+            amount,
+        )?;
+
+        msg!(
+            "Session executed confidential intent: instruction={}, dest={:?}",
+            instruction,
+            ctx.accounts.destination.key(),
         );
         Ok(())
     }

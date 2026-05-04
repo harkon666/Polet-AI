@@ -36,4 +36,8 @@ pub enum ErrorCode {
     InvalidIntent,
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
+    #[msg("Confidential numeric policy is not configured")]
+    ConfidentialPolicyNotConfigured,
+    #[msg("Invalid confidential policy witness")]
+    InvalidPolicyWitness,
 }
