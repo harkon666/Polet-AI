@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { Transaction } from '@solana/web3.js';
 import {
@@ -13,12 +13,14 @@ import {
   Shield,
   Wallet,
   X,
+  Copy,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
   runConfidentialDca,
   setConfidentialPolicy,
   setupDemoCustody,
+  getWalletData,
   type RunConfidentialDcaResult,
   type SetConfidentialPolicyInput,
   type SetupDemoCustodyInput,
@@ -42,11 +44,12 @@ interface DcaStrategy {
 
 interface ActivityEntry {
   id: string;
-  status: RunStatus;
-  amountUsdc?: string;
   timestamp: number;
+  status: 'setup' | 'approved' | 'blocked' | 'error';
   message: string;
-  route: string;
+  route?: string;
+  amountUsdc?: string;
+  tx?: string;
 }
 
 interface DemoApi {
@@ -210,6 +213,25 @@ export function DemoTabContent({
   const witness = useMemo(() => Array.from({ length: 32 }, (_, index) => index + 1), []);
   const canRun = Boolean(owner && policySaved && sessionKey.trim() && !busy);
 
+  useEffect(() => {
+    if (owner) {
+      getWalletData(owner).then((data) => {
+        if (data) {
+          if (data.demoCustody?.configured) {
+            setCustody({
+              usdcTokenAccount: data.demoCustody.usdcTokenAccount,
+              solTokenAccount: data.demoCustody.solTokenAccount,
+            });
+          }
+          if (data.confidentialPolicy?.enabled) {
+            setPolicySaved(true);
+            setEditingPolicy(false);
+          }
+        }
+      }).catch(console.error);
+    }
+  }, [owner]);
+
   const savedPolicyDigest = useMemo(() => {
     if (!policySaved) return 'Not configured';
     return 'commitment: on-chain';
@@ -239,7 +261,10 @@ export function DemoTabContent({
     setBusy('custody');
     setError(null);
     try {
-      const result = await api.setupDemoCustody({ owner });
+      const result = await api.setupDemoCustody({
+        owner,
+        usdcMint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // Devnet USDC
+      });
       const signature = await signAndConfirmTransaction(result.transaction);
       setCustody({
         usdcTokenAccount: result.usdcTokenAccount ?? 'registered',
@@ -313,6 +338,7 @@ export function DemoTabContent({
         route: result.allowed
           ? `${result.executionPath ?? 'Jupiter Swap V2'} / unsigned tx`
           : result.code,
+        tx: result.allowed ? result.transaction?.transaction : undefined,
       });
     } catch (err) {
       recordError(err instanceof Error ? err.message : 'Failed to run confidential DCA');
@@ -364,13 +390,15 @@ export function DemoTabContent({
             <InfoTile label={t.usdcAccount} value={custody?.usdcTokenAccount ? short(custody.usdcTokenAccount) : 'Not registered'} />
             <InfoTile label={t.solAccount} value={custody?.solTokenAccount ? short(custody.solTokenAccount) : 'Not registered'} />
           </div>
-          <button
-            onClick={setupCustodyAccounts}
-            disabled={!owner || Boolean(busy)}
-            className="mt-4 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {busy === 'custody' ? 'Signing...' : t.setupCustody}
-          </button>
+          {!custody && (
+            <button
+              onClick={setupCustodyAccounts}
+              disabled={!owner || Boolean(busy)}
+              className="mt-4 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {busy === 'custody' ? 'Signing...' : t.setupCustody}
+            </button>
+          )}
           <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
             <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.deposit}</p>
             <p className="mt-1 text-sm text-[var(--sea-ink)]">
@@ -580,10 +608,24 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
         )}
       </div>
       <p className="text-sm leading-6 text-[var(--sea-ink)]">{entry.message}</p>
-      <p className="mt-2 inline-flex items-center gap-2 rounded-md bg-[var(--surface-strong)] px-2 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]">
-        <Landmark className="h-3.5 w-3.5" />
-        {entry.route}
-      </p>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="inline-flex items-center gap-2 rounded-md bg-[var(--surface-strong)] px-2 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]">
+          <Landmark className="h-3.5 w-3.5" />
+          {entry.route}
+        </p>
+        {entry.tx && (
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(entry.tx!);
+              alert('Unsigned Transaction copied to clipboard!');
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--lagoon-deep)] px-2 py-1 text-[10px] font-bold text-white transition-opacity hover:opacity-80"
+          >
+            <Copy className="h-3 w-3" />
+            COPY UNSIGNED TX
+          </button>
+        )}
+      </div>
     </article>
   );
 }

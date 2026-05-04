@@ -56,11 +56,11 @@ export function WalletDashboard() {
           setTemporalKeys(data.temporalKeys.map((tk: any, i: number) => ({
             id: `key-${i}`,
             sessionKey: tk.key.toString(),
-            expiresAt: Number(tk.expiresAt),
+            expiresAt: Number(tk.expiresAt) * 1000,
             authorized: tk.authorized,
-            dailyLimit: Number(tk.dailyLimit),
-            dailySpent: Number(tk.dailySpent),
-            createdAt: Number(tk.lastReset) * 1000,
+            dailyLimit: Number(tk.dailyLimit || 0),
+            dailySpent: Number(tk.dailySpent || 0),
+            createdAt: Number(tk.lastReset || Date.now() / 1000) * 1000,
           })));
         }
         if (data.policyData && data.policyData.length > 0) {

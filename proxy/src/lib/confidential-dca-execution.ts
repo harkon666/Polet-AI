@@ -279,8 +279,8 @@ function parseUsdcAmount(value: number | string | undefined): bigint {
   return baseUnits;
 }
 
-function decryptAmount(encrypted: bigint, witness: Uint8Array): bigint {
-  return encrypted ^ witnessMask(witness);
+function decryptAmount(encrypted: bigint | string | number, witness: Uint8Array): bigint {
+  return BigInt(encrypted) ^ witnessMask(witness);
 }
 
 function witnessMask(witness: Uint8Array): bigint {
