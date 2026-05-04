@@ -45,7 +45,7 @@ Track alignment:
 
 ### Critical Path
 
-- [ ] `005-confidential-dca-execution-path` — Connect Run Agent Now -> Jupiter precheck -> confidential policy check -> smart wallet allow/block execution.
+- None.
 
 ### Submission Polish
 
@@ -94,6 +94,9 @@ Track alignment:
 - [x] `004-jupiter-strategy-gateway` — Added an isolated proxy Jupiter strategy gateway for Tokens V2 metadata/quality fields, Price V3 USDC/SOL pricing, Recurring compatibility recording, and Swap API V2 `/build` fallback with the Polet wallet as taker. The gateway validates `JUPITER_API_KEY` before requests, supports injected fetch for deterministic tests, and captures Jupiter DX notes for the final report.
   - Verification: `bun test` and `bun run build` pass in `proxy/`.
   - Note: Recurring is recorded as incompatible for the current MVP path because Polet still needs every DCA run to pass confidential PDA policy gating immediately before spending; Swap V2 `/build` remains the execution fallback.
+- [x] `005-confidential-dca-execution-path` — Added the proxy confidential DCA run path at `POST /intent/dca/run`, connecting wallet/session validation, Jupiter Tokens/Price/Swap V2 prechecks, pre-alpha confidential max-per-run and daily-cap witness evaluation, non-leaking block responses, and unsigned confidential session transaction construction. The allowed path uses the smart wallet PDA as Jupiter taker/payer and Polet contract wallet authority; the proxy does not sign or broadcast.
+  - Verification: `bun test` and `bun run build` pass in `proxy/`.
+  - Note: this remains an Encrypt pre-alpha masked witness demo path, not a production confidentiality guarantee. Jupiter Recurring remains incompatible for the MVP, so Swap V2 `/build` fallback is used.
 
 ### Planning
 

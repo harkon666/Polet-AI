@@ -128,22 +128,37 @@ export interface Attestation {
 export interface TemporalKeyAccount {
   key: PublicKey;
   expiresAt: BN;
+  grantedSlot?: BN;
   authorized: boolean;
-  dailyLimit: BN;
-  dailySpent: BN;
-  lastReset: BN;
+}
+
+export interface ConfidentialNumericPolicyAccount {
+  policyCommitment: number[] | Uint8Array;
+  encryptionWitnessHash: number[] | Uint8Array;
+  encryptedMaxPerRun: BN;
+  encryptedDailyCap: BN;
+  encryptedDailySpent: BN;
+  spentDayIndex: BN;
+  enabled: boolean;
+}
+
+export interface DemoTokenCustodyAccount {
+  usdcMint: PublicKey;
+  usdcTokenAccount: PublicKey;
+  solMint: PublicKey;
+  solTokenAccount: PublicKey;
+  tokenProgram: PublicKey;
+  configured: boolean;
 }
 
 export interface WalletAccount {
   owner: PublicKey;
   proxyPk: PublicKey;
-  merkleRoot: number[];
+  policyCommitment: number[] | Uint8Array;
+  merkleRoot: number[] | Uint8Array;
   policySeq: BN;
   lastRevokedSlot: BN;
-  policyHash: number[];
-  policyData: number[]; // bytes
-  dailySpent: BN;
-  lastReset: BN;
-  dailyLimit: BN;
-  temporalKeys: TemporalKeyAccount[];
+  confidentialPolicy: ConfidentialNumericPolicyAccount;
+  demoCustody: DemoTokenCustodyAccount;
+  sessions: TemporalKeyAccount[];
 }

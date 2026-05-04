@@ -35,23 +35,41 @@ function deserializePolicy(data: Uint8Array): Policy {
 }
 
 export interface WalletData {
+  walletPda: string;
   owner: string;
   proxyPk: string;
+  policyCommitment: number[];
   merkleRoot: number[];
   policySeq: number;
   lastRevokedSlot: number;
-  policyHash: number[];
-  policyData: Uint8Array;
-  dailySpent: number;
-  lastReset: number;
-  dailyLimit: number;
+  confidentialPolicy: {
+    policyCommitment: number[];
+    encryptionWitnessHash: number[];
+    encryptedMaxPerRun: bigint;
+    encryptedDailyCap: bigint;
+    encryptedDailySpent: bigint;
+    spentDayIndex: number;
+    enabled: boolean;
+  };
+  demoCustody: {
+    usdcMint: string;
+    usdcTokenAccount: string;
+    solMint: string;
+    solTokenAccount: string;
+    tokenProgram: string;
+    configured: boolean;
+  };
+  sessions: Array<{
+    key: string;
+    expiresAt: number;
+    grantedSlot: number;
+    authorized: boolean;
+  }>;
   temporalKeys: Array<{
     key: string;
     expiresAt: number;
+    grantedSlot: number;
     authorized: boolean;
-    dailyLimit: number;
-    dailySpent: number;
-    lastReset: number;
   }>;
 }
 
@@ -77,26 +95,40 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
     );
 
     const accountData = (await (program.account as any).wallet.fetch(walletPda)) as unknown as WalletAccount;
-    
+    const sessions = accountData.sessions.map(tk => ({
+      key: tk.key.toString(),
+      expiresAt: tk.expiresAt.toNumber(),
+      grantedSlot: tk.grantedSlot?.toNumber() ?? 0,
+      authorized: tk.authorized,
+    }));
+
     return {
+      walletPda: walletPda.toString(),
       owner: accountData.owner.toString(),
       proxyPk: accountData.proxyPk.toString(),
+      policyCommitment: Array.from(accountData.policyCommitment),
       merkleRoot: Array.from(accountData.merkleRoot),
       policySeq: accountData.policySeq.toNumber(),
       lastRevokedSlot: accountData.lastRevokedSlot.toNumber(),
-      policyHash: Array.from(accountData.policyHash),
-      policyData: Array.from(accountData.policyData),
-      dailySpent: accountData.dailySpent.toNumber(),
-      lastReset: accountData.lastReset.toNumber(),
-      dailyLimit: accountData.dailyLimit.toNumber(),
-      temporalKeys: accountData.temporalKeys.map(tk => ({
-        key: tk.key.toString(),
-        expiresAt: tk.expiresAt.toNumber(),
-        authorized: tk.authorized,
-        dailyLimit: tk.dailyLimit.toNumber(),
-        dailySpent: tk.dailySpent.toNumber(),
-        lastReset: tk.lastReset.toNumber(),
-      })),
+      confidentialPolicy: {
+        policyCommitment: Array.from(accountData.confidentialPolicy.policyCommitment),
+        encryptionWitnessHash: Array.from(accountData.confidentialPolicy.encryptionWitnessHash),
+        encryptedMaxPerRun: BigInt(accountData.confidentialPolicy.encryptedMaxPerRun.toString()),
+        encryptedDailyCap: BigInt(accountData.confidentialPolicy.encryptedDailyCap.toString()),
+        encryptedDailySpent: BigInt(accountData.confidentialPolicy.encryptedDailySpent.toString()),
+        spentDayIndex: accountData.confidentialPolicy.spentDayIndex.toNumber(),
+        enabled: accountData.confidentialPolicy.enabled,
+      },
+      demoCustody: {
+        usdcMint: accountData.demoCustody.usdcMint.toString(),
+        usdcTokenAccount: accountData.demoCustody.usdcTokenAccount.toString(),
+        solMint: accountData.demoCustody.solMint.toString(),
+        solTokenAccount: accountData.demoCustody.solTokenAccount.toString(),
+        tokenProgram: accountData.demoCustody.tokenProgram.toString(),
+        configured: accountData.demoCustody.configured,
+      },
+      sessions,
+      temporalKeys: sessions,
     };
   } catch (error) {
     console.error(`Error fetching wallet data for ${ownerStr}:`, error);
@@ -111,17 +143,13 @@ export async function getWalletPolicy(ownerStr: string): Promise<Policy | null> 
   const wallet = await getWalletData(ownerStr);
   if (!wallet) return null;
   
-  if (wallet.policyData.length === 0) {
-    // If no policy is set, fallback to a secure default or return null.
-    return {
-      allowlist: [],
-      blocklist: [],
-      maxAmount: 10_000_000_000,
-      dailyLimit: 100_000_000_000,
-    };
-  }
+  const _ = deserializePolicy;
+  if (!wallet.confidentialPolicy.enabled) return null;
 
-  return deserializePolicy(wallet.policyData);
+  return {
+    allowlist: [],
+    blocklist: [],
+  };
 }
 
 /**
@@ -133,14 +161,13 @@ export async function isSessionAuthorized(ownerStr: string, sessionKey: string):
 
   const currentTime = Math.floor(Date.now() / 1000);
 
-  for (const tk of wallet.temporalKeys) {
+  for (const tk of wallet.sessions) {
     if (tk.key === sessionKey) {
-      return tk.authorized && tk.expiresAt > currentTime;
+      return tk.authorized
+        && tk.expiresAt > currentTime
+        && tk.grantedSlot >= wallet.lastRevokedSlot;
     }
   }
-
-  // If no temporal keys exist, allow for demo transition.
-  if (wallet.temporalKeys.length === 0) return true;
 
   return false;
 }

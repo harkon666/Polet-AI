@@ -4,12 +4,62 @@ import { evaluateIntent } from '../lib/policy-engine';
 import { generateAttestation } from '../lib/policy-engine';
 import { buildTransaction } from '../lib/transaction-builder';
 import { getWalletPolicy, isSessionAuthorized } from '../lib/wallet-store';
+import {
+  ConfidentialDcaExecutionError,
+  runConfidentialDcaExecution,
+} from '../lib/confidential-dca-execution';
+import { JupiterGatewayError } from '../lib/jupiter-gateway';
 import type { Intent, Policy } from '../types/intent';
 
 export const intentRouter = new Hono();
 
 // Program ID for the Polet AI contract
 const PROGRAM_ID = '22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw';
+
+/**
+ * POST /intent/dca/run
+ * Run the confidential USDC -> SOL DCA demo path.
+ */
+intentRouter.post('/dca/run', async (c) => {
+  try {
+    const body = await c.req.json();
+    const result = await runConfidentialDcaExecution(body);
+
+    return c.json({
+      success: true,
+      data: result,
+    });
+  } catch (e) {
+    if (e instanceof ConfidentialDcaExecutionError) {
+      return c.json({
+        success: false,
+        error: {
+          code: e.code,
+          message: e.message,
+        },
+      }, e.status as 400 | 404 | 500);
+    }
+    if (e instanceof JupiterGatewayError) {
+      return c.json({
+        success: false,
+        error: {
+          code: e.code,
+          message: 'Jupiter precheck failed',
+          status: e.status,
+        },
+      }, 502);
+    }
+
+    console.error('Confidential DCA execution error:', e);
+    return c.json({
+      success: false,
+      error: {
+        code: 'DCA_EXECUTION_ERROR',
+        message: e instanceof Error ? e.message : 'Failed to run confidential DCA',
+      },
+    }, 500);
+  }
+});
 
 /**
  * POST /intent/evaluate

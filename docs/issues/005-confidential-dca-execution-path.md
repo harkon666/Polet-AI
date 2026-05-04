@@ -1,6 +1,6 @@
 # Confidential DCA Execution Path
 
-Labels: `needs-triage`
+Labels: `done`
 
 ## Parent
 
@@ -14,15 +14,27 @@ The primary demo pair is USDC to SOL. The allow scenario is 5 USDC. The block sc
 
 ## Acceptance criteria
 
-- [ ] The proxy accepts a DCA run request for USDC to SOL.
-- [ ] The proxy performs Jupiter token and price prechecks before execution.
-- [ ] The execution path validates the AI agent session key.
-- [ ] The execution path checks confidential max-per-run and daily-cap policy before moving funds.
-- [ ] A 25 USDC run is blocked in the demo policy configuration without revealing the exact threshold.
-- [ ] A 5 USDC run is allowed in the demo policy configuration.
-- [ ] The smart wallet PDA is the execution authority for the allowed action.
-- [ ] If Jupiter Recurring is compatible, the flow uses it for the DCA strategy; otherwise it uses the Polet scheduler plus Swap V2 `/build` fallback.
-- [ ] Tests cover allow, block, stale session, revoked session, Jupiter precheck failure, and non-leaking block response.
+- [x] The proxy accepts a DCA run request for USDC to SOL.
+- [x] The proxy performs Jupiter token and price prechecks before execution.
+- [x] The execution path validates the AI agent session key.
+- [x] The execution path checks confidential max-per-run and daily-cap policy before moving funds.
+- [x] A 25 USDC run is blocked in the demo policy configuration without revealing the exact threshold.
+- [x] A 5 USDC run is allowed in the demo policy configuration.
+- [x] The smart wallet PDA is the execution authority for the allowed action.
+- [x] If Jupiter Recurring is compatible, the flow uses it for the DCA strategy; otherwise it uses the Polet scheduler plus Swap V2 `/build` fallback.
+- [x] Tests cover allow, block, stale session, revoked session, Jupiter precheck failure, and non-leaking block response.
+
+## Completion notes
+
+- Added `POST /intent/dca/run` in the proxy.
+- Added `proxy/src/lib/confidential-dca-execution.ts` to coordinate wallet/session lookup, Jupiter Tokens/Price/Swap V2 prechecks, pre-alpha confidential policy witness evaluation, non-leaking blocked responses, and unsigned confidential session transaction construction.
+- Added confidential transfer instruction serialization for the contract's `execute_confidential_transfer_as_session` path.
+- The allowed path uses the smart wallet PDA as Jupiter `/build` taker/payer and as the Polet contract wallet authority. The proxy returns an unsigned transaction for the session key to sign/send; it does not sign or broadcast.
+- Jupiter Recurring remains recorded as incompatible for the MVP because every run must pass Polet policy gating immediately before spending, so the execution path uses Swap V2 `/build` fallback.
+
+Verification: `bun test` and `bun run build` pass in `proxy/`.
+
+Pre-alpha limitation: the proxy mirrors the contract's masked witness policy model for deterministic demo prechecks. This is not production-grade confidentiality until real Encrypt primitives replace the witness path.
 
 ## Blocked by
 

@@ -33,6 +33,16 @@ export interface BuiltTransaction {
   signers: string[];
 }
 
+export interface ConfidentialTransferTransactionRequest {
+  wallet: string;
+  sessionKey: string;
+  destination: string;
+  amount: number | bigint;
+  attestationSlot: number | bigint;
+  attestationPolicySeq: number | bigint;
+  encryptionWitness: Uint8Array | number[];
+}
+
 /**
  * Build instruction data matching the Solana program's execute_intent format
  * Format: [instruction(1) + destination(32) + amount(8)]
@@ -49,6 +59,28 @@ export function buildExecuteIntentData(
   return data;
 }
 
+export function buildExecuteConfidentialTransferInstructionData(
+  request: ConfidentialTransferTransactionRequest
+): Buffer {
+  const discriminator = Buffer.from([142, 74, 175, 147, 39, 73, 10, 41]);
+  const destination = new PublicKey(request.destination);
+  const intentData = buildExecuteIntentData(0, destination.toBytes(), BigInt(request.amount));
+  const witness = Uint8Array.from(request.encryptionWitness);
+
+  if (witness.length !== 32) {
+    throw new Error('encryptionWitness must contain exactly 32 bytes');
+  }
+
+  return Buffer.concat([
+    discriminator,
+    toU32Le(intentData.length),
+    Buffer.from(intentData),
+    Buffer.from(to_LE_Bytes(BigInt(request.attestationSlot))),
+    Buffer.from(to_LE_Bytes(BigInt(request.attestationPolicySeq))),
+    Buffer.from(witness),
+  ]);
+}
+
 /**
  * Convert a bigint to little-endian bytes
  */
@@ -60,6 +92,54 @@ export function to_LE_Bytes(num: bigint): Uint8Array {
     n >>= 8n;
   }
   return arr;
+}
+
+function toU32Le(num: number): Buffer {
+  const buffer = Buffer.alloc(4);
+  buffer.writeUInt32LE(num, 0);
+  return buffer;
+}
+
+export async function buildConfidentialTransferSessionTransaction(
+  request: ConfidentialTransferTransactionRequest,
+  programId: string
+): Promise<BuiltTransaction> {
+  const connection = getConnection();
+  const { blockhash } = await connection.getLatestBlockhash();
+  const recentSlot = await connection.getSlot();
+
+  const walletPubkey = new PublicKey(request.wallet);
+  const sessionKeyPubkey = new PublicKey(request.sessionKey);
+  const destinationPubkey = new PublicKey(request.destination);
+  const programIdPubkey = new PublicKey(programId);
+
+  const instruction = new TransactionInstruction({
+    keys: [
+      { pubkey: walletPubkey, isSigner: false, isWritable: true },
+      { pubkey: sessionKeyPubkey, isSigner: true, isWritable: false },
+      { pubkey: destinationPubkey, isSigner: false, isWritable: true },
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ],
+    programId: programIdPubkey,
+    data: buildExecuteConfidentialTransferInstructionData(request),
+  });
+
+  const transaction = new Transaction();
+  transaction.add(instruction);
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = sessionKeyPubkey;
+
+  const serialized = transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+
+  return {
+    transaction: serialized.toString('base64'),
+    blockHash: blockhash,
+    slot: recentSlot,
+    signers: [request.sessionKey],
+  };
 }
 
 /**
