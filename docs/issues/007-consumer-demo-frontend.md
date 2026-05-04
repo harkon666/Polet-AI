@@ -1,6 +1,6 @@
 # Consumer Demo Frontend
 
-Labels: `needs-triage`
+Labels: `done`
 
 ## Parent
 
@@ -14,18 +14,24 @@ The UI should support Indonesian and English copy for key flows.
 
 ## Acceptance criteria
 
-- [ ] The frontend presents Polet as a confidential DCA smart wallet for AI agents.
-- [ ] The user can initialize or view their Polet smart wallet.
-- [ ] The user can see deposit instructions or wallet account addresses for the demo assets.
-- [ ] The user can configure the demo confidential policy values.
-- [ ] After policy save, exact private policy values are hidden or redacted in the normal UI.
-- [ ] The user can configure a USDC to SOL DCA strategy.
-- [ ] The user can trigger "Run Agent Now".
-- [ ] The UI displays an allowed 5 USDC run.
-- [ ] The UI displays a blocked 25 USDC run without revealing exact thresholds.
-- [ ] The activity log avoids leaking confidential policy values.
-- [ ] The core flow supports Indonesian and English language toggle.
-- [ ] Frontend tests cover hidden policy values, allow/block display, activity log privacy, and language toggle.
+- [x] The frontend presents Polet as a confidential DCA smart wallet for AI agents.
+- [x] The user can initialize or view their Polet smart wallet.
+- [x] The user can see deposit instructions or wallet account addresses for the demo assets.
+- [x] The user can configure the demo confidential policy values.
+- [x] After policy save, exact private policy values are hidden or redacted in the normal UI.
+- [x] The user can configure a USDC to SOL DCA strategy.
+- [x] The user can trigger "Run Agent Now".
+- [x] The UI displays an allowed 5 USDC run.
+- [x] The UI displays a blocked 25 USDC run without revealing exact thresholds.
+- [x] The activity log avoids leaking confidential policy values.
+- [x] The core flow supports Indonesian and English language toggle.
+- [x] Frontend tests cover hidden policy values, allow/block display, activity log privacy, and language toggle.
+
+## Completion notes
+
+- Replaced the legacy transfer simulator with the consumer confidential DCA demo flow.
+- Added policy setup with normal-view redaction after save, DCA strategy setup, 25 USDC blocked run, 5 USDC allowed run, safe activity log, deposit guidance, and ID/EN copy.
+- Verification: `bun test` and `bun run build` pass in `frontend/`.
 
 ## Blocked by
 

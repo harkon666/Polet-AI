@@ -292,9 +292,9 @@ export function WalletDashboard() {
               }`}
           >
             {tab === 'overview' && 'Overview'}
-            {tab === 'policy' && 'Policy'}
+            {tab === 'policy' && 'Confidential Policy'}
             {tab === 'temporal' && 'Session Keys'}
-            {tab === 'demo' && 'Demo'}
+            {tab === 'demo' && 'DCA Demo'}
           </button>
         ))}
       </div>
@@ -333,9 +333,9 @@ function OverviewTab() {
     <div className="grid gap-4 sm:grid-cols-2">
       <StatCard
         icon={<Shield className="h-5 w-5" />}
-        label="Daily Spent"
-        value="0.00 SOL"
-        sublabel="0.05 SOL limit"
+        label="Demo Pair"
+        value="USDC -> SOL"
+        sublabel="Jupiter strategy gateway"
       />
       <StatCard
         icon={<Clock className="h-5 w-5" />}
@@ -346,14 +346,14 @@ function OverviewTab() {
       <StatCard
         icon={<Key className="h-5 w-5" />}
         label="Policy"
-        value="Not Set"
-        sublabel="Configure to protect"
+        value="Confidential"
+        sublabel="Numeric limits redacted"
       />
       <StatCard
         icon={<AlertTriangle className="h-5 w-5" />}
-        label="Last Blocked"
-        value="None"
-        sublabel="All transactions allowed"
+        label="Run Agent Now"
+        value="5 / 25"
+        sublabel="Allow and block scenarios"
       />
     </div>
   );

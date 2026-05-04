@@ -13,11 +13,11 @@ export function HomePage() {
         <div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(47,106,74,0.18),transparent_66%)]" />
         <p className="island-kicker mb-3">Polet AI</p>
         <h1 className="display-title mb-5 max-w-3xl text-4xl leading-[1.02] font-bold tracking-tight text-[var(--sea-ink)] sm:text-6xl">
-          Policy-Enforced Smart Wallet for AI Agents
+          Confidential DCA Smart Wallet for AI Agents
         </h1>
         <p className="mb-8 max-w-2xl text-base text-[var(--sea-ink-soft)] sm:text-lg">
-          Secure your AI agent wallets with allowlists, blocklists, spending limits, and temporal session keys.
-          Built on Solana for high-frequency micro-transactions.
+          Delegate USDC to SOL DCA runs without exposing private numeric guardrails or giving an AI agent
+          unlimited wallet authority. Built on Solana with Polet PDA custody and Jupiter-powered execution.
         </p>
         <div className="flex flex-wrap gap-3">
           <a
@@ -37,22 +37,10 @@ export function HomePage() {
       {/* Features */}
       <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          [
-            'Temporal Keys',
-            'Grant temporary access to AI agents with automatic expiry.',
-          ],
-          [
-            'Policy Enforcement',
-            'Allow/block lists and amount limits enforced on-chain.',
-          ],
-          [
-            'Daily Rate Limiting',
-            'Contain blast radius with daily spending caps.',
-          ],
-          [
-            'Kill Switch',
-            'Revoke session keys instantly in emergencies.',
-          ],
+          ['PDA Custody', 'Deposit demo funds into a Polet smart wallet controlled by program policy.'],
+          ['Confidential Policy', 'Set private max-per-run and daily-cap rules for the agent.'],
+          ['Jupiter DCA', 'Route allowed USDC to SOL runs through the Jupiter strategy gateway.'],
+          ['Safe Blocks', 'Show blocked agent actions without revealing the private threshold.'],
         ].map(([title, desc], index) => (
           <article
             key={title}

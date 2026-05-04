@@ -1,463 +1,404 @@
-import { useState } from 'react';
-import { Bot, Send, Shield, X, Check, AlertTriangle, Zap, Plus } from 'lucide-react';
-import { evaluateIntent } from '../lib/api';
-import type { Intent, IntentEvaluationResult } from '../types';
+import { useMemo, useState } from 'react';
+import {
+  Activity,
+  Bot,
+  Check,
+  EyeOff,
+  Landmark,
+  Languages,
+  Play,
+  Shield,
+  Wallet,
+  X,
+} from 'lucide-react';
+import type { ReactNode } from 'react';
 
-interface Policy {
-  allowlist: string[];
-  blocklist: string[];
-  maxAmount?: number;
-  dailyLimit?: number;
+type Locale = 'id' | 'en';
+type RunStatus = 'approved' | 'blocked';
+
+interface ConfidentialPolicyDraft {
+  maxPerRunUsdc: string;
+  dailyCapUsdc: string;
 }
 
-interface DemoPolicy {
-  maxAmount: string;
-  dailyLimit: string;
-  blocklist: string[];
+interface DcaStrategy {
+  inputMint: 'USDC';
+  outputMint: 'SOL';
+  amountUsdc: string;
+  cadence: string;
 }
 
-type IntentResult = {
-  intent: Intent;
-  result: IntentEvaluationResult;
+interface ActivityEntry {
+  id: string;
+  status: RunStatus;
+  amountUsdc: string;
   timestamp: number;
-};
+  message: string;
+  route: string;
+}
+
+const DEMO_WALLET = 'Polet smart wallet PDA';
+const DEMO_USDC_ACCOUNT = 'PDA-owned USDC token account';
+const DEMO_SOL_ACCOUNT = 'PDA-owned SOL token account';
+
+const COPY = {
+  id: {
+    language: 'Bahasa',
+    title: 'Demo DCA Rahasia',
+    subtitle:
+      'Smart wallet Polet menyimpan dana, menyimpan aturan numerik sebagai policy rahasia pre-alpha, lalu membatasi aksi agen sebelum swap Jupiter dibangun.',
+    walletTitle: 'Smart wallet',
+    walletBody: 'Inisialisasi Polet wallet, lalu deposit USDC untuk demo DCA USDC ke SOL.',
+    initialized: 'Siap',
+    deposit: 'Instruksi deposit',
+    usdcAccount: 'Akun USDC',
+    solAccount: 'Akun SOL',
+    policyTitle: 'Policy rahasia',
+    policyBody: 'Nilai bisa diatur saat setup, tetapi setelah disimpan UI normal hanya menampilkan status terenkripsi.',
+    maxPerRun: 'Maks per run',
+    dailyCap: 'Batas harian',
+    savePolicy: 'Simpan policy rahasia',
+    editPolicy: 'Ubah policy',
+    policySaved: 'Policy tersimpan',
+    redacted: 'Nilai privat disembunyikan',
+    encryptedMax: 'Maks per run terenkripsi',
+    encryptedDaily: 'Batas harian terenkripsi',
+    strategyTitle: 'Strategi DCA',
+    fromTo: 'Pair',
+    amount: 'Jumlah normal',
+    cadence: 'Jadwal',
+    runNow: 'Run Agent Now',
+    runAllowed: 'Jalankan 5 USDC',
+    runBlocked: 'Coba 25 USDC',
+    activityTitle: 'Activity log',
+    emptyLog: 'Belum ada aktivitas agen.',
+    approved: 'DISETUJUI',
+    blocked: 'DIBLOKIR',
+    approvedMessage: 'Policy rahasia menyetujui run ini. Transaksi smart wallet siap dibangun melalui Jupiter Swap V2 fallback.',
+    blockedMessage: 'Policy rahasia menolak run ini tanpa membuka batas privat pengguna.',
+    privacyNote: 'Log aman: tidak menampilkan threshold, sisa cap, atau nilai witness.',
+    preAlpha: 'Encrypt pre-alpha demo: ini membuktikan alur enforcement, bukan klaim privasi produksi.',
+  },
+  en: {
+    language: 'English',
+    title: 'Confidential DCA Demo',
+    subtitle:
+      'The Polet smart wallet custodies funds, stores numeric guardrails as a pre-alpha confidential policy, and gates agent actions before a Jupiter swap is built.',
+    walletTitle: 'Smart wallet',
+    walletBody: 'Initialize a Polet wallet, then deposit USDC for the USDC to SOL DCA demo.',
+    initialized: 'Ready',
+    deposit: 'Deposit instructions',
+    usdcAccount: 'USDC account',
+    solAccount: 'SOL account',
+    policyTitle: 'Confidential policy',
+    policyBody: 'Values are entered during setup, but the normal saved view only shows encrypted status.',
+    maxPerRun: 'Max per run',
+    dailyCap: 'Daily cap',
+    savePolicy: 'Save confidential policy',
+    editPolicy: 'Edit policy',
+    policySaved: 'Policy saved',
+    redacted: 'Private values hidden',
+    encryptedMax: 'Encrypted max per run',
+    encryptedDaily: 'Encrypted daily cap',
+    strategyTitle: 'DCA strategy',
+    fromTo: 'Pair',
+    amount: 'Normal amount',
+    cadence: 'Cadence',
+    runNow: 'Run Agent Now',
+    runAllowed: 'Run 5 USDC',
+    runBlocked: 'Try 25 USDC',
+    activityTitle: 'Activity log',
+    emptyLog: 'No agent activity yet.',
+    approved: 'APPROVED',
+    blocked: 'BLOCKED',
+    approvedMessage: 'Confidential policy approved this run. The smart wallet transaction can be built through the Jupiter Swap V2 fallback.',
+    blockedMessage: 'Confidential policy rejected this run without revealing the user private limits.',
+    privacyNote: 'Safe log: thresholds, remaining cap, and witness values are not displayed.',
+    preAlpha: 'Encrypt pre-alpha demo: this proves the enforcement flow, not production privacy.',
+  },
+} as const;
 
 export function DemoTab() {
-  const [demoPolicy, setDemoPolicy] = useState<DemoPolicy>({
-    maxAmount: '0.05',
-    dailyLimit: '0.05',
-    blocklist: [
-      'HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp', // Malicious Bot
-      '8VgN3kDSe7KvKJhg1DYTfy7eiFKw5EUtoFQesNSej9qX', // Gambling Site
-      '3Ha99MFS34eTYM3NwjTGhQDSAZGtkktmiY1U77kKPes4'  // Drain Scam
-    ],
+  const [locale, setLocale] = useState<Locale>('id');
+  const [policyDraft, setPolicyDraft] = useState<ConfidentialPolicyDraft>({
+    maxPerRunUsdc: '10',
+    dailyCapUsdc: '20',
   });
-  const [newBlockItem, setNewBlockItem] = useState('');
-  const [selectedSessionKey, setSelectedSessionKey] = useState('');
-  const [destination, setDestination] = useState('');
-  const [amount, setAmount] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<IntentResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [policySaved, setPolicySaved] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState(true);
+  const [strategy, setStrategy] = useState<DcaStrategy>({
+    inputMint: 'USDC',
+    outputMint: 'SOL',
+    amountUsdc: '5',
+    cadence: 'Manual demo run',
+  });
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
 
-  const addToBlocklist = () => {
-    if (!newBlockItem.trim()) return;
-    if (!demoPolicy.blocklist.includes(newBlockItem.trim())) {
-      setDemoPolicy((prev) => ({
-        ...prev,
-        blocklist: [...prev.blocklist, newBlockItem.trim()],
-      }));
-    }
-    setNewBlockItem('');
+  const t = COPY[locale];
+  const canRun = policySaved;
+
+  const savedPolicyDigest = useMemo(() => {
+    if (!policySaved) return 'Not configured';
+    return 'commitment: 9f42...c1a8';
+  }, [policySaved]);
+
+  const savePolicy = () => {
+    setPolicySaved(true);
+    setEditingPolicy(false);
   };
 
-  const removeFromBlocklist = (item: string) => {
-    setDemoPolicy((prev) => ({
-      ...prev,
-      blocklist: prev.blocklist.filter((b) => b !== item),
-    }));
-  };
+  const runAgent = (amountUsdc: string) => {
+    if (!canRun) return;
 
-  const toLamports = (sol: string) => Math.round(parseFloat(sol || '0') * 1_000_000_000);
+    const numericAmount = Number(amountUsdc);
+    const maxPerRun = Number(policyDraft.maxPerRunUsdc);
+    const dailyCap = Number(policyDraft.dailyCapUsdc);
+    const status: RunStatus = numericAmount <= maxPerRun && numericAmount <= dailyCap ? 'approved' : 'blocked';
 
-  const buildPolicy = (): Policy => ({
-    allowlist: [],
-    blocklist: demoPolicy.blocklist,
-    maxAmount: toLamports(demoPolicy.maxAmount) || undefined,
-    dailyLimit: toLamports(demoPolicy.dailyLimit) || undefined,
-  });
-
-  const handleSendIntent = async () => {
-    if (!destination.trim() || !amount || !selectedSessionKey) return;
-    setLoading(true);
-    setError(null);
-
-    const intent: Intent = {
-      id: `demo-${Date.now()}`,
-      owner: 'DemoOwner',
-      sessionKey: selectedSessionKey,
-      action: 'transfer',
-      params: {
-        destination: destination.trim(),
-        amount: toLamports(amount),
-      },
+    const entry: ActivityEntry = {
+      id: `${status}-${Date.now()}`,
+      status,
+      amountUsdc,
       timestamp: Date.now(),
+      message: status === 'approved' ? t.approvedMessage : t.blockedMessage,
+      route: status === 'approved' ? 'Jupiter Tokens + Price + Swap V2 /build' : 'Confidential policy gate',
     };
 
-    try {
-      const result = await evaluateIntent(intent, buildPolicy());
-      setHistory((prev) => [{ intent, result, timestamp: Date.now() }, ...prev.slice(0, 9)]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to evaluate intent');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const runQuickDemo = (dest: string, solAmount: string, _label: string) => {
-    setDestination(dest);
-    setAmount(solAmount);
-    setSelectedSessionKey(selectedSessionKey || '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7');
-    setHistory((prev) => [
-      {
-        intent: {
-          id: `quick-${Date.now()}`,
-          owner: 'DemoOwner',
-          sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7',
-          action: 'transfer',
-          params: { destination: dest, amount: toLamports(solAmount) },
-          timestamp: Date.now(),
-        },
-        result: (() => {
-          const lamports = toLamports(solAmount);
-          const policy = buildPolicy();
-          if (policy.blocklist.includes(dest)) {
-            return { allowed: false as const, reason: `Destination ${dest.slice(0, 8)}... is on the blocklist`, code: 'POLICY_BLOCKED' };
-          }
-          if (policy.maxAmount && lamports > policy.maxAmount) {
-            return { allowed: false as const, reason: `Amount ${solAmount} SOL exceeds maximum allowed ${demoPolicy.maxAmount} SOL`, code: 'POLICY_BLOCKED' };
-          }
-          return { allowed: true as const, attestation: { owner: 'DemoOwner', sessionKey: '45ArWFmtQkpMhF62uWYPuQHxet4T3uovR1VFZ6Eva8q7', policyHash: 'demo', intentHash: '0000', blockHash: '0000', slot: 0, timestamp: Date.now() } };
-        })(),
-        timestamp: Date.now(),
-      },
-      ...prev.slice(0, 9),
-    ]);
+    setActivity((prev) => [entry, ...prev.slice(0, 7)]);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-2xl border border-[rgba(79,184,178,0.3)] bg-[rgba(79,184,178,0.05)] p-6">
-        <div className="flex items-start gap-4">
-          <div className="rounded-full bg-[var(--lagoon-deep)] p-3">
-            <Zap className="h-6 w-6 text-white" />
+      <section className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-3xl">
+            <p className="island-kicker mb-2">Polet AI</p>
+            <h2 className="mb-2 text-2xl font-bold text-[var(--sea-ink)]">{t.title}</h2>
+            <p className="text-sm leading-6 text-[var(--sea-ink-soft)]">{t.subtitle}</p>
           </div>
-          <div>
-            <h2 className="mb-1 text-xl font-semibold text-[var(--sea-ink)]">
-              AI Agent Intent Simulator
-            </h2>
-            <p className="text-sm text-[var(--sea-ink-soft)]">
-              Configure your policy rules and simulate AI agent intents to test enforcement in real-time.
-            </p>
+          <div className="inline-flex rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-1">
+            {(['id', 'en'] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => setLocale(option)}
+                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${
+                  locale === option
+                    ? 'bg-[var(--lagoon-deep)] text-white'
+                    : 'text-[var(--sea-ink-soft)] hover:bg-[var(--link-bg-hover)]'
+                }`}
+              >
+                <Languages className="h-4 w-4" />
+                {COPY[option].language}
+              </button>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Policy Config + Quick Demos side by side */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Policy Configuration */}
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
-          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-[var(--sea-ink)]">
-            <Shield className="h-5 w-5 text-[var(--lagoon-deep)]" />
-            Demo Policy Rules
-          </h3>
-
-          <div className="mb-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[var(--sea-ink)]">
-                Max per Transaction (SOL)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={demoPolicy.maxAmount}
-                onChange={(e) => setDemoPolicy((p) => ({ ...p, maxAmount: e.target.value }))}
-                className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-[var(--sea-ink)]">
-                Daily Limit (SOL)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={demoPolicy.dailyLimit}
-                onChange={(e) => setDemoPolicy((p) => ({ ...p, dailyLimit: e.target.value }))}
-                className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
-              />
-            </div>
+      <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+        <Panel icon={<Wallet className="h-5 w-5" />} title={t.walletTitle}>
+          <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.walletBody}</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <InfoTile label={DEMO_WALLET} value={t.initialized} tone="green" />
+            <InfoTile label={t.usdcAccount} value={DEMO_USDC_ACCOUNT} />
+            <InfoTile label={t.solAccount} value={DEMO_SOL_ACCOUNT} />
           </div>
+          <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+            <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.deposit}</p>
+            <p className="mt-1 text-sm text-[var(--sea-ink)]">
+              Deposit demo USDC into the PDA-owned token account; SOL output stays under the same smart wallet authority.
+            </p>
+          </div>
+        </Panel>
 
-          <div className="mb-4">
-            <label className="mb-1 block text-sm font-medium text-[var(--sea-ink)]">
-              Blocklist
-            </label>
-            <div className="mb-2 flex gap-2">
-              <input
-                type="text"
-                placeholder="Address or label to block"
-                value={newBlockItem}
-                onChange={(e) => setNewBlockItem(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addToBlocklist()}
-                className="flex-1 rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
-              />
+        <Panel icon={<Shield className="h-5 w-5" />} title={t.policyTitle}>
+          <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.policyBody}</p>
+
+          {editingPolicy ? (
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.maxPerRun} (USDC)</span>
+                <input
+                  value={policyDraft.maxPerRunUsdc}
+                  onChange={(event) => setPolicyDraft((prev) => ({ ...prev, maxPerRunUsdc: event.target.value }))}
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.dailyCap} (USDC)</span>
+                <input
+                  value={policyDraft.dailyCapUsdc}
+                  onChange={(event) => setPolicyDraft((prev) => ({ ...prev, dailyCapUsdc: event.target.value }))}
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                />
+              </label>
               <button
-                onClick={addToBlocklist}
-                className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm font-medium text-[var(--sea-ink)] transition hover:bg-gray-50"
+                onClick={savePolicy}
+                className="self-end rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white"
               >
-                <Plus className="h-4 w-4" />
+                {t.savePolicy}
               </button>
             </div>
-            {demoPolicy.blocklist.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {demoPolicy.blocklist.map((item) => (
-                  <span
-                    key={item}
-                    className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700"
-                  >
-                    {item}
-                    <button
-                      onClick={() => removeFromBlocklist(item)}
-                      className="ml-0.5 rounded-full p-0.5 hover:bg-red-200"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-[var(--sea-ink-soft)]">No blocklist items — all destinations allowed</p>
-            )}
-          </div>
-
-          <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-3">
-            <p className="mb-1 text-xs font-medium text-[var(--sea-ink-soft)]">Current limits</p>
-            <div className="flex gap-4 text-xs text-[var(--sea-ink)]">
-              <span>Max tx: <strong>{demoPolicy.maxAmount || '∞'} SOL</strong></span>
-              <span>Daily: <strong>{demoPolicy.dailyLimit || '∞'} SOL</strong></span>
-              <span>Blocklist: <strong>{demoPolicy.blocklist.length} items</strong></span>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Demos */}
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
-          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-[var(--sea-ink)]">
-            <Bot className="h-5 w-5 text-[var(--lagoon-deep)]" />
-            Quick Scenarios
-          </h3>
-          <div className="space-y-3">
-            <QuickDemoCard
-              title="Drain Attack Blocked"
-              description="AI tries to send 5 SOL — exceeds 0.05 SOL limit"
-              badgeText="BLOCKED"
-              badgeType="blocked"
-              onRun={() => runQuickDemo('3t1zd1MDRnwMJTyVdU6PcjMPrXivYLWMmQYtDB6YBWa9', '5', 'drain')}
-            />
-            <QuickDemoCard
-              title="Blocklist Hit"
-              description="AI tries to send to known malicious address"
-              badgeText="BLOCKED"
-              badgeType="blocked"
-              onRun={() => runQuickDemo('HjiKWYGXx3Lj25ukRyVADaFkYfBHnSYuLJkWg37Lbsp', '0.01', 'blocklist')}
-            />
-            <QuickDemoCard
-              title="Allowed Transfer"
-              description="AI sends 0.01 SOL to legitimate DeFi protocol"
-              badgeText="APPROVED"
-              badgeType="allowed"
-              onRun={() => runQuickDemo('JUP6LkbZbjS1jKKwapdH673zwLsBH3M427A871qYx1W', '0.01', 'allowed')}
-            />
-            <QuickDemoCard
-              title="Spending Limit Hit"
-              description="AI tries 0.06 SOL — max is 0.05 SOL"
-              badgeText="BLOCKED"
-              badgeType="blocked"
-              onRun={() => runQuickDemo('CFSh6EakShpR74m4ZroMZQ569pb38BRtcDba6pbVsMCH', '0.06', 'overlimit')}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Intent Form */}
-      <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
-        <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-[var(--sea-ink)]">
-          <Send className="h-5 w-5" />
-          Custom Intent
-        </h3>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[var(--sea-ink)]">
-              Session Key
-            </label>
-            <input
-              type="text"
-              placeholder="AI agent session key"
-              value={selectedSessionKey}
-              onChange={(e) => setSelectedSessionKey(e.target.value)}
-              className="w-full rounded-lg border border-[var(--line)]  px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[var(--sea-ink)]">
-              Destination
-            </label>
-            <input
-              type="text"
-              placeholder="Solana address or label"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="w-full rounded-lg border border-[var(--line)]  px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-[var(--sea-ink)]">
-              Amount (SOL)
-            </label>
-            <input
-              type="number"
-              step="0.001"
-              min="0"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:border-[var(--lagoon-deep)] focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-
-        <button
-          onClick={handleSendIntent}
-          disabled={!selectedSessionKey || !destination || !amount || loading}
-          className="mt-4 w-full rounded-full bg-[var(--lagoon-deep)] py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50"
-        >
-          {loading ? 'Evaluating...' : 'Send Intent'}
-        </button>
-      </div>
-
-      {/* Result History */}
-      {history.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-[var(--sea-ink)]">Intent History</h3>
-          {history.map((entry, i) => (
-            <IntentResultCard key={entry.intent.id} entry={entry} isLatest={i === 0} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function QuickDemoCard({
-  title,
-  description,
-  badgeText,
-  badgeType,
-  onRun,
-}: {
-  title: string;
-  description: string;
-  badgeText: string;
-  badgeType: 'blocked' | 'allowed';
-  onRun: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
-      <div className="flex items-center gap-3">
-        <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold uppercase ${
-            badgeType === 'blocked'
-              ? 'bg-red-100 text-red-700'
-              : 'bg-green-100 text-green-700'
-          }`}
-        >
-          {badgeText}
-        </span>
-        <div>
-          <p className="text-sm font-medium text-[var(--sea-ink)]">{title}</p>
-          <p className="text-xs text-[var(--sea-ink-soft)]">{description}</p>
-        </div>
-      </div>
-      <button
-        onClick={onRun}
-        className="shrink-0 rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-1.5 text-xs font-medium text-[var(--sea-ink)] transition hover:opacity-80"
-      >
-        Run
-      </button>
-    </div>
-  );
-}
-
-function IntentResultCard({
-  entry,
-  isLatest,
-}: {
-  entry: IntentResult;
-  isLatest: boolean;
-}) {
-  const { intent, result } = entry;
-  const amountLamports =
-    typeof intent.params === 'object' && 'amount' in intent.params
-      ? (intent.params as { amount: number }).amount
-      : 0;
-  const dest =
-    typeof intent.params === 'object' && 'destination' in intent.params
-      ? (intent.params as { destination: string }).destination
-      : 'unknown';
-
-  return (
-    <div
-      className={`rounded-xl border p-4 transition ${
-        result.allowed
-          ? 'border-green-200 bg-green-50'
-          : 'border-red-200 bg-red-50'
-      } ${isLatest ? 'ring-2 ring-offset-2' : ''} ${
-        result.allowed ? 'ring-green-400' : 'ring-red-400'
-      }`}
-    >
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          {result.allowed ? (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500">
-              <Check className="h-6 w-6 text-white" />
-            </div>
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500">
-              <X className="h-6 w-6 text-white" />
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <PrivatePolicyTile label={t.encryptedMax} />
+                <PrivatePolicyTile label={t.encryptedDaily} />
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--sea-ink)]">{t.policySaved}</p>
+                  <p className="text-xs text-[var(--sea-ink-soft)]">{t.redacted}</p>
+                  <p className="text-xs text-[var(--sea-ink-soft)]">{savedPolicyDigest}</p>
+                </div>
+                <button
+                  onClick={() => setEditingPolicy(true)}
+                  className="rounded-lg border border-[var(--line)] px-3 py-2 text-sm font-semibold text-[var(--sea-ink)]"
+                >
+                  {t.editPolicy}
+                </button>
+              </div>
             </div>
           )}
+        </Panel>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+        <Panel icon={<Bot className="h-5 w-5" />} title={t.strategyTitle}>
+          <div className="grid gap-3">
+            <InfoRow label={t.fromTo} value={`${strategy.inputMint} -> ${strategy.outputMint}`} />
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.amount} (USDC)</span>
+              <input
+                value={strategy.amountUsdc}
+                onChange={(event) => setStrategy((prev) => ({ ...prev, amountUsdc: event.target.value }))}
+                type="number"
+                min="0"
+                step="1"
+                className="w-full rounded-lg px-3 py-2 text-sm"
+              />
+            </label>
+            <InfoRow label={t.cadence} value={strategy.cadence} />
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <button
+              onClick={() => runAgent('25')}
+              disabled={!canRun}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 disabled:opacity-50"
+            >
+              <X className="h-4 w-4" />
+              {t.runBlocked}
+            </button>
+            <button
+              onClick={() => runAgent(strategy.amountUsdc || '5')}
+              disabled={!canRun}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+            >
+              <Play className="h-4 w-4" />
+              {t.runAllowed}
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{t.runNow}: 25 USDC block scenario, 5 USDC allow scenario.</p>
+        </Panel>
+
+        <Panel icon={<Activity className="h-5 w-5" />} title={t.activityTitle}>
+          <p className="mb-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs font-medium text-[var(--sea-ink-soft)]">
+            {t.privacyNote}
+          </p>
+          {activity.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-[var(--line)] p-6 text-center text-sm text-[var(--sea-ink-soft)]">
+              {t.emptyLog}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activity.map((entry) => (
+                <ActivityCard key={entry.id} entry={entry} labels={t} />
+              ))}
+            </div>
+          )}
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-900">
+            {t.preAlpha}
+          </p>
+        </Panel>
+      </section>
+    </div>
+  );
+}
+
+function Panel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-5">
+      <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-[var(--sea-ink)]">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(79,184,178,0.14)] text-[var(--lagoon-deep)]">
+          {icon}
+        </span>
+        {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+function InfoTile({ label, value, tone }: { label: string; value: string; tone?: 'green' }) {
+  return (
+    <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+      <p className="text-xs font-semibold text-[var(--sea-ink-soft)]">{label}</p>
+      <p className={`mt-1 text-sm font-bold ${tone === 'green' ? 'text-green-700' : 'text-[var(--sea-ink)]'}`}>{value}</p>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+      <span className="text-xs font-semibold text-[var(--sea-ink-soft)]">{label}</span>
+      <span className="text-sm font-bold text-[var(--sea-ink)]">{value}</span>
+    </div>
+  );
+}
+
+function PrivatePolicyTile({ label }: { label: string }) {
+  return (
+    <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+      <p className="flex items-center gap-2 text-sm font-semibold text-[var(--sea-ink)]">
+        <EyeOff className="h-4 w-4 text-[var(--lagoon-deep)]" />
+        {label}
+      </p>
+      <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">••••••••</p>
+    </div>
+  );
+}
+
+function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof COPY)[Locale] }) {
+  const approved = entry.status === 'approved';
+  return (
+    <article className={`rounded-lg border p-4 ${approved ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${approved ? 'bg-green-600' : 'bg-red-600'} text-white`}>
+            {approved ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
+          </span>
           <div>
-            <p className="text-lg font-bold text-[var(--sea-ink)]">
-              {result.allowed ? 'APPROVED' : 'BLOCKED'}
-            </p>
-            <p className="text-xs text-[var(--sea-ink-soft)]">
-              {new Date(entry.timestamp).toLocaleTimeString()}
-              {isLatest && ' · just now'}
-            </p>
+            <p className="text-sm font-black text-[var(--sea-ink)]">{approved ? labels.approved : labels.blocked}</p>
+            <p className="text-xs text-[var(--sea-ink-soft)]">{new Date(entry.timestamp).toLocaleTimeString()}</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="font-mono text-sm font-semibold text-[var(--sea-ink)]">
-            {(amountLamports / 1_000_000_000).toFixed(3)} SOL
-          </p>
-          <p className="font-mono text-xs text-[var(--sea-ink-soft)]">
-            to {dest.slice(0, 8)}...
-          </p>
+          <p className="text-sm font-black text-[var(--sea-ink)]">{entry.amountUsdc} USDC</p>
+          <p className="text-xs text-[var(--sea-ink-soft)]">USDC {'->'} SOL</p>
         </div>
       </div>
-
-      {result.reason && (
-        <div
-          className={`rounded-lg border px-3 py-2 text-sm ${
-            result.allowed
-              ? 'border-green-200 bg-[var(--surface-strong)] text-green-700'
-              : 'border-red-200 bg-[var(--surface-strong)] text-red-700'
-          }`}
-        >
-          <span className="font-medium">Reason: </span>
-          {result.reason}
-        </div>
-      )}
-    </div>
+      <p className="text-sm leading-6 text-[var(--sea-ink)]">{entry.message}</p>
+      <p className="mt-2 inline-flex items-center gap-2 rounded-md bg-[var(--surface-strong)] px-2 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]">
+        <Landmark className="h-3.5 w-3.5" />
+        {entry.route}
+      </p>
+    </article>
   );
 }

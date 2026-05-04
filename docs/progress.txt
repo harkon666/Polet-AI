@@ -49,7 +49,6 @@ Track alignment:
 
 ### Submission Polish
 
-- [ ] `007-consumer-demo-frontend` — Build the user-facing confidential DCA demo with deposit, policy setup, strategy setup, run-now flow, activity log, and ID/EN copy.
 - [ ] `008-hackathon-docs-and-dx-report` — Write README updates, Encrypt disclaimer, Jupiter DX report, and demo script.
 
 ### Stretch
@@ -99,6 +98,9 @@ Track alignment:
 - [x] `006-agent-sdk-strategy-intents` — Extended the SDK with `createDcaIntent`, `createRiskGatedSwapIntent`, proxy `submitIntent` and `evaluateIntentWithProxy` helpers, Jupiter USDC/SOL constants, typed proxy errors, and OpenClaw/Hermes-style agent examples. Existing transfer, swap, stake, unstake, delegate, undelegate, and custom builders remain available.
   - Verification: `bun test` and `bun run build` pass in `sdk/`.
   - Note: DCA submission targets the issue 005 proxy route `POST /intent/dca/run`; risk-gated swaps intentionally retain action `swap` for backward compatibility with the existing proxy evaluator.
+- [x] `007-consumer-demo-frontend` — Replaced the legacy transfer simulator with a user-facing confidential DCA demo. The frontend now presents Polet as a confidential USDC -> SOL DCA smart wallet, shows demo custody/deposit guidance, supports confidential policy setup with saved-value redaction, configures the normal 5 USDC DCA strategy, triggers 25 USDC blocked and 5 USDC allowed runs, keeps activity logs free of private thresholds, and supports Indonesian/English copy.
+  - Verification: `bun test` and `bun run build` pass in `frontend/`.
+  - Note: this is a consumer demo surface for the pre-alpha confidential policy flow. It does not claim production-grade privacy.
 
 ### Planning
 
