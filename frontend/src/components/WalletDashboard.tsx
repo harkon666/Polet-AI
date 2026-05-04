@@ -47,6 +47,10 @@ export function WalletDashboard() {
       const data = await getWalletData(publicKey.toBase58());
       if (data) {
         setIsInitialized(true);
+        // Update poletWalletPda from API response
+        if (data.walletPda) {
+          setPoletWalletPda(data.walletPda);
+        }
         // Map on-chain data to frontend state
         if (data.temporalKeys) {
           setTemporalKeys(data.temporalKeys.map((tk: any, i: number) => ({

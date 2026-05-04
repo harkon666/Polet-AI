@@ -14,7 +14,7 @@ import type { Intent, Policy } from '../types/intent';
 export const intentRouter = new Hono();
 
 // Program ID for the Polet AI contract
-const PROGRAM_ID = '22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw';
+const PROGRAM_ID = 'J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus';
 
 /**
  * POST /intent/dca/run

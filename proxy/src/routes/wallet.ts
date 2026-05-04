@@ -37,7 +37,7 @@ function serializePolicy(policy: { allowlist: string[], blocklist: string[] }): 
 
 export const walletRouter = new Hono();
 
-const PROGRAM_ID = new PublicKey("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
+const PROGRAM_ID = new PublicKey("J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus");
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const SYSTEM_PROGRAM_ID = anchor.web3.SystemProgram.programId;
@@ -142,8 +142,8 @@ walletRouter.post('/initialize', async (c) => {
 
     const program = getProgram();
     
-    // Construct initialize instruction with default 100 SOL daily limit
-    const ix = await program.methods.initialize(new anchor.BN(100_000_000_000))
+    // Construct initialize instruction
+    const ix = await program.methods.initialize()
       .accounts({
         wallet: walletPda,
         owner: ownerPubkey,

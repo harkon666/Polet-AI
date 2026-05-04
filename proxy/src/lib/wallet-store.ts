@@ -5,7 +5,7 @@ import type { Policy, WalletAccount } from '../types/intent';
 import idl from './idl.json' with { type: "json" };
 import { getConnection } from './transaction-builder';
 
-const PROGRAM_ID = new PublicKey("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
+const PROGRAM_ID = new PublicKey("J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus");
 
 // Borsh schema for Policy (must match Rust contract)
 const POLICY_SCHEMA = new Map([[Object, {
@@ -113,9 +113,9 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
       confidentialPolicy: {
         policyCommitment: Array.from(accountData.confidentialPolicy.policyCommitment),
         encryptionWitnessHash: Array.from(accountData.confidentialPolicy.encryptionWitnessHash),
-        encryptedMaxPerRun: BigInt(accountData.confidentialPolicy.encryptedMaxPerRun.toString()),
-        encryptedDailyCap: BigInt(accountData.confidentialPolicy.encryptedDailyCap.toString()),
-        encryptedDailySpent: BigInt(accountData.confidentialPolicy.encryptedDailySpent.toString()),
+        encryptedMaxPerRun: accountData.confidentialPolicy.encryptedMaxPerRun.toString(),
+        encryptedDailyCap: accountData.confidentialPolicy.encryptedDailyCap.toString(),
+        encryptedDailySpent: accountData.confidentialPolicy.encryptedDailySpent.toString(),
         spentDayIndex: accountData.confidentialPolicy.spentDayIndex.toNumber(),
         enabled: accountData.confidentialPolicy.enabled,
       },

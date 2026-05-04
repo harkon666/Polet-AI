@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-contract = "22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw"
+contract = "J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus"
 
 [provider]
 cluster = "devnet"

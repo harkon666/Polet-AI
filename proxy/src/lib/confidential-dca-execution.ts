@@ -17,7 +17,7 @@ import {
   type WalletData,
 } from './wallet-store';
 
-const PROGRAM_ID = '22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw';
+const PROGRAM_ID = 'J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus';
 const WALLET_SEED = 'polet_wallet';
 const USDC_DECIMALS = 6;
 

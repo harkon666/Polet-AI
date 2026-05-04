@@ -7,7 +7,7 @@ import { generateAndSaveKey } from '../lib/kms';
 
 export const agentRouter = new Hono();
 
-const PROGRAM_ID = new PublicKey("22yQkHaAEGtXyZFiyJVqpTyQzj5qPbebZMnJTWwK1Muw");
+const PROGRAM_ID = new PublicKey("J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus");
 
 function getProgram(): anchor.Program {
   const connection = getConnection();
@@ -46,8 +46,7 @@ agentRouter.post('/register', async (c) => {
     // Construct grant_temporal_key instruction
     const ix = await program.methods.grantTemporalKey(
       sessionKeypair.publicKey,
-      new anchor.BN(expiresAt),
-      new anchor.BN(dailyLimit)
+      new anchor.BN(expiresAt)
     )
       .accounts({
         wallet: walletPda,
