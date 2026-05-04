@@ -2,7 +2,7 @@
 
 ## Status Summary
 
-Polet AI is being redirected from a public policy smart wallet into a single-contract confidential DCA smart wallet for AI agents.
+Polet AI is being redirected from a public policy smart wallet into a single-contract confidential multichain agentic wallet for AI agents.
 
 The old v1 work remains useful as prior art, but the final hackathon path may substantially refactor the contract, proxy, SDK, and frontend. The key privacy requirement is that plaintext numeric policy rules must not remain in the final confidential execution path.
 
@@ -14,9 +14,9 @@ Primary source of truth:
 
 ## Product Direction
 
-**Polet AI Confidential DCA Smart Wallet**
+**Polet AI Confidential Multichain Agentic Wallet**
 
-Users deposit funds into a Polet smart wallet PDA, configure confidential numeric policy rules, grant an AI agent a temporary session key, and let the agent run a Jupiter-powered USDC -> SOL DCA strategy.
+Users deposit funds into a Polet smart wallet PDA, configure confidential numeric policy rules, grant an AI agent a temporary session key, and let the agent run guarded strategy intents. The current Solana path uses Jupiter for token intelligence, pricing, and route/build previews. The target ending is a multichain agentic wallet where the same private guardrails can approve bridgeless native-asset trading requests through Ika.
 
 Core demo:
 
@@ -28,7 +28,8 @@ Core demo:
 
 Track alignment:
 
-- Encrypt/Ika: confidential numeric policy enforcement is core.
+- Encrypt: confidential numeric policy enforcement is core.
+- Ika: target execution rail for multichain bridgeless trading requests after guardrail approval.
 - Jupiter: Tokens + Price + Recurring compatibility + Swap V2 `/build` fallback.
 - National Campus Hackathon Indonesia: Consumer App / DeFi safety for Indonesian users.
 
@@ -45,15 +46,18 @@ Track alignment:
 
 ### Critical Path
 
-- None.
+- [ ] `009-real-agent-runtime-integration` — Integrate a real or scripted AI agent runtime that submits Polet strategy intents and receives allow/block results.
+- [ ] `010-multichain-agentic-wallet-intents` — Extend intents across source chain/asset, target chain/asset, and execution rail while reusing confidential guardrails.
+- [ ] `011-ika-bridgeless-execution-request` — Produce an Ika-oriented bridgeless execution request only after Polet guardrail approval.
+- [ ] `012-hybrid-agent-demo-jupiter-ika-encrypt` — Combine agent runtime, Jupiter route/build preview, Ika bridgeless request, and Encrypt guardrails in the final demo.
 
 ### Submission Polish
 
-- [ ] `008-hackathon-docs-and-dx-report` — Write README updates, Encrypt disclaimer, Jupiter DX report, and demo script.
+- [ ] `008-hackathon-docs-and-dx-report` — Write README updates, Encrypt/Ika disclaimer, Jupiter DX report, and demo script after the final implementation boundary is clear.
 
 ### Stretch
 
-- [ ] `009-real-agent-runtime-integration` — Integrate with OpenClaw/Hermes or another real agent runtime if the core MVP is already stable.
+- None.
 
 ## Dependency Graph
 
@@ -75,6 +79,14 @@ Track alignment:
 
 006-agent-sdk-strategy-intents
 └── 009-real-agent-runtime-integration
+
+009-real-agent-runtime-integration
+└── 010-multichain-agentic-wallet-intents
+    └── 011-ika-bridgeless-execution-request
+        └── 012-hybrid-agent-demo-jupiter-ika-encrypt
+
+012-hybrid-agent-demo-jupiter-ika-encrypt
+└── 008-hackathon-docs-and-dx-report
 ```
 
 ## Done
@@ -98,9 +110,9 @@ Track alignment:
 - [x] `006-agent-sdk-strategy-intents` — Extended the SDK with `createDcaIntent`, `createRiskGatedSwapIntent`, proxy `submitIntent` and `evaluateIntentWithProxy` helpers, Jupiter USDC/SOL constants, typed proxy errors, and OpenClaw/Hermes-style agent examples. Existing transfer, swap, stake, unstake, delegate, undelegate, and custom builders remain available.
   - Verification: `bun test` and `bun run build` pass in `sdk/`.
   - Note: DCA submission targets the issue 005 proxy route `POST /intent/dca/run`; risk-gated swaps intentionally retain action `swap` for backward compatibility with the existing proxy evaluator.
-- [x] `007-consumer-demo-frontend` — Replaced the legacy transfer simulator with a user-facing confidential DCA demo wired to real proxy/contract paths. The frontend now presents Polet as a confidential USDC -> SOL DCA smart wallet, builds owner-signed confidential policy and PDA custody setup transactions through the proxy, calls `/intent/dca/run` for 25 USDC blocked and 5 USDC allowed runs, keeps activity logs free of private thresholds, and supports Indonesian/English copy.
-  - Verification: `bun test` and `bun run build` pass in `frontend/`; `bun test` and `bun run build` pass in `proxy/`.
-  - Note: the allowed DCA path returns an unsigned smart-wallet transaction for the granted agent session key to sign. This is a pre-alpha confidential policy flow and does not claim production-grade privacy.
+- [x] `007-consumer-demo-frontend` — Replaced the legacy transfer simulator with a user-facing confidential DCA demo wired to real proxy/contract paths. The frontend now presents Polet as a confidential USDC -> SOL DCA smart wallet, builds owner-signed confidential policy and PDA custody setup transactions through the proxy, calls `/intent/dca/run` for 25 USDC blocked and 5 USDC allowed runs, keeps activity logs free of private thresholds, supports Indonesian/English copy, and shows Jupiter Swap V2 route/build details for approved runs.
+  - Verification: `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`; `bun test ./tests/confidential-dca-execution.test.ts ./tests/transaction-builder.test.ts` passes in `proxy/`.
+  - Note: the current devnet demo proves policy gating and Jupiter route/build integration, but does not execute a mainnet Jupiter swap. Production-like swap execution requires a follow-up PDA signing/CPI path or a separate owner-signed mainnet flow.
 
 ### Planning
 
@@ -145,4 +157,5 @@ These completed items are prior foundation, not necessarily final architecture. 
 - Encrypt pre-alpha must be described honestly. Do not claim production confidentiality.
 - Jupiter `/build` is preferred for smart wallet execution because Polet needs raw instruction control.
 - Jupiter Recurring is primary only if compatible with the smart wallet flow; otherwise use Polet scheduler + Swap V2 `/build`.
+- Ika is the target bridgeless execution rail for multichain native-asset trading requests. Do not claim real Ika settlement until an actual Ika backend/request path is verified.
 - Encrypted allowlist/blocklist membership is out of scope for the first milestone.

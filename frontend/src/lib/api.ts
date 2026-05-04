@@ -175,7 +175,40 @@ export interface RunConfidentialDcaInput {
   sessionKey: string;
   amountUsdc: string;
   encryptionWitness: number[];
+  inputMint?: string;
+  outputMint?: string;
   slippageBps?: number;
+}
+
+export interface JupiterPlanPreview {
+  inputToken?: {
+    symbol?: string;
+    decimals?: number;
+    isVerified?: boolean;
+    organicScoreLabel?: string;
+  };
+  outputToken?: {
+    symbol?: string;
+    decimals?: number;
+    isVerified?: boolean;
+    organicScoreLabel?: string;
+  };
+  build?: {
+    inAmount?: string;
+    outAmount?: string;
+    otherAmountThreshold?: string;
+    slippageBps?: number;
+    priceImpactPct?: string;
+    routePlan?: Array<{
+      percent?: number;
+      bps?: number;
+      swapInfo?: {
+        label?: string;
+        inAmount?: string;
+        outAmount?: string;
+      };
+    }>;
+  };
 }
 
 export type RunConfidentialDcaResult = {
@@ -186,6 +219,7 @@ export type RunConfidentialDcaResult = {
   amountBaseUnits?: string;
   executionPath?: 'recurring' | 'swap-build-fallback';
   smartWalletAuthority?: string;
+  jupiterPlan?: JupiterPlanPreview;
   transaction?: {
     transaction: string;
     blockHash: string;

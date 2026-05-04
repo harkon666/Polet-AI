@@ -162,7 +162,7 @@ Prior art exists in the current codebase for policy templates, policy engine tes
 - Full OpenClaw/Hermes runtime integration before the core MVP is stable.
 - Multi-token strategy portfolio optimization.
 - Perps, lending, prediction markets, or flashloan strategies.
-- Cross-chain Ika custody beyond what is needed to explain future direction.
+- Production Ika settlement or real bridgeless trading before a verified Ika request/execution path exists. A structured Ika request envelope and multichain demo boundary are in scope for the final hybrid demo.
 - A separate v2 contract or parallel legacy program.
 - A generic marketing landing page as the main deliverable.
 

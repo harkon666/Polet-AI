@@ -13,7 +13,6 @@ import {
   Shield,
   Wallet,
   X,
-  Copy,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import {
@@ -22,6 +21,7 @@ import {
   setupDemoCustody,
   getWalletData,
   type RunConfidentialDcaResult,
+  type JupiterPlanPreview,
   type SetConfidentialPolicyInput,
   type SetupDemoCustodyInput,
   type WalletTransactionResult,
@@ -49,13 +49,16 @@ interface ActivityEntry {
   message: string;
   route?: string;
   amountUsdc?: string;
-  tx?: string;
+  jupiterPlan?: JupiterPlanPreview;
+  transactionSigners?: string[];
+  smartWalletAuthority?: string;
 }
 
 interface DemoApi {
   setConfidentialPolicy: (input: SetConfidentialPolicyInput) => Promise<WalletTransactionResult>;
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
   runConfidentialDca: typeof runConfidentialDca;
+  getWalletData: typeof getWalletData;
 }
 
 interface DemoTabContentProps {
@@ -69,6 +72,7 @@ const DEFAULT_API: DemoApi = {
   setConfidentialPolicy,
   setupDemoCustody,
   runConfidentialDca,
+  getWalletData,
 };
 
 const COPY = {
@@ -112,6 +116,13 @@ const COPY = {
     error: 'ERROR',
     approvedMessage: 'Proxy mengembalikan allowed dan unsigned smart-wallet transaction untuk ditandatangani session key agen.',
     blockedMessage: 'Proxy/contract policy path menolak run tanpa membuka batas privat pengguna.',
+    jupiterRouteReady: 'Jupiter route siap',
+    expectedOutput: 'Estimasi output',
+    minOutput: 'Min setelah slippage',
+    routeEngine: 'Route',
+    policyTxReady: 'Tx policy-gated siap',
+    signer: 'Signer',
+    executionBoundary: 'Devnet proof: route Jupiter dibangun, swap mainnet tidak dieksekusi dari demo ini.',
     privacyNote: 'Log aman: threshold, sisa cap, dan witness tidak ditampilkan.',
     preAlpha: 'Encrypt pre-alpha demo: ini membuktikan alur enforcement, bukan klaim privasi produksi.',
     missingOwner: 'Connect dan initialize wallet dulu sebelum menjalankan demo real.',
@@ -157,6 +168,13 @@ const COPY = {
     error: 'ERROR',
     approvedMessage: 'The proxy returned allowed plus an unsigned smart-wallet transaction for the agent session key to sign.',
     blockedMessage: 'The proxy/contract policy path rejected the run without revealing the user private limits.',
+    jupiterRouteReady: 'Jupiter route ready',
+    expectedOutput: 'Expected output',
+    minOutput: 'Min after slippage',
+    routeEngine: 'Route',
+    policyTxReady: 'Policy-gated tx ready',
+    signer: 'Signer',
+    executionBoundary: 'Devnet proof: Jupiter route is built, mainnet swap is not executed from this demo.',
     privacyNote: 'Safe log: thresholds, remaining cap, and witness values are not displayed.',
     preAlpha: 'Encrypt pre-alpha demo: this proves the enforcement flow, not production privacy.',
     missingOwner: 'Connect and initialize a wallet before running the real demo.',
@@ -190,7 +208,7 @@ export function DemoTabContent({
   signAndConfirmTransaction,
   api = DEFAULT_API,
 }: DemoTabContentProps) {
-  const [locale, setLocale] = useState<Locale>('en');
+  const [locale, setLocale] = useState<Locale>('id');
   const [policyDraft, setPolicyDraft] = useState<ConfidentialPolicyDraft>({
     maxPerRunUsdc: '10',
     dailyCapUsdc: '20',
@@ -215,7 +233,7 @@ export function DemoTabContent({
 
   useEffect(() => {
     if (owner) {
-      getWalletData(owner).then((data) => {
+      api.getWalletData(owner).then((data) => {
         if (data) {
           if (data.demoCustody?.configured) {
             setCustody({
@@ -336,9 +354,11 @@ export function DemoTabContent({
         amountUsdc,
         message: result.allowed ? t.approvedMessage : result.reason ?? t.blockedMessage,
         route: result.allowed
-          ? `${result.executionPath ?? 'Jupiter Swap V2'} / unsigned tx`
+          ? `${result.executionPath ?? 'Jupiter Swap V2'} / route preview`
           : result.code,
-        tx: result.allowed ? result.transaction?.transaction : undefined,
+        jupiterPlan: result.allowed ? result.jupiterPlan : undefined,
+        transactionSigners: result.allowed ? result.transaction?.signers : undefined,
+        smartWalletAuthority: result.allowed ? result.smartWalletAuthority : undefined,
       });
     } catch (err) {
       recordError(err instanceof Error ? err.message : 'Failed to run confidential DCA');
@@ -613,21 +633,49 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
           <Landmark className="h-3.5 w-3.5" />
           {entry.route}
         </p>
-        {entry.tx && (
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(entry.tx!);
-              alert('Unsigned Transaction copied to clipboard!');
-            }}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--lagoon-deep)] px-2 py-1 text-[10px] font-bold text-white transition-opacity hover:opacity-80"
-          >
-            <Copy className="h-3 w-3" />
-            COPY UNSIGNED TX
-          </button>
-        )}
       </div>
+      {entry.jupiterPlan && <JupiterRoutePreview entry={entry} labels={labels} />}
     </article>
   );
+}
+
+function JupiterRoutePreview({ entry, labels }: { entry: ActivityEntry; labels: (typeof COPY)[Locale] }) {
+  const build = entry.jupiterPlan?.build;
+  const route = build?.routePlan?.[0]?.swapInfo?.label ?? 'Jupiter Swap V2';
+  const outputSymbol = entry.jupiterPlan?.outputToken?.symbol ?? 'SOL';
+  const outputDecimals = entry.jupiterPlan?.outputToken?.decimals ?? 9;
+  const expectedOutput = formatTokenAmount(build?.outAmount, outputDecimals);
+  const minimumOutput = formatTokenAmount(build?.otherAmountThreshold, outputDecimals);
+  const signer = entry.transactionSigners?.[0];
+
+  return (
+    <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
+      <InfoPill label={labels.jupiterRouteReady} value={labels.executionBoundary} wide />
+      <InfoPill label={labels.expectedOutput} value={expectedOutput ? `${expectedOutput} ${outputSymbol}` : 'Available'} />
+      <InfoPill label={labels.minOutput} value={minimumOutput ? `${minimumOutput} ${outputSymbol}` : 'Auto'} />
+      <InfoPill label={labels.routeEngine} value={route} />
+      <InfoPill label={labels.policyTxReady} value={entry.smartWalletAuthority ? short(entry.smartWalletAuthority) : 'Smart wallet'} />
+      <InfoPill label={labels.signer} value={signer ? short(signer) : 'Session key'} />
+    </div>
+  );
+}
+
+function InfoPill({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={wide ? 'sm:col-span-2' : undefined}>
+      <p className="font-semibold uppercase tracking-normal text-[var(--sea-ink-soft)]">{label}</p>
+      <p className="mt-0.5 break-words font-bold text-[var(--sea-ink)]">{value}</p>
+    </div>
+  );
+}
+
+function formatTokenAmount(raw: string | undefined, decimals: number) {
+  if (!raw) return null;
+  const value = BigInt(raw);
+  const scale = 10n ** BigInt(decimals);
+  const whole = value / scale;
+  const fraction = (value % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  return fraction ? `${whole}.${fraction.slice(0, 6)}` : whole.toString();
 }
 
 function short(value: string) {

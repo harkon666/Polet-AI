@@ -12,7 +12,10 @@ globalThis.window = dom.window as unknown as Window & typeof globalThis;
 globalThis.document = dom.window.document;
 globalThis.HTMLElement = dom.window.HTMLElement;
 globalThis.Node = dom.window.Node;
-globalThis.navigator = dom.window.navigator;
+Object.defineProperty(globalThis, 'navigator', {
+  value: dom.window.navigator,
+  configurable: true,
+});
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -31,6 +34,7 @@ const api = {
     usdcTokenAccount: 'USDC111111111111111111111111111111111111111',
     solTokenAccount: 'SOL1111111111111111111111111111111111111111',
   }),
+  getWalletData: async () => null,
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
     if (input.amountUsdc === '25') {
       return {
@@ -47,6 +51,23 @@ const api = {
       amountBaseUnits: '5000000',
       executionPath: 'swap-build-fallback' as const,
       smartWalletAuthority: 'wallet-pda',
+      jupiterPlan: {
+        outputToken: {
+          symbol: 'SOL',
+          decimals: 9,
+        },
+        build: {
+          outAmount: '59384569',
+          otherAmountThreshold: '58790724',
+          routePlan: [
+            {
+              swapInfo: {
+                label: 'HumidiFi',
+              },
+            },
+          ],
+        },
+      },
       transaction: {
         transaction: 'agent-tx',
         blockHash: 'blockhash',
@@ -98,6 +119,9 @@ describe('Consumer DCA demo frontend', () => {
 
     expect(view.getByText('25 USDC')).toBeTruthy();
     expect(view.getByText('5 USDC')).toBeTruthy();
+    expect(view.getByText(/jupiter route siap/i)).toBeTruthy();
+    expect(view.getByText(/humidifi/i)).toBeTruthy();
+    expect(view.getByText(/devnet proof/i)).toBeTruthy();
   });
 
   test('activity log does not leak private thresholds', async () => {

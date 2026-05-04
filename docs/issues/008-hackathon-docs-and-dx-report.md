@@ -28,3 +28,4 @@ Prepare the documentation deliverables needed for the selected hackathon tracks.
 - `005-confidential-dca-execution-path.md`
 - `006-agent-sdk-strategy-intents.md`
 - `007-consumer-demo-frontend.md`
+- `012-hybrid-agent-demo-jupiter-ika-encrypt.md`
