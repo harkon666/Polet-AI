@@ -15,7 +15,7 @@ export const ClientWalletProvider: FC<{ children: ReactNode }> = ({ children }) 
   const wallets = useMemo(() => [], []); // Wallets standard detects most wallets automatically
 
   if (!mounted) {
-    return <>{children}</>;
+    return <div suppressHydrationWarning />;
   }
 
   return (

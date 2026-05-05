@@ -46,8 +46,7 @@ Track alignment:
 
 ### Critical Path
 
-- `023-quiet-fintech-frontend-visual-refresh` — Replace the bright decorative frontend treatment with a calmer fintech dashboard visual system.
-- `024-consumer-frontend-e2e-demo-coverage` — Add E2E coverage for the simplified DCA workflow, policy redaction, allow/block scenarios, Jupiter boundary, and responsive readability.
+- None.
 
 ### Stretch
 
@@ -167,6 +166,12 @@ Track alignment:
 - [x] `022-linear-confidential-dca-demo-checklist` — Added a localized live checklist to the confidential DCA demo for wallet initialization, PDA custody, agent selection, confidential policy save, USDC -> SOL strategy readiness, deliberate 25 USDC block, 5 USDC allow, and safe activity log review. Primary CTAs now unlock according to that linear path, with the allowed Jupiter preview run gated behind the blocked scenario.
   - Verification: `bun run test src/components/DemoTab.test.tsx src/components/WalletDashboard.test.tsx` and `bun run build` pass in `frontend/`.
   - Note: allowed Jupiter output remains explicitly framed as route/build preview plus unsigned transaction boundary; no frontend swap execution is claimed.
+- [x] `023-quiet-fintech-frontend-visual-refresh` — Refreshed the consumer frontend into a quieter fintech dashboard: the homepage first viewport is now an operational DCA control panel instead of a large marketing hero, decorative radial/orb treatments were removed, the palette moved to neutral surfaces with restrained blue primary actions, and cards/panels use compact dashboard radii and shadows.
+  - Verification: `bun run test src/routes/-index.test.tsx src/components/DemoTab.test.tsx src/components/WalletDashboard.test.tsx` and `bun run build` pass in `frontend/`.
+  - Note: state colors remain reserved for success, blocked, warning, and error communication.
+- [x] `024-consumer-frontend-e2e-demo-coverage` — Added Playwright E2E coverage for the redesigned consumer DCA workflow. The suite runs desktop and mobile Chromium projects against a local Vite server and deterministic `/e2e/consumer-demo` harness, covering simplified navigation, first viewport checklist, CTA gating, policy redaction, 25 USDC blocked privacy, 5 USDC Jupiter preview/unsigned payload boundary, and responsive readability.
+  - Verification: `bun run test:e2e`, `bun run test src/routes/-index.test.tsx src/components/DemoTab.test.tsx src/components/WalletDashboard.test.tsx`, and `bun run build` pass in `frontend/`.
+  - Note: Playwright browser binaries are external developer-machine tooling; install with `bunx playwright install chromium` when setting up a fresh environment.
 
 ### Planning
 

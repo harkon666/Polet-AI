@@ -6,11 +6,10 @@ export const Route = createFileRoute('/about')({
 
 function AboutPage() {
   return (
-    <main className="page-wrap px-4 pb-8 pt-14">
-      <section className="island-shell rise-in relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-14">
-        <div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(79,184,178,0.32),transparent_66%)]" />
+    <main className="page-wrap px-4 pb-8 pt-8">
+      <section className="island-shell relative overflow-hidden rounded-lg px-6 py-8 sm:px-8">
         <p className="island-kicker mb-3">How It Works</p>
-        <h1 className="display-title mb-5 max-w-3xl text-4xl leading-[1.02] font-bold tracking-tight text-[var(--sea-ink)] sm:text-5xl">
+        <h1 className="mb-5 max-w-3xl text-3xl leading-tight font-bold tracking-tight text-[var(--sea-ink)] sm:text-4xl">
           Secure Settlement Layer for AI Autonomy
         </h1>
         <p className="mb-8 max-w-2xl text-base text-[var(--sea-ink-soft)] sm:text-lg">
@@ -20,7 +19,7 @@ function AboutPage() {
       </section>
 
       <section className="mt-8 space-y-6">
-        <div className="island-shell rounded-2xl p-6">
+        <div className="island-shell rounded-lg p-6">
           <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">1. Create a Smart Wallet</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             Your wallet is a Program Derived Address (PDA) on Solana. Only you hold the owner key.
@@ -28,7 +27,7 @@ function AboutPage() {
           </p>
         </div>
 
-        <div className="island-shell rounded-2xl p-6">
+        <div className="island-shell rounded-lg p-6">
           <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">2. Set Confidential Numeric Guardrails</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             Save masked max-per-run and daily-cap rules for USDC DCA execution. The current demo keeps
@@ -36,7 +35,7 @@ function AboutPage() {
           </p>
         </div>
 
-        <div className="island-shell rounded-2xl p-6">
+        <div className="island-shell rounded-lg p-6">
           <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">3. Authorize an AI Agent Address</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             Authorize the AI agent wallet public key with an expiry. The contract still calls this a session key,
@@ -44,7 +43,7 @@ function AboutPage() {
           </p>
         </div>
 
-        <div className="island-shell rounded-2xl p-6">
+        <div className="island-shell rounded-lg p-6">
           <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">4. AI Agent Transacts Safely</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
             The AI agent submits DCA intent JSON through the SDK. Polet validates the authorized signer, checks the
@@ -53,7 +52,7 @@ function AboutPage() {
         </div>
       </section>
 
-      <section className="mt-8 island-shell rounded-2xl p-6">
+      <section className="mt-8 island-shell rounded-lg p-6">
         <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">Demo: Confidential Policy Block</h2>
         <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
           The demo blocks a 25 USDC agent DCA run without revealing the private max-per-run or daily cap,

@@ -507,7 +507,7 @@ export function DemoTabContent({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-5">
+      <section className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
             <p className="island-kicker mb-2">Polet AI</p>
@@ -536,7 +536,7 @@ export function DemoTabContent({
         </p>
       </section>
 
-      <section className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-5">
+      <section data-testid="demo-checklist" className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <h3 className="flex items-center gap-2 text-lg font-semibold text-[var(--sea-ink)]">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(79,184,178,0.14)] text-[var(--lagoon-deep)]">
@@ -544,7 +544,7 @@ export function DemoTabContent({
             </span>
             {t.checklistTitle}
           </h3>
-          <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">
+          <div data-testid="next-action" className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">
             <span className="font-semibold text-[var(--sea-ink)]">{t.checklistNext}: </span>
             <span className="text-[var(--sea-ink-soft)]">{nextAction}</span>
           </div>
@@ -573,7 +573,7 @@ export function DemoTabContent({
       </section>
 
       {error && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
           <p className="text-sm font-medium">{error}</p>
         </div>
@@ -756,7 +756,7 @@ export function DemoTabContent({
 
 function Panel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-5">
+    <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-5">
       <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-[var(--sea-ink)]">
         <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(79,184,178,0.14)] text-[var(--lagoon-deep)]">
           {icon}

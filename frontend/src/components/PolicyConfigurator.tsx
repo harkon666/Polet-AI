@@ -51,7 +51,7 @@ export function PolicyConfigurator({ currentPolicy, onApply }: PolicyConfigurato
             <button
               key={template.id}
               onClick={() => handleTemplateSelect(template.id)}
-              className={`rounded-xl border p-4 text-left transition ${
+              className={`rounded-lg border p-4 text-left transition ${
                 isSelected
                   ? 'border-[var(--lagoon-deep)] bg-[rgba(79,184,178,0.1)]'
                   : 'border-[var(--line)] bg-[var(--island-bg)] hover:border-[var(--lagoon-deep)] hover:bg-[var(--island-bg)]'
@@ -95,7 +95,7 @@ export function PolicyConfigurator({ currentPolicy, onApply }: PolicyConfigurato
 
       {/* Options Panel */}
       {showOptions && selectedTemplate && (
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-4">
+        <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-4">
           <h4 className="mb-4 font-medium text-[var(--sea-ink)]">
             Customize: {TEMPLATES.find(t => t.id === selectedTemplate)?.name}
           </h4>
@@ -181,7 +181,7 @@ export function PolicyConfigurator({ currentPolicy, onApply }: PolicyConfigurato
 
       {/* Current Policy Display */}
       {currentPolicy && (
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-4">
+        <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-4">
           <h4 className="mb-3 flex items-center justify-between">
             <span className="flex items-center gap-2 font-medium text-[var(--sea-ink)]">
               <Shield className="h-4 w-4 text-[var(--lagoon-deep)]" />

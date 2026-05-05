@@ -99,7 +99,7 @@ export function WalletDashboard() {
 
   if (!connected || !publicKey) {
     return (
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
+      <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-6">
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="mb-4 rounded-full bg-[rgba(79,184,178,0.14)] p-4">
             <Shield className="h-12 w-12 text-[var(--lagoon-deep)]" />
@@ -157,7 +157,7 @@ export function WalletDashboard() {
 
   if (!isInitialized) {
     return (
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
+      <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-6">
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <div className="mb-4 rounded-full bg-[rgba(79,184,178,0.14)] p-4">
             <Key className="h-12 w-12 text-[var(--lagoon-deep)]" />
@@ -199,7 +199,7 @@ export function WalletDashboard() {
   return (
     <div className="space-y-6">
       {/* Wallet Info Banner */}
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
+      <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="mb-1 text-xl font-semibold text-[var(--sea-ink)]">
@@ -226,7 +226,7 @@ export function WalletDashboard() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-1">
+      <div className="flex gap-1 rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-1">
         {(['demo', 'temporal'] as const).map((tab) => (
           <button
             key={tab}
@@ -244,7 +244,7 @@ export function WalletDashboard() {
 
       {/* Tab Content */}
       {activeTab === 'temporal' && (
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
+        <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-6">
           <TemporalKeyManager
             keys={temporalKeys}
             onRevoke={handleRevokeKey}
@@ -309,7 +309,7 @@ function StatCard({
   sublabel: string;
 }) {
   return (
-    <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-4">
+    <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-4">
       <div className="mb-2 flex items-center gap-2 text-[var(--sea-ink-soft)]">
         {icon}
         <span className="text-sm font-medium">{label}</span>

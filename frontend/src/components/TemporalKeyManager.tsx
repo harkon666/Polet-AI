@@ -71,7 +71,7 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
 
       {/* Grant Form */}
       {showGrantForm && (
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-4">
+        <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-4">
           <h4 className="mb-4 font-medium text-[var(--sea-ink)]">Authorize AI Agent Wallet</h4>
 
           <div className="mb-4">
@@ -144,7 +144,7 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
 
       {/* Keys List */}
       {keys.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--island-bg)] py-12 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--island-bg)] py-12 text-center">
           <Key className="mb-3 h-10 w-10 text-[var(--sea-ink-soft)]" />
           <p className="mb-1 text-sm font-medium text-[var(--sea-ink)]">No Authorized Agent</p>
           <p className="text-xs text-[var(--sea-ink-soft)]">
@@ -156,7 +156,7 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
           {keys.map((key) => (
             <div
               key={key.id}
-              className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-4"
+              className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-4"
             >
               <div className="mb-3 flex items-start justify-between gap-4">
                 <div className="flex-1">
