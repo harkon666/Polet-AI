@@ -8,8 +8,12 @@ import {
   ConfidentialDcaExecutionError,
   runConfidentialDcaExecution,
 } from '../lib/confidential-dca-execution';
+import {
+  IkaBridgelessRequestError,
+  createIkaBridgelessExecutionRequest,
+} from '../lib/ika-bridgeless-request';
 import { JupiterGatewayError } from '../lib/jupiter-gateway';
-import type { Intent, Policy } from '../types/intent';
+import type { Intent, MultichainStrategyParams, Policy } from '../types/intent';
 
 export const intentRouter = new Hono();
 
@@ -70,6 +74,17 @@ intentRouter.post('/multichain/run', async (c) => {
   try {
     const body = await c.req.json();
     const intent = parseIntent(body);
+    const params = intent.params as MultichainStrategyParams;
+
+    if (params.executionRail === 'ika') {
+      const result = await createIkaBridgelessExecutionRequest(intent);
+
+      return c.json({
+        success: true,
+        data: result,
+      });
+    }
+
     const dcaRequest = mapMultichainIntentToDcaRunRequest(intent);
     const result = await runConfidentialDcaExecution(dcaRequest);
 
@@ -78,11 +93,11 @@ intentRouter.post('/multichain/run', async (c) => {
       data: {
         ...result,
         multichain: {
-          sourceChain: (intent.params as import('../types/intent').MultichainStrategyParams).sourceChain,
-          sourceAsset: (intent.params as import('../types/intent').MultichainStrategyParams).sourceAsset,
-          targetChain: (intent.params as import('../types/intent').MultichainStrategyParams).targetChain,
-          targetAsset: (intent.params as import('../types/intent').MultichainStrategyParams).targetAsset,
-          executionRail: (intent.params as import('../types/intent').MultichainStrategyParams).executionRail,
+          sourceChain: params.sourceChain,
+          sourceAsset: params.sourceAsset,
+          targetChain: params.targetChain,
+          targetAsset: params.targetAsset,
+          executionRail: params.executionRail,
           settlement: 'not-executed',
         },
       },
@@ -106,6 +121,15 @@ intentRouter.post('/multichain/run', async (c) => {
           status: e.status,
         },
       }, 502);
+    }
+    if (e instanceof IkaBridgelessRequestError) {
+      return c.json({
+        success: false,
+        error: {
+          code: e.code,
+          message: e.message,
+        },
+      }, e.status as 400 | 404 | 500);
     }
 
     const message = e instanceof Error ? e.message : 'Invalid multichain intent';

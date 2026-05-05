@@ -20,7 +20,10 @@ import {
   setConfidentialPolicy,
   setupDemoCustody,
   getWalletData,
+  runMultichainIntent,
+  type IkaRequestPreview,
   type RunConfidentialDcaResult,
+  type RunMultichainIntentResult,
   type JupiterPlanPreview,
   type SetConfidentialPolicyInput,
   type SetupDemoCustodyInput,
@@ -53,6 +56,7 @@ interface ActivityEntry {
   route?: string;
   amountUsdc?: string;
   jupiterPlan?: JupiterPlanPreview;
+  ikaRequest?: IkaRequestPreview;
   transactionSigners?: string[];
   smartWalletAuthority?: string;
 }
@@ -61,6 +65,7 @@ interface DemoApi {
   setConfidentialPolicy: (input: SetConfidentialPolicyInput) => Promise<WalletTransactionResult>;
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
   runConfidentialDca: typeof runConfidentialDca;
+  runMultichainIntent: typeof runMultichainIntent;
   getWalletData: typeof getWalletData;
 }
 
@@ -75,6 +80,7 @@ const DEFAULT_API: DemoApi = {
   setConfidentialPolicy,
   setupDemoCustody,
   runConfidentialDca,
+  runMultichainIntent,
   getWalletData,
 };
 
@@ -114,6 +120,7 @@ const COPY = {
     runNow: 'Run Agent Now',
     runAllowed: 'Run 5 USDC via proxy',
     runBlocked: 'Try 25 USDC via proxy',
+    runIka: 'Request Ika bridgeless route',
     activityTitle: 'Activity log',
     emptyLog: 'Belum ada aktivitas agen.',
     approved: 'DISETUJUI',
@@ -123,12 +130,14 @@ const COPY = {
     approvedMessage: 'Proxy mengembalikan allowed dan unsigned smart-wallet transaction untuk ditandatangani session key agen.',
     blockedMessage: 'Proxy/contract policy path menolak run tanpa membuka batas privat pengguna.',
     jupiterRouteReady: 'Jupiter route siap',
+    ikaRouteRequested: 'Bridgeless route requested',
     expectedOutput: 'Estimasi output',
     minOutput: 'Min setelah slippage',
     routeEngine: 'Route',
     policyTxReady: 'Tx policy-gated siap',
     signer: 'Signer',
     executionBoundary: 'Devnet proof: route Jupiter dibangun, swap mainnet tidak dieksekusi dari demo ini.',
+    ikaExecutionBoundary: 'Ika request envelope siap; settlement bridgeless nyata belum dieksekusi.',
     privacyNote: 'Log aman: threshold, sisa cap, dan witness tidak ditampilkan.',
     preAlpha: 'Encrypt pre-alpha demo: ini membuktikan alur enforcement, bukan klaim privasi produksi.',
     missingOwner: 'Connect dan initialize wallet dulu sebelum menjalankan demo real.',
@@ -169,6 +178,7 @@ const COPY = {
     runNow: 'Run Agent Now',
     runAllowed: 'Run 5 USDC through proxy',
     runBlocked: 'Try 25 USDC through proxy',
+    runIka: 'Request Ika bridgeless route',
     activityTitle: 'Activity log',
     emptyLog: 'No agent activity yet.',
     approved: 'APPROVED',
@@ -178,12 +188,14 @@ const COPY = {
     approvedMessage: 'The proxy returned allowed plus an unsigned smart-wallet transaction for the agent session key to sign.',
     blockedMessage: 'The proxy/contract policy path rejected the run without revealing the user private limits.',
     jupiterRouteReady: 'Jupiter route ready',
+    ikaRouteRequested: 'Bridgeless route requested',
     expectedOutput: 'Expected output',
     minOutput: 'Min after slippage',
     routeEngine: 'Route',
     policyTxReady: 'Policy-gated tx ready',
     signer: 'Signer',
     executionBoundary: 'Devnet proof: Jupiter route is built, mainnet swap is not executed from this demo.',
+    ikaExecutionBoundary: 'Ika request envelope is ready; real bridgeless settlement is not executed.',
     privacyNote: 'Safe log: thresholds, remaining cap, and witness values are not displayed.',
     preAlpha: 'Encrypt pre-alpha demo: this proves the enforcement flow, not production privacy.',
     missingOwner: 'Connect and initialize a wallet before running the real demo.',
@@ -379,6 +391,47 @@ export function DemoTabContent({
     }
   };
 
+  const requestIkaRoute = async () => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+    if (!sessionKey.trim()) {
+      recordError(t.missingSession);
+      return;
+    }
+
+    setBusy('ika');
+    setError(null);
+    try {
+      const result: RunMultichainIntentResult = await api.runMultichainIntent({
+        owner,
+        sessionKey: sessionKey.trim(),
+        sourceChain: 'solana',
+        sourceAsset: 'USDC',
+        targetChain: 'sui',
+        targetAsset: 'SUI',
+        amount: strategy.amountUsdc || '5',
+        executionRail: 'ika',
+        strategy: 'dca',
+        slippageBps: 100,
+        encryptionWitness: witness,
+      });
+      addActivity({
+        status: result.allowed ? 'approved' : 'blocked',
+        amountUsdc: strategy.amountUsdc || '5',
+        message: result.allowed ? t.ikaExecutionBoundary : result.reason ?? t.blockedMessage,
+        route: result.allowed ? 'Ika bridgeless request' : result.code,
+        ikaRequest: result.allowed ? result.ikaRequest : undefined,
+        smartWalletAuthority: result.allowed ? result.ikaRequest?.sessionContext.smartWalletAuthority : undefined,
+      });
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to request Ika bridgeless route');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-5">
@@ -533,7 +586,7 @@ export function DemoTabContent({
             </label>
             <InfoRow label={t.cadence} value={strategy.cadence} />
           </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <button
               onClick={() => runAgent('25')}
               disabled={!canRun}
@@ -549,6 +602,14 @@ export function DemoTabContent({
             >
               <Play className="h-4 w-4" />
               {busy === `run-${strategy.amountUsdc || '5'}` ? 'Running...' : t.runAllowed}
+            </button>
+            <button
+              onClick={requestIkaRoute}
+              disabled={!canRun}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-bold text-[var(--sea-ink)] disabled:opacity-50"
+            >
+              <Landmark className="h-4 w-4" />
+              {busy === 'ika' ? 'Requesting...' : t.runIka}
             </button>
           </div>
           <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{t.runNow}: 25 USDC block scenario, 5 USDC allow scenario.</p>
@@ -656,7 +717,20 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
         </p>
       </div>
       {entry.jupiterPlan && <JupiterRoutePreview entry={entry} labels={labels} />}
+      {entry.ikaRequest && <IkaRequestPreviewCard request={entry.ikaRequest} labels={labels} />}
     </article>
+  );
+}
+
+function IkaRequestPreviewCard({ request, labels }: { request: IkaRequestPreview; labels: (typeof COPY)[Locale] }) {
+  return (
+    <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
+      <InfoPill label={labels.ikaRouteRequested} value={labels.ikaExecutionBoundary} wide />
+      <InfoPill label="Source" value={`${request.source.chain} ${request.source.asset}`} />
+      <InfoPill label="Target" value={`${request.target.chain} ${request.target.asset}`} />
+      <InfoPill label="Request" value={request.requestId} />
+      <InfoPill label="Policy seq" value={request.policyAttestation.policySequence.toString()} />
+    </div>
   );
 }
 

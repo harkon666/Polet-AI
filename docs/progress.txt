@@ -46,7 +46,6 @@ Track alignment:
 
 ### Critical Path
 
-- [ ] `011-ika-bridgeless-execution-request` — Produce an Ika-oriented bridgeless execution request only after Polet guardrail approval.
 - [ ] `012-hybrid-agent-demo-jupiter-ika-encrypt` — Combine agent runtime, Jupiter route/build preview, Ika bridgeless request, and Encrypt guardrails in the final demo.
 
 ### Stretch
@@ -116,6 +115,9 @@ Track alignment:
 - [x] `010-multichain-agentic-wallet-intents` — Added a multichain strategy intent envelope with source chain/asset, target chain/asset, amount, execution rail, and confidential policy witness. The SDK now exposes `createMultichainStrategyIntent`, the proxy accepts `POST /intent/multichain/run`, and the current supported executable combination maps Solana USDC -> SOL on the Jupiter rail into the existing confidential DCA route/build preview path. The frontend strategy panel now shows the multichain boundary while explicitly noting that Ika settlement is not executed in this slice.
   - Verification: `bun test` and `bun run build` pass in `sdk/`; `bun test` and `bun run build` pass in `proxy/`; `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`.
   - Note: unsupported Ika/cross-chain combinations are validated and rejected for now. Issue 011 owns the bridgeless execution request shape.
+- [x] `011-ika-bridgeless-execution-request` — Added the approved-only Ika bridgeless request path for multichain intents. The proxy now branches `executionRail: "ika"` into confidential session/policy evaluation and returns an `executionRail: "ika-bridgeless"` envelope with source/target assets, amount, owner, session key, smart wallet authority, policy sequence, non-leaking approved status, and explicit non-settlement boundary. Blocked or stale sessions suppress the request envelope. The frontend can request and display the bridgeless route boundary without exposing private thresholds.
+  - Verification: `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test` and `bun run build` pass in `frontend/`.
+  - Note: this prepares an Ika-oriented request envelope only. It does not claim verified Ika settlement or real bridgeless trade execution.
 
 ### Planning
 

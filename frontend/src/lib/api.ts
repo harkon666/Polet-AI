@@ -240,4 +240,89 @@ export async function runConfidentialDca(input: RunConfidentialDcaInput): Promis
   return data.data;
 }
 
+export interface RunMultichainIntentInput {
+  id?: string;
+  owner: string;
+  sessionKey: string;
+  sourceChain: 'solana' | 'sui' | 'ethereum' | 'base';
+  sourceAsset: string;
+  sourceMint?: string;
+  targetChain: 'solana' | 'sui' | 'ethereum' | 'base';
+  targetAsset: string;
+  targetMint?: string;
+  amount: string;
+  executionRail: 'jupiter' | 'ika';
+  strategy?: 'dca' | 'swap';
+  slippageBps?: number;
+  encryptionWitness: number[];
+}
+
+export interface IkaRequestPreview {
+  executionRail: 'ika-bridgeless';
+  settlement: 'not-executed';
+  requestId: string;
+  source: {
+    chain: string;
+    asset: string;
+  };
+  target: {
+    chain: string;
+    asset: string;
+  };
+  amount: string;
+  sessionContext: {
+    owner: string;
+    sessionKey: string;
+    smartWalletAuthority: string;
+    policySequence: number;
+  };
+  policyAttestation: {
+    status: 'approved';
+    policySequence: number;
+    attestationHash: string;
+  };
+  executionBoundary: {
+    status: 'request-prepared';
+    note: string;
+  };
+}
+
+export type RunMultichainIntentResult = {
+  allowed: boolean;
+  code: string;
+  reason?: string;
+  ikaRequest?: IkaRequestPreview;
+};
+
+export async function runMultichainIntent(input: RunMultichainIntentInput): Promise<RunMultichainIntentResult> {
+  const data = await fetchJson<{ success: boolean; data: RunMultichainIntentResult }>(
+    `${PROXY_URL}/intent/multichain/run`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        id: input.id ?? `frontend-multichain-${Date.now()}`,
+        owner: input.owner,
+        sessionKey: input.sessionKey,
+        action: 'multichain-strategy',
+        params: {
+          sourceChain: input.sourceChain,
+          sourceAsset: input.sourceAsset,
+          ...(input.sourceMint && { sourceMint: input.sourceMint }),
+          targetChain: input.targetChain,
+          targetAsset: input.targetAsset,
+          ...(input.targetMint && { targetMint: input.targetMint }),
+          amount: input.amount,
+          executionRail: input.executionRail,
+          strategy: input.strategy ?? 'dca',
+          ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
+          encryptionWitness: input.encryptionWitness,
+        },
+        timestamp: Math.floor(Date.now() / 1000),
+      }),
+    }
+  );
+
+  return data.data;
+}
+
 export { PROXY_URL };

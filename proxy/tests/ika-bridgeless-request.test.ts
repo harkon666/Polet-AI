@@ -1,0 +1,177 @@
+import { createHash } from 'crypto';
+import { describe, expect, test } from 'bun:test';
+import { Keypair, PublicKey } from '@solana/web3.js';
+import { deriveWalletPda } from '../src/lib/confidential-dca-execution';
+import { createIkaBridgelessExecutionRequest } from '../src/lib/ika-bridgeless-request';
+import type { WalletData } from '../src/lib/wallet-store';
+import type { Intent } from '../src/types/intent';
+
+const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+
+describe('Ika bridgeless execution request', () => {
+  test('creates an ika-bridgeless request only after confidential guardrail approval', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+    });
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      expect(result.code).toBe('IKA_BRIDGELESS_REQUEST_READY');
+      expect(result.ikaRequest.executionRail).toBe('ika-bridgeless');
+      expect(result.ikaRequest.settlement).toBe('not-executed');
+      expect(result.ikaRequest.source).toEqual({ chain: 'solana', asset: 'USDC' });
+      expect(result.ikaRequest.target).toEqual({ chain: 'sui', asset: 'SUI' });
+      expect(result.ikaRequest.amount).toBe('5');
+      expect(result.ikaRequest.amountBaseUnits).toBe('5000000');
+      expect(result.ikaRequest.sessionContext.owner).toBe(fixture.owner);
+      expect(result.ikaRequest.sessionContext.sessionKey).toBe(fixture.sessionKey);
+      expect(result.ikaRequest.sessionContext.smartWalletAuthority).toBe(fixture.wallet.walletPda);
+      expect(result.ikaRequest.sessionContext.policySequence).toBe(7);
+      expect(result.ikaRequest.policyAttestation.status).toBe('approved');
+      expect(result.ikaRequest.policyAttestation.policySequence).toBe(7);
+      expect(result.ikaRequest.executionBoundary.note).toMatch(/not executed/i);
+    }
+  });
+
+  test('suppresses the Ika request when confidential policy blocks the amount', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '25');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('CONFIDENTIAL_POLICY_BLOCKED');
+      expect('ikaRequest' in result).toBe(false);
+      expect(result.reason).not.toContain('10');
+      expect(result.reason).not.toContain('20');
+      expect(JSON.stringify(result)).not.toContain('10000000');
+      expect(JSON.stringify(result)).not.toContain('20000000');
+    }
+  });
+
+  test('rejects stale sessions before preparing a bridgeless request', async () => {
+    const fixture = createFixture({
+      sessionGrantedSlot: 4,
+      lastRevokedSlot: 5,
+    });
+    const intent = createIkaIntent(fixture, '5');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('SESSION_STALE');
+      expect('ikaRequest' in result).toBe(false);
+    }
+  });
+
+  test('keeps witness and private thresholds out of the allowed response', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+    });
+    const serialized = JSON.stringify(result);
+
+    expect(result.allowed).toBe(true);
+    expect(serialized).not.toContain(fixture.witness.join(','));
+    expect(serialized).not.toContain('10000000');
+    expect(serialized).not.toContain('20000000');
+    expect(serialized).not.toContain('maxPerRun');
+    expect(serialized).not.toContain('dailyCap');
+  });
+});
+
+function createIkaIntent(fixture: ReturnType<typeof createFixture>, amount: string): Intent {
+  return {
+    id: `ika-${amount}`,
+    owner: fixture.owner,
+    sessionKey: fixture.sessionKey,
+    action: 'multichain-strategy',
+    params: {
+      sourceChain: 'solana',
+      sourceAsset: 'USDC',
+      targetChain: 'sui',
+      targetAsset: 'SUI',
+      amount,
+      executionRail: 'ika',
+      strategy: 'dca',
+      slippageBps: 100,
+      encryptionWitness: Array.from(fixture.witness),
+    },
+    timestamp: 1700000000,
+  };
+}
+
+function createFixture(options: {
+  sessionAuthorized?: boolean;
+  sessionGrantedSlot?: number;
+  lastRevokedSlot?: number;
+} = {}) {
+  const owner = Keypair.generate().publicKey.toString();
+  const sessionKey = Keypair.generate().publicKey.toString();
+  const walletPda = deriveWalletPda(owner);
+  const witness = Uint8Array.from(Array.from({ length: 32 }, (_, index) => index + 1));
+  const maxPerRun = 10_000_000n;
+  const dailyCap = 20_000_000n;
+  const dailySpent = 0n;
+  const wallet: WalletData = {
+    walletPda,
+    owner,
+    proxyPk: PublicKey.default.toString(),
+    policyCommitment: Array.from({ length: 32 }, () => 7),
+    merkleRoot: Array.from({ length: 32 }, () => 0),
+    policySeq: 7,
+    lastRevokedSlot: options.lastRevokedSlot ?? 2,
+    confidentialPolicy: {
+      policyCommitment: Array.from({ length: 32 }, () => 7),
+      encryptionWitnessHash: Array.from(createHash('sha256').update(witness).digest()),
+      encryptedMaxPerRun: encryptAmount(maxPerRun, witness),
+      encryptedDailyCap: encryptAmount(dailyCap, witness),
+      encryptedDailySpent: encryptAmount(dailySpent, witness),
+      spentDayIndex: Math.floor(Math.floor(Date.now() / 1000) / 86_400),
+      enabled: true,
+    },
+    demoCustody: {
+      usdcMint: PublicKey.default.toString(),
+      usdcTokenAccount: Keypair.generate().publicKey.toString(),
+      solMint: PublicKey.default.toString(),
+      solTokenAccount: Keypair.generate().publicKey.toString(),
+      tokenProgram: TOKEN_PROGRAM,
+      configured: true,
+    },
+    sessions: [
+      {
+        key: sessionKey,
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+        grantedSlot: options.sessionGrantedSlot ?? 2,
+        authorized: options.sessionAuthorized ?? true,
+      },
+    ],
+    temporalKeys: [],
+  };
+  wallet.temporalKeys = wallet.sessions;
+
+  return { owner, sessionKey, wallet, witness };
+}
+
+function encryptAmount(amount: bigint, witness: Uint8Array): bigint {
+  return amount ^ witnessMask(witness);
+}
+
+function witnessMask(witness: Uint8Array): bigint {
+  let value = 0n;
+  for (let index = 7; index >= 0; index -= 1) {
+    value = (value << 8n) + BigInt(witness[index]);
+  }
+  return value;
+}

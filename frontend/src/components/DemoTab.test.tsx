@@ -2,7 +2,7 @@ import { fireEvent, render, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
 import { JSDOM } from 'jsdom';
 import { DemoTabContent } from './DemoTab';
-import type { RunConfidentialDcaInput } from '../lib/api';
+import type { RunConfidentialDcaInput, RunMultichainIntentInput } from '../lib/api';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>', {
   url: 'http://localhost/',
@@ -76,6 +76,39 @@ const api = {
       },
     };
   },
+  runMultichainIntent: async (input: RunMultichainIntentInput) => ({
+    allowed: true,
+    code: 'IKA_BRIDGELESS_REQUEST_READY',
+    ikaRequest: {
+      executionRail: 'ika-bridgeless' as const,
+      settlement: 'not-executed' as const,
+      requestId: 'ika-test-request',
+      source: {
+        chain: input.sourceChain,
+        asset: input.sourceAsset,
+      },
+      target: {
+        chain: input.targetChain,
+        asset: input.targetAsset,
+      },
+      amount: input.amount,
+      sessionContext: {
+        owner: input.owner,
+        sessionKey: input.sessionKey,
+        smartWalletAuthority: 'wallet-pda',
+        policySequence: 3,
+      },
+      policyAttestation: {
+        status: 'approved' as const,
+        policySequence: 3,
+        attestationHash: 'safe-attestation-hash',
+      },
+      executionBoundary: {
+        status: 'request-prepared' as const,
+        note: 'Ika settlement is not executed.',
+      },
+    },
+  }),
 };
 
 function renderDemo() {
@@ -128,6 +161,23 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/jupiter route siap/i)).toBeTruthy();
     expect(view.getByText(/humidifi/i)).toBeTruthy();
     expect(view.getByText(/devnet proof/i)).toBeTruthy();
+  });
+
+  test('displays an Ika bridgeless request boundary without exposing thresholds', async () => {
+    const view = renderDemo();
+
+    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+    await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
+
+    fireEvent.click(view.getByRole('button', { name: /request ika bridgeless route/i }));
+    await waitFor(() => expect(view.getByText(/bridgeless route requested/i)).toBeTruthy());
+
+    expect(view.getByText('Ika bridgeless request')).toBeTruthy();
+    expect(view.getByText('solana USDC')).toBeTruthy();
+    expect(view.getByText('sui SUI')).toBeTruthy();
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).not.toContain('10 USDC');
+    expect(logText).not.toContain('20 USDC');
   });
 
   test('activity log does not leak private thresholds', async () => {
