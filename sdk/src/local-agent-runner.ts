@@ -21,6 +21,52 @@ async function main() {
     ...(witness && { encryptionWitness: witness }),
   });
 
+  if (scenario === 'hybrid') {
+    const result = await runtime.runHybridDemo();
+    console.log(JSON.stringify({
+      runtime: result.runtime,
+      scenario: result.scenario,
+      summary: result.summary,
+      steps: result.steps.map((step) => ({
+        name: step.name,
+        decision: step.result.decision,
+        intentId: step.result.intent.id,
+        action: step.result.intent.action,
+        proxy: {
+          success: step.result.proxyResponse.success,
+          code: step.result.proxyResponse.data?.code ?? step.result.proxyResponse.error?.code,
+          reason: step.result.proxyResponse.data?.reason ?? step.result.proxyResponse.error?.message,
+        },
+      })),
+    }, null, 2));
+    return;
+  }
+
+  if (scenario === 'ika') {
+    const result = await runtime.runIkaScenario({
+      ...(amountUsdc && { amountUsdc }),
+    });
+    console.log(JSON.stringify({
+      runtime: result.runtime,
+      scenario: result.scenario,
+      decision: result.decision,
+      intentId: result.intent.id,
+      action: result.intent.action,
+      amount: result.intent.params.amount,
+      source: `${result.intent.params.sourceChain}:${result.intent.params.sourceAsset}`,
+      target: `${result.intent.params.targetChain}:${result.intent.params.targetAsset}`,
+      executionRail: result.intent.params.executionRail,
+      proxy: {
+        success: result.proxyResponse.success,
+        code: result.proxyResponse.data?.code ?? result.proxyResponse.error?.code,
+        reason: result.proxyResponse.data?.reason ?? result.proxyResponse.error?.message,
+        ikaRequestId: result.proxyResponse.data?.ikaRequest?.requestId,
+        settlement: result.proxyResponse.data?.ikaRequest?.settlement,
+      },
+    }, null, 2));
+    return;
+  }
+
   const result = await runtime.runDcaScenario({
     scenario,
     ...(amountUsdc && { amountUsdc }),
@@ -56,8 +102,8 @@ function requiredEnv(name: string): string {
 
 function parseScenario(value: string | undefined): AgentRuntimeScenario {
   if (!value) return 'allow';
-  if (value === 'allow' || value === 'block') return value;
-  throw new Error('POLET_AGENT_SCENARIO must be "allow" or "block"');
+  if (value === 'allow' || value === 'block' || value === 'ika' || value === 'hybrid') return value;
+  throw new Error('POLET_AGENT_SCENARIO must be "allow", "block", "ika", or "hybrid"');
 }
 
 function parseWitness(value: string | undefined): number[] | undefined {

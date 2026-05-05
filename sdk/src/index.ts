@@ -655,7 +655,11 @@ export {
   type AgentRuntimeResult,
   type AgentRuntimeScenario,
   type DcaRunData,
+  type HybridAgentRuntimeResult,
+  type IkaAgentRuntimeResult,
+  type IkaRunData,
   type LocalAgentRuntimeConfig,
   type ProxyEnvelope,
   type RunDcaScenarioInput,
+  type RunIkaScenarioInput,
 } from './local-agent-runtime.js';

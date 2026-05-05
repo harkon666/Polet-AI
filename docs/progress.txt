@@ -46,7 +46,7 @@ Track alignment:
 
 ### Critical Path
 
-- [ ] `012-hybrid-agent-demo-jupiter-ika-encrypt` — Combine agent runtime, Jupiter route/build preview, Ika bridgeless request, and Encrypt guardrails in the final demo.
+- None.
 
 ### Stretch
 
@@ -118,6 +118,9 @@ Track alignment:
 - [x] `011-ika-bridgeless-execution-request` — Added the approved-only Ika bridgeless request path for multichain intents. The proxy now branches `executionRail: "ika"` into confidential session/policy evaluation and returns an `executionRail: "ika-bridgeless"` envelope with source/target assets, amount, owner, session key, smart wallet authority, policy sequence, non-leaking approved status, and explicit non-settlement boundary. Blocked or stale sessions suppress the request envelope. The frontend can request and display the bridgeless route boundary without exposing private thresholds.
   - Verification: `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test` and `bun run build` pass in `frontend/`.
   - Note: this prepares an Ika-oriented request envelope only. It does not claim verified Ika settlement or real bridgeless trade execution.
+- [x] `012-hybrid-agent-demo-jupiter-ika-encrypt` — Added the final scripted hybrid agent path in the SDK. The local runtime now supports `allow`, `block`, `ika`, and `hybrid` scenarios; `hybrid` runs the blocked 25 USDC DCA, approved 5 USDC Jupiter route/build DCA, and approved 5 USDC Ika bridgeless request sequence through the same proxy submission helpers. Updated the agent runtime docs, demo script, and issue notes to state what is executed, previewed, and still pre-alpha/future integration.
+  - Verification: `bun run test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` passes in `frontend/`.
+  - Note: the hybrid path does not sign or broadcast transactions. Jupiter remains a route/build preview with unsigned policy-gated payload, and Ika remains a prepared request envelope without verified settlement.
 
 ### Planning
 

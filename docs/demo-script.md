@@ -1,6 +1,6 @@
 # Polet AI Demo Script
 
-Goal: show that an AI agent can request USDC -> SOL DCA runs while Polet enforces private guardrails without revealing the user's thresholds.
+Goal: show that an AI agent can request USDC -> SOL DCA runs and a multichain bridgeless request while Polet enforces private guardrails without revealing the user's thresholds.
 
 Target length: 4-5 minutes.
 
@@ -73,11 +73,38 @@ Do not reveal the exact saved thresholds from the normal product UI after setup.
 
 8. Close with the multichain direction.
 
-   "The same model extends to multichain requests through Ika: the agent submits an intent, Polet checks confidential guardrails, and only approved requests should progress to the execution rail. This repo does not claim verified Ika settlement yet."
+   Click "Request Ika bridgeless route".
+
+   Expected result:
+
+   - Status: approved.
+   - Ika request envelope appears.
+   - Source/target chains are shown.
+   - Settlement boundary says real bridgeless settlement is not executed.
+
+   Say: "The same model extends to multichain requests through Ika: the agent submits an intent, Polet checks confidential guardrails, and only approved requests receive an execution request envelope. This repo does not claim verified Ika settlement yet."
+
+9. Optional CLI agent proof.
+
+   Run the final scripted runtime from `sdk/`:
+
+   ```bash
+   POLET_OWNER=<owner> \
+   POLET_SESSION_KEY=<granted-session-key> \
+   POLET_PROXY_URL=http://localhost:3001 \
+   POLET_AGENT_SCENARIO=hybrid \
+   bun run agent:run
+   ```
+
+   Expected JSON summary:
+
+   - `blockedDca`: `blocked`.
+   - `jupiterDca`: `allowed`.
+   - `ikaBridgeless`: `allowed`.
 
 ## Reviewer Notes
 
 - Encrypt: confidential numeric policy enforcement is core to the allow/block path, but current privacy is pre-alpha and non-production.
 - Jupiter: Tokens, Price, Recurring compatibility analysis, and Swap V2 `/build` fallback are documented and implemented.
-- Ika: target bridgeless rail only; no real settlement claim yet.
+- Ika: approved request envelope only; no real settlement claim yet.
 - Mainnet: no mainnet swap execution claim from the devnet demo.

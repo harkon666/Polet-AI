@@ -2,7 +2,7 @@
 
 Issue 009 selects a local scripted agent runtime as the first real runtime integration target.
 
-This target is intentionally small: it runs inside the Polet SDK package, loads the SDK's DCA intent builder, submits the intent to the Polet proxy, and prints the allow/block decision. It is the base runtime adapter for later multichain and Ika intent slices.
+This target is intentionally small: it runs inside the Polet SDK package, loads the SDK's DCA and multichain intent builders, submits intents to the Polet proxy, and prints the allow/block decision. It is the base runtime adapter for OpenClaw, Hermes, or another external agent runtime.
 
 ## Why Local Scripted Runtime
 
@@ -13,9 +13,9 @@ This target is intentionally small: it runs inside the Polet SDK package, loads 
 
 ## Files
 
-- `sdk/src/local-agent-runtime.ts`: reusable runtime class.
+- `sdk/src/local-agent-runtime.ts`: reusable runtime class for DCA, Ika, and hybrid demo scenarios.
 - `sdk/src/local-agent-runner.ts`: CLI entrypoint.
-- `sdk/tests/local-agent-runtime.test.ts`: mocked proxy tests for allowed and blocked DCA runs.
+- `sdk/tests/local-agent-runtime.test.ts`: mocked proxy tests for allowed DCA, blocked DCA, Ika, and the final hybrid sequence.
 
 ## Environment
 
@@ -30,6 +30,8 @@ Optional:
 
 ```bash
 POLET_AGENT_SCENARIO=block
+POLET_AGENT_SCENARIO=ika
+POLET_AGENT_SCENARIO=hybrid
 POLET_DCA_AMOUNT_USDC=25
 POLET_ENCRYPTION_WITNESS=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32
 ```
@@ -38,6 +40,8 @@ Scenario defaults:
 
 - `allow`: submits a 5 USDC DCA intent.
 - `block`: submits a 25 USDC DCA intent.
+- `ika`: submits a 5 USDC-denominated Solana USDC -> Sui SUI bridgeless request intent on the Ika rail.
+- `hybrid`: runs the final three-step script: blocked 25 USDC DCA, approved 5 USDC Jupiter DCA, and approved 5 USDC Ika bridgeless request.
 
 ## Run
 
@@ -70,14 +74,37 @@ POLET_AGENT_SCENARIO=block \
 bun run agent:run
 ```
 
+Ika request demo:
+
+```bash
+cd sdk
+POLET_OWNER=<owner> \
+POLET_SESSION_KEY=<granted-session-key> \
+POLET_PROXY_URL=http://localhost:3001 \
+POLET_AGENT_SCENARIO=ika \
+bun run agent:run
+```
+
+Final hybrid demo:
+
+```bash
+cd sdk
+POLET_OWNER=<owner> \
+POLET_SESSION_KEY=<granted-session-key> \
+POLET_PROXY_URL=http://localhost:3001 \
+POLET_AGENT_SCENARIO=hybrid \
+bun run agent:run
+```
+
 The runner prints JSON with:
 
 - runtime name.
-- scenario.
-- DCA intent id/action/amount/mints.
+- scenario or hybrid step name.
+- intent id/action/amount/rail metadata.
 - proxy success/code/reason.
+- Jupiter execution path or Ika request id when returned.
 - final decision: `allowed`, `blocked`, or `unknown`.
 
 ## Boundary
 
-The runner does not sign or broadcast transactions. It creates the agent intent and submits it to the Polet proxy. The proxy returns the policy result and, for allowed runs, an unsigned smart-wallet transaction payload for the session signer flow.
+The runner does not sign or broadcast transactions. It creates agent intents and submits them to the Polet proxy. The proxy returns the policy result and, for allowed Jupiter runs, an unsigned smart-wallet transaction payload for the session signer flow. For Ika, the proxy returns a prepared bridgeless request envelope only; real Ika settlement remains outside this repo until a verified backend path exists.
