@@ -46,7 +46,10 @@ Track alignment:
 
 ### Critical Path
 
-- None.
+- `021-consumer-frontend-navigation-simplification` — Remove legacy policy and static overview from primary consumer navigation; make the DCA demo the default workflow.
+- `022-linear-confidential-dca-demo-checklist` — Turn the confidential DCA demo into a deterministic guided checklist for setup, policy, block, allow, and safe activity log review.
+- `023-quiet-fintech-frontend-visual-refresh` — Replace the bright decorative frontend treatment with a calmer fintech dashboard visual system.
+- `024-consumer-frontend-e2e-demo-coverage` — Add E2E coverage for the simplified DCA workflow, policy redaction, allow/block scenarios, Jupiter boundary, and responsive readability.
 
 ### Stretch
 
@@ -89,6 +92,12 @@ Track alignment:
     ├── 015-legacy-policy-path-quarantine
     └── 016-proxy-execution-module
         └── 017-execution-payload-module
+
+007-consumer-demo-frontend
+└── 021-consumer-frontend-navigation-simplification
+    ├── 022-linear-confidential-dca-demo-checklist
+    ├── 023-quiet-fintech-frontend-visual-refresh
+    └── 024-consumer-frontend-e2e-demo-coverage
 ```
 
 ## Done
