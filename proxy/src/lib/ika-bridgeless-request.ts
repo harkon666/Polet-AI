@@ -1,14 +1,12 @@
 import { createHash } from 'crypto';
 import { deriveWalletPda } from './confidential-dca-execution';
+import { parseUsdcAmount } from './confidential-numeric-policy';
+import type { WalletData } from './wallet-store';
 import {
-  currentDayIndex,
-  evaluateConfidentialNumericPolicy,
-  parseUsdcAmount,
-} from './confidential-numeric-policy';
-import {
-  getWalletData,
-  type WalletData,
-} from './wallet-store';
+  executeGuardedStrategy,
+  StrategyExecutionError,
+  type StrategyExecutionDeps,
+} from './strategy-execution';
 import type { Intent, MultichainStrategyParams, PoletChain } from '../types/intent';
 
 export interface IkaBridgelessExecutionRequest {
@@ -70,11 +68,7 @@ export interface IkaBridgelessBlocked {
 
 export type IkaBridgelessResult = IkaBridgelessAllowed | IkaBridgelessBlocked;
 
-export interface IkaBridgelessDeps {
-  getWalletData?: (owner: string) => Promise<WalletData | null>;
-  nowSeconds?: () => number;
-  todayIndex?: () => number;
-}
+export interface IkaBridgelessDeps extends StrategyExecutionDeps {}
 
 export class IkaBridgelessRequestError extends Error {
   constructor(
@@ -100,24 +94,45 @@ export async function createIkaBridgelessExecutionRequest(
     throw new IkaBridgelessRequestError('Ika request requires executionRail ika', 'INVALID_IKA_INTENT');
   }
 
-  const wallet = await (deps.getWalletData ?? getWalletData)(intent.owner);
-  if (!wallet) {
-    throw new IkaBridgelessRequestError('Wallet not found', 'WALLET_NOT_FOUND', 404);
-  }
-
-  const sessionResult = validateSession(wallet, intent.sessionKey, deps.nowSeconds?.() ?? Math.floor(Date.now() / 1000));
-  if (!sessionResult.allowed) return sessionResult;
-
   const amountBaseUnits = parseIkaPolicyAmount(params.amount);
-  const policyResult = evaluateConfidentialNumericPolicy(
-    wallet,
-    amountBaseUnits,
-    params.encryptionWitness,
-    deps.todayIndex?.() ?? currentDayIndex(),
-    { blockedReason: 'Confidential policy blocked this bridgeless request.' }
-  );
-  if (!policyResult.allowed) return policyResult;
 
+  try {
+    const decision = await executeGuardedStrategy<undefined, IkaBridgelessAllowed>(
+      {
+        owner: intent.owner,
+        sessionKey: intent.sessionKey,
+        amountBaseUnits,
+        encryptionWitness: params.encryptionWitness,
+        blockedReason: 'Confidential policy blocked this bridgeless request.',
+        buildAllowed: async ({ wallet }) => buildIkaAllowedResult(intent, params, wallet, amountBaseUnits),
+      },
+      deps
+    );
+
+    if (!decision.allowed) return decision;
+    return decision.payload;
+  } catch (error) {
+    if (error instanceof StrategyExecutionError) {
+      throw new IkaBridgelessRequestError(error.message, error.code, error.status);
+    }
+    throw error;
+  }
+}
+
+function parseIkaPolicyAmount(value: number | string): bigint {
+  try {
+    return parseUsdcAmount(value);
+  } catch {
+    throw new IkaBridgelessRequestError('amount must be a positive amount with up to 6 decimals', 'INVALID_IKA_INTENT');
+  }
+}
+
+function buildIkaAllowedResult(
+  intent: Intent,
+  params: MultichainStrategyParams,
+  wallet: WalletData,
+  amountBaseUnits: bigint
+): IkaBridgelessAllowed {
   const amount = params.amount.toString();
   const smartWalletAuthority = wallet.walletPda || deriveWalletPda(intent.owner);
   const attestationHash = hashIkaAttestation({
@@ -174,41 +189,6 @@ export async function createIkaBridgelessExecutionRequest(
       },
     },
   };
-}
-
-function validateSession(wallet: WalletData, sessionKey: string, now: number): IkaBridgelessBlocked | { allowed: true } {
-  const session = wallet.sessions.find((candidate) => candidate.key === sessionKey);
-  if (!session || !session.authorized) {
-    return {
-      allowed: false,
-      code: 'SESSION_NOT_AUTHORIZED',
-      reason: 'Session key is not authorized for this wallet.',
-    };
-  }
-  if (session.expiresAt <= now) {
-    return {
-      allowed: false,
-      code: 'SESSION_EXPIRED',
-      reason: 'Session key has expired.',
-    };
-  }
-  if (session.grantedSlot < wallet.lastRevokedSlot) {
-    return {
-      allowed: false,
-      code: 'SESSION_STALE',
-      reason: 'Session key predates the latest wallet kill switch.',
-    };
-  }
-
-  return { allowed: true };
-}
-
-function parseIkaPolicyAmount(value: number | string): bigint {
-  try {
-    return parseUsdcAmount(value);
-  } catch {
-    throw new IkaBridgelessRequestError('amount must be a positive amount with up to 6 decimals', 'INVALID_IKA_INTENT');
-  }
 }
 
 function hashIkaAttestation(value: Record<string, unknown>): string {

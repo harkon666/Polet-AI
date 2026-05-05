@@ -46,7 +46,6 @@ Track alignment:
 
 ### Critical Path
 
-- `016-proxy-execution-module` — Deepen proxy strategy execution so guarded DCA/Jupiter and Ika request flows share a small allow/block/result interface instead of route callers knowing internal ordering.
 - `017-execution-payload-module` — Make the proxy/contract confidential transfer payload layout a named module and test surface. Blocked by `016-proxy-execution-module`.
 
 ### Stretch
@@ -137,6 +136,9 @@ Track alignment:
 - [x] `015-legacy-policy-path-quarantine` — Quarantined the public plaintext policy foundation behind explicit legacy names and routes. Legacy allowlist/blocklist/maxAmount evaluation now lives in `legacy-public-policy-engine`, legacy intent evaluation/execution is under `/legacy/intent/*`, legacy public templates are under `/legacy/template/*`, and public wallet policy setup is under `/wallet/legacy/set-policy`. The current product routes remain `/wallet/set-confidential-policy`, `/intent/dca/run`, and `/intent/multichain/run`.
   - Verification: `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`; `NO_DNA=1 cargo build` passes in `contract/`.
   - Note: legacy tests remain as prior-foundation coverage and are labeled as legacy; confidential DCA tests do not depend on plaintext public policy helpers.
+- [x] `016-proxy-execution-module` — Added a shared proxy strategy execution interface for wallet lookup, session validation, optional custody checks, strategy preparation, confidential policy evaluation, and allowed payload construction. Confidential DCA now supplies Jupiter route/build preparation and transaction construction as adapter steps; Ika bridgeless requests reuse the same guardrail decision shape while preserving their existing envelope.
+  - Verification: `bun test ./tests/strategy-execution.test.ts ./tests/confidential-dca-execution.test.ts ./tests/ika-bridgeless-request.test.ts` and `bun run build` pass in `proxy/`.
+  - Note: blocked responses remain non-leaking, and allowed DCA/Ika response shapes remain externally unchanged.
 
 ### Planning
 

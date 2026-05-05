@@ -1,9 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
-import {
-  currentDayIndex,
-  evaluateConfidentialNumericPolicy,
-  parseUsdcAmount,
-} from './confidential-numeric-policy';
+import { parseUsdcAmount } from './confidential-numeric-policy';
 import {
   JUPITER_SOL_MINT,
   JUPITER_USDC_MINT,
@@ -17,14 +13,15 @@ import {
   type BuiltTransaction,
 } from './transaction-builder';
 import {
-  getWalletData,
-  type WalletData,
-} from './wallet-store';
-import {
   PROGRAM_ID,
   PROGRAM_ID_STRING,
   WALLET_SEED,
 } from './program-identity';
+import {
+  executeGuardedStrategy,
+  StrategyExecutionError,
+  type StrategyExecutionDeps,
+} from './strategy-execution';
 
 const USDC_DECIMALS = 6;
 
@@ -68,15 +65,12 @@ export interface ConfidentialDcaRunBlocked {
 
 export type ConfidentialDcaRunResult = ConfidentialDcaRunAllowed | ConfidentialDcaRunBlocked;
 
-export interface ConfidentialDcaExecutionDeps {
+export interface ConfidentialDcaExecutionDeps extends StrategyExecutionDeps {
   gateway?: JupiterStrategyGateway;
-  getWalletData?: (owner: string) => Promise<WalletData | null>;
   buildTransaction?: (
     request: Parameters<typeof buildConfidentialTransferSessionTransaction>[0],
     programId: string
   ) => Promise<BuiltTransaction>;
-  nowSeconds?: () => number;
-  todayIndex?: () => number;
 }
 
 export class ConfidentialDcaExecutionError extends Error {
@@ -95,84 +89,85 @@ export async function runConfidentialDcaExecution(
   deps: ConfidentialDcaExecutionDeps = {}
 ): Promise<ConfidentialDcaRunResult> {
   validateRunRequest(request);
-
-  const wallet = await (deps.getWalletData ?? getWalletData)(request.owner);
-  if (!wallet) {
-    throw new ConfidentialDcaExecutionError('Wallet not found', 'WALLET_NOT_FOUND', 404);
-  }
-
-  const sessionResult = validateSession(wallet, request.sessionKey, deps.nowSeconds?.() ?? Math.floor(Date.now() / 1000));
-  if (!sessionResult.allowed) return sessionResult;
-
-  if (!wallet.demoCustody.configured) {
-    return {
-      allowed: false,
-      code: 'TOKEN_CUSTODY_NOT_CONFIGURED',
-      reason: 'Smart wallet demo custody is not configured.',
-    };
-  }
-
   const amountBaseUnits = parseDcaUsdcAmount(request.amountUsdc ?? request.amount);
   const inputMint = request.inputMint ?? JUPITER_USDC_MINT;
   const outputMint = request.outputMint ?? JUPITER_SOL_MINT;
-  const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
   const gateway = deps.gateway ?? createJupiterStrategyGateway();
 
-  let jupiterPlan: JupiterDcaStrategyPlan;
   try {
-    jupiterPlan = await gateway.prepareDcaStrategy({
-      inputMint,
-      outputMint,
-      amount: amountBaseUnits,
-      taker: smartWalletAuthority,
-      payer: smartWalletAuthority,
-      destinationTokenAccount: request.destinationTokenAccount ?? wallet.demoCustody.solTokenAccount,
-      nativeDestinationAccount: request.nativeDestinationAccount,
-      slippageBps: request.slippageBps ?? 100,
-      wrapAndUnwrapSol: false,
-    });
+    const decision = await executeGuardedStrategy<JupiterDcaStrategyPlan, ConfidentialDcaRunAllowed>(
+      {
+        owner: request.owner,
+        sessionKey: request.sessionKey,
+        amountBaseUnits,
+        encryptionWitness: request.encryptionWitness,
+        blockedReason: 'Confidential policy blocked this DCA run.',
+        requireDemoCustody: true,
+        prepare: async ({ wallet }) => {
+          const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
+
+          try {
+            return await gateway.prepareDcaStrategy({
+              inputMint,
+              outputMint,
+              amount: amountBaseUnits,
+              taker: smartWalletAuthority,
+              payer: smartWalletAuthority,
+              destinationTokenAccount: request.destinationTokenAccount ?? wallet.demoCustody.solTokenAccount,
+              nativeDestinationAccount: request.nativeDestinationAccount,
+              slippageBps: request.slippageBps ?? 100,
+              wrapAndUnwrapSol: false,
+            });
+          } catch (error) {
+            if (error instanceof JupiterGatewayError) throw error;
+            throw new ConfidentialDcaExecutionError('Jupiter precheck failed', 'JUPITER_PRECHECK_FAILED', 502);
+          }
+        },
+        buildAllowed: async ({ wallet, prepared }) => {
+          const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
+          const transaction = await (deps.buildTransaction ?? buildConfidentialTransferSessionTransaction)(
+            {
+              wallet: smartWalletAuthority,
+              sessionKey: request.sessionKey,
+              destination: request.destinationTokenAccount ?? wallet.demoCustody.solTokenAccount,
+              amount: amountBaseUnits,
+              attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
+              attestationPolicySeq: wallet.policySeq,
+              encryptionWitness: request.encryptionWitness,
+            },
+            PROGRAM_ID_STRING
+          );
+
+          return {
+            allowed: true,
+            code: 'DCA_ALLOWED',
+            amount: formatBaseUnits(amountBaseUnits, USDC_DECIMALS),
+            amountBaseUnits: amountBaseUnits.toString(),
+            executionPath: prepared.executionPath,
+            smartWalletAuthority,
+            jupiterPlan: prepared,
+            transaction,
+          };
+        },
+      },
+      deps
+    );
+
+    if (!decision.allowed) {
+      const { prepared, ...blocked } = decision;
+      return {
+        ...blocked,
+        ...(prepared && { jupiterPlan: prepared }),
+      } as ConfidentialDcaRunBlocked;
+    }
+
+    return decision.payload;
   } catch (error) {
-    if (error instanceof JupiterGatewayError) throw error;
-    throw new ConfidentialDcaExecutionError('Jupiter precheck failed', 'JUPITER_PRECHECK_FAILED', 502);
+    if (error instanceof StrategyExecutionError) {
+      throw new ConfidentialDcaExecutionError(error.message, error.code, error.status);
+    }
+    throw error;
   }
-
-  const policyResult = evaluateConfidentialNumericPolicy(
-    wallet,
-    amountBaseUnits,
-    request.encryptionWitness,
-    deps.todayIndex?.() ?? currentDayIndex(),
-    { blockedReason: 'Confidential policy blocked this DCA run.' }
-  );
-  if (!policyResult.allowed) {
-    return {
-      ...policyResult,
-      jupiterPlan,
-    };
-  }
-
-  const transaction = await (deps.buildTransaction ?? buildConfidentialTransferSessionTransaction)(
-    {
-      wallet: smartWalletAuthority,
-      sessionKey: request.sessionKey,
-      destination: request.destinationTokenAccount ?? wallet.demoCustody.solTokenAccount,
-      amount: amountBaseUnits,
-      attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
-      attestationPolicySeq: wallet.policySeq,
-      encryptionWitness: request.encryptionWitness,
-    },
-    PROGRAM_ID_STRING
-  );
-
-  return {
-    allowed: true,
-    code: 'DCA_ALLOWED',
-    amount: formatBaseUnits(amountBaseUnits, USDC_DECIMALS),
-    amountBaseUnits: amountBaseUnits.toString(),
-    executionPath: jupiterPlan.executionPath,
-    smartWalletAuthority,
-    jupiterPlan,
-    transaction,
-  };
 }
 
 export function deriveWalletPda(owner: string): string {
@@ -205,40 +200,6 @@ function parseDcaUsdcAmount(value: number | string | undefined): bigint {
       'INVALID_DCA_REQUEST'
     );
   }
-}
-
-function validateSession(wallet: WalletData, sessionKey: string, now: number): ConfidentialDcaRunBlocked | { allowed: true } {
-  const session = wallet.sessions.find((candidate) => candidate.key === sessionKey);
-  if (!session) {
-    return {
-      allowed: false,
-      code: 'SESSION_NOT_AUTHORIZED',
-      reason: 'Session key is not authorized for this wallet.',
-    };
-  }
-  if (!session.authorized) {
-    return {
-      allowed: false,
-      code: 'SESSION_NOT_AUTHORIZED',
-      reason: 'Session key is not authorized for this wallet.',
-    };
-  }
-  if (session.expiresAt <= now) {
-    return {
-      allowed: false,
-      code: 'SESSION_EXPIRED',
-      reason: 'Session key has expired.',
-    };
-  }
-  if (session.grantedSlot < wallet.lastRevokedSlot) {
-    return {
-      allowed: false,
-      code: 'SESSION_STALE',
-      reason: 'Session key predates the latest wallet kill switch.',
-    };
-  }
-
-  return { allowed: true };
 }
 
 function formatBaseUnits(amount: bigint, decimals: number): string {

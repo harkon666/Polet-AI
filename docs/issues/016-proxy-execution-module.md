@@ -14,11 +14,23 @@ The existing 25 USDC block, 5 USDC Jupiter approval, and Ika bridgeless request 
 
 ## Acceptance criteria
 
-- [ ] Confidential DCA run orchestration is expressed through a small strategy execution interface instead of one function that exposes all ordering details.
-- [ ] Jupiter preparation, confidential policy decision, and execution payload building sit behind internal seams with focused tests.
-- [ ] Multichain Jupiter and Ika routes reuse the same strategy execution decision shape where practical.
-- [ ] Blocked responses remain non-leaking and allowed responses keep the current Jupiter/Ika payload shapes.
-- [ ] Proxy tests cover the strategy execution interface plus the end-to-end route behavior.
+- [x] Confidential DCA run orchestration is expressed through a small strategy execution interface instead of one function that exposes all ordering details.
+- [x] Jupiter preparation, confidential policy decision, and execution payload building sit behind internal seams with focused tests.
+- [x] Multichain Jupiter and Ika routes reuse the same strategy execution decision shape where practical.
+- [x] Blocked responses remain non-leaking and allowed responses keep the current Jupiter/Ika payload shapes.
+- [x] Proxy tests cover the strategy execution interface plus the end-to-end route behavior.
+
+## Implementation notes
+
+- Added `proxy/src/lib/strategy-execution.ts` as the shared guardrail orchestration surface for wallet lookup, session validation, optional custody checks, preparation, confidential policy evaluation, and allowed payload construction.
+- Refactored confidential DCA execution so Jupiter route/build preparation and unsigned transaction building are adapter steps behind the shared strategy decision interface.
+- Refactored Ika bridgeless request preparation to reuse the same confidential strategy decision shape while preserving the existing request envelope.
+- Added direct strategy execution interface coverage in `proxy/tests/strategy-execution.test.ts`.
+
+## Verification
+
+- `bun test ./tests/strategy-execution.test.ts ./tests/confidential-dca-execution.test.ts ./tests/ika-bridgeless-request.test.ts` passes in `proxy/`.
+- `bun run build` passes in `proxy/`.
 
 ## Blocked by
 
