@@ -8,6 +8,10 @@ import {
   IkaBridgelessRequestError,
   createIkaBridgelessExecutionRequest,
 } from '../lib/ika-bridgeless-request';
+import {
+  runDestinationBroadcastDemo,
+  type DestinationBroadcastInput,
+} from '../lib/destination-broadcast-demo';
 import { JupiterGatewayError } from '../lib/jupiter-gateway';
 import type { Intent, MultichainStrategyParams } from '../types/intent';
 
@@ -130,6 +134,48 @@ intentRouter.post('/multichain/run', async (c) => {
       success: false,
       error: {
         code: 'INVALID_MULTICHAIN_INTENT',
+        message,
+      },
+    }, 400);
+  }
+});
+
+/**
+ * POST /intent/ika/destination-broadcast
+ * Optional issue 020 demo path: turn an Ika Pre-Alpha produced signature into
+ * a Solana devnet memo-proof transaction. Broadcast is disabled unless the
+ * proxy is started with explicit demo env configuration.
+ */
+intentRouter.post('/ika/destination-broadcast', async (c) => {
+  try {
+    const body = await c.req.json() as DestinationBroadcastInput;
+    const result = await runDestinationBroadcastDemo({
+      ...body,
+      demoConfig: {
+        ...body.demoConfig,
+        enabled: process.env.POLET_DESTINATION_BROADCAST_DEMO === 'enabled',
+        feePayerSecretKey: process.env.POLET_DESTINATION_BROADCAST_FEE_PAYER,
+        rpcUrl: process.env.POLET_DESTINATION_BROADCAST_RPC_URL,
+        confirm: process.env.POLET_DESTINATION_BROADCAST_CONFIRM === 'true',
+      },
+    });
+
+    return c.json({
+      success: result.ok,
+      data: result,
+      ...(!result.ok && {
+        error: {
+          code: result.code,
+          message: result.reason,
+        },
+      }),
+    }, result.ok ? 200 : 400);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Destination broadcast demo failed';
+    return c.json({
+      success: false,
+      error: {
+        code: 'DESTINATION_BROADCAST_ERROR',
         message,
       },
     }, 400);

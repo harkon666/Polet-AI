@@ -131,6 +131,43 @@ export interface IkaPreAlphaSigningInput {
   signatureScheme?: IkaPreAlphaSignatureScheme;
 }
 
+export interface IkaPreAlphaProducedSignature {
+  status: 'signature-produced-prealpha';
+  signature: string;
+  publicKey: string;
+  messageDigest: string;
+  signatureScheme: IkaPreAlphaSignatureScheme;
+}
+
+export interface IkaDestinationBroadcastInput {
+  ikaRequest: unknown;
+  producedSignature: IkaPreAlphaProducedSignature;
+}
+
+export interface IkaDestinationBroadcastResult {
+  ok: boolean;
+  status: 'broadcast-disabled' | 'broadcast-submitted' | 'broadcast-confirmed' | 'broadcast-failed';
+  code?: string;
+  reason?: string;
+  receipt?: {
+    chain: 'solana';
+    cluster: 'devnet';
+    action: 'memo-proof';
+    transactionId: string;
+    explorerUrl: string;
+    slot?: number;
+    confirmationStatus?: string;
+  };
+  demoPath?: {
+    chain: 'solana';
+    cluster: 'devnet';
+    action: 'memo-proof';
+    asset: 'none';
+    productionSettlement: false;
+  };
+  transaction?: unknown;
+}
+
 // Stake params
 export interface StakeParams {
   validator: string;
@@ -539,6 +576,8 @@ export type PoletTradeStatus =
   | 'message-approved'
   | 'signature-pending'
   | 'signature-produced-prealpha'
+  | 'broadcast-submitted'
+  | 'broadcast-confirmed'
   | 'blocked'
   | 'not-supported';
 export type PoletSettlementStatus = 'not-executed';
@@ -638,6 +677,18 @@ export async function submitIntent<TResponse = unknown>(
 
   const mode = options.mode ?? 'execute';
   return requestProxy<TResponse>(mode === 'evaluate' ? '/legacy/intent/evaluate' : '/legacy/intent/execute', intent, options);
+}
+
+export async function broadcastIkaDestinationDemo(
+  input: IkaDestinationBroadcastInput,
+  options: ProxyClientOptions
+): Promise<IkaDestinationBroadcastResult> {
+  const response = await requestProxy<{
+    success?: boolean;
+    data?: IkaDestinationBroadcastResult;
+  }>('/intent/ika/destination-broadcast', input, options);
+
+  return response.data ?? response as IkaDestinationBroadcastResult;
 }
 
 export function createPoletAgent(options: PoletAgentOptions): PoletAgent {

@@ -84,7 +84,32 @@ Do not reveal the exact saved thresholds from the normal product UI after setup.
 
    Say: "The same model extends to multichain requests through Ika: the agent submits an intent, Polet checks confidential guardrails, and only approved requests receive an execution request envelope. This repo does not claim verified Ika settlement yet."
 
-9. Optional CLI agent proof.
+9. Optional Pre-Alpha destination broadcast proof.
+
+   Use only when the proxy is explicitly configured:
+
+   ```bash
+   POLET_DESTINATION_BROADCAST_DEMO=enabled \
+   POLET_DESTINATION_BROADCAST_FEE_PAYER=<devnet-fee-payer-secret-key-json-or-base58> \
+   POLET_DESTINATION_BROADCAST_CONFIRM=false \
+   bun run dev
+   ```
+
+   Submit the approved Ika request plus a `signature-produced-prealpha` result to:
+
+   ```text
+   POST /intent/ika/destination-broadcast
+   ```
+
+   Expected result:
+
+   - `status`: `broadcast-submitted` or `broadcast-confirmed`.
+   - Receipt: Solana devnet transaction id and explorer URL.
+   - Action: Solana Memo proof only.
+
+   Say: "This optional final leg broadcasts a narrow devnet memo proof that a policy-approved Ika Pre-Alpha signature result existed. It does not transfer assets and is not production bridgeless settlement."
+
+10. Optional CLI agent proof.
 
    Run the final scripted runtime from `sdk/`:
 
@@ -107,4 +132,5 @@ Do not reveal the exact saved thresholds from the normal product UI after setup.
 - Encrypt: confidential numeric policy enforcement is core to the allow/block path, but current privacy is pre-alpha and non-production.
 - Jupiter: Tokens, Price, Recurring compatibility analysis, and Swap V2 `/build` fallback are documented and implemented.
 - Ika: approved request envelope only; no real settlement claim yet.
+- Ika broadcast proof: optional Solana devnet memo receipt only; no asset movement, no production MPC, no arbitrary destination-chain support.
 - Mainnet: no mainnet swap execution claim from the devnet demo.

@@ -1,6 +1,6 @@
 # Destination Chain Broadcast Demo
 
-Labels: `needs-triage`
+Labels: `done`
 
 Type: `HITL`
 
@@ -16,13 +16,13 @@ This is optional and should only be implemented if the destination chain, asset,
 
 ## Acceptance criteria
 
-- [ ] A single destination-chain demo path is selected and documented before implementation, including chain, testnet/devnet, asset/action, faucet requirements, and explorer/receipt verification.
-- [ ] SDK/proxy can take a `signature-produced-prealpha` Ika result and construct the matching destination-chain transaction for that one demo path.
-- [ ] SDK/proxy can broadcast the transaction only when explicit demo configuration is enabled.
-- [ ] The result includes `status: "broadcast-submitted"` or `status: "broadcast-confirmed"` plus a destination-chain transaction id/receipt when available.
-- [ ] Failure states are explicit and recoverable: unsupported chain, missing faucet funds, invalid signature, RPC failure, and timeout.
-- [ ] Tests cover transaction construction, disabled-broadcast safety, receipt normalization, and failure mapping with mocked RPCs.
-- [ ] Docs and demo script state that this is a narrow Pre-Alpha broadcast demo, not production bridgeless settlement.
+- [x] A single destination-chain demo path is selected and documented before implementation, including chain, testnet/devnet, asset/action, faucet requirements, and explorer/receipt verification.
+- [x] SDK/proxy can take a `signature-produced-prealpha` Ika result and construct the matching destination-chain transaction for that one demo path.
+- [x] SDK/proxy can broadcast the transaction only when explicit demo configuration is enabled.
+- [x] The result includes `status: "broadcast-submitted"` or `status: "broadcast-confirmed"` plus a destination-chain transaction id/receipt when available.
+- [x] Failure states are explicit and recoverable: unsupported chain, missing faucet funds, invalid signature, RPC failure, and timeout.
+- [x] Tests cover transaction construction, disabled-broadcast safety, receipt normalization, and failure mapping with mocked RPCs.
+- [x] Docs and demo script state that this is a narrow Pre-Alpha broadcast demo, not production bridgeless settlement.
 
 ## Blocked by
 
@@ -39,6 +39,23 @@ Decision questions before implementation:
 - Who pays destination-chain gas?
 - What receipt proves success without relying on production-value funds?
 - How should the UI/SDK avoid implying support for arbitrary chains before adapters exist?
+
+## Selected demo path
+
+- Chain: Solana.
+- Network: devnet.
+- Asset/action: no asset transfer; write a Solana Memo proof transaction containing the Polet/Ika request id, source/target metadata, amount base units, message digest, signature scheme, and a hash of the produced Pre-Alpha signature.
+- Faucet requirement: only the configured demo fee payer needs devnet SOL for gas. User assets and smart-wallet funds are not moved.
+- Verification path: returned Solana devnet transaction id plus `https://explorer.solana.com/tx/<signature>?cluster=devnet`.
+- Safety gate: proxy broadcast is disabled by default and only runs when `POLET_DESTINATION_BROADCAST_DEMO=enabled` and `POLET_DESTINATION_BROADCAST_FEE_PAYER` are configured.
+- Boundary: this is a Pre-Alpha broadcast proof and memo receipt only. It is not production Ika settlement, production MPC, or general destination-chain support.
+
+## Implementation notes
+
+- Added `proxy/src/lib/destination-broadcast-demo.ts` for memo proof construction, opt-in broadcast, receipt normalization, and failure mapping.
+- Added `POST /intent/ika/destination-broadcast` to the proxy.
+- Added SDK helper `broadcastIkaDestinationDemo()`.
+- Added mocked-RPC tests for construction, disabled-broadcast safety, submitted receipt normalization, unsupported chain, missing faucet funds, invalid signature, RPC failure, and timeout.
 
 Non-goals:
 

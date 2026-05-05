@@ -11,6 +11,7 @@ import {
   createMultichainStrategyIntent,
   createPoletAgent,
   createRiskGatedSwapIntent,
+  broadcastIkaDestinationDemo,
   evaluateIntentWithProxy,
   isValidIntent,
   submitIntent,
@@ -483,6 +484,55 @@ describe('Polet AI SDK - Intent Builder', () => {
 
       expect(result).toEqual({ success: true, data: { allowed: true } });
       expect(requests).toEqual(['https://proxy.polet.ai/legacy/intent/evaluate']);
+    });
+
+    test('broadcastIkaDestinationDemo sends produced Pre-Alpha signatures to the narrow broadcast endpoint', async () => {
+      const requests: Array<{ url: string; body: unknown }> = [];
+      const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
+        requests.push({
+          url: input.toString(),
+          body: JSON.parse(init?.body?.toString() ?? '{}'),
+        });
+        return Response.json({
+          success: true,
+          data: {
+            ok: true,
+            status: 'broadcast-submitted',
+            receipt: {
+              chain: 'solana',
+              cluster: 'devnet',
+              action: 'memo-proof',
+              transactionId: 'tx-1',
+              explorerUrl: 'https://explorer.solana.com/tx/tx-1?cluster=devnet',
+            },
+          },
+        });
+      };
+
+      const result = await broadcastIkaDestinationDemo({
+        ikaRequest: { requestId: 'ika-1' },
+        producedSignature: {
+          status: 'signature-produced-prealpha',
+          signature: 'a'.repeat(64),
+          publicKey: '11111111111111111111111111111111',
+          messageDigest: 'b'.repeat(64),
+          signatureScheme: 'ecdsa-secp256k1-sha256',
+        },
+      }, {
+        baseUrl: 'https://proxy.polet.ai/',
+        fetch: fetchMock,
+      });
+
+      expect(result.status).toBe('broadcast-submitted');
+      expect(result.receipt?.transactionId).toBe('tx-1');
+      expect(requests[0].url).toBe('https://proxy.polet.ai/intent/ika/destination-broadcast');
+      expect(requests[0].body).toMatchObject({
+        ikaRequest: { requestId: 'ika-1' },
+        producedSignature: {
+          status: 'signature-produced-prealpha',
+          messageDigest: 'b'.repeat(64),
+        },
+      });
     });
 
     test('submitIntent throws ProxyRequestError when the proxy rejects the request', async () => {
