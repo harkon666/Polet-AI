@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletButton } from './WalletButton';
-import { PolicyConfigurator } from './PolicyConfigurator';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
 import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
-import { Transaction, PublicKey } from '@solana/web3.js';
+import { Transaction } from '@solana/web3.js';
 import { useEffect } from 'react';
 import { getWalletData } from '../lib/api';
-import type { Policy } from '../types';
-import * as borsh from 'borsh';
 
 interface TemporalKey {
   id: string;
@@ -26,12 +23,10 @@ export function WalletDashboard() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [poletWalletPda, setPoletWalletPda] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'policy' | 'temporal' | 'demo'>('overview');
-  const [currentPolicy, setCurrentPolicy] = useState<Policy | null>(null);
+  const [activeTab, setActiveTab] = useState<'demo' | 'temporal'>('demo');
   const [temporalKeys, setTemporalKeys] = useState<TemporalKey[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const { sendTransaction } = useWallet();
   const { connection } = useConnection();
 
@@ -63,23 +58,6 @@ export function WalletDashboard() {
             createdAt: Number(tk.lastReset || Date.now() / 1000) * 1000,
           })));
         }
-        if (data.policyData && data.policyData.length > 0) {
-          try {
-            // Borsh deserialization (current format: Vec<Pubkey> for allowlist/blocklist)
-            const schema = new Map([[Object, { kind: 'struct', fields: [['allowlist', [['u8', 32]]], ['blocklist', [['u8', 32]]]] }]]);
-            const p = borsh.deserialize(schema, Object, Buffer.from(data.policyData)) as { allowlist: Uint8Array[]; blocklist: Uint8Array[] };
-            setCurrentPolicy({
-              allowlist: p.allowlist.map((b: Uint8Array) => new PublicKey(b).toBase58()),
-              blocklist: p.blocklist.map((b: Uint8Array) => new PublicKey(b).toBase58()),
-            });
-          } catch (e) {
-            // Fallback to JSON for legacy data
-            try {
-              const decoded = JSON.parse(new TextDecoder().decode(new Uint8Array(data.policyData)));
-              setCurrentPolicy(decoded);
-            } catch { }
-          }
-        }
       }
     } catch (err) {
       console.log('Wallet not found or not initialized yet');
@@ -89,43 +67,6 @@ export function WalletDashboard() {
 
 
   const pubkeyStr = publicKey?.toBase58();
-
-  const handleApplyPolicy = async (policy: Policy) => {
-    if (!publicKey) return;
-    try {
-      const res = await fetch('http://localhost:3001/wallet/legacy/set-policy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          owner: publicKey.toBase58(),
-          policy
-        }),
-      });
-      const data = await res.json();
-      if (data.success && data.data.transaction) {
-        const tx = Transaction.from(Uint8Array.from(atob(data.data.transaction), c => c.charCodeAt(0)));
-        const signature = await sendTransaction(tx, connection);
-        await connection.confirmTransaction(signature, 'confirmed');
-        setSuccessMsg('Legacy public policy updated successfully!');
-        refreshData();
-        setTimeout(() => setSuccessMsg(null), 4000);
-      } else if (data.error) {
-        setError(data.error);
-        setTimeout(() => setError(null), 6000);
-      }
-    } catch (err) {
-      console.error('Apply policy failed:', err);
-      console.error('Error details:', JSON.stringify(err, null, 2));
-      if (err && typeof err === 'object' && 'logs' in err) {
-        console.error('Transaction logs:', err.logs);
-      }
-      if (err && typeof err === 'object' && 'logs' in err && err.logs) {
-        const logs = err.logs as string[];
-        logs.forEach((log: string, i: number) => console.error(`Log ${i}:`, log));
-      }
-      setError(err instanceof Error ? err.message : 'Apply policy failed');
-    }
-  };
 
   const handleRevokeKey = (keyId: string) => {
     setTemporalKeys(prev => prev.map(k => k.id === keyId ? { ...k, authorized: false } : k));
@@ -286,7 +227,7 @@ export function WalletDashboard() {
 
       {/* Tab Navigation */}
       <div className="flex gap-1 rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-1">
-        {(['overview', 'policy', 'temporal', 'demo'] as const).map((tab) => (
+        {(['demo', 'temporal'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -295,29 +236,13 @@ export function WalletDashboard() {
                 : 'text-[var(--sea-ink-soft)] hover:bg-[var(--link-bg-hover)]'
               }`}
           >
-            {tab === 'overview' && 'Overview'}
-            {tab === 'policy' && 'Legacy Policy'}
-            {tab === 'temporal' && 'Agent Access'}
             {tab === 'demo' && 'DCA Demo'}
+            {tab === 'temporal' && 'Agent Access'}
           </button>
         ))}
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'overview' && <OverviewTab />}
-      {activeTab === 'policy' && (
-        <>
-          {successMsg && (
-            <div className="rounded-xl border border-green-200 bg-green-50 p-4 flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              <p className="text-sm font-medium text-green-800">{successMsg}</p>
-            </div>
-          )}
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
-          <PolicyConfigurator currentPolicy={currentPolicy} onApply={handleApplyPolicy} />
-        </div>
-        </>
-      )}
       {activeTab === 'temporal' && (
         <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-6">
           <TemporalKeyManager
@@ -328,19 +253,22 @@ export function WalletDashboard() {
         </div>
       )}
       {activeTab === 'demo' && (
-        <DemoTab
-          agentAddresses={temporalKeys
-            .filter((key) => key.authorized)
-            .map((key) => key.sessionKey)}
-        />
+        <>
+          <DemoStatusSummary authorizedAgentCount={temporalKeys.filter((key) => key.authorized).length} />
+          <DemoTab
+            agentAddresses={temporalKeys
+              .filter((key) => key.authorized)
+              .map((key) => key.sessionKey)}
+          />
+        </>
       )}
     </div>
   );
 }
 
-function OverviewTab() {
+function DemoStatusSummary({ authorizedAgentCount }: { authorizedAgentCount: number }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
         icon={<Shield className="h-5 w-5" />}
         label="Demo Pair"
@@ -350,7 +278,7 @@ function OverviewTab() {
       <StatCard
         icon={<Clock className="h-5 w-5" />}
         label="Agent Access"
-        value="0"
+        value={authorizedAgentCount.toString()}
         sublabel="Authorized signer addresses"
       />
       <StatCard

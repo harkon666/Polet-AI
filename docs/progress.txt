@@ -46,7 +46,6 @@ Track alignment:
 
 ### Critical Path
 
-- `021-consumer-frontend-navigation-simplification` — Remove legacy policy and static overview from primary consumer navigation; make the DCA demo the default workflow.
 - `022-linear-confidential-dca-demo-checklist` — Turn the confidential DCA demo into a deterministic guided checklist for setup, policy, block, allow, and safe activity log review.
 - `023-quiet-fintech-frontend-visual-refresh` — Replace the bright decorative frontend treatment with a calmer fintech dashboard visual system.
 - `024-consumer-frontend-e2e-demo-coverage` — Add E2E coverage for the simplified DCA workflow, policy redaction, allow/block scenarios, Jupiter boundary, and responsive readability.
@@ -163,6 +162,9 @@ Track alignment:
 - [x] `020-destination-chain-broadcast-demo` — Selected a narrow Solana devnet memo-proof destination broadcast path for Ika Pre-Alpha results. The proxy can construct a memo transaction from a `signature-produced-prealpha` result, keeps broadcast disabled by default, only submits when explicit demo env configuration is enabled, and returns a devnet transaction receipt/explorer URL when submitted. The SDK now exposes `broadcastIkaDestinationDemo()`.
   - Verification: `bun test ./tests/destination-broadcast-demo.test.ts` and `bun run build` pass in `proxy/`; `bun run test` and `bun run build` pass in `sdk/`.
   - Note: this is a no-asset Solana devnet memo receipt proof only. It does not claim production Ika settlement, production MPC, or arbitrary destination-chain support.
+- [x] `021-consumer-frontend-navigation-simplification` — Simplified the connected-wallet consumer navigation to `DCA Demo` and `Agent Access`, made the DCA demo the default view, removed the dashboard legacy public policy configurator path, and folded the static overview cards into a compact DCA workflow status summary.
+  - Verification: `bun run test src/components/WalletDashboard.test.tsx src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`.
+  - Note: legacy public policy helpers still exist as quarantined prior-foundation code, but they are no longer linked or invoked from the primary consumer dashboard.
 
 ### Planning
 
