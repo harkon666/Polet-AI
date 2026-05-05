@@ -46,7 +46,10 @@ Track alignment:
 
 ### Critical Path
 
-- None.
+- `014-confidential-numeric-policy-module` — Deepen the confidential numeric policy module so setup/evaluation rules for witness hashing, masked amount encoding, daily index, and safe allow/block decisions are concentrated behind a small testable interface. Blocked by `013-smart-wallet-identity-module`.
+- `015-legacy-policy-path-quarantine` — Quarantine or remove legacy public policy routes/modules from the main confidential DCA product path so plaintext policy behavior cannot be confused with the privacy-critical execution path. Blocked by `014-confidential-numeric-policy-module`.
+- `016-proxy-execution-module` — Deepen proxy strategy execution so guarded DCA/Jupiter and Ika request flows share a small allow/block/result interface instead of route callers knowing internal ordering. Blocked by `014-confidential-numeric-policy-module`.
+- `017-execution-payload-module` — Make the proxy/contract confidential transfer payload layout a named module and test surface. Blocked by `016-proxy-execution-module`.
 
 ### Stretch
 
@@ -82,6 +85,10 @@ Track alignment:
 └── 008-hackathon-docs-and-dx-report
 
 013-smart-wallet-identity-module
+└── 014-confidential-numeric-policy-module
+    ├── 015-legacy-policy-path-quarantine
+    └── 016-proxy-execution-module
+        └── 017-execution-payload-module
 ```
 
 ## Done
