@@ -10,8 +10,9 @@ import type { Policy } from '../types/intent';
 export const templateRouter = new Hono();
 
 /**
- * GET /template/list
- * Get all available policy templates with metadata
+ * GET /legacy/template/list
+ * Get legacy public policy templates with metadata.
+ * Current confidential DCA setup uses /wallet/set-confidential-policy.
  */
 templateRouter.get('/list', async (c) => {
   try {
@@ -42,8 +43,8 @@ templateRouter.get('/list', async (c) => {
 });
 
 /**
- * GET /template/:id
- * Get a specific template by ID
+ * GET /legacy/template/:id
+ * Get a specific legacy public policy template by ID.
  */
 templateRouter.get('/:id', async (c) => {
   try {
@@ -86,8 +87,8 @@ templateRouter.get('/:id', async (c) => {
 });
 
 /**
- * POST /template/apply
- * Apply a template and get the resulting policy
+ * POST /legacy/template/apply
+ * Apply a legacy public policy template and get the resulting plaintext policy.
  */
 templateRouter.post('/apply', async (c) => {
   try {

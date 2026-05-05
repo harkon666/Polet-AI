@@ -7,6 +7,7 @@ import { generateAndSaveKey } from '../lib/kms';
 import { buildPolicyTree } from '../lib/merkle-tree';
 import { getWalletData } from '../lib/wallet-store';
 import { PROGRAM_ID, deriveWalletPda } from '../lib/program-identity';
+import { buildConfidentialNumericPolicySetup } from '../lib/confidential-numeric-policy';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -43,7 +44,6 @@ const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ
 const SYSTEM_PROGRAM_ID = anchor.web3.SystemProgram.programId;
 const JUPITER_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 const JUPITER_SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
-const USDC_DECIMALS = 6;
 
 function getProgram(): anchor.Program {
   const connection = getConnection();
@@ -76,33 +76,6 @@ function createAtaInstruction(payer: PublicKey, ata: PublicKey, owner: PublicKey
     ],
     data: Buffer.alloc(0),
   });
-}
-
-function parseUsdcBaseUnits(value: unknown): bigint {
-  const raw = String(value ?? '');
-  if (!/^\d+(\.\d{1,6})?$/.test(raw)) {
-    throw new Error('USDC amount must be positive with at most 6 decimals');
-  }
-  const [whole, fraction = ''] = raw.split('.');
-  const baseUnits = BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(USDC_DECIMALS, '0'));
-  if (baseUnits <= 0n) throw new Error('USDC amount must be positive');
-  return baseUnits;
-}
-
-function witnessMask(witness: Uint8Array): bigint {
-  let value = 0n;
-  for (let index = 7; index >= 0; index -= 1) {
-    value = (value << 8n) + BigInt(witness[index]);
-  }
-  return value;
-}
-
-function encryptAmount(amount: bigint, witness: Uint8Array): bigint {
-  return amount ^ witnessMask(witness);
-}
-
-function todayIndex(): bigint {
-  return BigInt(Math.floor(Math.floor(Date.now() / 1000) / 86_400));
 }
 
 async function serializeUnsigned(ownerPubkey: PublicKey, tx: Transaction) {
@@ -179,10 +152,11 @@ walletRouter.post('/initialize', async (c) => {
 });
 
 /**
- * POST /wallet/set-policy
- * Updates the policy data for a wallet. Returns an unsigned transaction.
+ * POST /wallet/legacy/set-policy
+ * Legacy public allowlist/blocklist policy setup retained as prior foundation.
+ * Current confidential setup uses POST /wallet/set-confidential-policy.
  */
-walletRouter.post('/set-policy', async (c) => {
+walletRouter.post('/legacy/set-policy', async (c) => {
   try {
     const { owner, policy } = await c.req.json();
     if (!owner || !policy) {
@@ -325,32 +299,22 @@ walletRouter.post('/set-confidential-policy', async (c) => {
     if (!Array.isArray(encryptionWitness) || encryptionWitness.length !== 32) {
       return c.json({ success: false, error: 'encryptionWitness must contain 32 bytes' }, 400);
     }
-
     const ownerPubkey = new PublicKey(owner);
     const walletPda = deriveWalletPda(ownerPubkey);
-    const witness = Uint8Array.from(encryptionWitness);
-    const witnessHash = Array.from(crypto.createHash('sha256').update(witness).digest());
-    const encryptedMaxPerRun = encryptAmount(parseUsdcBaseUnits(maxPerRunUsdc), witness);
-    const encryptedDailyCap = encryptAmount(parseUsdcBaseUnits(dailyCapUsdc), witness);
-    const encryptedDailySpent = encryptAmount(0n, witness);
-    const spentDayIndex = todayIndex();
-    const commitmentBytes = Buffer.concat([
-      Buffer.from('polet-confidential-dca-policy-v1'),
-      Buffer.from(witnessHash),
-      Buffer.from(encryptedMaxPerRun.toString()),
-      Buffer.from(encryptedDailyCap.toString()),
-      Buffer.from(spentDayIndex.toString()),
-    ]);
-    const policyCommitment = Array.from(crypto.createHash('sha256').update(commitmentBytes).digest());
+    const policySetup = buildConfidentialNumericPolicySetup({
+      maxPerRunUsdc,
+      dailyCapUsdc,
+      encryptionWitness,
+    });
 
     const program = getProgram();
     const ix = await program.methods.setConfidentialNumericPolicy(
-      policyCommitment,
-      witnessHash,
-      new anchor.BN(encryptedMaxPerRun.toString()),
-      new anchor.BN(encryptedDailyCap.toString()),
-      new anchor.BN(encryptedDailySpent.toString()),
-      new anchor.BN(spentDayIndex.toString())
+      policySetup.policyCommitment,
+      policySetup.encryptionWitnessHash,
+      new anchor.BN(policySetup.encryptedMaxPerRun.toString()),
+      new anchor.BN(policySetup.encryptedDailyCap.toString()),
+      new anchor.BN(policySetup.encryptedDailySpent.toString()),
+      new anchor.BN(policySetup.spentDayIndex.toString())
     )
       .accounts({
         wallet: walletPda,
@@ -364,8 +328,8 @@ walletRouter.post('/set-confidential-policy', async (c) => {
       data: {
         transaction: await serializeUnsigned(ownerPubkey, tx),
         wallet: walletPda.toString(),
-        policyCommitment,
-        encryptionWitnessHash: witnessHash,
+        policyCommitment: policySetup.policyCommitment,
+        encryptionWitnessHash: policySetup.encryptionWitnessHash,
       },
     });
   } catch (error) {

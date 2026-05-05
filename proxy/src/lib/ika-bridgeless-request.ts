@@ -1,12 +1,15 @@
 import { createHash } from 'crypto';
 import { deriveWalletPda } from './confidential-dca-execution';
 import {
+  currentDayIndex,
+  evaluateConfidentialNumericPolicy,
+  parseUsdcAmount,
+} from './confidential-numeric-policy';
+import {
   getWalletData,
   type WalletData,
 } from './wallet-store';
 import type { Intent, MultichainStrategyParams, PoletChain } from '../types/intent';
-
-const USDC_DECIMALS = 6;
 
 export interface IkaBridgelessExecutionRequest {
   executionRail: 'ika-bridgeless';
@@ -105,12 +108,13 @@ export async function createIkaBridgelessExecutionRequest(
   const sessionResult = validateSession(wallet, intent.sessionKey, deps.nowSeconds?.() ?? Math.floor(Date.now() / 1000));
   if (!sessionResult.allowed) return sessionResult;
 
-  const amountBaseUnits = parsePolicyAmount(params.amount);
-  const policyResult = evaluateConfidentialPolicy(
+  const amountBaseUnits = parseIkaPolicyAmount(params.amount);
+  const policyResult = evaluateConfidentialNumericPolicy(
     wallet,
     amountBaseUnits,
-    Uint8Array.from(params.encryptionWitness),
-    deps.todayIndex?.() ?? currentDayIndex()
+    params.encryptionWitness,
+    deps.todayIndex?.() ?? currentDayIndex(),
+    { blockedReason: 'Confidential policy blocked this bridgeless request.' }
   );
   if (!policyResult.allowed) return policyResult;
 
@@ -199,78 +203,12 @@ function validateSession(wallet: WalletData, sessionKey: string, now: number): I
   return { allowed: true };
 }
 
-function evaluateConfidentialPolicy(
-  wallet: WalletData,
-  amount: bigint,
-  witness: Uint8Array,
-  today: number
-): IkaBridgelessBlocked | { allowed: true } {
-  const policy = wallet.confidentialPolicy;
-  if (!policy.enabled) {
-    return {
-      allowed: false,
-      code: 'POLICY_NOT_CONFIGURED',
-      reason: 'Confidential policy is not configured.',
-    };
-  }
-
-  const witnessHash = Array.from(createHash('sha256').update(witness).digest());
-  if (!byteArraysEqual(witnessHash, policy.encryptionWitnessHash)) {
-    return {
-      allowed: false,
-      code: 'INVALID_POLICY_WITNESS',
-      reason: 'Confidential policy witness was rejected.',
-    };
-  }
-
-  const maxPerRun = decryptAmount(policy.encryptedMaxPerRun, witness);
-  const dailyCap = decryptAmount(policy.encryptedDailyCap, witness);
-  const dailySpent = policy.spentDayIndex === today
-    ? decryptAmount(policy.encryptedDailySpent, witness)
-    : 0n;
-
-  if (amount > maxPerRun || dailySpent + amount > dailyCap) {
-    return {
-      allowed: false,
-      code: 'CONFIDENTIAL_POLICY_BLOCKED',
-      reason: 'Confidential policy blocked this bridgeless request.',
-    };
-  }
-
-  return { allowed: true };
-}
-
-function parsePolicyAmount(value: number | string): bigint {
-  const raw = value.toString();
-  if (!/^\d+(\.\d{1,6})?$/.test(raw)) {
+function parseIkaPolicyAmount(value: number | string): bigint {
+  try {
+    return parseUsdcAmount(value);
+  } catch {
     throw new IkaBridgelessRequestError('amount must be a positive amount with up to 6 decimals', 'INVALID_IKA_INTENT');
   }
-  const [whole, fraction = ''] = raw.split('.');
-  const baseUnits = BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(USDC_DECIMALS, '0'));
-  if (baseUnits <= 0n) {
-    throw new IkaBridgelessRequestError('amount must be positive', 'INVALID_IKA_INTENT');
-  }
-  return baseUnits;
-}
-
-function decryptAmount(encrypted: bigint | string | number, witness: Uint8Array): bigint {
-  return BigInt(encrypted) ^ witnessMask(witness);
-}
-
-function witnessMask(witness: Uint8Array): bigint {
-  let value = 0n;
-  for (let index = 7; index >= 0; index -= 1) {
-    value = (value << 8n) + BigInt(witness[index]);
-  }
-  return value;
-}
-
-function byteArraysEqual(left: number[], right: number[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function currentDayIndex(): number {
-  return Math.floor(Math.floor(Date.now() / 1000) / 86_400);
 }
 
 function hashIkaAttestation(value: Record<string, unknown>): string {

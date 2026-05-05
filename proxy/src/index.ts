@@ -5,6 +5,7 @@ import { healthRouter } from './routes/health';
 import { templateRouter } from './routes/template';
 import { walletRouter } from './routes/wallet';
 import { agentRouter } from './routes/agent';
+import { legacyIntentRouter } from './routes/legacy-intent';
 
 const app = new Hono();
 
@@ -18,7 +19,8 @@ app.use('/*', cors({
 // Routes
 app.route('/health', healthRouter);
 app.route('/intent', intentRouter);
-app.route('/template', templateRouter);
+app.route('/legacy/intent', legacyIntentRouter);
+app.route('/legacy/template', templateRouter);
 app.route('/wallet', walletRouter);
 app.route('/agent', agentRouter);
 

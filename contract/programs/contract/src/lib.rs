@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
-use solana_sha256_hasher::hashv;
 
+pub mod confidential_policy;
 pub mod constants;
 pub mod error;
 pub mod state;
@@ -10,6 +10,7 @@ declare_id!("J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus");
 pub use constants::WALLET_SEED;
 pub use error::ErrorCode;
 pub use state::{ConfidentialNumericPolicy, DemoTokenCustody, SessionKey, Wallet};
+use confidential_policy::enforce_confidential_numeric_policy;
 
 const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
     6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133,
@@ -176,76 +177,6 @@ fn require_policy_commitment(wallet: &Wallet) -> Result<()> {
         wallet.policy_commitment != [0u8; 32] || wallet.merkle_root != [0u8; 32],
         ErrorCode::PolicyViolation
     );
-    Ok(())
-}
-
-fn witness_mask(encryption_witness: &[u8; 32]) -> u64 {
-    u64::from_le_bytes(encryption_witness[0..8].try_into().expect("fixed slice"))
-}
-
-fn encrypt_amount(amount: u64, encryption_witness: &[u8; 32]) -> u64 {
-    amount ^ witness_mask(encryption_witness)
-}
-
-fn decrypt_amount(encrypted_amount: u64, encryption_witness: &[u8; 32]) -> u64 {
-    encrypted_amount ^ witness_mask(encryption_witness)
-}
-
-fn current_day_index() -> Result<i64> {
-    let timestamp = Clock::get()?.unix_timestamp;
-    Ok(timestamp.div_euclid(86_400))
-}
-
-fn verify_confidential_policy_witness(
-    policy: &ConfidentialNumericPolicy,
-    encryption_witness: &[u8; 32],
-) -> Result<()> {
-    require!(
-        policy.enabled && policy.policy_commitment != [0u8; 32],
-        ErrorCode::ConfidentialPolicyNotConfigured
-    );
-    require!(
-        hashv(&[encryption_witness]).to_bytes() == policy.encryption_witness_hash,
-        ErrorCode::InvalidPolicyWitness
-    );
-    Ok(())
-}
-
-fn enforce_confidential_numeric_policy(
-    wallet: &mut Wallet,
-    amount: u64,
-    encryption_witness: &[u8; 32],
-) -> Result<()> {
-    verify_confidential_policy_witness(&wallet.confidential_policy, encryption_witness)?;
-
-    let max_per_run = decrypt_amount(
-        wallet.confidential_policy.encrypted_max_per_run,
-        encryption_witness,
-    );
-    let daily_cap = decrypt_amount(
-        wallet.confidential_policy.encrypted_daily_cap,
-        encryption_witness,
-    );
-    let today = current_day_index()?;
-    let daily_spent = if wallet.confidential_policy.spent_day_index == today {
-        decrypt_amount(
-            wallet.confidential_policy.encrypted_daily_spent,
-            encryption_witness,
-        )
-    } else {
-        0
-    };
-
-    require!(amount <= max_per_run, ErrorCode::AmountLimitExceeded);
-    let next_daily_spent = daily_spent
-        .checked_add(amount)
-        .ok_or(ErrorCode::ArithmeticOverflow)?;
-    require!(next_daily_spent <= daily_cap, ErrorCode::DailyLimitExceeded);
-
-    wallet.confidential_policy.encrypted_daily_spent =
-        encrypt_amount(next_daily_spent, encryption_witness);
-    wallet.confidential_policy.spent_day_index = today;
-
     Ok(())
 }
 

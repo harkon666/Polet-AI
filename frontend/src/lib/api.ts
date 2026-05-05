@@ -38,7 +38,7 @@ export async function evaluateIntent(
 ): Promise<IntentEvaluationResult> {
   const body = policy ? { ...intent, policy } : intent;
   const data = await fetchJson<{ success: boolean; data: IntentEvaluationResult }>(
-    `${PROXY_URL}/intent/evaluate`,
+    `${PROXY_URL}/legacy/intent/evaluate`,
     {
       method: 'POST',
       body: JSON.stringify(body),
@@ -67,7 +67,7 @@ export interface BuildTransactionResult {
 
 export async function buildTransaction(input: BuildTransactionInput): Promise<BuildTransactionResult> {
   const data = await fetchJson<{ success: boolean; data: BuildTransactionResult }>(
-    `${PROXY_URL}/intent/execute`,
+    `${PROXY_URL}/legacy/intent/execute`,
     {
       method: 'POST',
       body: JSON.stringify(input),
@@ -81,7 +81,7 @@ export async function getPolicyTemplates() {
   const data = await fetchJson<{
     success: boolean;
     data: { templates: Array<{ id: string; name: string; description: string; useCase: string }> };
-  }>(`${PROXY_URL}/template/list`);
+  }>(`${PROXY_URL}/legacy/template/list`);
 
   return data.data.templates;
 }
@@ -90,7 +90,7 @@ export async function getTemplate(id: TemplateId) {
   const data = await fetchJson<{
     success: boolean;
     data: { template: { id: string; name: string; description: string; policy: Policy } };
-  }>(`${PROXY_URL}/template/${id}`);
+  }>(`${PROXY_URL}/legacy/template/${id}`);
 
   return data.data.template;
 }
@@ -104,7 +104,7 @@ export async function applyTemplate(templateId: TemplateId, options?: {
   const data = await fetchJson<{
     success: boolean;
     data: { policy: Policy };
-  }>(`${PROXY_URL}/template/apply`, {
+  }>(`${PROXY_URL}/legacy/template/apply`, {
     method: 'POST',
     body: JSON.stringify({ templateId, ...options }),
   });

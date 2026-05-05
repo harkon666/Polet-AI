@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import { evaluateIntent } from '../src/lib/policy-engine.js';
+import { evaluateLegacyPublicIntent } from '../src/lib/legacy-public-policy-engine.js';
 import type { Intent, Policy } from '../src/types/intent.js';
 
-describe('Policy Engine', () => {
-  describe('evaluateIntent', () => {
+describe('Legacy public policy engine', () => {
+  describe('evaluateLegacyPublicIntent', () => {
     test('allows transfer when policy is empty', () => {
       const intent: Intent = {
         id: 'test-1',
@@ -19,7 +19,7 @@ describe('Policy Engine', () => {
         blocklist: [],
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(true);
     });
 
@@ -38,7 +38,7 @@ describe('Policy Engine', () => {
         blocklist: [],
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(true);
     });
 
@@ -57,7 +57,7 @@ describe('Policy Engine', () => {
         blocklist: [],
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('not on the allowlist');
     });
@@ -77,7 +77,7 @@ describe('Policy Engine', () => {
         blocklist: ['blocked_dest'],
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('on the blocklist');
     });
@@ -97,7 +97,7 @@ describe('Policy Engine', () => {
         blocklist: ['both_dest'],
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('on the blocklist');
     });
@@ -118,7 +118,7 @@ describe('Policy Engine', () => {
         maxAmount: 1000000000, // 1 SOL in lamports
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('exceeds maximum allowed');
     });
@@ -139,7 +139,7 @@ describe('Policy Engine', () => {
         maxAmount: 1000000000, // 1 SOL
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(true);
     });
 
@@ -159,7 +159,7 @@ describe('Policy Engine', () => {
         allowedActions: ['transfer', 'swap'],
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(true);
     });
 
@@ -179,7 +179,7 @@ describe('Policy Engine', () => {
         allowedActions: ['transfer', 'swap'],
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('not in the allowed actions list');
     });
@@ -200,7 +200,7 @@ describe('Policy Engine', () => {
         // allowedActions not set - all actions allowed
       };
 
-      const result = evaluateIntent(intent, policy);
+      const result = evaluateLegacyPublicIntent(intent, policy);
       expect(result.allowed).toBe(true);
     });
   });

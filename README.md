@@ -43,6 +43,12 @@ This is not a production privacy claim. The current path demonstrates enforcemen
 
 Polet does not currently implement encrypted allowlist/blocklist membership. Non-numeric rules are deferred.
 
+## Legacy Compatibility
+
+The current product path is confidential DCA: `/wallet/set-confidential-policy`, `/intent/dca/run`, and `/intent/multichain/run`.
+
+Plaintext allowlist/blocklist templates, public max-amount checks, and transfer-style evaluation remain only as prior foundation under `/legacy/*` routes and `legacy-*` modules. They are not part of the final confidential execution path.
+
 ## Jupiter Integration
 
 Jupiter is the strategy execution and market intelligence layer:
@@ -61,7 +67,7 @@ Ika is the target rail for future bridgeless native-asset trading requests using
 ## Repository Layout
 
 - `contract/`: Anchor program for the single Polet smart wallet contract.
-- `proxy/`: Bun/Hono proxy for wallet setup, policy transactions, Jupiter gateway calls, and agent intent execution.
+- `proxy/`: Bun/Hono proxy for wallet setup, confidential policy transactions, Jupiter gateway calls, agent intent execution, and explicitly namespaced legacy compatibility routes.
 - `sdk/`: TypeScript SDK for AI agent intent builders and proxy helpers.
 - `frontend/`: TanStack/Vite consumer demo for the confidential DCA flow.
 - `docs/`: PRD, issue specs, progress tracker, Jupiter DX report, and demo script.

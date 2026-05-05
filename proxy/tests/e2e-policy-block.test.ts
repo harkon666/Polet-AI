@@ -19,7 +19,7 @@ export interface TestPolicy {
   allowedActions?: ('transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom')[];
 }
 
-describe('E2E: Policy BLOCK Demo (HITL)', () => {
+describe('Legacy E2E: public policy BLOCK demo prior foundation', () => {
   /**
    * These tests verify the end-to-end "wow moment" from the PRD:
    *
@@ -60,11 +60,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
       };
 
       // Simulate the full evaluate → block flow
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(intent);
-      const result = evaluateIntent(parsedIntent, policy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('exceeds maximum allowed');
@@ -93,11 +93,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
         maxAmount: dailyLimitLamports,
       };
 
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(intent);
-      const result = evaluateIntent(parsedIntent, policy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
       expect(result.allowed).toBe(true);
       expect(result.reason).toBeUndefined();
@@ -127,11 +127,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
         blocklist: [maliciousAddr],
       };
 
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(intent);
-      const result = evaluateIntent(parsedIntent, policy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('on the blocklist');
@@ -159,11 +159,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
         blocklist: [address],
       };
 
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(intent);
-      const result = evaluateIntent(parsedIntent, policy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('on the blocklist');
@@ -191,11 +191,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
         blocklist: [],
       };
 
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(intent);
-      const result = evaluateIntent(parsedIntent, policy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('not on the allowlist');
@@ -220,11 +220,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
         blocklist: [],
       };
 
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(intent);
-      const result = evaluateIntent(parsedIntent, policy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
       expect(result.allowed).toBe(true);
       console.log('[E2E] ✅ Allowlist ALLOW works: transfer to allowlisted address allowed');
@@ -253,11 +253,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
         allowedActions: ['transfer', 'stake'], // Only transfer and stake allowed
       };
 
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(intent);
-      const result = evaluateIntent(parsedIntent, policy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
       expect(result.allowed).toBe(false);
       expect(result.reason).toContain('not in the allowed actions list');
@@ -283,11 +283,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
         blocklist: [],
       };
 
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(intent);
-      const result = evaluateIntent(parsedIntent, policy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
       expect(result.allowed).toBe(true);
       console.log('[E2E] ✅ All actions allowed when allowedActions is empty');
@@ -344,11 +344,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
       console.log(`   Policy Limit: $50 (50,000,000 lamports)`);
 
       // Step 4: Policy engine evaluates and BLOCKS
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(maliciousIntent);
-      const result = evaluateIntent(parsedIntent, walletPolicy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, walletPolicy);
 
       // Step 5: User sees BLOCKED status
       console.log('\n========================================');
@@ -393,11 +393,11 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
         maxAmount: 10_000_000, // Only $10 allowed
       };
 
-      const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+      const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
       const { parseIntent } = await import('../src/lib/intent-parser.js');
 
       const parsedIntent = parseIntent(intent);
-      const result = evaluateIntent(parsedIntent, policy);
+      const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
       expect(result.allowed).toBe(false);
       // Blocklist takes precedence
@@ -466,7 +466,7 @@ describe('E2E: Policy BLOCK Demo (HITL)', () => {
   });
 });
 
-describe('E2E: End-to-End Intent Flow with SDK', () => {
+describe('Legacy E2E: public policy intent flow with SDK', () => {
   /**
    * Tests the complete flow from SDK intent creation through policy evaluation.
    * This tests the happy path where the SDK creates a valid intent,
@@ -493,11 +493,11 @@ describe('E2E: End-to-End Intent Flow with SDK', () => {
       maxAmount: 50_000_000, // $50 max
     };
 
-    const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+    const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
     const { parseIntent } = await import('../src/lib/intent-parser.js');
 
     const parsedIntent = parseIntent(sdkIntent);
-    const result = evaluateIntent(parsedIntent, policy);
+    const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
     expect(result.allowed).toBe(true);
     console.log('[E2E] ✅ SDK flow works: valid intent is allowed');
@@ -522,11 +522,11 @@ describe('E2E: End-to-End Intent Flow with SDK', () => {
       maxAmount: 50_000_000, // $50 max
     };
 
-    const { evaluateIntent } = await import('../src/lib/policy-engine.js');
+    const { evaluateLegacyPublicIntent } = await import('../src/lib/legacy-public-policy-engine.js');
     const { parseIntent } = await import('../src/lib/intent-parser.js');
 
     const parsedIntent = parseIntent(sdkIntent);
-    const result = evaluateIntent(parsedIntent, policy);
+    const result = evaluateLegacyPublicIntent(parsedIntent, policy);
 
     expect(result.allowed).toBe(false);
     expect(result.reason).toContain('exceeds maximum allowed');

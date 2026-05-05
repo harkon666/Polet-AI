@@ -2,7 +2,7 @@
  * Polet AI SDK - Intent JSON Builder
  *
  * This SDK provides a simple interface for AI agents to create intent payloads
- * that are submitted to the Polet AI Policy Engine Proxy.
+ * that are submitted to the Polet AI proxy.
  *
  * Usage:
  * ```typescript
@@ -15,8 +15,9 @@
  *   amount: 1000000,
  * });
  *
- * // Submit to proxy
- * const response = await fetch('https://proxy.polet.ai/intent/evaluate', {
+ * // Current confidential strategy intents should use submitIntent().
+ * // Legacy transfer policy evaluation is isolated under /legacy/intent/evaluate.
+ * const response = await fetch('https://proxy.polet.ai/legacy/intent/evaluate', {
  *   method: 'POST',
  *   headers: { 'Content-Type': 'application/json' },
  *   body: JSON.stringify(intent),
@@ -536,7 +537,7 @@ export async function evaluateIntentWithProxy<TResponse = unknown>(
   intent: Intent,
   options: ProxyClientOptions
 ): Promise<TResponse> {
-  return requestProxy<TResponse>('/intent/evaluate', intent, options);
+  return requestProxy<TResponse>('/legacy/intent/evaluate', intent, options);
 }
 
 export async function submitIntent<TResponse = unknown>(
@@ -551,7 +552,7 @@ export async function submitIntent<TResponse = unknown>(
   }
 
   const mode = options.mode ?? 'execute';
-  return requestProxy<TResponse>(mode === 'evaluate' ? '/intent/evaluate' : '/intent/execute', intent, options);
+  return requestProxy<TResponse>(mode === 'evaluate' ? '/legacy/intent/evaluate' : '/legacy/intent/execute', intent, options);
 }
 
 function toDcaRunRequest(intent: DcaIntent): Record<string, unknown> {

@@ -1,6 +1,9 @@
-import { createHash } from 'crypto';
 import { describe, expect, test } from 'bun:test';
 import { Keypair, PublicKey } from '@solana/web3.js';
+import {
+  buildConfidentialNumericPolicySetup,
+  currentDayIndex,
+} from '../src/lib/confidential-numeric-policy';
 import {
   JUPITER_SOL_MINT,
   JUPITER_USDC_MINT,
@@ -184,9 +187,11 @@ function createFixture(options: {
   const walletPda = deriveWalletPda(owner);
   const solTokenAccount = Keypair.generate().publicKey.toString();
   const witness = Uint8Array.from(Array.from({ length: 32 }, (_, index) => index + 1));
-  const maxPerRun = 10_000_000n;
-  const dailyCap = 20_000_000n;
-  const dailySpent = 0n;
+  const policySetup = buildConfidentialNumericPolicySetup({
+    maxPerRunUsdc: '10',
+    dailyCapUsdc: '20',
+    encryptionWitness: witness,
+  });
   const wallet: WalletData = {
     walletPda,
     owner,
@@ -196,12 +201,12 @@ function createFixture(options: {
     policySeq: 3,
     lastRevokedSlot: options.lastRevokedSlot ?? 2,
     confidentialPolicy: {
-      policyCommitment: Array.from({ length: 32 }, () => 7),
-      encryptionWitnessHash: Array.from(createHash('sha256').update(witness).digest()),
-      encryptedMaxPerRun: encryptAmount(maxPerRun, witness),
-      encryptedDailyCap: encryptAmount(dailyCap, witness),
-      encryptedDailySpent: encryptAmount(dailySpent, witness),
-      spentDayIndex: Math.floor(Math.floor(Date.now() / 1000) / 86_400),
+      policyCommitment: policySetup.policyCommitment,
+      encryptionWitnessHash: policySetup.encryptionWitnessHash,
+      encryptedMaxPerRun: policySetup.encryptedMaxPerRun,
+      encryptedDailyCap: policySetup.encryptedDailyCap,
+      encryptedDailySpent: policySetup.encryptedDailySpent,
+      spentDayIndex: currentDayIndex(),
       enabled: true,
     },
     demoCustody: {
@@ -270,18 +275,6 @@ function mockGateway(requestedUrls: string[] = []) {
       return Promise.resolve(jsonResponse({ error: 'not found' }, 404));
     }) as typeof fetch,
   });
-}
-
-function encryptAmount(amount: bigint, witness: Uint8Array): bigint {
-  return amount ^ witnessMask(witness);
-}
-
-function witnessMask(witness: Uint8Array): bigint {
-  let value = 0n;
-  for (let index = 7; index >= 0; index -= 1) {
-    value = (value << 8n) + BigInt(witness[index]);
-  }
-  return value;
 }
 
 function mockBuiltTransaction(sessionKey: string) {

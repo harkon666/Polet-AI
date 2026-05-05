@@ -44,8 +44,8 @@ export async function example_transfer() {
     throw new Error('Invalid intent - cannot submit to proxy');
   }
 
-  // Submit to proxy endpoint
-  const response = await fetch('https://proxy.polet.ai/intent/evaluate', {
+  // Submit to the legacy public policy compatibility endpoint.
+  const response = await fetch('https://proxy.polet.ai/legacy/intent/evaluate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(intent),
@@ -80,8 +80,8 @@ export async function example_swap() {
     throw new Error('Invalid swap intent');
   }
 
-  // Submit to proxy
-  const response = await fetch('https://proxy.polet.ai/intent/evaluate', {
+  // Submit to the legacy public policy compatibility endpoint.
+  const response = await fetch('https://proxy.polet.ai/legacy/intent/evaluate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(intent),
@@ -193,8 +193,8 @@ export async function example_openclaw_integration() {
     return;
   }
 
-  // Send to Polet AI proxy for policy evaluation
-  const result = await fetch('https://proxy.polet.ai/intent/evaluate', {
+  // Send to the legacy public policy compatibility endpoint.
+  const result = await fetch('https://proxy.polet.ai/legacy/intent/evaluate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(intent),

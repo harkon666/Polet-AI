@@ -1,5 +1,5 @@
 /**
- * Intent types for the Polet AI Policy Engine Proxy
+ * Intent types for the Polet AI proxy.
  * These types represent the JSON interface that AI agents use to submit intents
  */
 import type { PublicKey } from '@solana/web3.js';

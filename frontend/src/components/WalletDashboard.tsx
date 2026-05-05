@@ -93,7 +93,7 @@ export function WalletDashboard() {
   const handleApplyPolicy = async (policy: Policy) => {
     if (!publicKey) return;
     try {
-      const res = await fetch('http://localhost:3001/wallet/set-policy', {
+      const res = await fetch('http://localhost:3001/wallet/legacy/set-policy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -106,7 +106,7 @@ export function WalletDashboard() {
         const tx = Transaction.from(Uint8Array.from(atob(data.data.transaction), c => c.charCodeAt(0)));
         const signature = await sendTransaction(tx, connection);
         await connection.confirmTransaction(signature, 'confirmed');
-        setSuccessMsg('Policy updated successfully!');
+        setSuccessMsg('Legacy public policy updated successfully!');
         refreshData();
         setTimeout(() => setSuccessMsg(null), 4000);
       } else if (data.error) {
@@ -296,7 +296,7 @@ export function WalletDashboard() {
               }`}
           >
             {tab === 'overview' && 'Overview'}
-            {tab === 'policy' && 'Confidential Policy'}
+            {tab === 'policy' && 'Legacy Policy'}
             {tab === 'temporal' && 'Session Keys'}
             {tab === 'demo' && 'DCA Demo'}
           </button>

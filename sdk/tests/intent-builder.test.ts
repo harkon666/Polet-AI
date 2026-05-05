@@ -437,7 +437,7 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
     });
 
-    test('evaluateIntentWithProxy sends legacy intents to the evaluate endpoint', async () => {
+    test('evaluateIntentWithProxy sends legacy intents to the legacy evaluate endpoint', async () => {
       const requests: string[] = [];
       const fetchMock = async (input: URL | RequestInfo) => {
         requests.push(input.toString());
@@ -456,7 +456,7 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
 
       expect(result).toEqual({ success: true, data: { allowed: true } });
-      expect(requests).toEqual(['https://proxy.polet.ai/intent/evaluate']);
+      expect(requests).toEqual(['https://proxy.polet.ai/legacy/intent/evaluate']);
     });
 
     test('submitIntent throws ProxyRequestError when the proxy rejects the request', async () => {

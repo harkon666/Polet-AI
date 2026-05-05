@@ -29,17 +29,17 @@ function AboutPage() {
         </div>
 
         <div className="island-shell rounded-2xl p-6">
-          <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">2. Set Policy Rules</h2>
+          <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">2. Set Confidential Numeric Guardrails</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            Choose from templates like &quot;Whitelist Only&quot; or &quot;Daily Limit&quot; to define what your AI agent can do.
-            Add custom allowlists, blocklists, and spending caps without writing smart contract code.
+            Save masked max-per-run and daily-cap rules for USDC DCA execution. The current demo keeps
+            plaintext allowlists, blocklists, and template policies in the legacy prior-foundation path.
           </p>
         </div>
 
         <div className="island-shell rounded-2xl p-6">
           <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">3. Grant Temporal Keys</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            Give your AI agent a temporary session key with its own daily limit and expiry.
+            Give your AI agent a temporary session key with an expiry.
             When the key expires, the AI agent automatically loses access — no manual revocation needed.
           </p>
         </div>
@@ -47,21 +47,21 @@ function AboutPage() {
         <div className="island-shell rounded-2xl p-6">
           <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">4. AI Agent Transacts Safely</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            The AI agent submits intent JSON through the SDK. The policy engine evaluates each transaction
-            against your rules. Transactions that violate policy are rejected — fail-secure by default.
+            The AI agent submits DCA intent JSON through the SDK. Polet validates the session, checks the
+            confidential numeric policy, asks Jupiter for a route/build preview, and returns only approved payloads.
           </p>
         </div>
       </section>
 
       <section className="mt-8 island-shell rounded-2xl p-6">
-        <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">Demo: Policy Block</h2>
+        <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">Demo: Confidential Policy Block</h2>
         <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
-          The &quot;wow moment&quot; is watching a policy BLOCK in real-time. Configure a daily limit of 0.05 SOL,
-          then watch as the AI agent&apos;s transaction gets rejected when it tries to exceed the limit.
+          The demo blocks a 25 USDC agent DCA run without revealing the private max-per-run or daily cap,
+          then allows a 5 USDC run through Jupiter route/build preview.
         </p>
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center">
           <span className="font-mono text-sm text-red-700">
-            Transaction Rejected: Daily limit exceeded
+            Agent DCA Blocked: confidential policy rejected the run
           </span>
         </div>
       </section>

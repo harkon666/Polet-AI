@@ -46,9 +46,7 @@ Track alignment:
 
 ### Critical Path
 
-- `014-confidential-numeric-policy-module` — Deepen the confidential numeric policy module so setup/evaluation rules for witness hashing, masked amount encoding, daily index, and safe allow/block decisions are concentrated behind a small testable interface. Blocked by `013-smart-wallet-identity-module`.
-- `015-legacy-policy-path-quarantine` — Quarantine or remove legacy public policy routes/modules from the main confidential DCA product path so plaintext policy behavior cannot be confused with the privacy-critical execution path. Blocked by `014-confidential-numeric-policy-module`.
-- `016-proxy-execution-module` — Deepen proxy strategy execution so guarded DCA/Jupiter and Ika request flows share a small allow/block/result interface instead of route callers knowing internal ordering. Blocked by `014-confidential-numeric-policy-module`.
+- `016-proxy-execution-module` — Deepen proxy strategy execution so guarded DCA/Jupiter and Ika request flows share a small allow/block/result interface instead of route callers knowing internal ordering.
 - `017-execution-payload-module` — Make the proxy/contract confidential transfer payload layout a named module and test surface. Blocked by `016-proxy-execution-module`.
 
 ### Stretch
@@ -133,6 +131,12 @@ Track alignment:
 - [x] `013-smart-wallet-identity-module` — Added a shared proxy smart wallet identity module for program id, wallet seed, and wallet PDA derivation, then updated proxy wallet/session/setup/execution call sites to use it. Fixed the SDK wallet PDA helper to use the contract seed `polet_wallet` and real Solana PDA derivation instead of the old `polet_ai_wallet` hash simulation.
   - Verification: `bun run test` and `bun run build` pass in `sdk/`; `bun run test` and `bun run build` pass in `proxy/`.
   - Note: this is an architecture hardening slice from `/improve-codebase-architecture`; it reduces duplicated wallet identity knowledge before deeper confidential policy refactors.
+- [x] `014-confidential-numeric-policy-module` — Added a shared proxy confidential numeric policy module for USDC amount parsing, masked witness hashing/encoding, current day indexing, setup payload construction, and safe allow/block evaluation. DCA and Ika guarded execution now use that interface, and wallet setup no longer owns the private masked-value construction. Added a contract-side `confidential_policy` module that localizes witness verification, limit checks, and encrypted daily-spend mutation away from the main program handlers.
+  - Verification: `bun test` and `bun run build` pass in `proxy/`; `NO_DNA=1 cargo build`, `NO_DNA=1 anchor build`, and `NO_DNA=1 cargo test` pass in `contract/`.
+  - Note: this remains an Encrypt pre-alpha masked witness simulation boundary, not a production confidentiality claim.
+- [x] `015-legacy-policy-path-quarantine` — Quarantined the public plaintext policy foundation behind explicit legacy names and routes. Legacy allowlist/blocklist/maxAmount evaluation now lives in `legacy-public-policy-engine`, legacy intent evaluation/execution is under `/legacy/intent/*`, legacy public templates are under `/legacy/template/*`, and public wallet policy setup is under `/wallet/legacy/set-policy`. The current product routes remain `/wallet/set-confidential-policy`, `/intent/dca/run`, and `/intent/multichain/run`.
+  - Verification: `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`; `NO_DNA=1 cargo build` passes in `contract/`.
+  - Note: legacy tests remain as prior-foundation coverage and are labeled as legacy; confidential DCA tests do not depend on plaintext public policy helpers.
 
 ### Planning
 

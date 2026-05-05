@@ -1,5 +1,9 @@
-import { createHash } from 'crypto';
 import { PublicKey } from '@solana/web3.js';
+import {
+  currentDayIndex,
+  evaluateConfidentialNumericPolicy,
+  parseUsdcAmount,
+} from './confidential-numeric-policy';
 import {
   JUPITER_SOL_MINT,
   JUPITER_USDC_MINT,
@@ -108,7 +112,7 @@ export async function runConfidentialDcaExecution(
     };
   }
 
-  const amountBaseUnits = parseUsdcAmount(request.amountUsdc ?? request.amount);
+  const amountBaseUnits = parseDcaUsdcAmount(request.amountUsdc ?? request.amount);
   const inputMint = request.inputMint ?? JUPITER_USDC_MINT;
   const outputMint = request.outputMint ?? JUPITER_SOL_MINT;
   const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
@@ -132,11 +136,12 @@ export async function runConfidentialDcaExecution(
     throw new ConfidentialDcaExecutionError('Jupiter precheck failed', 'JUPITER_PRECHECK_FAILED', 502);
   }
 
-  const policyResult = evaluateConfidentialPolicy(
+  const policyResult = evaluateConfidentialNumericPolicy(
     wallet,
     amountBaseUnits,
-    Uint8Array.from(request.encryptionWitness),
-    deps.todayIndex?.() ?? currentDayIndex()
+    request.encryptionWitness,
+    deps.todayIndex?.() ?? currentDayIndex(),
+    { blockedReason: 'Confidential policy blocked this DCA run.' }
   );
   if (!policyResult.allowed) {
     return {
@@ -191,6 +196,17 @@ function validateRunRequest(request: ConfidentialDcaRunRequest): void {
   }
 }
 
+function parseDcaUsdcAmount(value: number | string | undefined): bigint {
+  try {
+    return parseUsdcAmount(value);
+  } catch {
+    throw new ConfidentialDcaExecutionError(
+      value === undefined ? 'amountUsdc is required' : 'amountUsdc must be a positive USDC amount',
+      'INVALID_DCA_REQUEST'
+    );
+  }
+}
+
 function validateSession(wallet: WalletData, sessionKey: string, now: number): ConfidentialDcaRunBlocked | { allowed: true } {
   const session = wallet.sessions.find((candidate) => candidate.key === sessionKey);
   if (!session) {
@@ -223,83 +239,6 @@ function validateSession(wallet: WalletData, sessionKey: string, now: number): C
   }
 
   return { allowed: true };
-}
-
-function evaluateConfidentialPolicy(
-  wallet: WalletData,
-  amount: bigint,
-  witness: Uint8Array,
-  today: number
-): ConfidentialDcaRunBlocked | { allowed: true } {
-  const policy = wallet.confidentialPolicy;
-  if (!policy.enabled) {
-    return {
-      allowed: false,
-      code: 'POLICY_NOT_CONFIGURED',
-      reason: 'Confidential policy is not configured.',
-    };
-  }
-
-  const witnessHash = Array.from(createHash('sha256').update(witness).digest());
-  if (!byteArraysEqual(witnessHash, policy.encryptionWitnessHash)) {
-    return {
-      allowed: false,
-      code: 'INVALID_POLICY_WITNESS',
-      reason: 'Confidential policy witness was rejected.',
-    };
-  }
-
-  const maxPerRun = decryptAmount(policy.encryptedMaxPerRun, witness);
-  const dailyCap = decryptAmount(policy.encryptedDailyCap, witness);
-  const dailySpent = policy.spentDayIndex === today
-    ? decryptAmount(policy.encryptedDailySpent, witness)
-    : 0n;
-
-  if (amount > maxPerRun || dailySpent + amount > dailyCap) {
-    return {
-      allowed: false,
-      code: 'CONFIDENTIAL_POLICY_BLOCKED',
-      reason: 'Confidential policy blocked this DCA run.',
-    };
-  }
-
-  return { allowed: true };
-}
-
-function parseUsdcAmount(value: number | string | undefined): bigint {
-  if (value === undefined) {
-    throw new ConfidentialDcaExecutionError('amountUsdc is required', 'INVALID_DCA_REQUEST');
-  }
-  const raw = value.toString();
-  if (!/^\d+(\.\d{1,6})?$/.test(raw)) {
-    throw new ConfidentialDcaExecutionError('amountUsdc must be a positive USDC amount', 'INVALID_DCA_REQUEST');
-  }
-  const [whole, fraction = ''] = raw.split('.');
-  const baseUnits = BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(USDC_DECIMALS, '0'));
-  if (baseUnits <= 0n) {
-    throw new ConfidentialDcaExecutionError('amountUsdc must be positive', 'INVALID_DCA_REQUEST');
-  }
-  return baseUnits;
-}
-
-function decryptAmount(encrypted: bigint | string | number, witness: Uint8Array): bigint {
-  return BigInt(encrypted) ^ witnessMask(witness);
-}
-
-function witnessMask(witness: Uint8Array): bigint {
-  let value = 0n;
-  for (let index = 7; index >= 0; index -= 1) {
-    value = (value << 8n) + BigInt(witness[index]);
-  }
-  return value;
-}
-
-function byteArraysEqual(left: number[], right: number[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function currentDayIndex(): number {
-  return Math.floor(Math.floor(Date.now() / 1000) / 86_400);
 }
 
 function formatBaseUnits(amount: bigint, decimals: number): string {
