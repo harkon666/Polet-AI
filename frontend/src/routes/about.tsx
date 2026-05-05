@@ -37,18 +37,18 @@ function AboutPage() {
         </div>
 
         <div className="island-shell rounded-2xl p-6">
-          <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">3. Grant Temporal Keys</h2>
+          <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">3. Authorize an AI Agent Address</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            Give your AI agent a temporary session key with an expiry.
-            When the key expires, the AI agent automatically loses access — no manual revocation needed.
+            Authorize the AI agent wallet public key with an expiry. The contract still calls this a session key,
+            but functionally it is the signer address allowed to use the smart wallet under Polet guardrails.
           </p>
         </div>
 
         <div className="island-shell rounded-2xl p-6">
           <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">4. AI Agent Transacts Safely</h2>
           <p className="text-sm text-[var(--sea-ink-soft)]">
-            The AI agent submits DCA intent JSON through the SDK. Polet validates the session, checks the
-            confidential numeric policy, asks Jupiter for a route/build preview, and returns only approved payloads.
+            The AI agent submits DCA intent JSON through the SDK. Polet validates the authorized signer, checks the
+            confidential numeric policy, asks Jupiter for a route/build preview, and returns only approved unsigned payloads.
           </p>
         </div>
       </section>
@@ -57,7 +57,7 @@ function AboutPage() {
         <h2 className="mb-4 text-xl font-semibold text-[var(--sea-ink)]">Demo: Confidential Policy Block</h2>
         <p className="mb-4 text-sm text-[var(--sea-ink-soft)]">
           The demo blocks a 25 USDC agent DCA run without revealing the private max-per-run or daily cap,
-          then allows a 5 USDC run through Jupiter route/build preview.
+          then allows a 5 USDC run through Jupiter route/build preview. The frontend demo does not send a real swap.
         </p>
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center">
           <span className="font-mono text-sm text-red-700">

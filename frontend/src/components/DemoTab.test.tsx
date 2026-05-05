@@ -115,7 +115,7 @@ function renderDemo() {
   return render(
     <DemoTabContent
       owner="AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2"
-      sessionKeys={['BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4']}
+      agentAddresses={['BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4']}
       signAndConfirmTransaction={async () => 'sig111111'}
       api={api}
     />
@@ -160,7 +160,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText('5 USDC')).toBeTruthy();
     expect(view.getByText(/jupiter route siap/i)).toBeTruthy();
     expect(view.getByText(/humidifi/i)).toBeTruthy();
-    expect(view.getByText(/devnet proof/i)).toBeTruthy();
+    expect(view.getByText(/preview: route\/build jupiter/i)).toBeTruthy();
   });
 
   test('displays an Ika bridgeless request boundary without exposing thresholds', async () => {
@@ -207,6 +207,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/confidential dca demo/i)).toBeTruthy();
     expect(view.getByRole('button', { name: /sign & save policy/i })).toBeTruthy();
     expect(view.getByText(/safe log/i)).toBeTruthy();
+    expect(view.getByText(/agent wallet public key/i)).toBeTruthy();
 
     fireEvent.click(view.getByRole('button', { name: /sign & save policy/i }));
     await waitFor(() => expect(view.getAllByText(/on-chain policy saved/i)[0]).toBeTruthy());

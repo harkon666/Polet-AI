@@ -71,7 +71,7 @@ interface DemoApi {
 
 interface DemoTabContentProps {
   owner: string | null;
-  sessionKeys?: string[];
+  agentAddresses?: string[];
   signAndConfirmTransaction: (transactionBase64: string) => Promise<string>;
   api?: DemoApi;
 }
@@ -115,8 +115,9 @@ const COPY = {
     fromTo: 'Pair',
     amount: 'Jumlah normal',
     cadence: 'Jadwal',
-    sessionKey: 'Session key agen',
-    sessionPlaceholder: 'Masukkan public key session yang sudah di-grant',
+    agentAddress: 'Alamat AI agent',
+    agentPlaceholder: 'Masukkan wallet address agent yang sudah di-authorize',
+    agentHelp: 'Ini public key wallet agent. Polet menyimpannya sebagai signer terotorisasi untuk memakai smart wallet sesuai policy, bukan private key baru.',
     runNow: 'Run Agent Now',
     runAllowed: 'Run 5 USDC via proxy',
     runBlocked: 'Try 25 USDC via proxy',
@@ -127,8 +128,8 @@ const COPY = {
     blocked: 'DIBLOKIR',
     setup: 'SETUP',
     error: 'ERROR',
-    approvedMessage: 'Proxy mengembalikan allowed dan unsigned smart-wallet transaction untuk ditandatangani session key agen.',
-    blockedMessage: 'Proxy/contract policy path menolak run tanpa membuka batas privat pengguna.',
+    approvedMessage: 'Guardrail mengizinkan request dan proxy mengembalikan unsigned smart-wallet transaction untuk ditandatangani wallet agent.',
+    blockedMessage: 'Guardrail policy menolak run tanpa membuka batas privat pengguna.',
     jupiterRouteReady: 'Jupiter route siap',
     ikaRouteRequested: 'Bridgeless route requested',
     expectedOutput: 'Estimasi output',
@@ -136,12 +137,13 @@ const COPY = {
     routeEngine: 'Route',
     policyTxReady: 'Tx policy-gated siap',
     signer: 'Signer',
-    executionBoundary: 'Devnet proof: route Jupiter dibangun, swap mainnet tidak dieksekusi dari demo ini.',
+    executionBoundary: 'Preview: route/build Jupiter ditampilkan sebagai estimasi dari proxy; swap nyata tidak dikirim dari frontend ini.',
     ikaExecutionBoundary: 'Ika request envelope siap; settlement bridgeless nyata belum dieksekusi.',
     privacyNote: 'Log aman: threshold, sisa cap, dan witness tidak ditampilkan.',
     preAlpha: 'Encrypt pre-alpha demo: ini membuktikan alur enforcement, bukan klaim privasi produksi.',
+    demoTruth: 'Yang real di demo: setup wallet/policy on-chain, authorization agent, dan guardrail allow/block. Yang masih preview: price/route Jupiter dan transaksi swap.',
     missingOwner: 'Connect dan initialize wallet dulu sebelum menjalankan demo real.',
-    missingSession: 'Session key agen wajib diisi dan sudah harus di-grant di contract.',
+    missingAgent: 'Alamat AI agent wajib diisi dan sudah harus di-authorize di contract.',
   },
   en: {
     language: 'English',
@@ -173,8 +175,9 @@ const COPY = {
     fromTo: 'Pair',
     amount: 'Normal amount',
     cadence: 'Cadence',
-    sessionKey: 'Agent session key',
-    sessionPlaceholder: 'Enter a session public key already granted on-chain',
+    agentAddress: 'AI agent address',
+    agentPlaceholder: 'Enter an agent wallet address already authorized on-chain',
+    agentHelp: 'This is the agent wallet public key. Polet stores it as an authorized signer for the smart wallet under policy, not as a new private key.',
     runNow: 'Run Agent Now',
     runAllowed: 'Run 5 USDC through proxy',
     runBlocked: 'Try 25 USDC through proxy',
@@ -185,8 +188,8 @@ const COPY = {
     blocked: 'BLOCKED',
     setup: 'SETUP',
     error: 'ERROR',
-    approvedMessage: 'The proxy returned allowed plus an unsigned smart-wallet transaction for the agent session key to sign.',
-    blockedMessage: 'The proxy/contract policy path rejected the run without revealing the user private limits.',
+    approvedMessage: 'The guardrail allowed the request and the proxy returned an unsigned smart-wallet transaction for the agent wallet to sign.',
+    blockedMessage: 'The guardrail policy rejected the run without revealing the user private limits.',
     jupiterRouteReady: 'Jupiter route ready',
     ikaRouteRequested: 'Bridgeless route requested',
     expectedOutput: 'Expected output',
@@ -194,16 +197,17 @@ const COPY = {
     routeEngine: 'Route',
     policyTxReady: 'Policy-gated tx ready',
     signer: 'Signer',
-    executionBoundary: 'Devnet proof: Jupiter route is built, mainnet swap is not executed from this demo.',
+    executionBoundary: 'Preview: Jupiter route/build is shown as a proxy estimate; the frontend does not send a real swap.',
     ikaExecutionBoundary: 'Ika request envelope is ready; real bridgeless settlement is not executed.',
     privacyNote: 'Safe log: thresholds, remaining cap, and witness values are not displayed.',
     preAlpha: 'Encrypt pre-alpha demo: this proves the enforcement flow, not production privacy.',
+    demoTruth: 'Real in this demo: on-chain wallet/policy setup, agent authorization, and guardrail allow/block. Still preview: Jupiter price/route and swap transaction execution.',
     missingOwner: 'Connect and initialize a wallet before running the real demo.',
-    missingSession: 'The agent session key is required and must already be granted on-chain.',
+    missingAgent: 'The AI agent address is required and must already be authorized on-chain.',
   },
 } as const;
 
-export function DemoTab() {
+export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) {
   const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
 
@@ -218,6 +222,7 @@ export function DemoTab() {
   return (
     <DemoTabContent
       owner={publicKey?.toBase58() ?? null}
+      agentAddresses={agentAddresses}
       signAndConfirmTransaction={signAndConfirmTransaction}
     />
   );
@@ -225,7 +230,7 @@ export function DemoTab() {
 
 export function DemoTabContent({
   owner,
-  sessionKeys = [],
+  agentAddresses = [],
   signAndConfirmTransaction,
   api = DEFAULT_API,
 }: DemoTabContentProps) {
@@ -237,7 +242,7 @@ export function DemoTabContent({
   const [policySaved, setPolicySaved] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState(true);
   const [custody, setCustody] = useState<{ usdcTokenAccount: string; solTokenAccount: string } | null>(null);
-  const [sessionKey, setSessionKey] = useState(sessionKeys[0] ?? '');
+  const [agentAddress, setAgentAddress] = useState(agentAddresses[0] ?? '');
   const [strategy, setStrategy] = useState<DcaStrategy>({
     sourceChain: 'Solana',
     inputMint: 'USDC',
@@ -253,7 +258,7 @@ export function DemoTabContent({
 
   const t = COPY[locale];
   const witness = useMemo(() => Array.from({ length: 32 }, (_, index) => index + 1), []);
-  const canRun = Boolean(owner && policySaved && sessionKey.trim() && !busy);
+  const canRun = Boolean(owner && policySaved && agentAddress.trim() && !busy);
 
   useEffect(() => {
     if (owner) {
@@ -273,6 +278,12 @@ export function DemoTabContent({
       }).catch(console.error);
     }
   }, [owner]);
+
+  useEffect(() => {
+    if (!agentAddress && agentAddresses[0]) {
+      setAgentAddress(agentAddresses[0]);
+    }
+  }, [agentAddresses, agentAddress]);
 
   const savedPolicyDigest = useMemo(() => {
     if (!policySaved) return 'Not configured';
@@ -358,8 +369,8 @@ export function DemoTabContent({
       recordError(t.missingOwner);
       return;
     }
-    if (!sessionKey.trim()) {
-      recordError(t.missingSession);
+    if (!agentAddress.trim()) {
+      recordError(t.missingAgent);
       return;
     }
 
@@ -368,7 +379,7 @@ export function DemoTabContent({
     try {
       const result: RunConfidentialDcaResult = await api.runConfidentialDca({
         owner,
-        sessionKey: sessionKey.trim(),
+        sessionKey: agentAddress.trim(),
         amountUsdc,
         encryptionWitness: witness,
         slippageBps: 100,
@@ -396,8 +407,8 @@ export function DemoTabContent({
       recordError(t.missingOwner);
       return;
     }
-    if (!sessionKey.trim()) {
-      recordError(t.missingSession);
+    if (!agentAddress.trim()) {
+      recordError(t.missingAgent);
       return;
     }
 
@@ -406,7 +417,7 @@ export function DemoTabContent({
     try {
       const result: RunMultichainIntentResult = await api.runMultichainIntent({
         owner,
-        sessionKey: sessionKey.trim(),
+        sessionKey: agentAddress.trim(),
         sourceChain: 'solana',
         sourceAsset: 'USDC',
         targetChain: 'sui',
@@ -458,6 +469,9 @@ export function DemoTabContent({
             ))}
           </div>
         </div>
+        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900">
+          {t.demoTruth}
+        </p>
       </section>
 
       {error && (
@@ -576,13 +590,14 @@ export function DemoTabContent({
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.sessionKey}</span>
+              <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.agentAddress}</span>
               <input
-                value={sessionKey}
-                onChange={(event) => setSessionKey(event.target.value)}
-                placeholder={t.sessionPlaceholder}
+                value={agentAddress}
+                onChange={(event) => setAgentAddress(event.target.value)}
+                placeholder={t.agentPlaceholder}
                 className="w-full rounded-lg px-3 py-2 text-sm font-mono"
               />
+              <span className="mt-1 block text-xs leading-5 text-[var(--sea-ink-soft)]">{t.agentHelp}</span>
             </label>
             <InfoRow label={t.cadence} value={strategy.cadence} />
           </div>
@@ -612,7 +627,7 @@ export function DemoTabContent({
               {busy === 'ika' ? 'Requesting...' : t.runIka}
             </button>
           </div>
-          <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{t.runNow}: 25 USDC block scenario, 5 USDC allow scenario.</p>
+          <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{t.runNow}: 25 USDC block scenario, 5 USDC allow scenario. Guardrail result is the source of truth; market output remains a preview.</p>
         </Panel>
 
         <Panel icon={<Activity className="h-5 w-5" />} title={t.activityTitle}>
@@ -750,7 +765,7 @@ function JupiterRoutePreview({ entry, labels }: { entry: ActivityEntry; labels: 
       <InfoPill label={labels.minOutput} value={minimumOutput ? `${minimumOutput} ${outputSymbol}` : 'Auto'} />
       <InfoPill label={labels.routeEngine} value={route} />
       <InfoPill label={labels.policyTxReady} value={entry.smartWalletAuthority ? short(entry.smartWalletAuthority) : 'Smart wallet'} />
-      <InfoPill label={labels.signer} value={signer ? short(signer) : 'Session key'} />
+      <InfoPill label={labels.signer} value={signer ? short(signer) : 'Agent address'} />
     </div>
   );
 }

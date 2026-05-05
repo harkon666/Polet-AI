@@ -297,7 +297,7 @@ export function WalletDashboard() {
           >
             {tab === 'overview' && 'Overview'}
             {tab === 'policy' && 'Legacy Policy'}
-            {tab === 'temporal' && 'Session Keys'}
+            {tab === 'temporal' && 'Agent Access'}
             {tab === 'demo' && 'DCA Demo'}
           </button>
         ))}
@@ -327,7 +327,13 @@ export function WalletDashboard() {
           />
         </div>
       )}
-      {activeTab === 'demo' && <DemoTab />}
+      {activeTab === 'demo' && (
+        <DemoTab
+          agentAddresses={temporalKeys
+            .filter((key) => key.authorized)
+            .map((key) => key.sessionKey)}
+        />
+      )}
     </div>
   );
 }
@@ -343,9 +349,9 @@ function OverviewTab() {
       />
       <StatCard
         icon={<Clock className="h-5 w-5" />}
-        label="Session Keys"
+        label="Agent Access"
         value="0"
-        sublabel="Active: 0"
+        sublabel="Authorized signer addresses"
       />
       <StatCard
         icon={<Key className="h-5 w-5" />}

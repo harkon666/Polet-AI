@@ -39,7 +39,7 @@ export function HomePage() {
         {[
           ['PDA Custody', 'Deposit demo funds into a Polet smart wallet controlled by program policy.'],
           ['Confidential Policy', 'Set private max-per-run and daily-cap rules for the agent.'],
-          ['Jupiter DCA', 'Route allowed USDC to SOL runs through the Jupiter strategy gateway.'],
+          ['Jupiter Preview', 'Show route/build estimates for allowed USDC to SOL runs without claiming real swap execution.'],
           ['Safe Blocks', 'Show blocked agent actions without revealing the private threshold.'],
         ].map(([title, desc], index) => (
           <article

@@ -19,17 +19,17 @@ interface TemporalKeyManagerProps {
 
 export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManagerProps) {
   const [showGrantForm, setShowGrantForm] = useState(false);
-  const [newSessionKey, setNewSessionKey] = useState('');
+  const [newAgentAddress, setNewAgentAddress] = useState('');
   const [expiresIn, setExpiresIn] = useState(24); // hours
   const [dailyLimit, setDailyLimit] = useState(0.05); // SOL
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleGrant = () => {
-    if (!newSessionKey.trim()) return;
+    if (!newAgentAddress.trim()) return;
     const expiresAt = Date.now() + expiresIn * 60 * 60 * 1000;
-    onGrant(newSessionKey.trim(), expiresAt, dailyLimit * 1_000_000_000);
+    onGrant(newAgentAddress.trim(), expiresAt, dailyLimit * 1_000_000_000);
     setShowGrantForm(false);
-    setNewSessionKey('');
+    setNewAgentAddress('');
   };
 
   const copyToClipboard = async (text: string, id: string) => {
@@ -55,31 +55,39 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-[var(--sea-ink)]">Temporal Session Keys</h3>
+        <div>
+          <h3 className="text-lg font-semibold text-[var(--sea-ink)]">AI Agent Access</h3>
+          <p className="mt-1 text-xs leading-5 text-[var(--sea-ink-soft)]">
+            Authorize the AI agent wallet address that may sign Polet smart-wallet actions until expiry. This is a public signer address, not a private session secret.
+          </p>
+        </div>
         <button
           onClick={() => setShowGrantForm(!showGrantForm)}
           className="rounded-full bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5"
         >
-          {showGrantForm ? 'Cancel' : 'Grant New Key'}
+          {showGrantForm ? 'Cancel' : 'Authorize Agent'}
         </button>
       </div>
 
       {/* Grant Form */}
       {showGrantForm && (
         <div className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-4">
-          <h4 className="mb-4 font-medium text-[var(--sea-ink)]">Grant New Session Key</h4>
+          <h4 className="mb-4 font-medium text-[var(--sea-ink)]">Authorize AI Agent Wallet</h4>
 
           <div className="mb-4">
             <label className="mb-1 block text-sm font-medium text-[var(--sea-ink)]">
-              Session Key (Public Key)
+              AI Agent Wallet Address
             </label>
             <input
               type="text"
-              placeholder="Enter the AI agent's public key"
-              value={newSessionKey}
-              onChange={(e) => setNewSessionKey(e.target.value)}
+              placeholder="Enter the AI agent wallet public key"
+              value={newAgentAddress}
+              onChange={(e) => setNewAgentAddress(e.target.value)}
               className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-mono focus:border-[var(--lagoon-deep)] focus:outline-none"
             />
+            <p className="mt-1 text-xs leading-5 text-[var(--sea-ink-soft)]">
+              The contract names this value a session key, but functionally it is the agent wallet address authorized to use the smart wallet within policy limits.
+            </p>
           </div>
 
           <div className="mb-4 grid gap-4 sm:grid-cols-2">
@@ -103,7 +111,7 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
 
             <div>
               <label className="mb-1 block text-sm font-medium text-[var(--sea-ink)]">
-                Daily Limit (SOL)
+                Legacy Daily Limit (SOL)
               </label>
               <input
                 type="number"
@@ -119,10 +127,10 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
           <div className="flex gap-3">
             <button
               onClick={handleGrant}
-              disabled={!newSessionKey.trim()}
+              disabled={!newAgentAddress.trim()}
               className="flex-1 rounded-full bg-[var(--lagoon-deep)] py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50"
             >
-              Grant Key
+              Authorize Agent
             </button>
             <button
               onClick={() => setShowGrantForm(false)}
@@ -138,9 +146,9 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
       {keys.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--line)] bg-[var(--island-bg)] py-12 text-center">
           <Key className="mb-3 h-10 w-10 text-[var(--sea-ink-soft)]" />
-          <p className="mb-1 text-sm font-medium text-[var(--sea-ink)]">No Session Keys</p>
+          <p className="mb-1 text-sm font-medium text-[var(--sea-ink)]">No Authorized Agent</p>
           <p className="text-xs text-[var(--sea-ink-soft)]">
-            Grant temporary keys to AI agents with expiry and spending limits.
+            Authorize an AI agent wallet address with expiry before running the DCA demo.
           </p>
         </div>
       ) : (
@@ -186,7 +194,7 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
                 <button
                   onClick={() => onRevoke(key.id)}
                   className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-600 transition hover:bg-red-100"
-                  title="Revoke key"
+                  title="Revoke agent access"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -194,7 +202,7 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
 
               <div className="grid gap-2 text-sm sm:grid-cols-3">
                 <div>
-                  <span className="text-[var(--sea-ink-soft)]">Daily Limit: </span>
+                  <span className="text-[var(--sea-ink-soft)]">Legacy Limit: </span>
                   <span className="font-medium text-[var(--sea-ink)]">
                     {(key.dailyLimit / 1_000_000_000).toFixed(3)} SOL
                   </span>
