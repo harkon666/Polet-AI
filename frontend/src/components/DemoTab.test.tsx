@@ -122,14 +122,50 @@ function renderDemo() {
   );
 }
 
+async function setupCustodyAndPolicy(view: ReturnType<typeof renderDemo>) {
+  fireEvent.click(view.getByRole('button', { name: /setup custody pda/i }));
+  await waitFor(() => expect(view.getByText(/custody siap/i)).toBeTruthy());
+  fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+  await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
+}
+
 describe('Consumer DCA demo frontend', () => {
+  test('shows checklist progression and gates primary CTAs by prerequisites', async () => {
+    const view = renderDemo();
+
+    expect(view.getByText(/checklist demo/i)).toBeTruthy();
+    expect(document.body.textContent).toMatch(/aksi berikutnya:\s*setup custody pda/i);
+    expect(view.getByRole('button', { name: /sign & simpan policy/i }).hasAttribute('disabled')).toBe(true);
+    expect(view.getByRole('button', { name: /try 25 usdc via proxy/i }).hasAttribute('disabled')).toBe(true);
+    expect(view.getByRole('button', { name: /run 5 usdc via proxy/i }).hasAttribute('disabled')).toBe(true);
+
+    fireEvent.click(view.getByRole('button', { name: /setup custody pda/i }));
+    await waitFor(() => expect(view.getByText(/custody siap/i)).toBeTruthy());
+
+    expect(view.getByRole('button', { name: /sign & simpan policy/i }).hasAttribute('disabled')).toBe(false);
+    expect(view.getByText(/policy rahasia tersimpan/i)).toBeTruthy();
+
+    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+    await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
+
+    expect(view.getByRole('button', { name: /try 25 usdc via proxy/i }).hasAttribute('disabled')).toBe(false);
+    expect(view.getByRole('button', { name: /run 5 usdc via proxy/i }).hasAttribute('disabled')).toBe(true);
+    expect(view.getByText(/jalankan skenario block 25 usdc/i)).toBeTruthy();
+
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText('DIBLOKIR')).toBeTruthy());
+
+    expect(view.getByRole('button', { name: /run 5 usdc via proxy/i }).hasAttribute('disabled')).toBe(false);
+    expect(view.getByText(/skenario 25 usdc diblokir/i)).toBeTruthy();
+  });
+
   test('hides confidential policy values after confirmed save', async () => {
     const view = renderDemo();
 
     expect(view.getByDisplayValue('10')).toBeTruthy();
     expect(view.getByDisplayValue('20')).toBeTruthy();
 
-    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+    await setupCustodyAndPolicy(view);
 
     await waitFor(() => expect(view.getByText(/nilai privat disembunyikan/i)).toBeTruthy());
     expect(view.queryByDisplayValue('10')).toBeNull();
@@ -147,8 +183,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText('Solana SOL')).toBeTruthy();
     expect(view.getByText('Jupiter')).toBeTruthy();
 
-    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
-    await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
+    await setupCustodyAndPolicy(view);
 
     fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
     await waitFor(() => expect(view.getByText('DIBLOKIR')).toBeTruthy());
@@ -166,8 +201,7 @@ describe('Consumer DCA demo frontend', () => {
   test('displays an Ika bridgeless request boundary without exposing thresholds', async () => {
     const view = renderDemo();
 
-    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
-    await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
+    await setupCustodyAndPolicy(view);
 
     fireEvent.click(view.getByRole('button', { name: /request ika bridgeless route/i }));
     await waitFor(() => expect(view.getByText(/bridgeless route requested/i)).toBeTruthy());
@@ -183,8 +217,7 @@ describe('Consumer DCA demo frontend', () => {
   test('activity log does not leak private thresholds', async () => {
     const view = renderDemo();
 
-    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
-    await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
+    await setupCustodyAndPolicy(view);
     fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
 
     await waitFor(() => expect(view.getByText('DIBLOKIR')).toBeTruthy());
@@ -206,9 +239,11 @@ describe('Consumer DCA demo frontend', () => {
 
     expect(view.getByText(/confidential dca demo/i)).toBeTruthy();
     expect(view.getByRole('button', { name: /sign & save policy/i })).toBeTruthy();
-    expect(view.getByText(/safe log/i)).toBeTruthy();
+    expect(view.getAllByText(/safe log/i).length).toBeGreaterThan(0);
     expect(view.getByText(/agent wallet public key/i)).toBeTruthy();
 
+    fireEvent.click(view.getByRole('button', { name: /set up pda custody/i }));
+    await waitFor(() => expect(view.getByText(/custody ready/i)).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & save policy/i }));
     await waitFor(() => expect(view.getAllByText(/on-chain policy saved/i)[0]).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /try 25 usdc through proxy/i }));

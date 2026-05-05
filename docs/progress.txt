@@ -46,7 +46,6 @@ Track alignment:
 
 ### Critical Path
 
-- `022-linear-confidential-dca-demo-checklist` — Turn the confidential DCA demo into a deterministic guided checklist for setup, policy, block, allow, and safe activity log review.
 - `023-quiet-fintech-frontend-visual-refresh` — Replace the bright decorative frontend treatment with a calmer fintech dashboard visual system.
 - `024-consumer-frontend-e2e-demo-coverage` — Add E2E coverage for the simplified DCA workflow, policy redaction, allow/block scenarios, Jupiter boundary, and responsive readability.
 
@@ -165,6 +164,9 @@ Track alignment:
 - [x] `021-consumer-frontend-navigation-simplification` — Simplified the connected-wallet consumer navigation to `DCA Demo` and `Agent Access`, made the DCA demo the default view, removed the dashboard legacy public policy configurator path, and folded the static overview cards into a compact DCA workflow status summary.
   - Verification: `bun run test src/components/WalletDashboard.test.tsx src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`.
   - Note: legacy public policy helpers still exist as quarantined prior-foundation code, but they are no longer linked or invoked from the primary consumer dashboard.
+- [x] `022-linear-confidential-dca-demo-checklist` — Added a localized live checklist to the confidential DCA demo for wallet initialization, PDA custody, agent selection, confidential policy save, USDC -> SOL strategy readiness, deliberate 25 USDC block, 5 USDC allow, and safe activity log review. Primary CTAs now unlock according to that linear path, with the allowed Jupiter preview run gated behind the blocked scenario.
+  - Verification: `bun run test src/components/DemoTab.test.tsx src/components/WalletDashboard.test.tsx` and `bun run build` pass in `frontend/`.
+  - Note: allowed Jupiter output remains explicitly framed as route/build preview plus unsigned transaction boundary; no frontend swap execution is claimed.
 
 ### Planning
 

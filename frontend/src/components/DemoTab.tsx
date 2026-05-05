@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Bot,
   Check,
+  ClipboardCheck,
   EyeOff,
   Landmark,
   Languages,
@@ -144,6 +145,26 @@ const COPY = {
     demoTruth: 'Yang real di demo: setup wallet/policy on-chain, authorization agent, dan guardrail allow/block. Yang masih preview: price/route Jupiter dan transaksi swap.',
     missingOwner: 'Connect dan initialize wallet dulu sebelum menjalankan demo real.',
     missingAgent: 'Alamat AI agent wajib diisi dan sudah harus di-authorize di contract.',
+    checklistTitle: 'Checklist demo',
+    checklistNext: 'Aksi berikutnya',
+    stepWallet: 'Wallet initialized',
+    stepCustody: 'Custody PDA siap',
+    stepAgent: 'Agent dipilih',
+    stepPolicy: 'Policy rahasia tersimpan',
+    stepStrategy: 'DCA USDC -> SOL siap',
+    stepBlocked: 'Skenario 25 USDC diblokir',
+    stepAllowed: 'Skenario 5 USDC disetujui',
+    stepLog: 'Log aman diverifikasi',
+    nextWallet: 'Connect dan initialize Polet Smart Wallet.',
+    nextCustody: 'Setup custody PDA untuk akun USDC dan SOL.',
+    nextAgent: 'Pilih atau masukkan agent signer yang sudah di-authorize.',
+    nextPolicy: 'Simpan policy rahasia. Nilai akan disembunyikan setelah confirm.',
+    nextBlocked: 'Jalankan skenario block 25 USDC terlebih dulu.',
+    nextAllowed: 'Jalankan skenario allow 5 USDC untuk melihat Jupiter preview.',
+    nextLog: 'Periksa activity log: tidak ada threshold, sisa cap, atau witness.',
+    nextComplete: 'Demo path selesai.',
+    custodyRequired: 'Setup custody dan pilih agent sebelum menyimpan policy.',
+    blockedFirst: 'Jalankan block 25 USDC dulu agar flow demo linear.',
   },
   en: {
     language: 'English',
@@ -204,6 +225,26 @@ const COPY = {
     demoTruth: 'Real in this demo: on-chain wallet/policy setup, agent authorization, and guardrail allow/block. Still preview: Jupiter price/route and swap transaction execution.',
     missingOwner: 'Connect and initialize a wallet before running the real demo.',
     missingAgent: 'The AI agent address is required and must already be authorized on-chain.',
+    checklistTitle: 'Demo checklist',
+    checklistNext: 'Next action',
+    stepWallet: 'Wallet initialized',
+    stepCustody: 'PDA custody ready',
+    stepAgent: 'Agent selected',
+    stepPolicy: 'Confidential policy saved',
+    stepStrategy: 'USDC -> SOL DCA ready',
+    stepBlocked: '25 USDC scenario blocked',
+    stepAllowed: '5 USDC scenario approved',
+    stepLog: 'Safe log verified',
+    nextWallet: 'Connect and initialize the Polet Smart Wallet.',
+    nextCustody: 'Set up PDA custody for USDC and SOL accounts.',
+    nextAgent: 'Select or enter an authorized agent signer.',
+    nextPolicy: 'Save the confidential policy. Values will be hidden after confirmation.',
+    nextBlocked: 'Run the blocked 25 USDC scenario first.',
+    nextAllowed: 'Run the allowed 5 USDC scenario to view the Jupiter preview.',
+    nextLog: 'Review the activity log: no thresholds, remaining cap, or witness values.',
+    nextComplete: 'Demo path complete.',
+    custodyRequired: 'Set up custody and select an agent before saving policy.',
+    blockedFirst: 'Run the blocked 25 USDC scenario first to keep the demo linear.',
   },
 } as const;
 
@@ -258,7 +299,28 @@ export function DemoTabContent({
 
   const t = COPY[locale];
   const witness = useMemo(() => Array.from({ length: 32 }, (_, index) => index + 1), []);
-  const canRun = Boolean(owner && policySaved && agentAddress.trim() && !busy);
+  const hasAgent = Boolean(agentAddress.trim());
+  const hasBlockedRun = activity.some((entry) => entry.status === 'blocked' && entry.amountUsdc === '25');
+  const hasAllowedRun = activity.some((entry) => entry.status === 'approved' && entry.amountUsdc === (strategy.amountUsdc || '5'));
+  const hasSafeLog = activity.length > 0 && activity.every((entry) => !entry.message.includes('10 USDC') && !entry.message.includes('20 USDC'));
+  const strategyReady = strategy.inputMint === 'USDC' && strategy.outputMint === 'SOL' && Boolean(strategy.amountUsdc);
+  const canSavePolicy = Boolean(owner && custody && hasAgent && !busy);
+  const canRunBlocked = Boolean(owner && custody && policySaved && hasAgent && strategyReady && !busy);
+  const canRunAllowed = Boolean(canRunBlocked && hasBlockedRun);
+  const canRequestIka = Boolean(owner && custody && policySaved && hasAgent && !busy);
+
+  const checklist = [
+    { label: t.stepWallet, done: Boolean(owner), next: t.nextWallet },
+    { label: t.stepCustody, done: Boolean(custody), next: t.nextCustody },
+    { label: t.stepAgent, done: hasAgent, next: t.nextAgent },
+    { label: t.stepPolicy, done: policySaved, next: t.nextPolicy },
+    { label: t.stepStrategy, done: strategyReady, next: t.nextBlocked },
+    { label: t.stepBlocked, done: hasBlockedRun, next: t.nextBlocked },
+    { label: t.stepAllowed, done: hasAllowedRun, next: t.nextAllowed },
+    { label: t.stepLog, done: hasAllowedRun && hasSafeLog, next: t.nextLog },
+  ];
+  const nextStep = checklist.find((step) => !step.done);
+  const nextAction = nextStep?.next ?? t.nextComplete;
 
   useEffect(() => {
     if (owner) {
@@ -474,6 +536,42 @@ export function DemoTabContent({
         </p>
       </section>
 
+      <section className="rounded-xl border border-[var(--line)] bg-[var(--island-bg)] p-5">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <h3 className="flex items-center gap-2 text-lg font-semibold text-[var(--sea-ink)]">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(79,184,178,0.14)] text-[var(--lagoon-deep)]">
+              <ClipboardCheck className="h-5 w-5" />
+            </span>
+            {t.checklistTitle}
+          </h3>
+          <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-2 text-sm">
+            <span className="font-semibold text-[var(--sea-ink)]">{t.checklistNext}: </span>
+            <span className="text-[var(--sea-ink-soft)]">{nextAction}</span>
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {checklist.map((step, index) => (
+            <div
+              key={step.label}
+              className={`flex min-h-16 items-center gap-3 rounded-lg border p-3 ${
+                step.done
+                  ? 'border-green-200 bg-green-50 text-green-800'
+                  : index === checklist.findIndex((candidate) => !candidate.done)
+                    ? 'border-[rgba(50,143,151,0.35)] bg-[rgba(79,184,178,0.1)] text-[var(--sea-ink)]'
+                    : 'border-[var(--line)] bg-[var(--surface-strong)] text-[var(--sea-ink-soft)]'
+              }`}
+            >
+              <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                step.done ? 'bg-green-600 text-white' : 'bg-white text-[var(--sea-ink-soft)]'
+              }`}>
+                {step.done ? <Check className="h-4 w-4" /> : index + 1}
+              </span>
+              <span className="text-sm font-semibold leading-5">{step.label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {error && (
         <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
@@ -533,10 +631,11 @@ export function DemoTabContent({
                   className="w-full rounded-lg px-3 py-2 text-sm"
                 />
               </label>
-              <button
-                onClick={savePolicy}
-                disabled={!owner || Boolean(busy)}
+            <button
+              onClick={savePolicy}
+                disabled={!canSavePolicy}
                 className="self-end rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                title={!canSavePolicy && !busy ? t.custodyRequired : undefined}
               >
                 {busy === 'policy' ? 'Signing...' : t.savePolicy}
               </button>
@@ -604,7 +703,7 @@ export function DemoTabContent({
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <button
               onClick={() => runAgent('25')}
-              disabled={!canRun}
+              disabled={!canRunBlocked}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 disabled:opacity-50"
             >
               <X className="h-4 w-4" />
@@ -612,15 +711,16 @@ export function DemoTabContent({
             </button>
             <button
               onClick={() => runAgent(strategy.amountUsdc || '5')}
-              disabled={!canRun}
+              disabled={!canRunAllowed}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+              title={!hasBlockedRun ? t.blockedFirst : undefined}
             >
               <Play className="h-4 w-4" />
               {busy === `run-${strategy.amountUsdc || '5'}` ? 'Running...' : t.runAllowed}
             </button>
             <button
               onClick={requestIkaRoute}
-              disabled={!canRun}
+              disabled={!canRequestIka}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-bold text-[var(--sea-ink)] disabled:opacity-50"
             >
               <Landmark className="h-4 w-4" />
