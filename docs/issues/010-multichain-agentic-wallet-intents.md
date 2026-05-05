@@ -1,6 +1,6 @@
 # Multichain Agentic Wallet Intents
 
-Labels: `needs-triage`
+Labels: `done`
 
 ## Parent
 
@@ -14,13 +14,22 @@ This slice should not execute Ika settlement yet. It should create the narrow cr
 
 ## Acceptance criteria
 
-- [ ] The SDK exposes a multichain strategy intent builder with `sourceChain`, `sourceAsset`, `targetChain`, `targetAsset`, `amount`, and `executionRail`.
-- [ ] The proxy accepts and validates the multichain intent shape.
-- [ ] The proxy maps Solana USDC -> SOL intents to the existing Jupiter route/build preview path.
-- [ ] The frontend can show a multichain strategy configuration without implying real cross-chain settlement.
-- [ ] Tests cover valid multichain intent parsing and invalid chain/asset combinations.
-- [ ] Existing single-chain DCA behavior remains unchanged.
+- [x] The SDK exposes a multichain strategy intent builder with `sourceChain`, `sourceAsset`, `targetChain`, `targetAsset`, `amount`, and `executionRail`.
+- [x] The proxy accepts and validates the multichain intent shape.
+- [x] The proxy maps Solana USDC -> SOL intents to the existing Jupiter route/build preview path.
+- [x] The frontend can show a multichain strategy configuration without implying real cross-chain settlement.
+- [x] Tests cover valid multichain intent parsing and invalid chain/asset combinations.
+- [x] Existing single-chain DCA behavior remains unchanged.
 
 ## Blocked by
 
 - `009-real-agent-runtime-integration.md`
+
+## Completion note
+
+Implemented as a narrow, non-settlement slice:
+
+- SDK builder: `createMultichainStrategyIntent`.
+- Proxy route: `POST /intent/multichain/run`.
+- Current executable mapping: Solana USDC -> SOL on `jupiter` rail maps to the existing confidential DCA route/build preview path.
+- Ika/cross-chain settlement remains intentionally unexecuted for issue 011.

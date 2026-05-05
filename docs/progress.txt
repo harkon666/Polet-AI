@@ -46,7 +46,6 @@ Track alignment:
 
 ### Critical Path
 
-- [ ] `010-multichain-agentic-wallet-intents` — Extend intents across source chain/asset, target chain/asset, and execution rail while reusing confidential guardrails.
 - [ ] `011-ika-bridgeless-execution-request` — Produce an Ika-oriented bridgeless execution request only after Polet guardrail approval.
 - [ ] `012-hybrid-agent-demo-jupiter-ika-encrypt` — Combine agent runtime, Jupiter route/build preview, Ika bridgeless request, and Encrypt guardrails in the final demo.
 
@@ -114,6 +113,9 @@ Track alignment:
 - [x] `009-real-agent-runtime-integration` — Added a local scripted agent runtime in the SDK that creates USDC -> SOL DCA intents with the existing SDK builder, submits them to the Polet proxy, and reports allowed/blocked decisions for 5 USDC and 25 USDC scenarios. Added a CLI runner and setup docs as the base adapter for future multichain/Ika intent slices.
   - Verification: `bun test` and `bun run build` pass in `sdk/`.
   - Note: the runtime does not sign or broadcast transactions. It submits agent intents to the proxy and reports the policy result plus any unsigned smart-wallet execution payload returned by the proxy.
+- [x] `010-multichain-agentic-wallet-intents` — Added a multichain strategy intent envelope with source chain/asset, target chain/asset, amount, execution rail, and confidential policy witness. The SDK now exposes `createMultichainStrategyIntent`, the proxy accepts `POST /intent/multichain/run`, and the current supported executable combination maps Solana USDC -> SOL on the Jupiter rail into the existing confidential DCA route/build preview path. The frontend strategy panel now shows the multichain boundary while explicitly noting that Ika settlement is not executed in this slice.
+  - Verification: `bun test` and `bun run build` pass in `sdk/`; `bun test` and `bun run build` pass in `proxy/`; `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`.
+  - Note: unsupported Ika/cross-chain combinations are validated and rejected for now. Issue 011 owns the bridgeless execution request shape.
 
 ### Planning
 

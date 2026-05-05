@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { parseIntent, getActionDestination, getIntentAmount } from '../src/lib/intent-parser';
-import type { Intent, TransferParams, SwapParams } from '../src/types/intent';
+import {
+  getActionDestination,
+  getIntentAmount,
+  mapMultichainIntentToDcaRunRequest,
+  parseIntent,
+} from '../src/lib/intent-parser';
+import { JUPITER_SOL_MINT, JUPITER_USDC_MINT } from '../src/lib/jupiter-gateway';
+import type { Intent, MultichainStrategyParams, TransferParams, SwapParams } from '../src/types/intent';
 
 describe('Intent Parser', () => {
   describe('parseIntent', () => {
@@ -82,6 +88,93 @@ describe('Intent Parser', () => {
       const result = parseIntent(intent);
       expect(result.action).toBe('swap');
       expect((result.params as SwapParams).inputMint).toBe('EPjFWdd5VzqK8LS5CkF3j3gJZt8Kw7Nh8mYqG9mC1Z2S');
+    });
+
+    test('parses valid multichain strategy intent', () => {
+      const witness = Array.from({ length: 32 }, () => 7);
+      const intent = {
+        id: 'multi-123',
+        owner: '4Nd1mBQtrMJVYVfKf2PJF9nP93qJbJbV1L1dG9m6Z8X',
+        sessionKey: '5Nd1mBQtrMJVYVfKf2PJF9nP93qJbJbV1L1dG9m6Z8Y',
+        action: 'multichain-strategy',
+        params: {
+          sourceChain: 'solana',
+          sourceAsset: 'USDC',
+          sourceMint: JUPITER_USDC_MINT,
+          targetChain: 'solana',
+          targetAsset: 'SOL',
+          targetMint: JUPITER_SOL_MINT,
+          amount: '5',
+          executionRail: 'jupiter',
+          encryptionWitness: witness,
+        },
+        timestamp: 1700000000,
+      };
+
+      const result = parseIntent(intent);
+      const params = result.params as MultichainStrategyParams;
+
+      expect(result.action).toBe('multichain-strategy');
+      expect(params.sourceChain).toBe('solana');
+      expect(params.targetAsset).toBe('SOL');
+      expect(params.executionRail).toBe('jupiter');
+      expect(params.encryptionWitness).toEqual(witness);
+    });
+
+    test('throws on invalid multichain chain and asset combinations', () => {
+      const witness = Array.from({ length: 32 }, () => 7);
+      const intent = parseIntent({
+        id: 'multi-unsupported',
+        owner: 'owner',
+        sessionKey: 'session',
+        action: 'multichain-strategy',
+        params: {
+          sourceChain: 'sui',
+          sourceAsset: 'USDC',
+          targetChain: 'solana',
+          targetAsset: 'SOL',
+          amount: '5',
+          executionRail: 'ika',
+          encryptionWitness: witness,
+        },
+        timestamp: 1700000000,
+      });
+
+      expect(() => mapMultichainIntentToDcaRunRequest(intent)).toThrow(/Unsupported multichain intent/);
+    });
+
+    test('maps Solana USDC to SOL multichain intent to the existing DCA run request', () => {
+      const witness = Array.from({ length: 32 }, (_, index) => index);
+      const intent = parseIntent({
+        id: 'multi-dca',
+        owner: 'owner',
+        sessionKey: 'session',
+        action: 'multichain-strategy',
+        params: {
+          sourceChain: 'solana',
+          sourceAsset: 'USDC',
+          sourceMint: JUPITER_USDC_MINT,
+          targetChain: 'solana',
+          targetAsset: 'SOL',
+          targetMint: JUPITER_SOL_MINT,
+          amount: '5',
+          executionRail: 'jupiter',
+          strategy: 'dca',
+          slippageBps: 100,
+          encryptionWitness: witness,
+        },
+        timestamp: 1700000000,
+      });
+
+      expect(mapMultichainIntentToDcaRunRequest(intent)).toEqual({
+        owner: 'owner',
+        sessionKey: 'session',
+        amountUsdc: '5',
+        inputMint: JUPITER_USDC_MINT,
+        outputMint: JUPITER_SOL_MINT,
+        slippageBps: 100,
+        encryptionWitness: witness,
+      });
     });
   });
 

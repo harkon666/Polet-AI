@@ -29,7 +29,9 @@ export const JUPITER_SOL_MINT = 'So11111111111111111111111111111111111111112';
 
 // Intent action types
 export type IntentAction = 'transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom';
-export type StrategyIntentAction = 'dca';
+export type StrategyIntentAction = 'dca' | 'multichain-strategy';
+export type PoletChain = 'solana' | 'sui' | 'ethereum' | 'base';
+export type PoletExecutionRail = 'jupiter' | 'ika';
 
 // Intent interface
 export interface Intent {
@@ -52,7 +54,17 @@ export interface DcaIntent {
   policyHash?: string;
 }
 
-export type PoletIntent = Intent | DcaIntent;
+export interface MultichainStrategyIntent {
+  id: string;
+  owner: string;
+  sessionKey: string;
+  action: 'multichain-strategy';
+  params: MultichainStrategyParams;
+  timestamp: number;
+  policyHash?: string;
+}
+
+export type PoletIntent = Intent | DcaIntent | MultichainStrategyIntent;
 
 // Transfer params
 export interface TransferParams {
@@ -81,6 +93,28 @@ export interface DcaParams {
   amountUsdc: number | string;
   inputMint: string;
   outputMint: string;
+  slippageBps?: number;
+  encryptionWitness: number[];
+  destinationTokenAccount?: string;
+  nativeDestinationAccount?: string;
+}
+
+export interface ChainAsset {
+  chain: PoletChain;
+  asset: string;
+  mint?: string;
+}
+
+export interface MultichainStrategyParams {
+  sourceChain: PoletChain;
+  sourceAsset: string;
+  sourceMint?: string;
+  targetChain: PoletChain;
+  targetAsset: string;
+  targetMint?: string;
+  amount: number | string;
+  executionRail: PoletExecutionRail;
+  strategy?: 'dca' | 'swap';
   slippageBps?: number;
   encryptionWitness: number[];
   destinationTokenAccount?: string;
@@ -147,6 +181,26 @@ export interface DcaIntentInput {
   encryptionWitness: number[];
   inputMint?: string;
   outputMint?: string;
+  slippageBps?: number;
+  destinationTokenAccount?: string;
+  nativeDestinationAccount?: string;
+  policyHash?: string;
+  intentId?: string;
+}
+
+export interface MultichainStrategyIntentInput {
+  owner: string;
+  sessionKey: string;
+  sourceChain: PoletChain;
+  sourceAsset: string;
+  targetChain: PoletChain;
+  targetAsset: string;
+  amount: number | string;
+  executionRail: PoletExecutionRail;
+  encryptionWitness: number[];
+  sourceMint?: string;
+  targetMint?: string;
+  strategy?: 'dca' | 'swap';
   slippageBps?: number;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
@@ -272,6 +326,36 @@ export function createDcaIntent(input: DcaIntentInput): DcaIntent {
       amountUsdc: input.amountUsdc,
       inputMint: input.inputMint ?? JUPITER_USDC_MINT,
       outputMint: input.outputMint ?? JUPITER_SOL_MINT,
+      encryptionWitness: input.encryptionWitness,
+      ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
+      ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
+      ...(input.nativeDestinationAccount && { nativeDestinationAccount: input.nativeDestinationAccount }),
+    },
+    timestamp: Math.floor(Date.now() / 1000),
+    ...(input.policyHash && { policyHash: input.policyHash }),
+  };
+}
+
+/**
+ * Create a multichain strategy intent. The current executable slice maps
+ * Solana USDC -> SOL on the Jupiter rail to the existing confidential DCA path.
+ */
+export function createMultichainStrategyIntent(input: MultichainStrategyIntentInput): MultichainStrategyIntent {
+  return {
+    id: input.intentId ?? generateIntentId(),
+    owner: input.owner,
+    sessionKey: input.sessionKey,
+    action: 'multichain-strategy',
+    params: {
+      sourceChain: input.sourceChain,
+      sourceAsset: input.sourceAsset,
+      ...(input.sourceMint && { sourceMint: input.sourceMint }),
+      targetChain: input.targetChain,
+      targetAsset: input.targetAsset,
+      ...(input.targetMint && { targetMint: input.targetMint }),
+      amount: input.amount,
+      executionRail: input.executionRail,
+      strategy: input.strategy ?? 'dca',
       encryptionWitness: input.encryptionWitness,
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
       ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
@@ -417,7 +501,7 @@ export function isValidIntent(intent: unknown): intent is PoletIntent {
   if (!obj.action || typeof obj.action !== 'string') return false;
 
   // Check valid action type
-  if (obj.action !== 'dca' && !VALID_ACTIONS.includes(obj.action as IntentAction)) return false;
+  if (obj.action !== 'dca' && obj.action !== 'multichain-strategy' && !VALID_ACTIONS.includes(obj.action as IntentAction)) return false;
 
   // Check params is an object
   if (!obj.params || typeof obj.params !== 'object') return false;
@@ -461,6 +545,9 @@ export async function submitIntent<TResponse = unknown>(
 ): Promise<TResponse> {
   if (intent.action === 'dca') {
     return requestProxy<TResponse>('/intent/dca/run', toDcaRunRequest(intent), options);
+  }
+  if (intent.action === 'multichain-strategy') {
+    return requestProxy<TResponse>('/intent/multichain/run', intent, options);
   }
 
   const mode = options.mode ?? 'execute';

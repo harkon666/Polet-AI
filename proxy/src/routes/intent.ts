@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { parseIntent } from '../lib/intent-parser';
+import { mapMultichainIntentToDcaRunRequest, parseIntent } from '../lib/intent-parser';
 import { evaluateIntent } from '../lib/policy-engine';
 import { generateAttestation } from '../lib/policy-engine';
 import { buildTransaction } from '../lib/transaction-builder';
@@ -58,6 +58,64 @@ intentRouter.post('/dca/run', async (c) => {
         message: e instanceof Error ? e.message : 'Failed to run confidential DCA',
       },
     }, 500);
+  }
+});
+
+/**
+ * POST /intent/multichain/run
+ * Accept the cross-chain strategy intent envelope. The currently executable
+ * combination is Solana USDC -> SOL on the Jupiter rail, mapped to DCA.
+ */
+intentRouter.post('/multichain/run', async (c) => {
+  try {
+    const body = await c.req.json();
+    const intent = parseIntent(body);
+    const dcaRequest = mapMultichainIntentToDcaRunRequest(intent);
+    const result = await runConfidentialDcaExecution(dcaRequest);
+
+    return c.json({
+      success: true,
+      data: {
+        ...result,
+        multichain: {
+          sourceChain: (intent.params as import('../types/intent').MultichainStrategyParams).sourceChain,
+          sourceAsset: (intent.params as import('../types/intent').MultichainStrategyParams).sourceAsset,
+          targetChain: (intent.params as import('../types/intent').MultichainStrategyParams).targetChain,
+          targetAsset: (intent.params as import('../types/intent').MultichainStrategyParams).targetAsset,
+          executionRail: (intent.params as import('../types/intent').MultichainStrategyParams).executionRail,
+          settlement: 'not-executed',
+        },
+      },
+    });
+  } catch (e) {
+    if (e instanceof ConfidentialDcaExecutionError) {
+      return c.json({
+        success: false,
+        error: {
+          code: e.code,
+          message: e.message,
+        },
+      }, e.status as 400 | 404 | 500);
+    }
+    if (e instanceof JupiterGatewayError) {
+      return c.json({
+        success: false,
+        error: {
+          code: e.code,
+          message: 'Jupiter precheck failed',
+          status: e.status,
+        },
+      }, 502);
+    }
+
+    const message = e instanceof Error ? e.message : 'Invalid multichain intent';
+    return c.json({
+      success: false,
+      error: {
+        code: 'INVALID_MULTICHAIN_INTENT',
+        message,
+      },
+    }, 400);
   }
 });
 
@@ -300,6 +358,7 @@ intentRouter.post('/route', async (c) => {
       delegate: '/intent/delegate',
       undelegate: '/intent/undelegate',
       custom: '/intent/custom',
+      'multichain-strategy': '/intent/multichain/run',
     };
 
     const route = routes[intent.action] || '/intent/unknown';

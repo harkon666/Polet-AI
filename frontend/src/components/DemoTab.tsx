@@ -36,8 +36,11 @@ interface ConfidentialPolicyDraft {
 }
 
 interface DcaStrategy {
+  sourceChain: 'Solana';
   inputMint: 'USDC';
+  targetChain: 'Solana';
   outputMint: 'SOL';
+  executionRail: 'Jupiter';
   amountUsdc: string;
   cadence: string;
 }
@@ -100,6 +103,9 @@ const COPY = {
     encryptedMax: 'Maks per run terenkripsi',
     encryptedDaily: 'Batas harian terenkripsi',
     strategyTitle: 'Strategi DCA',
+    multichainBoundary: 'Intent multichain',
+    executionRail: 'Execution rail',
+    settlementBoundary: 'Settlement Ika belum dijalankan di slice ini',
     fromTo: 'Pair',
     amount: 'Jumlah normal',
     cadence: 'Jadwal',
@@ -152,6 +158,9 @@ const COPY = {
     encryptedMax: 'Encrypted max per run',
     encryptedDaily: 'Encrypted daily cap',
     strategyTitle: 'DCA strategy',
+    multichainBoundary: 'Multichain intent',
+    executionRail: 'Execution rail',
+    settlementBoundary: 'Ika settlement is not executed in this slice',
     fromTo: 'Pair',
     amount: 'Normal amount',
     cadence: 'Cadence',
@@ -218,8 +227,11 @@ export function DemoTabContent({
   const [custody, setCustody] = useState<{ usdcTokenAccount: string; solTokenAccount: string } | null>(null);
   const [sessionKey, setSessionKey] = useState(sessionKeys[0] ?? '');
   const [strategy, setStrategy] = useState<DcaStrategy>({
+    sourceChain: 'Solana',
     inputMint: 'USDC',
+    targetChain: 'Solana',
     outputMint: 'SOL',
+    executionRail: 'Jupiter',
     amountUsdc: '5',
     cadence: 'Manual demo run',
   });
@@ -489,6 +501,15 @@ export function DemoTabContent({
       <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
         <Panel icon={<Bot className="h-5 w-5" />} title={t.strategyTitle}>
           <div className="grid gap-3">
+            <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+              <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.multichainBoundary}</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                <InfoRow label="Source" value={`${strategy.sourceChain} ${strategy.inputMint}`} />
+                <InfoRow label="Target" value={`${strategy.targetChain} ${strategy.outputMint}`} />
+                <InfoRow label={t.executionRail} value={strategy.executionRail} />
+              </div>
+              <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">{t.settlementBoundary}</p>
+            </div>
             <InfoRow label={t.fromTo} value={`${strategy.inputMint} -> ${strategy.outputMint}`} />
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.amount} (USDC)</span>

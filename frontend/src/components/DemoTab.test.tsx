@@ -108,6 +108,12 @@ describe('Consumer DCA demo frontend', () => {
   test('displays allowed 5 USDC and blocked 25 USDC proxy results', async () => {
     const view = renderDemo();
 
+    expect(view.getByText(/intent multichain/i)).toBeTruthy();
+    expect(view.getByText(/settlement ika belum dijalankan/i)).toBeTruthy();
+    expect(view.getByText('Solana USDC')).toBeTruthy();
+    expect(view.getByText('Solana SOL')).toBeTruthy();
+    expect(view.getByText('Jupiter')).toBeTruthy();
+
     fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
     await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
 

@@ -6,6 +6,10 @@ import type { PublicKey } from '@solana/web3.js';
 import type { BN } from '@coral-xyz/anchor';
 
 export type IntentAction = 'transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom';
+export type StrategyIntentAction = 'multichain-strategy';
+export type PoletIntentAction = IntentAction | StrategyIntentAction;
+export type PoletChain = 'solana' | 'sui' | 'ethereum' | 'base';
+export type PoletExecutionRail = 'jupiter' | 'ika';
 
 export interface Intent {
   /** Unique intent identifier for tracking */
@@ -15,15 +19,31 @@ export interface Intent {
   /** Session key that is authorized to act on behalf of owner (base58) */
   sessionKey: string;
   /** Action type */
-  action: IntentAction;
+  action: PoletIntentAction;
   /** Action parameters - varies by action type */
-  params: TransferParams | SwapParams | StakeParams | CustomParams;
+  params: TransferParams | SwapParams | StakeParams | CustomParams | MultichainStrategyParams;
   /** Unix timestamp when intent was created */
   timestamp: number;
   /** Optional: policy hash to use for evaluation */
   policyHash?: string;
   /** Optional: policy object for demo/bypass */
   policy?: Policy;
+}
+
+export interface MultichainStrategyParams {
+  sourceChain: PoletChain;
+  sourceAsset: string;
+  sourceMint?: string;
+  targetChain: PoletChain;
+  targetAsset: string;
+  targetMint?: string;
+  amount: number | string;
+  executionRail: PoletExecutionRail;
+  strategy?: 'dca' | 'swap';
+  slippageBps?: number;
+  encryptionWitness: number[];
+  destinationTokenAccount?: string;
+  nativeDestinationAccount?: string;
 }
 
 export interface TransferParams {

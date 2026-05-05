@@ -8,6 +8,7 @@ import {
   createDelegateIntent,
   createUndelegateIntent,
   createDcaIntent,
+  createMultichainStrategyIntent,
   createRiskGatedSwapIntent,
   evaluateIntentWithProxy,
   isValidIntent,
@@ -123,6 +124,37 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(intent.params.outputMint).toBe(JUPITER_SOL_MINT);
       expect(intent.params.encryptionWitness).toEqual(witness);
       expect(intent.params.slippageBps).toBe(75);
+      expect(isValidIntent(intent)).toBe(true);
+    });
+  });
+
+  describe('createMultichainStrategyIntent', () => {
+    test('creates a valid multichain strategy intent for the current Solana Jupiter path', () => {
+      const witness = Array.from({ length: 32 }, (_, index) => index + 1);
+      const intent = createMultichainStrategyIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        sourceChain: 'solana',
+        sourceAsset: 'USDC',
+        sourceMint: JUPITER_USDC_MINT,
+        targetChain: 'solana',
+        targetAsset: 'SOL',
+        targetMint: JUPITER_SOL_MINT,
+        amount: '5',
+        executionRail: 'jupiter',
+        encryptionWitness: witness,
+        intentId: 'multichain-1',
+      });
+
+      expect(intent.id).toBe('multichain-1');
+      expect(intent.action).toBe('multichain-strategy');
+      expect(intent.params.sourceChain).toBe('solana');
+      expect(intent.params.sourceAsset).toBe('USDC');
+      expect(intent.params.targetChain).toBe('solana');
+      expect(intent.params.targetAsset).toBe('SOL');
+      expect(intent.params.amount).toBe('5');
+      expect(intent.params.executionRail).toBe('jupiter');
+      expect(intent.params.encryptionWitness).toEqual(witness);
       expect(isValidIntent(intent)).toBe(true);
     });
   });
@@ -361,6 +393,47 @@ describe('Polet AI SDK - Intent Builder', () => {
         amountUsdc: '5',
         inputMint: JUPITER_USDC_MINT,
         outputMint: JUPITER_SOL_MINT,
+      });
+    });
+
+    test('submitIntent sends multichain strategy intents to the multichain endpoint', async () => {
+      const requests: Array<{ url: string; body: unknown }> = [];
+      const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
+        requests.push({
+          url: input.toString(),
+          body: JSON.parse(init?.body?.toString() ?? '{}'),
+        });
+        return Response.json({ success: true, data: { allowed: true, code: 'DCA_ALLOWED' } });
+      };
+
+      const intent = createMultichainStrategyIntent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        sourceChain: 'solana',
+        sourceAsset: 'USDC',
+        targetChain: 'solana',
+        targetAsset: 'SOL',
+        amount: '5',
+        executionRail: 'jupiter',
+        encryptionWitness: Array.from({ length: 32 }, () => 1),
+      });
+
+      const result = await submitIntent(intent, {
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+      });
+
+      expect(result).toEqual({ success: true, data: { allowed: true, code: 'DCA_ALLOWED' } });
+      expect(requests[0].url).toBe('https://proxy.polet.ai/intent/multichain/run');
+      expect(requests[0].body).toMatchObject({
+        action: 'multichain-strategy',
+        params: {
+          sourceChain: 'solana',
+          sourceAsset: 'USDC',
+          targetChain: 'solana',
+          targetAsset: 'SOL',
+          executionRail: 'jupiter',
+        },
       });
     });
 
