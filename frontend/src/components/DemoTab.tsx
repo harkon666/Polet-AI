@@ -215,11 +215,11 @@ const COPY = {
     ikaRouteRequested: 'Bridgeless route requested',
     expectedOutput: 'Expected output',
     minOutput: 'Min after slippage',
-    routeEngine: 'Route',
-    policyTxReady: 'Policy-gated tx ready',
-    signer: 'Signer',
-    executionBoundary: 'Preview: Jupiter route/build is shown as a proxy estimate; the frontend does not send a real swap.',
-    ikaExecutionBoundary: 'Ika request envelope is ready; real bridgeless settlement is not executed.',
+    routeEngine: 'Route engine',
+    policyTxReady: 'Policy-gated payload',
+    signer: 'Authorized signer',
+    executionBoundary: 'Preview: Jupiter route is built; real mainnet swap is not executed in this demo.',
+    ikaExecutionBoundary: 'Ika request envelope is ready; bridgeless settlement is not executed.',
     privacyNote: 'Safe log: thresholds, remaining cap, and witness values are not displayed.',
     preAlpha: 'Encrypt pre-alpha demo: this proves the enforcement flow, not production privacy.',
     demoTruth: 'Real in this demo: on-chain wallet/policy setup, agent authorization, and guardrail allow/block. Still preview: Jupiter price/route and swap transaction execution.',
@@ -531,15 +531,15 @@ export function DemoTabContent({
             ))}
           </div>
         </div>
-        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-amber-900">
+        <p className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-[10px] font-bold uppercase tracking-wider text-amber-500">
           {t.demoTruth}
         </p>
       </section>
 
       <section data-testid="demo-checklist" className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-5">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <h3 className="flex items-center gap-2 text-lg font-semibold text-[var(--sea-ink)]">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(79,184,178,0.14)] text-[var(--lagoon-deep)]">
+          <h3 className="flex items-center gap-2 text-lg font-bold text-[var(--sea-ink)]">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--lagoon)]/10 text-[var(--lagoon)]">
               <ClipboardCheck className="h-5 w-5" />
             </span>
             {t.checklistTitle}
@@ -553,11 +553,11 @@ export function DemoTabContent({
           {checklist.map((step, index) => (
             <div
               key={step.label}
-              className={`flex min-h-16 items-center gap-3 rounded-lg border p-3 ${
+              className={`flex min-h-16 items-center gap-3 rounded-lg border p-3 transition-all ${
                 step.done
-                  ? 'border-green-200 bg-green-50 text-green-800'
+                  ? 'border-green-500/20 bg-green-500/5 text-green-500'
                   : index === checklist.findIndex((candidate) => !candidate.done)
-                    ? 'border-[rgba(50,143,151,0.35)] bg-[rgba(79,184,178,0.1)] text-[var(--sea-ink)]'
+                    ? 'border-[var(--lagoon)]/30 bg-[var(--lagoon)]/5 text-[var(--sea-ink)] ring-1 ring-[var(--lagoon)]/20'
                     : 'border-[var(--line)] bg-[var(--surface-strong)] text-[var(--sea-ink-soft)]'
               }`}
             >
@@ -669,10 +669,10 @@ export function DemoTabContent({
           <div className="grid gap-3">
             <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
               <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.multichainBoundary}</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                <InfoRow label="Source" value={`${strategy.sourceChain} ${strategy.inputMint}`} />
-                <InfoRow label="Target" value={`${strategy.targetChain} ${strategy.outputMint}`} />
-                <InfoRow label={t.executionRail} value={strategy.executionRail} />
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <InfoTile label="Source" value={`${strategy.sourceChain.toUpperCase()} ${strategy.inputMint}`} small />
+                <InfoTile label="Target" value={`${strategy.targetChain.toUpperCase()} ${strategy.outputMint}`} small />
+                <InfoTile label={t.executionRail} value={strategy.executionRail} small />
               </div>
               <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">{t.settlementBoundary}</p>
             </div>
@@ -704,30 +704,30 @@ export function DemoTabContent({
             <button
               onClick={() => runAgent('25')}
               disabled={!canRunBlocked}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-red-500 transition-all hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <X className="h-4 w-4" />
-              {busy === 'run-25' ? 'Running...' : t.runBlocked}
+              <X className="h-3.5 w-3.5" />
+              {busy === 'run-25' ? '...' : t.runBlocked}
             </button>
             <button
               onClick={() => runAgent(strategy.amountUsdc || '5')}
               disabled={!canRunAllowed}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-[var(--lagoon-deep)] px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               title={!hasBlockedRun ? t.blockedFirst : undefined}
             >
-              <Play className="h-4 w-4" />
-              {busy === `run-${strategy.amountUsdc || '5'}` ? 'Running...' : t.runAllowed}
+              <Play className="h-3.5 w-3.5" />
+              {busy === `run-${strategy.amountUsdc || '5'}` ? '...' : t.runAllowed}
             </button>
             <button
               onClick={requestIkaRoute}
               disabled={!canRequestIka}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-bold text-[var(--sea-ink)] disabled:opacity-50"
+              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-[var(--sea-ink)] transition-all hover:bg-[var(--link-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Landmark className="h-4 w-4" />
-              {busy === 'ika' ? 'Requesting...' : t.runIka}
+              <Landmark className="h-3.5 w-3.5" />
+              {busy === 'ika' ? '...' : t.runIka}
             </button>
           </div>
-          <p className="mt-3 text-xs text-[var(--sea-ink-soft)]">{t.runNow}: 25 USDC block scenario, 5 USDC allow scenario. Guardrail result is the source of truth; market output remains a preview.</p>
+          <p className="mt-3 text-[10px] uppercase tracking-wider text-[var(--sea-ink-soft)] font-bold">{t.runNow}: 25 USDC block scenario, 5 USDC allow scenario.</p>
         </Panel>
 
         <Panel icon={<Activity className="h-5 w-5" />} title={t.activityTitle}>
@@ -745,7 +745,7 @@ export function DemoTabContent({
               ))}
             </div>
           )}
-          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-900">
+          <p className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs font-bold leading-5 text-amber-500">
             {t.preAlpha}
           </p>
         </Panel>
@@ -757,8 +757,8 @@ export function DemoTabContent({
 function Panel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-5">
-      <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-[var(--sea-ink)]">
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(79,184,178,0.14)] text-[var(--lagoon-deep)]">
+      <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-[var(--sea-ink)]">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--lagoon)]/10 text-[var(--lagoon)]">
           {icon}
         </span>
         {title}
@@ -768,11 +768,11 @@ function Panel({ icon, title, children }: { icon: ReactNode; title: string; chil
   );
 }
 
-function InfoTile({ label, value, tone }: { label: string; value: string; tone?: 'green' }) {
+function InfoTile({ label, value, tone, small = false }: { label: string; value: string; tone?: 'green'; small?: boolean }) {
   return (
     <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
-      <p className="text-xs font-semibold text-[var(--sea-ink-soft)]">{label}</p>
-      <p className={`mt-1 break-all text-sm font-bold ${tone === 'green' ? 'text-green-700' : 'text-[var(--sea-ink)]'}`}>{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--sea-ink-soft)]">{label}</p>
+      <p className={`mt-0.5 break-words font-bold ${small ? 'text-xs' : 'text-sm'} ${tone === 'green' ? 'text-green-500' : 'text-[var(--sea-ink)]'}`}>{value}</p>
     </div>
   );
 }
@@ -806,7 +806,11 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
   const tone = approved || setup ? 'green' : blocked ? 'red' : 'amber';
 
   return (
-    <article className={`rounded-lg border p-4 ${tone === 'green' ? 'border-green-200 bg-green-50' : tone === 'red' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+    <article className={`rise-in rounded-lg border p-4 ${
+      tone === 'green' ? 'border-green-500/20 bg-green-500/5' : 
+      tone === 'red' ? 'border-red-500/20 bg-red-500/5' : 
+      'border-amber-500/20 bg-amber-500/5'
+    }`}>
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${tone === 'green' ? 'bg-green-600' : tone === 'red' ? 'bg-red-600' : 'bg-amber-600'} text-white`}>
@@ -841,8 +845,8 @@ function IkaRequestPreviewCard({ request, labels }: { request: IkaRequestPreview
   return (
     <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
       <InfoPill label={labels.ikaRouteRequested} value={labels.ikaExecutionBoundary} wide />
-      <InfoPill label="Source" value={`${request.source.chain} ${request.source.asset}`} />
-      <InfoPill label="Target" value={`${request.target.chain} ${request.target.asset}`} />
+      <InfoPill label="Source" value={`${request.source.chain.toUpperCase()} ${request.source.asset}`} />
+      <InfoPill label="Target" value={`${request.target.chain.toUpperCase()} ${request.target.asset}`} />
       <InfoPill label="Request" value={request.requestId} />
       <InfoPill label="Policy seq" value={request.policyAttestation.policySequence.toString()} />
     </div>
