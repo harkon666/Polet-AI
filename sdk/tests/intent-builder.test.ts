@@ -158,6 +158,31 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(intent.params.encryptionWitness).toEqual(witness);
       expect(isValidIntent(intent)).toBe(true);
     });
+
+    test('keeps optional Ika Pre-Alpha signing metadata on explicit multichain intents', () => {
+      const intent = createMultichainStrategyIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        sourceChain: 'solana',
+        sourceAsset: 'USDC',
+        targetChain: 'sui',
+        targetAsset: 'SUI',
+        amount: '5',
+        executionRail: 'ika',
+        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        ikaPreAlpha: {
+          dwalletAccount: 'DwALLET1111111111111111111111111111111111',
+          userPublicKey: 'User1111111111111111111111111111111111111',
+          signatureScheme: 'ecdsa-secp256k1-sha256',
+        },
+      });
+
+      expect(intent.params.ikaPreAlpha).toEqual({
+        dwalletAccount: 'DwALLET1111111111111111111111111111111111',
+        userPublicKey: 'User1111111111111111111111111111111111111',
+        signatureScheme: 'ecdsa-secp256k1-sha256',
+      });
+    });
   });
 
   describe('createRiskGatedSwapIntent', () => {
@@ -582,6 +607,49 @@ describe('Polet AI SDK - Intent Builder', () => {
           executionRail: 'ika',
           amount: '5',
         },
+      });
+    });
+
+    test('normalizes Ika Pre-Alpha message approval status from proxy responses', async () => {
+      const fetchMock = async () => Response.json({
+        success: true,
+        data: {
+          allowed: true,
+          code: 'IKA_PREALPHA_MESSAGE_APPROVED',
+          status: 'message-approved',
+          ikaRequest: {
+            executionRail: 'ika-bridgeless',
+            settlement: 'not-executed',
+            requestId: 'ika-request-1',
+            executionBoundary: { status: 'message-approved' },
+            preAlphaSigning: {
+              status: 'message-approved',
+              messageApprovalPda: 'message-approval-pda',
+            },
+          },
+        },
+      });
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: Array.from({ length: 32 }, () => 2),
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'sui', asset: 'SUI' },
+        amount: '5',
+      });
+
+      expect(result.allowed).toBe(true);
+      expect(result.status).toBe('message-approved');
+      expect(result.policy.code).toBe('IKA_PREALPHA_MESSAGE_APPROVED');
+      expect(result.details?.preAlphaSigning).toMatchObject({
+        status: 'message-approved',
+        messageApprovalPda: 'message-approval-pda',
       });
     });
 

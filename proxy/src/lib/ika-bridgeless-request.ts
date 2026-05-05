@@ -1,6 +1,11 @@
 import { createHash } from 'crypto';
 import { deriveWalletPda } from './confidential-dca-execution';
 import { parseUsdcAmount } from './confidential-numeric-policy';
+import {
+  createIkaPreAlphaSigningRequest,
+  type IkaPreAlphaSigningRequest,
+  type IkaPreAlphaSigningStatus,
+} from './ika-prealpha-signing';
 import type { WalletData } from './wallet-store';
 import {
   executeGuardedStrategy,
@@ -43,14 +48,16 @@ export interface IkaBridgelessExecutionRequest {
     attestationHash: string;
   };
   executionBoundary: {
-    status: 'request-prepared';
+    status: IkaPreAlphaSigningStatus;
     note: string;
   };
+  preAlphaSigning?: IkaPreAlphaSigningRequest;
 }
 
 export interface IkaBridgelessAllowed {
   allowed: true;
-  code: 'IKA_BRIDGELESS_REQUEST_READY';
+  code: 'IKA_BRIDGELESS_REQUEST_READY' | 'IKA_PREALPHA_MESSAGE_APPROVED';
+  status: IkaPreAlphaSigningStatus;
   ikaRequest: IkaBridgelessExecutionRequest;
 }
 
@@ -135,6 +142,7 @@ function buildIkaAllowedResult(
 ): IkaBridgelessAllowed {
   const amount = params.amount.toString();
   const smartWalletAuthority = wallet.walletPda || deriveWalletPda(intent.owner);
+  const preAlphaOverrides = getIkaPreAlphaOverrides(params);
   const attestationHash = hashIkaAttestation({
     intentId: intent.id,
     owner: intent.owner,
@@ -146,49 +154,87 @@ function buildIkaAllowedResult(
     targetAsset: params.targetAsset,
     amount,
   });
+  const ikaRequestBase: IkaBridgelessExecutionRequest = {
+    executionRail: 'ika-bridgeless',
+    settlement: 'not-executed',
+    requestId: `ika-${attestationHash.slice(0, 24)}`,
+    source: {
+      chain: params.sourceChain,
+      asset: params.sourceAsset,
+      ...(params.sourceMint && { mint: params.sourceMint }),
+    },
+    target: {
+      chain: params.targetChain,
+      asset: params.targetAsset,
+      ...(params.targetMint && { mint: params.targetMint }),
+    },
+    amount,
+    amountBaseUnits: amountBaseUnits.toString(),
+    routeIntent: {
+      strategy: params.strategy ?? 'dca',
+      ...(params.slippageBps !== undefined && { slippageBps: params.slippageBps }),
+      bridgeMode: 'bridgeless',
+    },
+    sessionContext: {
+      owner: intent.owner,
+      sessionKey: intent.sessionKey,
+      smartWalletAuthority,
+      policySequence: wallet.policySeq,
+    },
+    policyAttestation: {
+      status: 'approved',
+      policySequence: wallet.policySeq,
+      policyCommitment: wallet.confidentialPolicy.policyCommitment,
+      attestationHash,
+    },
+    executionBoundary: {
+      status: 'request-prepared',
+      note: 'Ika request envelope is prepared; the Pre-Alpha message approval proof is attached when available.',
+    },
+  };
+  const preAlphaSigning = createIkaPreAlphaSigningRequest({
+    request: ikaRequestBase,
+    ...preAlphaOverrides,
+  });
 
   return {
     allowed: true,
-    code: 'IKA_BRIDGELESS_REQUEST_READY',
+    code: 'IKA_PREALPHA_MESSAGE_APPROVED',
+    status: preAlphaSigning.status,
     ikaRequest: {
-      executionRail: 'ika-bridgeless',
-      settlement: 'not-executed',
-      requestId: `ika-${attestationHash.slice(0, 24)}`,
-      source: {
-        chain: params.sourceChain,
-        asset: params.sourceAsset,
-        ...(params.sourceMint && { mint: params.sourceMint }),
-      },
-      target: {
-        chain: params.targetChain,
-        asset: params.targetAsset,
-        ...(params.targetMint && { mint: params.targetMint }),
-      },
-      amount,
-      amountBaseUnits: amountBaseUnits.toString(),
-      routeIntent: {
-        strategy: params.strategy ?? 'dca',
-        ...(params.slippageBps !== undefined && { slippageBps: params.slippageBps }),
-        bridgeMode: 'bridgeless',
-      },
-      sessionContext: {
-        owner: intent.owner,
-        sessionKey: intent.sessionKey,
-        smartWalletAuthority,
-        policySequence: wallet.policySeq,
-      },
-      policyAttestation: {
-        status: 'approved',
-        policySequence: wallet.policySeq,
-        policyCommitment: wallet.confidentialPolicy.policyCommitment,
-        attestationHash,
-      },
+      ...ikaRequestBase,
+      preAlphaSigning,
       executionBoundary: {
-        status: 'request-prepared',
-        note: 'Ika settlement is not executed by this demo slice; this envelope is prepared for a future verified Ika backend.',
+        status: preAlphaSigning.status,
+        note: 'Ika Pre-Alpha approve_message proof is prepared after Polet policy approval. Devnet mock signer only; production MPC and settlement are not executed.',
       },
     },
   };
+}
+
+function getIkaPreAlphaOverrides(params: MultichainStrategyParams): {
+  dwalletAccount?: string;
+  userPublicKey?: string;
+  signatureScheme?: IkaPreAlphaSigningRequest['signatureScheme'];
+} {
+  const raw = (params as {
+    ikaPreAlpha?: {
+      dwalletAccount?: unknown;
+      userPublicKey?: unknown;
+      signatureScheme?: unknown;
+    };
+  }).ikaPreAlpha;
+  if (!raw || typeof raw !== 'object') return {};
+
+  return {
+    ...(typeof raw.dwalletAccount === 'string' && { dwalletAccount: raw.dwalletAccount }),
+    ...(typeof raw.userPublicKey === 'string' && { userPublicKey: raw.userPublicKey }),
+    ...(isIkaPreAlphaSignatureScheme(raw.signatureScheme) && { signatureScheme: raw.signatureScheme }),
+  };
+}
+
+function isIkaPreAlphaSignatureScheme(value: unknown): value is IkaPreAlphaSigningRequest['signatureScheme'] {
+  return value === 'ecdsa-secp256k1-sha256' || value === 'ed25519-prealpha';
 }
 
 function hashIkaAttestation(value: Record<string, unknown>): string {

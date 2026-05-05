@@ -42,6 +42,11 @@ export interface MultichainStrategyParams {
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
   encryptionWitness: number[];
+  ikaPreAlpha?: {
+    dwalletAccount?: string;
+    userPublicKey?: string;
+    signatureScheme?: 'ecdsa-secp256k1-sha256' | 'ed25519-prealpha';
+  };
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }

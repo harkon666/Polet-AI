@@ -59,8 +59,11 @@ async function main() {
       proxy: {
         success: result.proxyResponse.success,
         code: result.proxyResponse.data?.code ?? result.proxyResponse.error?.code,
+        status: result.proxyResponse.data?.status ?? result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.status,
         reason: result.proxyResponse.data?.reason ?? result.proxyResponse.error?.message,
         ikaRequestId: result.proxyResponse.data?.ikaRequest?.requestId,
+        messageApprovalPda: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.messageApprovalPda,
+        cpiAuthorityPda: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.cpiAuthorityPda,
         settlement: result.proxyResponse.data?.ikaRequest?.settlement,
       },
     }, null, 2));

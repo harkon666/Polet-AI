@@ -46,7 +46,7 @@ Track alignment:
 
 ### Critical Path
 
-- `019-ika-prealpha-policy-gated-signing` — Add the first Ika Solana Pre-Alpha signing proof so a Polet policy-allowed Ika intent can progress from request preparation to Ika message approval/signature status without claiming production MPC or final settlement.
+- None.
 
 ### Stretch
 
@@ -148,6 +148,9 @@ Track alignment:
 - [x] `018-agent-trade-sdk-adapters` — Added the high-level SDK `createPoletAgent()` entry point with `trade()` adapters for simple Solana USDC -> SOL Jupiter DCA and explicit Ika multichain request inputs. Results now normalize Jupiter approval to `preview-ready` / `not-executed`, Ika approval to `request-prepared` / `not-executed`, blocked decisions to non-leaking `blocked`, and unsupported routes to `not-supported`.
   - Verification: `bun test` and `bun run build` pass in `sdk/`.
   - Note: this is an SDK control-layer API over existing proxy routes. It does not execute Ika settlement or claim production private trading.
+- [x] `019-ika-prealpha-policy-gated-signing` — Added a proxy Ika Solana Pre-Alpha signing proof model behind the existing guarded Ika rail. Policy-approved Ika intents now derive a deterministic dWallet account, CPI authority PDA, message approval PDA, message digest, signature scheme, and devnet/mock-signer environment metadata, then return `status: "message-approved"` with `settlement: "not-executed"`. Policy-blocked intents still suppress all Ika approval data.
+  - Verification: `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`.
+  - Note: this is an Ika Pre-Alpha control-layer proof only. It does not broadcast an `approve_message` transaction, execute final settlement, or claim production MPC security.
 
 ### Planning
 

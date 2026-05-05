@@ -6,6 +6,11 @@ import {
 } from '../src/lib/confidential-numeric-policy';
 import { deriveWalletPda } from '../src/lib/confidential-dca-execution';
 import { createIkaBridgelessExecutionRequest } from '../src/lib/ika-bridgeless-request';
+import {
+  IKA_PREALPHA_CLUSTER,
+  deriveIkaMessageDigest,
+  deriveIkaPreAlphaApprovalAccounts,
+} from '../src/lib/ika-prealpha-signing';
 import type { WalletData } from '../src/lib/wallet-store';
 import type { Intent } from '../src/types/intent';
 
@@ -22,7 +27,8 @@ describe('Ika bridgeless execution request', () => {
 
     expect(result.allowed).toBe(true);
     if (result.allowed) {
-      expect(result.code).toBe('IKA_BRIDGELESS_REQUEST_READY');
+      expect(result.code).toBe('IKA_PREALPHA_MESSAGE_APPROVED');
+      expect(result.status).toBe('message-approved');
       expect(result.ikaRequest.executionRail).toBe('ika-bridgeless');
       expect(result.ikaRequest.settlement).toBe('not-executed');
       expect(result.ikaRequest.source).toEqual({ chain: 'solana', asset: 'USDC' });
@@ -35,7 +41,48 @@ describe('Ika bridgeless execution request', () => {
       expect(result.ikaRequest.sessionContext.policySequence).toBe(7);
       expect(result.ikaRequest.policyAttestation.status).toBe('approved');
       expect(result.ikaRequest.policyAttestation.policySequence).toBe(7);
-      expect(result.ikaRequest.executionBoundary.note).toMatch(/not executed/i);
+      expect(result.ikaRequest.executionBoundary.status).toBe('message-approved');
+      expect(result.ikaRequest.executionBoundary.note).toMatch(/pre-alpha/i);
+      expect(result.ikaRequest.preAlphaSigning?.status).toBe('message-approved');
+      expect(result.ikaRequest.preAlphaSigning?.settlement).toBe('not-executed');
+      expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.cluster).toBe(IKA_PREALPHA_CLUSTER);
+      expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.mockSigner).toBe(true);
+      expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.productionMpc).toBe(false);
+    }
+  });
+
+  test('derives deterministic Ika Pre-Alpha approval accounts after policy approval', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+    });
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      const signing = result.ikaRequest.preAlphaSigning;
+      expect(signing).toBeDefined();
+      const expected = deriveIkaPreAlphaApprovalAccounts({
+        dwalletAccount: signing!.dwalletAccount,
+        smartWalletAuthority: fixture.wallet.walletPda,
+        messageDigest: deriveIkaMessageDigest(result.ikaRequest),
+      });
+
+      expect(signing!.messageDigest).toBe(deriveIkaMessageDigest(result.ikaRequest));
+      expect(signing!.messageApprovalPda).toBe(expected.messageApprovalPda);
+      expect(signing!.messageApprovalBump).toBe(expected.messageApprovalBump);
+      expect(signing!.cpiAuthorityPda).toBe(expected.cpiAuthorityPda);
+      expect(signing!.cpiAuthorityBump).toBe(expected.cpiAuthorityBump);
+      expect(signing!.approveMessage).toMatchObject({
+        instruction: 'approve_message',
+        authority: expected.cpiAuthorityPda,
+        accounts: {
+          messageApproval: expected.messageApprovalPda,
+          cpiAuthority: expected.cpiAuthorityPda,
+          userPublicKey: fixture.owner,
+        },
+      });
     }
   });
 
@@ -51,6 +98,7 @@ describe('Ika bridgeless execution request', () => {
     if (!result.allowed) {
       expect(result.code).toBe('CONFIDENTIAL_POLICY_BLOCKED');
       expect('ikaRequest' in result).toBe(false);
+      expect('preAlphaSigning' in result).toBe(false);
       expect(result.reason).not.toContain('10');
       expect(result.reason).not.toContain('20');
       expect(JSON.stringify(result)).not.toContain('10000000');
@@ -91,6 +139,7 @@ describe('Ika bridgeless execution request', () => {
     expect(serialized).not.toContain('20000000');
     expect(serialized).not.toContain('maxPerRun');
     expect(serialized).not.toContain('dailyCap');
+    expect(serialized).not.toContain(fixture.witness.join(','));
   });
 });
 

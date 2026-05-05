@@ -118,8 +118,17 @@ export interface MultichainStrategyParams {
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
   encryptionWitness: number[];
+  ikaPreAlpha?: IkaPreAlphaSigningInput;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
+}
+
+export type IkaPreAlphaSignatureScheme = 'ecdsa-secp256k1-sha256' | 'ed25519-prealpha';
+
+export interface IkaPreAlphaSigningInput {
+  dwalletAccount?: string;
+  userPublicKey?: string;
+  signatureScheme?: IkaPreAlphaSignatureScheme;
 }
 
 // Stake params
@@ -203,6 +212,7 @@ export interface MultichainStrategyIntentInput {
   targetMint?: string;
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
+  ikaPreAlpha?: IkaPreAlphaSigningInput;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
   policyHash?: string;
@@ -359,6 +369,7 @@ export function createMultichainStrategyIntent(input: MultichainStrategyIntentIn
       strategy: input.strategy ?? 'dca',
       encryptionWitness: input.encryptionWitness,
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
+      ...(input.ikaPreAlpha && { ikaPreAlpha: input.ikaPreAlpha }),
       ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
       ...(input.nativeDestinationAccount && { nativeDestinationAccount: input.nativeDestinationAccount }),
     },
@@ -522,7 +533,14 @@ export interface SubmitIntentOptions extends ProxyClientOptions {
   mode?: 'evaluate' | 'execute';
 }
 
-export type PoletTradeStatus = 'preview-ready' | 'request-prepared' | 'blocked' | 'not-supported';
+export type PoletTradeStatus =
+  | 'preview-ready'
+  | 'request-prepared'
+  | 'message-approved'
+  | 'signature-pending'
+  | 'signature-produced-prealpha'
+  | 'blocked'
+  | 'not-supported';
 export type PoletSettlementStatus = 'not-executed';
 
 export type PoletTradeAsset = string | ChainAsset;
@@ -540,6 +558,7 @@ export interface SimplePoletTradeInput {
   rail?: PoletExecutionRail;
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
+  ikaPreAlpha?: IkaPreAlphaSigningInput;
   encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
@@ -554,6 +573,7 @@ export interface ExplicitPoletTradeInput {
   amount: number | string;
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
+  ikaPreAlpha?: IkaPreAlphaSigningInput;
   encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
@@ -704,6 +724,7 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
     strategy: input.strategy ?? 'dca',
     encryptionWitness: witness,
     slippageBps: input.slippageBps,
+    ikaPreAlpha: input.ikaPreAlpha,
     destinationTokenAccount: input.destinationTokenAccount,
     nativeDestinationAccount: input.nativeDestinationAccount,
     policyHash: input.policyHash,
@@ -731,6 +752,7 @@ interface ProxyTradeDataLike {
   allowed?: boolean;
   code?: string;
   reason?: string;
+  status?: PoletTradeStatus;
   executionPath?: string;
   transaction?: unknown;
   smartWalletTransaction?: unknown;
@@ -741,7 +763,11 @@ interface ProxyTradeDataLike {
     requestId?: string;
     settlement?: PoletSettlementStatus;
     executionBoundary?: {
-      status?: string;
+      status?: PoletTradeStatus;
+    };
+    preAlphaSigning?: {
+      status?: PoletTradeStatus;
+      [key: string]: unknown;
     };
     [key: string]: unknown;
   };
@@ -781,7 +807,7 @@ function normalizeIkaTradeResponse(response: ProxyEnvelopeLike, intent: Multicha
   return {
     allowed: true,
     rail: 'ika',
-    status: 'request-prepared',
+    status: normalizeIkaStatus(data.status ?? data.ikaRequest?.preAlphaSigning?.status ?? data.ikaRequest?.executionBoundary?.status),
     settlement: 'not-executed',
     policy: {
       allowed: true,
@@ -795,9 +821,23 @@ function normalizeIkaTradeResponse(response: ProxyEnvelopeLike, intent: Multicha
     },
     details: {
       executionBoundary: data.ikaRequest?.executionBoundary,
+      preAlphaSigning: data.ikaRequest?.preAlphaSigning,
     },
     raw: response,
   };
+}
+
+function normalizeIkaStatus(value: unknown): PoletTradeStatus {
+  if (
+    value === 'request-prepared'
+    || value === 'message-approved'
+    || value === 'signature-pending'
+    || value === 'signature-produced-prealpha'
+  ) {
+    return value;
+  }
+
+  return 'request-prepared';
 }
 
 function normalizeTradeError(error: unknown, rail: PoletExecutionRail): PoletTradeResult {

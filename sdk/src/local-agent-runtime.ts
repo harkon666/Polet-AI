@@ -56,11 +56,18 @@ export interface DcaRunData {
 export interface IkaRunData {
   allowed?: boolean;
   code?: string;
+  status?: string;
   reason?: string;
   ikaRequest?: {
     executionRail?: string;
     settlement?: string;
     requestId?: string;
+    preAlphaSigning?: {
+      status?: string;
+      messageApprovalPda?: string;
+      cpiAuthorityPda?: string;
+      signatureScheme?: string;
+    };
     source?: {
       chain?: string;
       asset?: string;
