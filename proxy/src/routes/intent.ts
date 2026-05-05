@@ -14,11 +14,12 @@ import {
 } from '../lib/ika-bridgeless-request';
 import { JupiterGatewayError } from '../lib/jupiter-gateway';
 import type { Intent, MultichainStrategyParams, Policy } from '../types/intent';
+import { PROGRAM_ID_STRING } from '../lib/program-identity';
 
 export const intentRouter = new Hono();
 
 // Program ID for the Polet AI contract
-const PROGRAM_ID = 'J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus';
+const PROGRAM_ID = PROGRAM_ID_STRING;
 
 /**
  * POST /intent/dca/run

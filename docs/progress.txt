@@ -80,6 +80,8 @@ Track alignment:
 
 012-hybrid-agent-demo-jupiter-ika-encrypt
 └── 008-hackathon-docs-and-dx-report
+
+013-smart-wallet-identity-module
 ```
 
 ## Done
@@ -121,6 +123,9 @@ Track alignment:
 - [x] `012-hybrid-agent-demo-jupiter-ika-encrypt` — Added the final scripted hybrid agent path in the SDK. The local runtime now supports `allow`, `block`, `ika`, and `hybrid` scenarios; `hybrid` runs the blocked 25 USDC DCA, approved 5 USDC Jupiter route/build DCA, and approved 5 USDC Ika bridgeless request sequence through the same proxy submission helpers. Updated the agent runtime docs, demo script, and issue notes to state what is executed, previewed, and still pre-alpha/future integration.
   - Verification: `bun run test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` passes in `frontend/`.
   - Note: the hybrid path does not sign or broadcast transactions. Jupiter remains a route/build preview with unsigned policy-gated payload, and Ika remains a prepared request envelope without verified settlement.
+- [x] `013-smart-wallet-identity-module` — Added a shared proxy smart wallet identity module for program id, wallet seed, and wallet PDA derivation, then updated proxy wallet/session/setup/execution call sites to use it. Fixed the SDK wallet PDA helper to use the contract seed `polet_wallet` and real Solana PDA derivation instead of the old `polet_ai_wallet` hash simulation.
+  - Verification: `bun run test` and `bun run build` pass in `sdk/`; `bun run test` and `bun run build` pass in `proxy/`.
+  - Note: this is an architecture hardening slice from `/improve-codebase-architecture`; it reduces duplicated wallet identity knowledge before deeper confidential policy refactors.
 
 ### Planning
 

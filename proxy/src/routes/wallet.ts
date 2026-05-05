@@ -6,6 +6,7 @@ import idl from '../lib/idl.json' with { type: "json" };
 import { generateAndSaveKey } from '../lib/kms';
 import { buildPolicyTree } from '../lib/merkle-tree';
 import { getWalletData } from '../lib/wallet-store';
+import { PROGRAM_ID, deriveWalletPda } from '../lib/program-identity';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -37,7 +38,6 @@ function serializePolicy(policy: { allowlist: string[], blocklist: string[] }): 
 
 export const walletRouter = new Hono();
 
-const PROGRAM_ID = new PublicKey("J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus");
 const ASSOCIATED_TOKEN_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const SYSTEM_PROGRAM_ID = anchor.web3.SystemProgram.programId;
@@ -54,13 +54,6 @@ function getProgram(): anchor.Program {
   };
   const provider = new anchor.AnchorProvider(connection, dummyWallet as unknown as anchor.Wallet, { commitment: 'confirmed' });
   return new anchor.Program(idl as anchor.Idl, provider);
-}
-
-function deriveWalletPda(ownerPubkey: PublicKey): PublicKey {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
-    PROGRAM_ID
-  )[0];
 }
 
 function deriveAta(owner: PublicKey, mint: PublicKey, tokenProgram = TOKEN_PROGRAM_ID): PublicKey {

@@ -16,9 +16,12 @@ import {
   getWalletData,
   type WalletData,
 } from './wallet-store';
+import {
+  PROGRAM_ID,
+  PROGRAM_ID_STRING,
+  WALLET_SEED,
+} from './program-identity';
 
-const PROGRAM_ID = 'J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus';
-const WALLET_SEED = 'polet_wallet';
 const USDC_DECIMALS = 6;
 
 export interface ConfidentialDcaRunRequest {
@@ -152,7 +155,7 @@ export async function runConfidentialDcaExecution(
       attestationPolicySeq: wallet.policySeq,
       encryptionWitness: request.encryptionWitness,
     },
-    PROGRAM_ID
+    PROGRAM_ID_STRING
   );
 
   return {
@@ -171,7 +174,7 @@ export function deriveWalletPda(owner: string): string {
   const ownerPubkey = new PublicKey(owner);
   const [walletPda] = PublicKey.findProgramAddressSync(
     [Buffer.from(WALLET_SEED), ownerPubkey.toBuffer()],
-    new PublicKey(PROGRAM_ID)
+    PROGRAM_ID
   );
   return walletPda.toString();
 }

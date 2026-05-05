@@ -4,10 +4,9 @@ import * as anchor from '@coral-xyz/anchor';
 import { getConnection } from '../lib/transaction-builder';
 import idl from '../lib/idl.json' with { type: "json" };
 import { generateAndSaveKey } from '../lib/kms';
+import { deriveWalletPda } from '../lib/program-identity';
 
 export const agentRouter = new Hono();
-
-const PROGRAM_ID = new PublicKey("J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus");
 
 function getProgram(): anchor.Program {
   const connection = getConnection();
@@ -33,10 +32,7 @@ agentRouter.post('/register', async (c) => {
     }
 
     const ownerPubkey = new PublicKey(owner);
-    const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("polet_wallet"), ownerPubkey.toBuffer()],
-      PROGRAM_ID
-    );
+    const walletPda = deriveWalletPda(ownerPubkey);
 
     // Generate and save session key
     const sessionKeypair = generateAndSaveKey(owner, 'session');

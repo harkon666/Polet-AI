@@ -11,7 +11,8 @@ import { PublicKey } from '@solana/web3.js';
  * PDA derivation seed for wallet accounts
  * The wallet PDA is derived from [WALLET_SEED, owner]
  */
-export const WALLET_SEED = 'polet_ai_wallet';
+export const WALLET_SEED = 'polet_wallet';
+export const PROGRAM_ID = 'J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus';
 
 /**
  * Derive a wallet PDA address from an owner public key
@@ -20,21 +21,10 @@ export const WALLET_SEED = 'polet_ai_wallet';
 export async function deriveWalletPDA(owner: string | PublicKey): Promise<PublicKey> {
   const ownerPubkey = typeof owner === 'string' ? new PublicKey(owner) : owner;
 
-  // PDA derivation - in a real implementation this would use
-  // findProgramAddressSync with the actual program ID
-  // For now, we derive deterministically using a simple scheme
-  const seeds = [Buffer.from(WALLET_SEED), ownerPubkey.toBuffer()];
-
-  // Simple PDA derivation (in production, use findProgramAddressSync)
-  const hash = await crypto.subtle.digest('SHA-256', Buffer.concat(seeds));
-  const hashArray = new Uint8Array(hash);
-
-  // Convert to a valid pubkey (first 32 bytes of hash)
-  const pubkeyBytes = hashArray.slice(0, 32);
-
-  // Make sure it's on curve for a PDA (technically PDAs are off-curve,
-  // but we're demonstrating the concept)
-  return new PublicKey(pubkeyBytes);
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(WALLET_SEED), ownerPubkey.toBuffer()],
+    new PublicKey(PROGRAM_ID)
+  )[0];
 }
 
 /**

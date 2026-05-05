@@ -4,8 +4,7 @@ import * as borsh from 'borsh';
 import type { Policy, WalletAccount } from '../types/intent';
 import idl from './idl.json' with { type: "json" };
 import { getConnection } from './transaction-builder';
-
-const PROGRAM_ID = new PublicKey("J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus");
+import { PROGRAM_ID, deriveWalletPda } from './program-identity';
 
 // Borsh schema for Policy (must match Rust contract)
 const POLICY_SCHEMA = new Map([[Object, {
@@ -89,10 +88,7 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
     };
     const provider = new anchor.AnchorProvider(connection, dummyWallet as unknown as anchor.Wallet, { commitment: 'confirmed' });
     const program = new anchor.Program(idl as anchor.Idl, provider);
-    const [walletPda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("polet_wallet"), owner.toBuffer()],
-      PROGRAM_ID
-    );
+    const walletPda = deriveWalletPda(owner);
 
     const accountData = (await (program.account as any).wallet.fetch(walletPda)) as unknown as WalletAccount;
     const sessions = accountData.sessions.map(tk => ({

@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  deriveWalletPDA,
   formatPublicKey,
   parseIntentParams,
   estimateFee,
   lamportsToSol,
   solToLamports,
+  PROGRAM_ID,
   WALLET_SEED,
 } from '../src/session.js';
 
@@ -207,7 +209,17 @@ describe('Session Management Utils', () => {
     test('is a non-empty string constant for PDA derivation', () => {
       expect(typeof WALLET_SEED).toBe('string');
       expect(WALLET_SEED.length).toBeGreaterThan(0);
-      expect(WALLET_SEED).toBe('polet_ai_wallet');
+      expect(WALLET_SEED).toBe('polet_wallet');
+    });
+  });
+
+  describe('deriveWalletPDA', () => {
+    test('matches the on-chain program id and wallet seed', async () => {
+      const owner = '11111111111111111111111111111112';
+      const wallet = await deriveWalletPDA(owner);
+
+      expect(PROGRAM_ID).toBe('J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus');
+      expect(wallet.toBase58()).toBe('Fjqu4yHHtHsFi6xQwvm9xPLjGGxVVS4zt3YdJ6woEjYA');
     });
   });
 });
