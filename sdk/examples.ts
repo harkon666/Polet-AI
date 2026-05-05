@@ -11,6 +11,7 @@ import {
   createStakeIntent,
   createCustomIntent,
   createDcaIntent,
+  createPoletAgent,
   createRiskGatedSwapIntent,
   isValidIntent,
   generateIntentId,
@@ -257,4 +258,37 @@ export async function example_agent_risk_gated_swap() {
     baseUrl: 'https://proxy.polet.ai',
   });
   console.log('[Polet AI] Risk-gated swap evaluation:', result);
+}
+
+/**
+ * Example 9: High-Level Agent Trade API
+ *
+ * AI agents can use one Polet control-layer interface for guarded trades.
+ * Jupiter returns a route/build preview and Ika returns a prepared request
+ * envelope; this MVP slice does not execute Ika settlement.
+ */
+export async function example_polet_agent_trade() {
+  const polet = createPoletAgent({
+    owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+    sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+    baseUrl: 'https://proxy.polet.ai',
+    encryptionWitness: Array.from({ length: 32 }, (_, index) => index + 1),
+  });
+
+  const jupiterPreview = await polet.trade({
+    from: 'USDC',
+    to: 'SOL',
+    amount: '5',
+  });
+
+  const ikaRequest = await polet.trade({
+    rail: 'ika',
+    from: { chain: 'solana', asset: 'USDC' },
+    to: { chain: 'sui', asset: 'SUI' },
+    amount: '5',
+    strategy: 'dca',
+  });
+
+  console.log('[Polet AI] Jupiter status:', jupiterPreview.status, jupiterPreview.settlement);
+  console.log('[Polet AI] Ika status:', ikaRequest.status, ikaRequest.settlement);
 }

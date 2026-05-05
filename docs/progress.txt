@@ -46,11 +46,11 @@ Track alignment:
 
 ### Critical Path
 
-- None.
+- `019-ika-prealpha-policy-gated-signing` — Add the first Ika Solana Pre-Alpha signing proof so a Polet policy-allowed Ika intent can progress from request preparation to Ika message approval/signature status without claiming production MPC or final settlement.
 
 ### Stretch
 
-- None.
+- `020-destination-chain-broadcast-demo` — Optional HITL slice to broadcast one narrow destination-chain demo transaction after Ika Pre-Alpha signature production, only if a reliable testnet/devnet target and receipt path are selected.
 
 ## Dependency Graph
 
@@ -79,7 +79,10 @@ Track alignment:
         └── 012-hybrid-agent-demo-jupiter-ika-encrypt
 
 012-hybrid-agent-demo-jupiter-ika-encrypt
-└── 008-hackathon-docs-and-dx-report
+├── 008-hackathon-docs-and-dx-report
+└── 018-agent-trade-sdk-adapters
+    └── 019-ika-prealpha-policy-gated-signing
+        └── 020-destination-chain-broadcast-demo
 
 013-smart-wallet-identity-module
 └── 014-confidential-numeric-policy-module
@@ -142,6 +145,9 @@ Track alignment:
 - [x] `017-execution-payload-module` — Added named proxy and contract execution payload modules for the confidential transfer instruction contract. The proxy now centralizes transfer intent layout constants, discriminator bytes, u32/u64 encoding, witness validation, and account metas; the contract now centralizes transfer intent parsing, instruction validation, destination validation, and amount decoding.
   - Verification: `bun test` and `bun run build` pass in `proxy/`; `NO_DNA=1 cargo fmt --check`, `NO_DNA=1 cargo test`, and `NO_DNA=1 anchor build` pass in `contract/`.
   - Note: the confidential DCA allowed path still returns an unsigned transaction with `sessionKey` as the required signer.
+- [x] `018-agent-trade-sdk-adapters` — Added the high-level SDK `createPoletAgent()` entry point with `trade()` adapters for simple Solana USDC -> SOL Jupiter DCA and explicit Ika multichain request inputs. Results now normalize Jupiter approval to `preview-ready` / `not-executed`, Ika approval to `request-prepared` / `not-executed`, blocked decisions to non-leaking `blocked`, and unsupported routes to `not-supported`.
+  - Verification: `bun test` and `bun run build` pass in `sdk/`.
+  - Note: this is an SDK control-layer API over existing proxy routes. It does not execute Ika settlement or claim production private trading.
 
 ### Planning
 

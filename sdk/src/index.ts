@@ -522,6 +522,71 @@ export interface SubmitIntentOptions extends ProxyClientOptions {
   mode?: 'evaluate' | 'execute';
 }
 
+export type PoletTradeStatus = 'preview-ready' | 'request-prepared' | 'blocked' | 'not-supported';
+export type PoletSettlementStatus = 'not-executed';
+
+export type PoletTradeAsset = string | ChainAsset;
+
+export interface PoletAgentOptions extends ProxyClientOptions {
+  owner: string;
+  sessionKey: string;
+  encryptionWitness?: number[];
+}
+
+export interface SimplePoletTradeInput {
+  from: string;
+  to: string;
+  amount: number | string;
+  rail?: PoletExecutionRail;
+  strategy?: 'dca' | 'swap';
+  slippageBps?: number;
+  encryptionWitness?: number[];
+  destinationTokenAccount?: string;
+  nativeDestinationAccount?: string;
+  policyHash?: string;
+  intentId?: string;
+}
+
+export interface ExplicitPoletTradeInput {
+  rail?: PoletExecutionRail;
+  from: PoletTradeAsset;
+  to: PoletTradeAsset;
+  amount: number | string;
+  strategy?: 'dca' | 'swap';
+  slippageBps?: number;
+  encryptionWitness?: number[];
+  destinationTokenAccount?: string;
+  nativeDestinationAccount?: string;
+  policyHash?: string;
+  intentId?: string;
+}
+
+export type PoletTradeInput = SimplePoletTradeInput | ExplicitPoletTradeInput;
+
+export interface PoletTradeResult {
+  allowed: boolean;
+  rail: PoletExecutionRail;
+  status: PoletTradeStatus;
+  settlement: PoletSettlementStatus;
+  policy: {
+    allowed: boolean;
+    code?: string;
+    reason?: string;
+  };
+  execution?: {
+    intent?: PoletIntent;
+    path?: string;
+    requestId?: string;
+    payload?: unknown;
+  };
+  details?: Record<string, unknown>;
+  raw?: unknown;
+}
+
+export interface PoletAgent {
+  trade(input: PoletTradeInput): Promise<PoletTradeResult>;
+}
+
 export class ProxyRequestError extends Error {
   constructor(
     message: string,
@@ -555,6 +620,17 @@ export async function submitIntent<TResponse = unknown>(
   return requestProxy<TResponse>(mode === 'evaluate' ? '/legacy/intent/evaluate' : '/legacy/intent/execute', intent, options);
 }
 
+export function createPoletAgent(options: PoletAgentOptions): PoletAgent {
+  return {
+    trade(input: PoletTradeInput): Promise<PoletTradeResult> {
+      const rail = input.rail ?? 'jupiter';
+      if (rail === 'jupiter') return tradeWithJupiter(input, options);
+      if (rail === 'ika') return tradeWithIka(input, options);
+      return Promise.resolve(notSupportedTradeResult(rail as PoletExecutionRail, 'Unsupported execution rail.'));
+    },
+  };
+}
+
 function toDcaRunRequest(intent: DcaIntent): Record<string, unknown> {
   return {
     owner: intent.owner,
@@ -567,6 +643,257 @@ function toDcaRunRequest(intent: DcaIntent): Record<string, unknown> {
     ...(intent.params.destinationTokenAccount && { destinationTokenAccount: intent.params.destinationTokenAccount }),
     ...(intent.params.nativeDestinationAccount && { nativeDestinationAccount: intent.params.nativeDestinationAccount }),
   };
+}
+
+async function tradeWithJupiter(input: PoletTradeInput, options: PoletAgentOptions): Promise<PoletTradeResult> {
+  const from = normalizeTradeAsset(input.from, 'solana');
+  const to = normalizeTradeAsset(input.to, 'solana');
+  const strategy = input.strategy ?? 'dca';
+
+  if (!isSupportedJupiterDca(from, to, strategy)) {
+    return notSupportedTradeResult('jupiter', 'Only Solana USDC -> SOL DCA is supported on the Jupiter adapter in this MVP slice.');
+  }
+
+  const witness = input.encryptionWitness ?? options.encryptionWitness;
+  if (!isEncryptionWitness(witness)) {
+    return notSupportedTradeResult('jupiter', 'A 32-byte confidential policy witness is required.');
+  }
+
+  const intent = createDcaIntent({
+    owner: options.owner,
+    sessionKey: options.sessionKey,
+    amountUsdc: input.amount,
+    encryptionWitness: witness,
+    inputMint: from.mint ?? JUPITER_USDC_MINT,
+    outputMint: to.mint ?? JUPITER_SOL_MINT,
+    slippageBps: input.slippageBps,
+    destinationTokenAccount: input.destinationTokenAccount,
+    nativeDestinationAccount: input.nativeDestinationAccount,
+    policyHash: input.policyHash,
+    intentId: input.intentId,
+  });
+
+  try {
+    const response = await submitIntent<ProxyEnvelopeLike>(intent, options);
+    return normalizeJupiterTradeResponse(response, intent);
+  } catch (error) {
+    return normalizeTradeError(error, 'jupiter');
+  }
+}
+
+async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions): Promise<PoletTradeResult> {
+  const from = normalizeTradeAsset(input.from, 'solana');
+  const to = normalizeTradeAsset(input.to, 'sui');
+  const witness = input.encryptionWitness ?? options.encryptionWitness;
+
+  if (!isEncryptionWitness(witness)) {
+    return notSupportedTradeResult('ika', 'A 32-byte confidential policy witness is required.');
+  }
+
+  const intent = createMultichainStrategyIntent({
+    owner: options.owner,
+    sessionKey: options.sessionKey,
+    sourceChain: from.chain,
+    sourceAsset: from.asset,
+    sourceMint: from.mint,
+    targetChain: to.chain,
+    targetAsset: to.asset,
+    targetMint: to.mint,
+    amount: input.amount,
+    executionRail: 'ika',
+    strategy: input.strategy ?? 'dca',
+    encryptionWitness: witness,
+    slippageBps: input.slippageBps,
+    destinationTokenAccount: input.destinationTokenAccount,
+    nativeDestinationAccount: input.nativeDestinationAccount,
+    policyHash: input.policyHash,
+    intentId: input.intentId,
+  });
+
+  try {
+    const response = await submitIntent<ProxyEnvelopeLike>(intent, options);
+    return normalizeIkaTradeResponse(response, intent);
+  } catch (error) {
+    return normalizeTradeError(error, 'ika');
+  }
+}
+
+interface ProxyEnvelopeLike {
+  success?: boolean;
+  data?: ProxyTradeDataLike;
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
+
+interface ProxyTradeDataLike {
+  allowed?: boolean;
+  code?: string;
+  reason?: string;
+  executionPath?: string;
+  transaction?: unknown;
+  smartWalletTransaction?: unknown;
+  route?: unknown;
+  build?: unknown;
+  multichain?: unknown;
+  ikaRequest?: {
+    requestId?: string;
+    settlement?: PoletSettlementStatus;
+    executionBoundary?: {
+      status?: string;
+    };
+    [key: string]: unknown;
+  };
+}
+
+function normalizeJupiterTradeResponse(response: ProxyEnvelopeLike, intent: DcaIntent): PoletTradeResult {
+  const data = response.data ?? {};
+  if (data.allowed === false) return blockedTradeResult('jupiter', data.code, data.reason, response);
+
+  return {
+    allowed: true,
+    rail: 'jupiter',
+    status: 'preview-ready',
+    settlement: 'not-executed',
+    policy: {
+      allowed: true,
+      code: data.code,
+    },
+    execution: {
+      intent,
+      path: data.executionPath ?? '/intent/dca/run',
+      payload: data.smartWalletTransaction ?? data.transaction,
+    },
+    details: {
+      route: data.route,
+      build: data.build,
+      multichain: data.multichain,
+    },
+    raw: response,
+  };
+}
+
+function normalizeIkaTradeResponse(response: ProxyEnvelopeLike, intent: MultichainStrategyIntent): PoletTradeResult {
+  const data = response.data ?? {};
+  if (data.allowed === false) return blockedTradeResult('ika', data.code, data.reason, response);
+
+  return {
+    allowed: true,
+    rail: 'ika',
+    status: 'request-prepared',
+    settlement: 'not-executed',
+    policy: {
+      allowed: true,
+      code: data.code,
+    },
+    execution: {
+      intent,
+      path: '/intent/multichain/run',
+      requestId: data.ikaRequest?.requestId,
+      payload: data.ikaRequest,
+    },
+    details: {
+      executionBoundary: data.ikaRequest?.executionBoundary,
+    },
+    raw: response,
+  };
+}
+
+function normalizeTradeError(error: unknown, rail: PoletExecutionRail): PoletTradeResult {
+  if (error instanceof ProxyRequestError) {
+    const response = error.response as ProxyEnvelopeLike;
+    const code = response.error?.code;
+    const message = response.error?.message ?? error.message;
+
+    if (isBlockingProxyCode(code)) {
+      return blockedTradeResult(rail, code, undefined, response);
+    }
+
+    return notSupportedTradeResult(rail, message, response);
+  }
+
+  throw error;
+}
+
+function blockedTradeResult(
+  rail: PoletExecutionRail,
+  code?: string,
+  reason?: string,
+  raw?: unknown
+): PoletTradeResult {
+  return {
+    allowed: false,
+    rail,
+    status: 'blocked',
+    settlement: 'not-executed',
+    policy: {
+      allowed: false,
+      code,
+      reason: reason ?? 'Polet confidential policy blocked this trade without revealing private thresholds.',
+    },
+    raw,
+  };
+}
+
+function notSupportedTradeResult(
+  rail: PoletExecutionRail,
+  reason: string,
+  raw?: unknown
+): PoletTradeResult {
+  return {
+    allowed: false,
+    rail,
+    status: 'not-supported',
+    settlement: 'not-executed',
+    policy: {
+      allowed: false,
+      reason,
+    },
+    raw,
+  };
+}
+
+function normalizeTradeAsset(asset: PoletTradeAsset, defaultChain: PoletChain): ChainAsset {
+  if (typeof asset === 'string') {
+    return {
+      chain: defaultChain,
+      asset: asset.toUpperCase(),
+    };
+  }
+
+  return {
+    chain: asset.chain,
+    asset: asset.asset.toUpperCase(),
+    ...(asset.mint && { mint: asset.mint }),
+  };
+}
+
+function isSupportedJupiterDca(from: ChainAsset, to: ChainAsset, strategy: 'dca' | 'swap'): boolean {
+  return (
+    strategy === 'dca'
+    && from.chain === 'solana'
+    && to.chain === 'solana'
+    && from.asset === 'USDC'
+    && to.asset === 'SOL'
+    && (from.mint === undefined || from.mint === JUPITER_USDC_MINT)
+    && (to.mint === undefined || to.mint === JUPITER_SOL_MINT)
+  );
+}
+
+function isEncryptionWitness(value: unknown): value is number[] {
+  return Array.isArray(value)
+    && value.length === 32
+    && value.every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 255);
+}
+
+function isBlockingProxyCode(code: string | undefined): boolean {
+  return code === 'CONFIDENTIAL_POLICY_BLOCKED'
+    || code === 'SESSION_NOT_AUTHORIZED'
+    || code === 'SESSION_EXPIRED'
+    || code === 'SESSION_STALE'
+    || code === 'POLICY_NOT_CONFIGURED'
+    || code === 'INVALID_POLICY_WITNESS';
 }
 
 async function requestProxy<TResponse>(

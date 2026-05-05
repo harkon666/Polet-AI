@@ -9,6 +9,7 @@ import {
   createUndelegateIntent,
   createDcaIntent,
   createMultichainStrategyIntent,
+  createPoletAgent,
   createRiskGatedSwapIntent,
   evaluateIntentWithProxy,
   isValidIntent,
@@ -478,6 +479,164 @@ describe('Polet AI SDK - Intent Builder', () => {
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
       })).rejects.toThrow(ProxyRequestError);
+    });
+  });
+
+  describe('createPoletAgent trade API', () => {
+    test('submits a simple USDC to SOL trade through the Jupiter DCA adapter', async () => {
+      const requests: Array<{ url: string; body: unknown }> = [];
+      const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
+        requests.push({
+          url: input.toString(),
+          body: JSON.parse(init?.body?.toString() ?? '{}'),
+        });
+        return Response.json({
+          success: true,
+          data: {
+            allowed: true,
+            code: 'DCA_ALLOWED',
+            executionPath: 'jupiter-swap-v2-build',
+            smartWalletTransaction: { unsignedTransaction: 'base64-tx' },
+            route: { inputMint: JUPITER_USDC_MINT, outputMint: JUPITER_SOL_MINT },
+          },
+        });
+      };
+
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: Array.from({ length: 32 }, () => 7),
+      });
+
+      const result = await polet.trade({ from: 'USDC', to: 'SOL', amount: '5' });
+
+      expect(result.allowed).toBe(true);
+      expect(result.rail).toBe('jupiter');
+      expect(result.status).toBe('preview-ready');
+      expect(result.settlement).toBe('not-executed');
+      expect(result.execution?.path).toBe('jupiter-swap-v2-build');
+      expect(requests[0].url).toBe('https://proxy.polet.ai/intent/dca/run');
+      expect(requests[0].body).toMatchObject({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        amountUsdc: '5',
+        inputMint: JUPITER_USDC_MINT,
+        outputMint: JUPITER_SOL_MINT,
+      });
+    });
+
+    test('submits an explicit Ika trade through the multichain adapter', async () => {
+      const requests: Array<{ url: string; body: unknown }> = [];
+      const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
+        requests.push({
+          url: input.toString(),
+          body: JSON.parse(init?.body?.toString() ?? '{}'),
+        });
+        return Response.json({
+          success: true,
+          data: {
+            allowed: true,
+            code: 'IKA_BRIDGELESS_REQUEST_READY',
+            ikaRequest: {
+              executionRail: 'ika-bridgeless',
+              settlement: 'not-executed',
+              requestId: 'ika-request-1',
+              executionBoundary: { status: 'request-prepared' },
+            },
+          },
+        });
+      };
+
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC', mint: JUPITER_USDC_MINT },
+        to: { chain: 'sui', asset: 'SUI' },
+        amount: '5',
+        strategy: 'dca',
+        slippageBps: 100,
+        encryptionWitness: Array.from({ length: 32 }, () => 3),
+      });
+
+      expect(result.allowed).toBe(true);
+      expect(result.rail).toBe('ika');
+      expect(result.status).toBe('request-prepared');
+      expect(result.settlement).toBe('not-executed');
+      expect(result.execution?.requestId).toBe('ika-request-1');
+      expect(requests[0].url).toBe('https://proxy.polet.ai/intent/multichain/run');
+      expect(requests[0].body).toMatchObject({
+        action: 'multichain-strategy',
+        params: {
+          sourceChain: 'solana',
+          sourceAsset: 'USDC',
+          targetChain: 'sui',
+          targetAsset: 'SUI',
+          executionRail: 'ika',
+          amount: '5',
+        },
+      });
+    });
+
+    test('normalizes blocked policy responses without returning witness bytes', async () => {
+      const witness = Array.from({ length: 32 }, (_, index) => index + 1);
+      const fetchMock = async () => Response.json({
+        success: true,
+        data: {
+          allowed: false,
+          code: 'CONFIDENTIAL_POLICY_BLOCKED',
+          reason: 'Confidential policy blocked this DCA run.',
+        },
+      });
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: witness,
+      });
+
+      const result = await polet.trade({ from: 'USDC', to: 'SOL', amount: '25' });
+
+      expect(result.allowed).toBe(false);
+      expect(result.status).toBe('blocked');
+      expect(result.settlement).toBe('not-executed');
+      expect(result.policy.code).toBe('CONFIDENTIAL_POLICY_BLOCKED');
+      expect(JSON.stringify(result)).not.toContain(witness.join(','));
+    });
+
+    test('normalizes unsupported routes without calling the proxy', async () => {
+      let requestCount = 0;
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: async () => {
+          requestCount += 1;
+          return Response.json({ success: true });
+        },
+        encryptionWitness: Array.from({ length: 32 }, () => 1),
+      });
+
+      const result = await polet.trade({
+        rail: 'jupiter',
+        from: { chain: 'ethereum', asset: 'USDC' },
+        to: { chain: 'solana', asset: 'SOL' },
+        amount: '5',
+      });
+
+      expect(result.allowed).toBe(false);
+      expect(result.rail).toBe('jupiter');
+      expect(result.status).toBe('not-supported');
+      expect(result.settlement).toBe('not-executed');
+      expect(requestCount).toBe(0);
     });
   });
 });

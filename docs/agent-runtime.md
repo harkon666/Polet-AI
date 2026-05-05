@@ -108,3 +108,28 @@ The runner prints JSON with:
 ## Boundary
 
 The runner does not sign or broadcast transactions. It creates agent intents and submits them to the Polet proxy. The proxy returns the policy result and, for allowed Jupiter runs, an unsigned smart-wallet transaction payload for the session signer flow. For Ika, the proxy returns a prepared bridgeless request envelope only; real Ika settlement remains outside this repo until a verified backend path exists.
+
+## High-Level Trade API
+
+Issue 018 adds `createPoletAgent()` for integrations that want one control-layer method instead of selecting lower-level intent builders directly:
+
+```ts
+import { createPoletAgent } from '@polet-ai/sdk';
+
+const polet = createPoletAgent({
+  owner: process.env.POLET_OWNER!,
+  sessionKey: process.env.POLET_SESSION_KEY!,
+  baseUrl: process.env.POLET_PROXY_URL!,
+  encryptionWitness: [1, 2, 3 /* ...32 bytes total */],
+});
+
+const jupiter = await polet.trade({ from: 'USDC', to: 'SOL', amount: '5' });
+const ika = await polet.trade({
+  rail: 'ika',
+  from: { chain: 'solana', asset: 'USDC' },
+  to: { chain: 'sui', asset: 'SUI' },
+  amount: '5',
+});
+```
+
+Allowed Jupiter trades normalize to `status: "preview-ready"` and `settlement: "not-executed"`. Allowed Ika trades normalize to `status: "request-prepared"` and `settlement: "not-executed"`. Ika settlement is not executed by this MVP slice.
