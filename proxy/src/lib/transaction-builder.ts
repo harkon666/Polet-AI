@@ -7,6 +7,12 @@ import {
   type Signer,
 } from '@solana/web3.js';
 import type { Attestation, Intent } from '../types/intent';
+import {
+  buildExecuteConfidentialTransferAccounts,
+  buildExecuteConfidentialTransferPayload,
+  encodeU64Le,
+  TRANSFER_INTENT_LENGTH,
+} from './execution-payload';
 
 /**
  * Transaction builder for constructing Solana transactions
@@ -52,7 +58,7 @@ export function buildExecuteIntentData(
   destination: Uint8Array,
   amount: bigint
 ): Uint8Array {
-  const data = new Uint8Array(41); // 1 + 32 + 8
+  const data = new Uint8Array(TRANSFER_INTENT_LENGTH); // 1 + 32 + 8
   data[0] = instruction;
   data.set(destination, 1);
   data.set(to_LE_Bytes(amount), 33);
@@ -62,42 +68,14 @@ export function buildExecuteIntentData(
 export function buildExecuteConfidentialTransferInstructionData(
   request: ConfidentialTransferTransactionRequest
 ): Buffer {
-  const discriminator = Buffer.from([142, 74, 175, 147, 39, 73, 10, 41]);
-  const destination = new PublicKey(request.destination);
-  const intentData = buildExecuteIntentData(0, destination.toBytes(), BigInt(request.amount));
-  const witness = Uint8Array.from(request.encryptionWitness);
-
-  if (witness.length !== 32) {
-    throw new Error('encryptionWitness must contain exactly 32 bytes');
-  }
-
-  return Buffer.concat([
-    discriminator,
-    toU32Le(intentData.length),
-    Buffer.from(intentData),
-    Buffer.from(to_LE_Bytes(BigInt(request.attestationSlot))),
-    Buffer.from(to_LE_Bytes(BigInt(request.attestationPolicySeq))),
-    Buffer.from(witness),
-  ]);
+  return buildExecuteConfidentialTransferPayload(request);
 }
 
 /**
  * Convert a bigint to little-endian bytes
  */
 export function to_LE_Bytes(num: bigint): Uint8Array {
-  const arr = new Uint8Array(8);
-  let n = num;
-  for (let i = 0; i < 8; i++) {
-    arr[i] = Number(n & 0xffn);
-    n >>= 8n;
-  }
-  return arr;
-}
-
-function toU32Le(num: number): Buffer {
-  const buffer = Buffer.alloc(4);
-  buffer.writeUInt32LE(num, 0);
-  return buffer;
+  return Uint8Array.from(encodeU64Le(num));
 }
 
 export async function buildConfidentialTransferSessionTransaction(
@@ -108,18 +86,11 @@ export async function buildConfidentialTransferSessionTransaction(
   const { blockhash } = await connection.getLatestBlockhash();
   const recentSlot = await connection.getSlot();
 
-  const walletPubkey = new PublicKey(request.wallet);
   const sessionKeyPubkey = new PublicKey(request.sessionKey);
-  const destinationPubkey = new PublicKey(request.destination);
   const programIdPubkey = new PublicKey(programId);
 
   const instruction = new TransactionInstruction({
-    keys: [
-      { pubkey: walletPubkey, isSigner: false, isWritable: true },
-      { pubkey: sessionKeyPubkey, isSigner: true, isWritable: false },
-      { pubkey: destinationPubkey, isSigner: false, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ],
+    keys: buildExecuteConfidentialTransferAccounts(request),
     programId: programIdPubkey,
     data: buildExecuteConfidentialTransferInstructionData(request),
   });

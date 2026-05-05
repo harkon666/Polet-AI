@@ -35,10 +35,7 @@ pub fn enforce_confidential_numeric_policy(
     Ok(())
 }
 
-fn verify_witness(
-    policy: &ConfidentialNumericPolicy,
-    encryption_witness: &[u8; 32],
-) -> Result<()> {
+fn verify_witness(policy: &ConfidentialNumericPolicy, encryption_witness: &[u8; 32]) -> Result<()> {
     require!(
         policy.enabled && policy.policy_commitment != [0u8; 32],
         ErrorCode::ConfidentialPolicyNotConfigured

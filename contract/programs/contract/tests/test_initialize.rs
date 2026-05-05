@@ -1,5 +1,9 @@
 use {
     anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas},
+    contract::execution_payload::{
+        TRANSFER_INTENT_AMOUNT_OFFSET, TRANSFER_INTENT_DESTINATION_OFFSET,
+        TRANSFER_INTENT_INSTRUCTION, TRANSFER_INTENT_LEN,
+    },
     litesvm::LiteSVM,
     solana_account::Account,
     solana_keypair::Keypair,
@@ -11,12 +15,12 @@ use {
 
 const WALLET_SEED: &[u8] = b"polet_wallet";
 const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
-    6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133,
-    237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
+    6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133, 237,
+    95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
 ];
 const WSOL_MINT_BYTES: [u8; 32] = [
-    6, 155, 136, 87, 254, 171, 129, 132, 251, 104, 127, 99, 70, 24, 192, 53, 218, 196, 57, 220,
-    26, 235, 59, 85, 152, 160, 240, 0, 0, 0, 0, 1,
+    6, 155, 136, 87, 254, 171, 129, 132, 251, 104, 127, 99, 70, 24, 192, 53, 218, 196, 57, 220, 26,
+    235, 59, 85, 152, 160, 240, 0, 0, 0, 0, 1,
 ];
 
 fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
@@ -227,9 +231,22 @@ fn register_demo_custody(
 }
 
 fn transfer_intent(destination: anchor_lang::prelude::Pubkey, amount: u64) -> Vec<u8> {
-    let mut data = vec![0u8];
+    let mut data = vec![TRANSFER_INTENT_INSTRUCTION];
     data.extend_from_slice(destination.as_ref());
     data.extend_from_slice(&amount.to_le_bytes());
+    assert_eq!(data.len(), TRANSFER_INTENT_LEN);
+    assert_eq!(
+        &data[TRANSFER_INTENT_DESTINATION_OFFSET..TRANSFER_INTENT_DESTINATION_OFFSET + 32],
+        destination.as_ref()
+    );
+    assert_eq!(
+        u64::from_le_bytes(
+            data[TRANSFER_INTENT_AMOUNT_OFFSET..TRANSFER_INTENT_LEN]
+                .try_into()
+                .unwrap()
+        ),
+        amount
+    );
     data
 }
 
@@ -361,7 +378,13 @@ fn owner_can_register_pda_owned_demo_token_custody() {
     let usdc_mint = Keypair::new().pubkey();
     let usdc_token_account = Keypair::new().pubkey();
     let sol_token_account = Keypair::new().pubkey();
-    write_mock_token_account(&mut svm, usdc_token_account, usdc_mint, wallet_pda, 25_000_000);
+    write_mock_token_account(
+        &mut svm,
+        usdc_token_account,
+        usdc_mint,
+        wallet_pda,
+        25_000_000,
+    );
     write_mock_token_account(&mut svm, sol_token_account, wsol_mint(), wallet_pda, 0);
 
     register_demo_custody(

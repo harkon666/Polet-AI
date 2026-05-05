@@ -1,5 +1,21 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  Keypair,
+  PublicKey,
+  SystemProgram,
+} from '@solana/web3.js';
+import {
+  EXECUTE_CONFIDENTIAL_TRANSFER_AS_SESSION_DISCRIMINATOR,
+  TRANSFER_INTENT_AMOUNT_OFFSET,
+  TRANSFER_INTENT_DESTINATION_OFFSET,
+  TRANSFER_INTENT_INSTRUCTION,
+  TRANSFER_INTENT_LENGTH,
+  buildExecuteConfidentialTransferAccounts,
+  buildExecuteConfidentialTransferPayload,
+  buildTransferIntentPayload,
+} from '../src/lib/execution-payload.js';
+import {
+  buildExecuteConfidentialTransferInstructionData,
   buildExecuteIntentData,
   to_LE_Bytes,
   type TransactionRequest,
@@ -39,7 +55,7 @@ describe('Transaction Builder', () => {
 
       const data = buildExecuteIntentData(instruction, destination, amount);
 
-      expect(data.length).toBe(41); // 1 + 32 + 8
+      expect(data.length).toBe(TRANSFER_INTENT_LENGTH); // 1 + 32 + 8
       expect(data[0]).toBe(0); // instruction byte
       expect(data.slice(1, 33)).toEqual(destination); // destination bytes
       // Last 8 bytes should be the little-endian amount
@@ -68,6 +84,95 @@ describe('Transaction Builder', () => {
       const amountBytes = data.slice(33, 41);
       expect(amountBytes[0]).toBe(1);
       expect(amountBytes.every((b, i) => i === 0 || b === 0)).toBe(true);
+    });
+  });
+
+  describe('execution payload module', () => {
+    test('builds the exact transfer intent payload parsed by the contract', () => {
+      const destination = Keypair.generate().publicKey;
+      const amount = 5_000_000n;
+
+      const data = buildTransferIntentPayload(destination, amount);
+
+      expect(data.length).toBe(TRANSFER_INTENT_LENGTH);
+      expect(data[0]).toBe(TRANSFER_INTENT_INSTRUCTION);
+      expect(data.subarray(
+        TRANSFER_INTENT_DESTINATION_OFFSET,
+        TRANSFER_INTENT_DESTINATION_OFFSET + 32
+      )).toEqual(Buffer.from(destination.toBytes()));
+      expect(data.readBigUInt64LE(TRANSFER_INTENT_AMOUNT_OFFSET)).toBe(amount);
+    });
+
+    test('builds the exact confidential transfer instruction argument layout', () => {
+      const destination = Keypair.generate().publicKey;
+      const witness = Array.from({ length: 32 }, (_, index) => index + 1);
+      const data = buildExecuteConfidentialTransferPayload({
+        destination: destination.toString(),
+        amount: 5_000_000n,
+        attestationSlot: 9n,
+        attestationPolicySeq: 3n,
+        encryptionWitness: witness,
+      });
+
+      expect(data.subarray(0, 8)).toEqual(EXECUTE_CONFIDENTIAL_TRANSFER_AS_SESSION_DISCRIMINATOR);
+      expect(data.readUInt32LE(8)).toBe(TRANSFER_INTENT_LENGTH);
+      expect(data[12]).toBe(TRANSFER_INTENT_INSTRUCTION);
+      expect(data.subarray(13, 45)).toEqual(Buffer.from(destination.toBytes()));
+      expect(data.readBigUInt64LE(45)).toBe(5_000_000n);
+      expect(data.readBigUInt64LE(53)).toBe(9n);
+      expect(data.readBigUInt64LE(61)).toBe(3n);
+      expect(Array.from(data.subarray(69, 101))).toEqual(witness);
+      expect(data.length).toBe(101);
+    });
+
+    test('transaction builder delegates confidential instruction data to the payload module', () => {
+      const destination = PublicKey.unique();
+      const witness = Array.from({ length: 32 }, (_, index) => index + 1);
+      const request = {
+        wallet: Keypair.generate().publicKey.toString(),
+        sessionKey: Keypair.generate().publicKey.toString(),
+        destination: destination.toString(),
+        amount: 5_000_000n,
+        attestationSlot: 9n,
+        attestationPolicySeq: 3n,
+        encryptionWitness: witness,
+      };
+
+      expect(buildExecuteConfidentialTransferInstructionData(request)).toEqual(
+        buildExecuteConfidentialTransferPayload(request)
+      );
+    });
+
+    test('defines the confidential transfer account ordering used by the contract', () => {
+      const wallet = Keypair.generate().publicKey;
+      const sessionKey = Keypair.generate().publicKey;
+      const destination = Keypair.generate().publicKey;
+
+      const metas = buildExecuteConfidentialTransferAccounts({
+        wallet: wallet.toString(),
+        sessionKey: sessionKey.toString(),
+        destination: destination.toString(),
+      });
+
+      expect(metas).toEqual([
+        { pubkey: wallet, isSigner: false, isWritable: true },
+        { pubkey: sessionKey, isSigner: true, isWritable: false },
+        { pubkey: destination, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ]);
+    });
+
+    test('rejects witness and amount values outside the contract layout', () => {
+      const destination = Keypair.generate().publicKey.toString();
+
+      expect(() => buildExecuteConfidentialTransferPayload({
+        destination,
+        amount: 1n,
+        attestationSlot: 1n,
+        attestationPolicySeq: 1n,
+        encryptionWitness: [1, 2, 3],
+      })).toThrow('encryptionWitness must contain exactly 32 bytes');
+      expect(() => buildTransferIntentPayload(destination, -1n)).toThrow('u64 value out of range');
     });
   });
 

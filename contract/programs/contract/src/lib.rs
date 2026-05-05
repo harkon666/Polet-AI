@@ -3,18 +3,20 @@ use anchor_lang::prelude::*;
 pub mod confidential_policy;
 pub mod constants;
 pub mod error;
+pub mod execution_payload;
 pub mod state;
 
 declare_id!("J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus");
 
+use confidential_policy::enforce_confidential_numeric_policy;
 pub use constants::WALLET_SEED;
 pub use error::ErrorCode;
+use execution_payload::parse_transfer_intent;
 pub use state::{ConfidentialNumericPolicy, DemoTokenCustody, SessionKey, Wallet};
-use confidential_policy::enforce_confidential_numeric_policy;
 
 const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
-    6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133,
-    237, 95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
+    6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133, 237,
+    95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
 ];
 
 #[derive(Accounts)]
@@ -147,29 +149,6 @@ pub struct ExecuteConfidentialTransferAsSession<'info> {
     #[account(mut)]
     pub destination: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
-}
-
-fn parse_transfer_intent(intent_data: &[u8], expected_destination: &Pubkey) -> Result<(u8, u64)> {
-    require!(intent_data.len() == 41, ErrorCode::InvalidIntent);
-
-    let instruction = intent_data[0];
-    let destination = Pubkey::new_from_array(
-        intent_data[1..33]
-            .try_into()
-            .map_err(|_| ErrorCode::InvalidIntent)?,
-    );
-    require!(
-        destination == *expected_destination,
-        ErrorCode::InvalidIntent
-    );
-
-    let amount = u64::from_le_bytes(
-        intent_data[33..41]
-            .try_into()
-            .map_err(|_| ErrorCode::InvalidIntent)?,
-    );
-
-    Ok((instruction, amount))
 }
 
 fn require_policy_commitment(wallet: &Wallet) -> Result<()> {
@@ -441,21 +420,19 @@ pub mod contract {
 
     pub fn execute_intent(ctx: Context<ExecuteIntent>, intent_data: Vec<u8>) -> Result<()> {
         require_policy_commitment(&ctx.accounts.wallet)?;
-        let (instruction, amount) =
-            parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
+        let payload = parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
 
-        require!(instruction == 0, ErrorCode::InvalidIntent);
         transfer_lamports(
             ctx.accounts.wallet.to_account_info(),
             ctx.accounts.destination.to_account_info(),
-            amount,
+            payload.amount,
         )?;
 
         msg!(
             "Owner executed intent: instruction={}, dest={:?}, amount={}",
-            instruction,
+            payload.instruction,
             ctx.accounts.destination.key(),
-            amount
+            payload.amount
         );
         Ok(())
     }
@@ -488,21 +465,19 @@ pub mod contract {
             ErrorCode::StaleSlot
         );
 
-        let (instruction, amount) =
-            parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
+        let payload = parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
 
-        require!(instruction == 0, ErrorCode::InvalidIntent);
         transfer_lamports(
             ctx.accounts.wallet.to_account_info(),
             ctx.accounts.destination.to_account_info(),
-            amount,
+            payload.amount,
         )?;
 
         msg!(
             "Session executed intent: instruction={}, dest={:?}, amount={}",
-            instruction,
+            payload.instruction,
             ctx.accounts.destination.key(),
-            amount
+            payload.amount
         );
         Ok(())
     }
@@ -525,20 +500,22 @@ pub mod contract {
             ErrorCode::StaleSlot
         );
 
-        let (instruction, amount) =
-            parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
-        require!(instruction == 0, ErrorCode::InvalidIntent);
+        let payload = parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
 
-        enforce_confidential_numeric_policy(&mut ctx.accounts.wallet, amount, &encryption_witness)?;
+        enforce_confidential_numeric_policy(
+            &mut ctx.accounts.wallet,
+            payload.amount,
+            &encryption_witness,
+        )?;
         transfer_lamports(
             ctx.accounts.wallet.to_account_info(),
             ctx.accounts.destination.to_account_info(),
-            amount,
+            payload.amount,
         )?;
 
         msg!(
             "Session executed confidential intent: instruction={}, dest={:?}",
-            instruction,
+            payload.instruction,
             ctx.accounts.destination.key(),
         );
         Ok(())
