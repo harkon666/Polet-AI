@@ -49,7 +49,6 @@ Track alignment:
 
 ### Critical Path
 
-- `030-control-layer-frontend-ika-dwallet-demo`
 - `031-ika-devnet-smoke-and-messageapproval-verification`
 - `032-control-layer-readme-video-narrative`
 
@@ -215,6 +214,9 @@ Track alignment:
 - [x] `029-agent-sdk-ika-sui-signed-intent` — Updated the SDK high-level agent API for Sui-primary Ika signed-intent approvals. `createPoletAgent().trade({ rail: "ika", to: { chain: "sui", asset: "SUI" } })` now normalizes proxy-built Polet approval transactions into `details.proof` with dWallet, canonical order hash, message hash, MessageApproval, CPI authority, signature scheme, destination, optional devnet smoke proof, and non-settlement boundary. Unsupported Ika destinations are rejected before proxy submission, expired orders normalize to blocked, and returned high-level intents redact confidential witness bytes. The local runner now supports `ika-sui` plus the existing hybrid flow.
   - Verification: `bun test` and `bun run build` pass in `sdk/`.
   - Note: the SDK still does not sign or broadcast transactions; issue 031 owns live devnet smoke verification.
+- [x] `030-control-layer-frontend-ika-dwallet-demo` — Reframed the consumer demo as a confidential Solana control layer for AI agents instead of a DCA-only wallet. The primary panel now shows Jupiter as the Solana USDC -> SOL strategy rail and Ika as the Sui/SUI dWallet rail, with Ethereum/ETH marked optional future. Added separate 25 USDC-equivalent blocked and 5 USDC-equivalent approved Ika actions; blocked Ika logs suppress dWallet approval data and private thresholds, while approved logs show an Ika dWallet message-approved proof with dWallet, MessageApproval, message hash, signature scheme, and pre-alpha non-settlement boundary.
+  - Verification: `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`; `bunx playwright test` passes in `frontend/` against an escalated local dev server.
+  - Note: the frontend still does not sign, simulate, or broadcast the Polet/Ika approval transaction. Issue 031 owns live devnet smoke verification.
 
 ### Planning
 

@@ -261,6 +261,7 @@ export interface IkaRequestPreview {
   executionRail: 'ika-bridgeless';
   settlement: 'not-executed';
   requestId: string;
+  canonicalOrderHash?: string;
   source: {
     chain: string;
     asset: string;
@@ -282,8 +283,22 @@ export interface IkaRequestPreview {
     attestationHash: string;
   };
   executionBoundary: {
-    status: 'request-prepared';
+    status: 'request-prepared' | 'message-approved' | 'signature-pending' | 'signature-produced-prealpha';
     note: string;
+  };
+  preAlphaSigning?: {
+    status?: 'request-prepared' | 'message-approved' | 'signature-pending' | 'signature-produced-prealpha';
+    dwalletAccount?: string;
+    messageDigest?: string;
+    messageApprovalPda?: string;
+    cpiAuthorityPda?: string;
+    signatureScheme?: string;
+  };
+  poletApprovalTransaction?: {
+    transaction?: string;
+    blockHash?: string;
+    slot?: number;
+    signers?: string[];
   };
 }
 

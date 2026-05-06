@@ -64,39 +64,62 @@ const e2eApi = {
       },
     };
   },
-  runMultichainIntent: async (input: RunMultichainIntentInput) => ({
-    allowed: true,
-    code: 'IKA_BRIDGELESS_REQUEST_READY',
-    ikaRequest: {
-      executionRail: 'ika-bridgeless' as const,
-      settlement: 'not-executed' as const,
-      requestId: 'ika-test-request',
-      source: {
-        chain: input.sourceChain,
-        asset: input.sourceAsset,
+  runMultichainIntent: async (input: RunMultichainIntentInput) => {
+    if (input.amount === '25') {
+      return {
+        allowed: false,
+        code: 'CONFIDENTIAL_POLICY_BLOCKED',
+        reason: 'Confidential policy blocked this Ika request.',
+      };
+    }
+
+    return {
+      allowed: true,
+      code: 'IKA_PREALPHA_MESSAGE_APPROVED',
+      ikaRequest: {
+        executionRail: 'ika-bridgeless' as const,
+        settlement: 'not-executed' as const,
+        requestId: 'ika-test-request',
+        canonicalOrderHash: 'canonical-order-hash',
+        source: {
+          chain: input.sourceChain,
+          asset: input.sourceAsset,
+        },
+        target: {
+          chain: input.targetChain,
+          asset: input.targetAsset,
+        },
+        amount: input.amount,
+        sessionContext: {
+          owner: input.owner,
+          sessionKey: input.sessionKey,
+          smartWalletAuthority: 'wallet-pda',
+          policySequence: 3,
+        },
+        policyAttestation: {
+          status: 'approved' as const,
+          policySequence: 3,
+          attestationHash: 'safe-attestation-hash',
+        },
+        executionBoundary: {
+          status: 'message-approved' as const,
+          note: 'Ika Pre-Alpha approval transaction prepared; settlement is not executed.',
+        },
+        preAlphaSigning: {
+          status: 'message-approved' as const,
+          dwalletAccount: 'DwalleT111111111111111111111111111111111111',
+          messageDigest: '8d'.repeat(32),
+          messageApprovalPda: 'MsgApprove1111111111111111111111111111111',
+          cpiAuthorityPda: 'CpiAuth1111111111111111111111111111111111',
+          signatureScheme: 'ed25519-prealpha',
+        },
+        poletApprovalTransaction: {
+          transaction: 'polet-ika-approval-tx',
+          signers: [input.sessionKey],
+        },
       },
-      target: {
-        chain: input.targetChain,
-        asset: input.targetAsset,
-      },
-      amount: input.amount,
-      sessionContext: {
-        owner: input.owner,
-        sessionKey: input.sessionKey,
-        smartWalletAuthority: 'wallet-pda',
-        policySequence: 3,
-      },
-      policyAttestation: {
-        status: 'approved' as const,
-        policySequence: 3,
-        attestationHash: 'safe-attestation-hash',
-      },
-      executionBoundary: {
-        status: 'request-prepared' as const,
-        note: 'Ika settlement is not executed.',
-      },
-    },
-  }),
+    };
+  },
 };
 
 function E2EConsumerDemoPage() {

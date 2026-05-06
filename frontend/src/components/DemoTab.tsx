@@ -88,9 +88,9 @@ const DEFAULT_API: DemoApi = {
 const COPY = {
   id: {
     language: 'Bahasa',
-    title: 'Demo DCA Rahasia',
+    title: 'Control Layer Rahasia untuk AI Agents',
     subtitle:
-      'Flow ini memakai proxy dan contract Polet sungguhan: owner menandatangani setup, proxy membaca state on-chain, lalu agent run dibangun lewat policy gate dan Jupiter.',
+      'Polet adalah control layer Solana rahasia untuk AI agents: owner menandatangani setup, proxy membaca state on-chain, lalu setiap rail eksekusi agent melewati policy gate.',
     walletTitle: 'Smart wallet',
     walletBody: 'Siapkan custody PDA untuk demo DCA USDC ke SOL. Tidak ada hasil palsu jika proxy atau contract belum siap.',
     initialized: 'Owner wallet aktif',
@@ -109,7 +109,11 @@ const COPY = {
     redacted: 'Nilai privat disembunyikan',
     encryptedMax: 'Maks per run terenkripsi',
     encryptedDaily: 'Batas harian terenkripsi',
-    strategyTitle: 'Strategi DCA',
+    strategyTitle: 'Execution rails agent',
+    jupiterRailTitle: 'Jupiter strategy rail',
+    ikaRailTitle: 'Ika dWallet rail',
+    suiPrimary: 'Sui/SUI primary destination',
+    ethereumFuture: 'Ethereum/ETH optional future',
     multichainBoundary: 'Intent multichain',
     executionRail: 'Execution rail',
     settlementBoundary: 'Settlement Ika belum dijalankan di slice ini',
@@ -122,7 +126,8 @@ const COPY = {
     runNow: 'Run Agent Now',
     runAllowed: 'Run 5 USDC via proxy',
     runBlocked: 'Try 25 USDC via proxy',
-    runIka: 'Request Ika bridgeless route',
+    runIka: 'Approve 5 USDC-equivalent Ika',
+    runIkaBlocked: 'Try 25 Ika request',
     activityTitle: 'Activity log',
     emptyLog: 'Belum ada aktivitas agen.',
     approved: 'DISETUJUI',
@@ -132,14 +137,21 @@ const COPY = {
     approvedMessage: 'Guardrail mengizinkan request dan proxy mengembalikan unsigned smart-wallet transaction untuk ditandatangani wallet agent.',
     blockedMessage: 'Guardrail policy menolak run tanpa membuka batas privat pengguna.',
     jupiterRouteReady: 'Jupiter route siap',
-    ikaRouteRequested: 'Bridgeless route requested',
+    ikaRouteRequested: 'Ika dWallet message approved',
+    ikaRouteBlocked: 'Ika request blocked',
     expectedOutput: 'Estimasi output',
     minOutput: 'Min setelah slippage',
     routeEngine: 'Route',
     policyTxReady: 'Tx policy-gated siap',
     signer: 'Signer',
     executionBoundary: 'Preview: route/build Jupiter ditampilkan sebagai estimasi dari proxy; swap nyata tidak dikirim dari frontend ini.',
-    ikaExecutionBoundary: 'Ika request envelope siap; settlement bridgeless nyata belum dieksekusi.',
+    ikaExecutionBoundary: 'Ika dWallet message approved: Polet membangun unsigned approval transaction setelah policy lulus; settlement bridgeless nyata belum dieksekusi.',
+    ikaBlockedBoundary: 'Guardrail menolak request Ika tanpa membuat data approval dWallet.',
+    ikaTechnicalDetails: 'Technical proof',
+    dwallet: 'dWallet',
+    messageApproval: 'MessageApproval',
+    messageHash: 'Message hash',
+    signatureScheme: 'Signature scheme',
     privacyNote: 'Log aman: threshold, sisa cap, dan witness tidak ditampilkan.',
     preAlpha: 'Encrypt pre-alpha demo: ini membuktikan alur enforcement, bukan klaim privasi produksi.',
     demoTruth: 'Yang real di demo: setup wallet/policy on-chain, authorization agent, dan guardrail allow/block. Yang masih preview: price/route Jupiter dan transaksi swap.',
@@ -168,9 +180,9 @@ const COPY = {
   },
   en: {
     language: 'English',
-    title: 'Confidential DCA Demo',
+    title: 'Confidential Control Layer for AI Agents',
     subtitle:
-      'This flow uses the real Polet proxy and contract: the owner signs setup, the proxy reads on-chain state, then the agent run is built through the policy gate and Jupiter.',
+      'Polet is a confidential Solana control layer for AI agents: the owner signs setup, the proxy reads on-chain state, then every agent execution rail passes through the policy gate.',
     walletTitle: 'Smart wallet',
     walletBody: 'Set up PDA custody for the USDC to SOL DCA demo. The UI does not fake outcomes when the proxy or contract is not ready.',
     initialized: 'Owner wallet active',
@@ -189,7 +201,11 @@ const COPY = {
     redacted: 'Private values hidden',
     encryptedMax: 'Encrypted max per run',
     encryptedDaily: 'Encrypted daily cap',
-    strategyTitle: 'DCA strategy',
+    strategyTitle: 'Agent execution rails',
+    jupiterRailTitle: 'Jupiter strategy rail',
+    ikaRailTitle: 'Ika dWallet rail',
+    suiPrimary: 'Sui/SUI primary destination',
+    ethereumFuture: 'Ethereum/ETH optional future',
     multichainBoundary: 'Multichain intent',
     executionRail: 'Execution rail',
     settlementBoundary: 'Ika settlement is not executed in this slice',
@@ -202,7 +218,8 @@ const COPY = {
     runNow: 'Run Agent Now',
     runAllowed: 'Run 5 USDC through proxy',
     runBlocked: 'Try 25 USDC through proxy',
-    runIka: 'Request Ika bridgeless route',
+    runIka: 'Approve 5 USDC-equivalent Ika',
+    runIkaBlocked: 'Try 25 Ika request',
     activityTitle: 'Activity log',
     emptyLog: 'No agent activity yet.',
     approved: 'APPROVED',
@@ -212,14 +229,21 @@ const COPY = {
     approvedMessage: 'The guardrail allowed the request and the proxy returned an unsigned smart-wallet transaction for the agent wallet to sign.',
     blockedMessage: 'The guardrail policy rejected the run without revealing the user private limits.',
     jupiterRouteReady: 'Jupiter route ready',
-    ikaRouteRequested: 'Bridgeless route requested',
+    ikaRouteRequested: 'Ika dWallet message approved',
+    ikaRouteBlocked: 'Ika request blocked',
     expectedOutput: 'Expected output',
     minOutput: 'Min after slippage',
     routeEngine: 'Route engine',
     policyTxReady: 'Policy-gated payload',
     signer: 'Authorized signer',
     executionBoundary: 'Preview: Jupiter route is built; real mainnet swap is not executed in this demo.',
-    ikaExecutionBoundary: 'Ika request envelope is ready; bridgeless settlement is not executed.',
+    ikaExecutionBoundary: 'Ika dWallet message approved: Polet built an unsigned approval transaction after policy approval; bridgeless settlement is not executed.',
+    ikaBlockedBoundary: 'The guardrail rejected this Ika request without creating dWallet approval data.',
+    ikaTechnicalDetails: 'Technical proof',
+    dwallet: 'dWallet',
+    messageApproval: 'MessageApproval',
+    messageHash: 'Message hash',
+    signatureScheme: 'Signature scheme',
     privacyNote: 'Safe log: thresholds, remaining cap, and witness values are not displayed.',
     preAlpha: 'Encrypt pre-alpha demo: this proves the enforcement flow, not production privacy.',
     demoTruth: 'Real in this demo: on-chain wallet/policy setup, agent authorization, and guardrail allow/block. Still preview: Jupiter price/route and swap transaction execution.',
@@ -302,6 +326,7 @@ export function DemoTabContent({
   const hasAgent = Boolean(agentAddress.trim());
   const hasBlockedRun = activity.some((entry) => entry.status === 'blocked' && entry.amountUsdc === '25');
   const hasAllowedRun = activity.some((entry) => entry.status === 'approved' && entry.amountUsdc === (strategy.amountUsdc || '5'));
+  const hasBlockedIkaRun = activity.some((entry) => entry.status === 'blocked' && entry.amountUsdc === '25' && entry.route?.includes('Ika'));
   const hasSafeLog = activity.length > 0 && activity.every((entry) => !entry.message.includes('10 USDC') && !entry.message.includes('20 USDC'));
   const strategyReady = strategy.inputMint === 'USDC' && strategy.outputMint === 'SOL' && Boolean(strategy.amountUsdc);
   const canSavePolicy = Boolean(owner && custody && hasAgent && !busy);
@@ -464,7 +489,7 @@ export function DemoTabContent({
     }
   };
 
-  const requestIkaRoute = async () => {
+  const requestIkaRoute = async (amount: string) => {
     if (!owner) {
       recordError(t.missingOwner);
       return;
@@ -474,7 +499,7 @@ export function DemoTabContent({
       return;
     }
 
-    setBusy('ika');
+    setBusy(`ika-${amount}`);
     setError(null);
     try {
       const result: RunMultichainIntentResult = await api.runMultichainIntent({
@@ -484,7 +509,7 @@ export function DemoTabContent({
         sourceAsset: 'USDC',
         targetChain: 'sui',
         targetAsset: 'SUI',
-        amount: strategy.amountUsdc || '5',
+        amount,
         executionRail: 'ika',
         strategy: 'dca',
         slippageBps: 100,
@@ -492,9 +517,9 @@ export function DemoTabContent({
       });
       addActivity({
         status: result.allowed ? 'approved' : 'blocked',
-        amountUsdc: strategy.amountUsdc || '5',
-        message: result.allowed ? t.ikaExecutionBoundary : result.reason ?? t.blockedMessage,
-        route: result.allowed ? 'Ika bridgeless request' : result.code,
+        amountUsdc: amount,
+        message: result.allowed ? t.ikaExecutionBoundary : result.reason ?? t.ikaBlockedBoundary,
+        route: result.allowed ? 'Ika dWallet approval' : `Ika ${result.code}`,
         ikaRequest: result.allowed ? result.ikaRequest : undefined,
         smartWalletAuthority: result.allowed ? result.ikaRequest?.sessionContext.smartWalletAuthority : undefined,
       });
@@ -676,6 +701,18 @@ export function DemoTabContent({
               </div>
               <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">{t.settlementBoundary}</p>
             </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.jupiterRailTitle}</p>
+                <p className="mt-1 text-sm font-bold text-[var(--sea-ink)]">Solana USDC {'->'} Solana SOL</p>
+                <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">Jupiter route/build preview, guarded by Polet policy.</p>
+              </div>
+              <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.ikaRailTitle}</p>
+                <p className="mt-1 text-sm font-bold text-[var(--sea-ink)]">{t.suiPrimary}</p>
+                <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">{t.ethereumFuture}</p>
+              </div>
+            </div>
             <InfoRow label={t.fromTo} value={`${strategy.inputMint} -> ${strategy.outputMint}`} />
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.amount} (USDC)</span>
@@ -700,7 +737,7 @@ export function DemoTabContent({
             </label>
             <InfoRow label={t.cadence} value={strategy.cadence} />
           </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <button
               onClick={() => runAgent('25')}
               disabled={!canRunBlocked}
@@ -719,18 +756,29 @@ export function DemoTabContent({
               {busy === `run-${strategy.amountUsdc || '5'}` ? '...' : t.runAllowed}
             </button>
             <button
-              onClick={requestIkaRoute}
+              onClick={() => requestIkaRoute('25')}
+              disabled={!canRequestIka}
+              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-red-500 transition-all hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <X className="h-3.5 w-3.5" />
+              {busy === 'ika-25' ? '...' : t.runIkaBlocked}
+            </button>
+            <button
+              onClick={() => requestIkaRoute('5')}
               disabled={!canRequestIka}
               className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-[var(--sea-ink)] transition-all hover:bg-[var(--link-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Landmark className="h-3.5 w-3.5" />
-              {busy === 'ika' ? '...' : t.runIka}
+              {busy === 'ika-5' ? '...' : t.runIka}
             </button>
           </div>
-          <p className="mt-3 text-[10px] uppercase tracking-wider text-[var(--sea-ink-soft)] font-bold">{t.runNow}: 25 USDC block scenario, 5 USDC allow scenario.</p>
+          <p className="mt-3 text-[10px] uppercase tracking-wider text-[var(--sea-ink-soft)] font-bold">{t.runNow}: Jupiter and Ika each show block/allow policy behavior.</p>
+          {hasBlockedIkaRun && (
+            <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-red-500">{t.ikaRouteBlocked}: no dWallet approval data.</p>
+          )}
         </Panel>
 
-        <Panel icon={<Activity className="h-5 w-5" />} title={t.activityTitle}>
+        <Panel icon={<Activity className="h-5 w-5" />} title={t.activityTitle} testId="activity-log-panel">
           <p className="mb-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs font-medium text-[var(--sea-ink-soft)]">
             {t.privacyNote}
           </p>
@@ -754,9 +802,9 @@ export function DemoTabContent({
   );
 }
 
-function Panel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
+function Panel({ icon, title, children, testId }: { icon: ReactNode; title: string; children: ReactNode; testId?: string }) {
   return (
-    <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-5">
+    <div data-testid={testId} className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-5">
       <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-[var(--sea-ink)]">
         <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--lagoon)]/10 text-[var(--lagoon)]">
           {icon}
@@ -842,6 +890,7 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
 }
 
 function IkaRequestPreviewCard({ request, labels }: { request: IkaRequestPreview; labels: (typeof COPY)[Locale] }) {
+  const signing = request.preAlphaSigning;
   return (
     <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
       <InfoPill label={labels.ikaRouteRequested} value={labels.ikaExecutionBoundary} wide />
@@ -849,6 +898,11 @@ function IkaRequestPreviewCard({ request, labels }: { request: IkaRequestPreview
       <InfoPill label="Target" value={`${request.target.chain.toUpperCase()} ${request.target.asset}`} />
       <InfoPill label="Request" value={request.requestId} />
       <InfoPill label="Policy seq" value={request.policyAttestation.policySequence.toString()} />
+      <InfoPill label={labels.ikaTechnicalDetails} value={request.executionBoundary.note} wide />
+      <InfoPill label={labels.dwallet} value={signing?.dwalletAccount ? short(signing.dwalletAccount) : 'Pre-Alpha dWallet'} />
+      <InfoPill label={labels.messageApproval} value={signing?.messageApprovalPda ? short(signing.messageApprovalPda) : 'Pending account'} />
+      <InfoPill label={labels.messageHash} value={signing?.messageDigest ? short(signing.messageDigest) : request.canonicalOrderHash ? short(request.canonicalOrderHash) : 'Canonical order hash'} />
+      <InfoPill label={labels.signatureScheme} value={signing?.signatureScheme ?? 'Pre-Alpha'} />
     </div>
   );
 }

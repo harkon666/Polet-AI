@@ -76,39 +76,62 @@ const api = {
       },
     };
   },
-  runMultichainIntent: async (input: RunMultichainIntentInput) => ({
-    allowed: true,
-    code: 'IKA_BRIDGELESS_REQUEST_READY',
-    ikaRequest: {
-      executionRail: 'ika-bridgeless' as const,
-      settlement: 'not-executed' as const,
-      requestId: 'ika-test-request',
-      source: {
-        chain: input.sourceChain,
-        asset: input.sourceAsset,
+  runMultichainIntent: async (input: RunMultichainIntentInput) => {
+    if (input.amount === '25') {
+      return {
+        allowed: false,
+        code: 'CONFIDENTIAL_POLICY_BLOCKED',
+        reason: 'Confidential policy blocked this Ika request.',
+      };
+    }
+
+    return {
+      allowed: true,
+      code: 'IKA_PREALPHA_MESSAGE_APPROVED',
+      ikaRequest: {
+        executionRail: 'ika-bridgeless' as const,
+        settlement: 'not-executed' as const,
+        requestId: 'ika-test-request',
+        canonicalOrderHash: 'canonical-order-hash',
+        source: {
+          chain: input.sourceChain,
+          asset: input.sourceAsset,
+        },
+        target: {
+          chain: input.targetChain,
+          asset: input.targetAsset,
+        },
+        amount: input.amount,
+        sessionContext: {
+          owner: input.owner,
+          sessionKey: input.sessionKey,
+          smartWalletAuthority: 'wallet-pda',
+          policySequence: 3,
+        },
+        policyAttestation: {
+          status: 'approved' as const,
+          policySequence: 3,
+          attestationHash: 'safe-attestation-hash',
+        },
+        executionBoundary: {
+          status: 'message-approved' as const,
+          note: 'Ika Pre-Alpha approval transaction prepared; settlement is not executed.',
+        },
+        preAlphaSigning: {
+          status: 'message-approved' as const,
+          dwalletAccount: 'DwalleT111111111111111111111111111111111111',
+          messageDigest: '8d'.repeat(32),
+          messageApprovalPda: 'MsgApprove1111111111111111111111111111111',
+          cpiAuthorityPda: 'CpiAuth1111111111111111111111111111111111',
+          signatureScheme: 'ed25519-prealpha',
+        },
+        poletApprovalTransaction: {
+          transaction: 'polet-ika-approval-tx',
+          signers: [input.sessionKey],
+        },
       },
-      target: {
-        chain: input.targetChain,
-        asset: input.targetAsset,
-      },
-      amount: input.amount,
-      sessionContext: {
-        owner: input.owner,
-        sessionKey: input.sessionKey,
-        smartWalletAuthority: 'wallet-pda',
-        policySequence: 3,
-      },
-      policyAttestation: {
-        status: 'approved' as const,
-        policySequence: 3,
-        attestationHash: 'safe-attestation-hash',
-      },
-      executionBoundary: {
-        status: 'request-prepared' as const,
-        note: 'Ika settlement is not executed.',
-      },
-    },
-  }),
+    };
+  },
 };
 
 function renderDemo() {
@@ -177,10 +200,14 @@ describe('Consumer DCA demo frontend', () => {
   test('displays allowed 5 USDC and blocked 25 USDC proxy results', async () => {
     const view = renderDemo();
 
+    expect(view.getByText(/control layer rahasia untuk ai agents/i)).toBeTruthy();
     expect(view.getByText(/intent multichain/i)).toBeTruthy();
     expect(view.getByText(/settlement ika belum dijalankan/i)).toBeTruthy();
-    expect(view.getByText(/solana usdc/i)).toBeTruthy();
-    expect(view.getByText(/solana sol/i)).toBeTruthy();
+    expect(view.getAllByText(/solana usdc/i).length).toBeGreaterThan(0);
+    expect(view.getAllByText(/solana sol/i).length).toBeGreaterThan(0);
+    expect(view.getByText(/jupiter strategy rail/i)).toBeTruthy();
+    expect(view.getByText(/sui\/sui primary destination/i)).toBeTruthy();
+    expect(view.getByText(/ethereum\/eth optional future/i)).toBeTruthy();
     expect(view.getByText('Jupiter')).toBeTruthy();
 
     await setupCustodyAndPolicy(view);
@@ -198,18 +225,28 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/preview: route\/build jupiter/i)).toBeTruthy();
   });
 
-  test('displays an Ika bridgeless request boundary without exposing thresholds', async () => {
+  test('displays blocked and approved Ika dWallet proof without exposing thresholds', async () => {
     const view = renderDemo();
 
     await setupCustodyAndPolicy(view);
 
-    fireEvent.click(view.getByRole('button', { name: /request ika bridgeless route/i }));
-    await waitFor(() => expect(view.getByText(/bridgeless route requested/i)).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /try 25 ika request/i }));
+    await waitFor(() => expect(view.getByText(/ika request blocked/i)).toBeTruthy());
+    let logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).not.toContain('dWallet');
+    expect(logText).not.toContain('MessageApproval');
 
-    expect(view.getByText('Ika bridgeless request')).toBeTruthy();
+    fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
+    await waitFor(() => expect(view.getAllByText(/ika dwallet message approved/i).length).toBeGreaterThan(0));
+
+    expect(view.getByText('Ika dWallet approval')).toBeTruthy();
     expect(view.getAllByText(/solana usdc/i).length).toBeGreaterThan(0);
     expect(view.getByText(/sui sui/i)).toBeTruthy();
-    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(view.getByText(/technical proof/i)).toBeTruthy();
+    expect(view.getByText(/messageapproval/i)).toBeTruthy();
+    expect(view.getByText(/message hash/i)).toBeTruthy();
+    expect(view.getByText(/ed25519-prealpha/i)).toBeTruthy();
+    logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');
   });
@@ -237,7 +274,7 @@ describe('Consumer DCA demo frontend', () => {
 
     fireEvent.click(view.getByRole('button', { name: /english/i }));
 
-    expect(view.getByText(/confidential dca demo/i)).toBeTruthy();
+    expect(view.getByText(/confidential control layer for ai agents/i)).toBeTruthy();
     expect(view.getByRole('button', { name: /sign & save policy/i })).toBeTruthy();
     expect(view.getAllByText(/safe log/i).length).toBeGreaterThan(0);
     expect(view.getByText(/agent wallet public key/i)).toBeTruthy();

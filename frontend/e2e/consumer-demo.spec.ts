@@ -6,8 +6,11 @@ test.describe('consumer confidential DCA demo', () => {
 
     await expect(page.getByRole('link', { name: /wallet/i })).toBeVisible();
     await expect(page.getByText('Legacy Policy')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: /demo dca rahasia/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /control layer rahasia untuk ai agents/i })).toBeVisible();
     await expect(page.getByText(/checklist demo/i)).toBeVisible();
+    await expect(page.getByText(/jupiter strategy rail/i)).toBeVisible();
+    await expect(page.getByText(/sui\/sui primary destination/i)).toBeVisible();
+    await expect(page.getByText(/ethereum\/eth optional future/i)).toBeVisible();
     await expect(page.getByText(/confidential dca smart wallet for ai agents/i)).toHaveCount(0);
   });
 
@@ -55,6 +58,35 @@ test.describe('consumer confidential DCA demo', () => {
     await expect(page.getByText(/tx policy-gated siap/i)).toBeVisible();
     await expect(page.getByText(/preview: route\/build jupiter/i)).toBeVisible();
     await expect(page.getByText(/swap nyata tidak dikirim/i)).toBeVisible();
+  });
+
+  test('shows blocked Ika request and approved Sui dWallet proof without leaking thresholds', async ({ page }) => {
+    await page.goto('/e2e/consumer-demo');
+
+    await page.getByRole('button', { name: /setup custody pda/i }).click();
+    await expect(page.getByText(/custody siap/i)).toBeVisible();
+    await page.getByRole('button', { name: /sign & simpan policy/i }).click();
+    await expect(page.getByText(/nilai privat disembunyikan/i)).toBeVisible();
+
+    const ikaBlock = page.getByRole('button', { name: /try 25 ika request/i });
+    const ikaAllow = page.getByRole('button', { name: /approve 5 usdc-equivalent ika/i });
+
+    await ikaBlock.click();
+    await expect(page.getByText(/ika request blocked/i)).toBeVisible();
+    let activityLog = page.getByTestId('activity-log-panel');
+    await expect(activityLog).not.toContainText(/dwallet|messageapproval|message hash/i);
+
+    await ikaAllow.click();
+    await expect(page.getByText('Ika dWallet message approved', { exact: true })).toBeVisible();
+    await expect(page.getByText('Ika dWallet approval')).toBeVisible();
+    await expect(page.getByText(/technical proof/i)).toBeVisible();
+    await expect(page.getByText(/messageapproval/i)).toBeVisible();
+    await expect(page.getByText(/message hash/i)).toBeVisible();
+    await expect(page.getByText(/ed25519-prealpha/i)).toBeVisible();
+    activityLog = page.getByTestId('activity-log-panel');
+    await expect(activityLog).not.toContainText('10 USDC');
+    await expect(activityLog).not.toContainText('20 USDC');
+    await expect(activityLog).not.toContainText(/remaining cap|max per run 10|daily cap 20|witness:|encryptionWitness/i);
   });
 
   test('keeps the checklist readable at the active viewport width', async ({ page }) => {
