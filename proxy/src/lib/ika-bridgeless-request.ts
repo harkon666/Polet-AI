@@ -19,6 +19,10 @@ import {
   buildSuiDevnetTransactionDigest,
   type SuiTransactionDigestArtifact,
 } from './sui-transaction-digest';
+import {
+  buildEthereumSepoliaMessageDigest,
+  type EthereumMessageDigestArtifact,
+} from './ethereum-transaction-digest';
 import type { WalletData } from './wallet-store';
 import {
   executeGuardedStrategy,
@@ -63,6 +67,7 @@ export interface IkaBridgelessExecutionRequest {
   canonicalOrder: CanonicalBridgelessOrder;
   canonicalOrderHash: string;
   suiTransactionDigest?: SuiTransactionDigestArtifact;
+  ethereumMessageDigest?: EthereumMessageDigestArtifact;
   executionBoundary: {
     status: IkaPreAlphaSigningStatus;
     note: string;
@@ -189,7 +194,7 @@ async function buildIkaAllowedResult(
     expiresAtUnix: intent.timestamp + 600,
   });
   const canonicalOrderHash = await hashCanonicalBridgelessOrder(canonicalOrder);
-  const suiTransactionDigest = buildSuiTransactionDigest(canonicalOrder, canonicalOrderHash, params);
+  const destinationDigest = buildDestinationDigest(canonicalOrder, canonicalOrderHash, params);
   const attestationHash = hashIkaAttestation({
     intentId: intent.id,
     owner: intent.owner,
@@ -236,10 +241,10 @@ async function buildIkaAllowedResult(
     },
     canonicalOrder,
     canonicalOrderHash,
-    suiTransactionDigest,
+    ...destinationDigest.requestFields,
     executionBoundary: {
       status: 'request-prepared',
-      note: 'Ika request envelope is prepared with a Sui devnet sign-only transaction digest; the Pre-Alpha message approval proof is attached when available.',
+      note: `Ika request envelope is prepared with a ${destinationDigest.label} sign-only digest; the Pre-Alpha message approval proof is attached when available.`,
     },
   };
   const preAlphaSigning = createIkaPreAlphaSigningRequest({
@@ -274,27 +279,53 @@ async function buildIkaAllowedResult(
       poletApprovalTransaction,
       executionBoundary: {
         status: 'message-approved',
-        note: 'Unsigned Polet approve_ika_message transaction is prepared for the session signer in Ika Pre-Alpha using the Sui devnet transaction digest. Devnet mock signer only; production MPC and settlement are not executed.',
+        note: `Unsigned Polet approve_ika_message transaction is prepared for the session signer in Ika Pre-Alpha using the ${destinationDigest.label} digest. Devnet mock signer only; production MPC and settlement are not executed.`,
       },
     },
   };
 }
 
-function buildSuiTransactionDigest(
+function buildDestinationDigest(
   canonicalOrder: CanonicalBridgelessOrder,
   canonicalOrderHash: string,
   params: MultichainStrategyParams
-): SuiTransactionDigestArtifact {
+): {
+  label: string;
+  requestFields: Pick<IkaBridgelessExecutionRequest, 'suiTransactionDigest' | 'ethereumMessageDigest'>;
+} {
   try {
-    return buildSuiDevnetTransactionDigest({
-      order: canonicalOrder,
-      canonicalOrderHash,
-      recipient: params.nativeDestinationAccount,
-    });
+    if (params.targetChain === 'sui') {
+      return {
+        label: 'Sui devnet',
+        requestFields: {
+          suiTransactionDigest: buildSuiDevnetTransactionDigest({
+            order: canonicalOrder,
+            canonicalOrderHash,
+            recipient: params.nativeDestinationAccount,
+          }),
+        },
+      };
+    }
+
+    if (params.targetChain === 'ethereum') {
+      return {
+        label: 'Ethereum Sepolia EIP-191',
+        requestFields: {
+          ethereumMessageDigest: buildEthereumSepoliaMessageDigest({
+            order: canonicalOrder,
+            canonicalOrderHash,
+            recipient: params.nativeDestinationAccount,
+          }),
+        },
+      };
+    }
+
+    throw new Error('Unsupported Ika destination digest target');
   } catch (error) {
+    const code = params.targetChain === 'ethereum' ? 'INVALID_ETHEREUM_DESTINATION' : 'INVALID_SUI_DESTINATION';
     throw new IkaBridgelessRequestError(
-      error instanceof Error ? error.message : 'Invalid Sui destination data',
-      'INVALID_SUI_DESTINATION'
+      error instanceof Error ? error.message : 'Invalid destination data',
+      code
     );
   }
 }
@@ -303,14 +334,18 @@ function validateSupportedIkaRoute(params: MultichainStrategyParams): void {
   if (
     params.sourceChain !== 'solana'
     || params.sourceAsset.toUpperCase() !== 'USDC'
-    || params.targetChain !== 'sui'
-    || params.targetAsset.toUpperCase() !== 'SUI'
+    || !isSupportedIkaTarget(params)
   ) {
     throw new IkaBridgelessRequestError(
-      'Unsupported Ika route: this slice only builds Solana USDC -> Sui SUI approvals',
+      'Unsupported Ika route: this slice only builds Solana USDC -> Sui SUI or Ethereum ETH approvals',
       'UNSUPPORTED_IKA_ROUTE'
     );
   }
+}
+
+function isSupportedIkaTarget(params: MultichainStrategyParams): boolean {
+  return (params.targetChain === 'sui' && params.targetAsset.toUpperCase() === 'SUI')
+    || (params.targetChain === 'ethereum' && params.targetAsset.toUpperCase() === 'ETH');
 }
 
 function signatureSchemeCode(value: IkaPreAlphaSigningRequest['signatureScheme']): number {

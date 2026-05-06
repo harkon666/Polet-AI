@@ -35,7 +35,7 @@ export interface IkaPreAlphaSigningRequest {
   settlement: 'not-executed';
   dwalletAccount: string;
   messageDigest: string;
-  messageDigestSource: 'polet-request-envelope' | 'sui-devnet-transaction-digest';
+  messageDigestSource: 'polet-request-envelope' | 'sui-devnet-transaction-digest' | 'ethereum-sepolia-message-digest';
   userPublicKey: string;
   signatureScheme: IkaPreAlphaSignatureScheme;
   cpiAuthorityPda: string;
@@ -74,9 +74,7 @@ export function createIkaPreAlphaSigningRequest(input: IkaPreAlphaSigningInput):
   );
   const signatureScheme = input.signatureScheme ?? defaultSignatureScheme(input.request);
   const messageDigest = deriveIkaMessageDigest(input.request);
-  const messageDigestSource = input.request.suiTransactionDigest
-    ? 'sui-devnet-transaction-digest'
-    : 'polet-request-envelope';
+  const messageDigestSource = deriveIkaMessageDigestSource(input.request);
   const derivation = deriveIkaPreAlphaApprovalAccounts({
     dwalletAccount,
     smartWalletAuthority: input.request.sessionContext.smartWalletAuthority,
@@ -149,6 +147,9 @@ export function deriveIkaMessageDigest(request: IkaBridgelessExecutionRequest): 
   if (request.suiTransactionDigest?.digestHex) {
     return parseMessageDigest(request.suiTransactionDigest.digestHex).toString('hex');
   }
+  if (request.ethereumMessageDigest?.digestHex) {
+    return parseMessageDigest(request.ethereumMessageDigest.digestHex).toString('hex');
+  }
 
   return createHash('sha256')
     .update(JSON.stringify({
@@ -165,6 +166,12 @@ export function deriveIkaMessageDigest(request: IkaBridgelessExecutionRequest): 
       },
     }))
     .digest('hex');
+}
+
+function deriveIkaMessageDigestSource(request: IkaBridgelessExecutionRequest): IkaPreAlphaSigningRequest['messageDigestSource'] {
+  if (request.suiTransactionDigest) return 'sui-devnet-transaction-digest';
+  if (request.ethereumMessageDigest) return 'ethereum-sepolia-message-digest';
+  return 'polet-request-envelope';
 }
 
 export function deriveIkaDwalletAccount(request: IkaBridgelessExecutionRequest): string {

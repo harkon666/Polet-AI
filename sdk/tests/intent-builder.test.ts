@@ -808,6 +808,95 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(JSON.stringify(result)).not.toContain('2,2,2');
     });
 
+    test('accepts optional Ethereum Ika destinations and normalizes EVM digest proof data', async () => {
+      const requests: Array<{ url: string; body: unknown }> = [];
+      const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
+        requests.push({
+          url: input.toString(),
+          body: JSON.parse(init?.body?.toString() ?? '{}'),
+        });
+        return Response.json({
+          success: true,
+          data: {
+            allowed: true,
+            code: 'IKA_PREALPHA_MESSAGE_APPROVED',
+            status: 'message-approved',
+            ikaRequest: {
+              executionRail: 'ika-bridgeless',
+              settlement: 'not-executed',
+              requestId: 'ika-eth-request-1',
+              executionBoundary: { status: 'message-approved' },
+              canonicalOrderHash: 'canonical-order-hash-eth',
+              ethereumMessageDigest: {
+                chain: 'ethereum',
+                network: 'sepolia',
+                chainId: 11155111,
+                action: 'zero-wei-transfer-proof',
+                digestHex: 'cd'.repeat(32),
+                broadcastable: false,
+                productionSettlement: false,
+              },
+              preAlphaSigning: {
+                status: 'message-approved',
+                dwalletAccount: 'dwallet-eth-1',
+                messageDigest: 'cd'.repeat(32),
+                messageApprovalPda: 'message-approval-eth-pda',
+                cpiAuthorityPda: 'cpi-authority-pda',
+                signatureScheme: 'ecdsa-secp256k1-sha256',
+              },
+              target: { chain: 'ethereum', asset: 'ETH' },
+            },
+          },
+        });
+      };
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: Array.from({ length: 32 }, () => 6),
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'ethereum', asset: 'ETH' },
+        amount: '5',
+        nativeDestinationAccount: `0x${'ab'.repeat(20)}`,
+      });
+
+      expect(result.allowed).toBe(true);
+      expect(result.status).toBe('message-approved');
+      expect(requests[0].url).toBe('https://proxy.polet.ai/intent/multichain/run');
+      expect(requests[0].body).toMatchObject({
+        action: 'multichain-strategy',
+        params: {
+          sourceChain: 'solana',
+          sourceAsset: 'USDC',
+          targetChain: 'ethereum',
+          targetAsset: 'ETH',
+          executionRail: 'ika',
+          nativeDestinationAccount: `0x${'ab'.repeat(20)}`,
+        },
+      });
+      expect(result.details?.proof).toMatchObject({
+        dWallet: 'dwallet-eth-1',
+        messageHash: 'cd'.repeat(32),
+        canonicalOrderHash: 'canonical-order-hash-eth',
+        messageApprovalAccount: 'message-approval-eth-pda',
+        signatureScheme: 'ecdsa-secp256k1-sha256',
+        ethereumMessageDigest: {
+          chain: 'ethereum',
+          digestHex: 'cd'.repeat(32),
+          broadcastable: false,
+          productionSettlement: false,
+        },
+        destination: { chain: 'ethereum', asset: 'ETH' },
+        settlement: 'not-executed',
+      });
+      expect(JSON.stringify(result)).not.toContain('6,6,6');
+    });
+
     test('normalizes Ika signature and devnet smoke proof statuses', async () => {
       const fetchMock = async () => Response.json({
         success: true,
@@ -924,7 +1013,7 @@ describe('Polet AI SDK - Intent Builder', () => {
       const result = await polet.trade({
         rail: 'ika',
         from: { chain: 'solana', asset: 'USDC' },
-        to: { chain: 'ethereum', asset: 'ETH' },
+        to: { chain: 'base', asset: 'ETH' },
         amount: '5',
       });
 

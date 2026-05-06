@@ -670,6 +670,7 @@ export interface IkaAgentProof {
   cpiAuthority?: string;
   signatureScheme?: string;
   suiTransactionDigest?: unknown;
+  ethereumMessageDigest?: unknown;
   destination?: {
     chain?: string;
     asset?: string;
@@ -795,8 +796,8 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
   const to = normalizeTradeAsset(input.to, 'sui');
   const witness = input.encryptionWitness ?? options.encryptionWitness;
 
-  if (!isSupportedIkaSui(from, to)) {
-    return notSupportedTradeResult('ika', 'Only Solana USDC -> Sui SUI is supported on the Ika adapter in this MVP slice.');
+  if (!isSupportedIkaDestination(from, to)) {
+    return notSupportedTradeResult('ika', 'Only Solana USDC -> Sui SUI or Ethereum ETH is supported on the Ika adapter in this MVP slice.');
   }
 
   if (!isEncryptionWitness(witness)) {
@@ -875,6 +876,17 @@ interface ProxyTradeDataLike {
       chain?: string;
       network?: string;
       transaction?: unknown;
+      broadcastable?: boolean;
+      productionSettlement?: boolean;
+      [key: string]: unknown;
+    };
+    ethereumMessageDigest?: {
+      digestHex?: string;
+      action?: string;
+      chain?: string;
+      network?: string;
+      chainId?: number;
+      message?: unknown;
       broadcastable?: boolean;
       productionSettlement?: boolean;
       [key: string]: unknown;
@@ -1060,11 +1072,13 @@ function isBlockingProxyCode(code: string | undefined): boolean {
     || code === 'INVALID_POLICY_WITNESS';
 }
 
-function isSupportedIkaSui(from: ChainAsset, to: ChainAsset): boolean {
+function isSupportedIkaDestination(from: ChainAsset, to: ChainAsset): boolean {
   return from.chain === 'solana'
     && from.asset === 'USDC'
-    && to.chain === 'sui'
-    && to.asset === 'SUI';
+    && (
+      (to.chain === 'sui' && to.asset === 'SUI')
+      || (to.chain === 'ethereum' && to.asset === 'ETH')
+    );
 }
 
 function redactIntent<TIntent extends PoletIntent>(intent: TIntent): RedactedPoletIntent {
@@ -1089,6 +1103,7 @@ function buildIkaAgentProof(data: ProxyTradeDataLike): IkaAgentProof {
     cpiAuthority: signing?.cpiAuthorityPda,
     signatureScheme: signing?.signatureScheme,
     suiTransactionDigest: request?.suiTransactionDigest,
+    ethereumMessageDigest: request?.ethereumMessageDigest,
     destination: request?.target,
     poletApprovalTransaction: request?.poletApprovalTransaction,
     devnetSmokeProof: request?.devnetSmokeProof ?? data.devnetSmokeProof,

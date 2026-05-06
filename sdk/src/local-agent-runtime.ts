@@ -78,6 +78,14 @@ export interface IkaRunData {
       broadcastable?: boolean;
       productionSettlement?: boolean;
     };
+    ethereumMessageDigest?: {
+      digestHex?: string;
+      action?: string;
+      network?: string;
+      chainId?: number;
+      broadcastable?: boolean;
+      productionSettlement?: boolean;
+    };
     poletApprovalTransaction?: {
       signers?: string[];
     };

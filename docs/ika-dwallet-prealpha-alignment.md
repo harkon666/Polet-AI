@@ -116,8 +116,9 @@ Ethereum-optional path:
 
 1. Reuse the same authority and policy setup.
 2. Build a canonical order for Solana USDC -> Ethereum ETH.
-3. Use an ECDSA-compatible signature scheme only if the dWallet curve and official examples support that path in Pre-Alpha.
-4. Treat this as optional; do not block the Sui demo on Ethereum support.
+3. Map the approved order into the Polet Sepolia sign-only EIP-191 `zero-wei-transfer-proof` digest before Ika approval.
+4. Use an ECDSA-compatible signature scheme only if the dWallet curve and official examples support that path in Pre-Alpha.
+5. Treat this as optional; do not block the Sui demo on Ethereum support.
 
 Failure states to record in issue 031:
 

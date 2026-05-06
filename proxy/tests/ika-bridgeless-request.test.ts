@@ -12,6 +12,7 @@ import {
   deriveIkaMessageDigest,
   deriveIkaPreAlphaApprovalAccounts,
 } from '../src/lib/ika-prealpha-signing';
+import { POLET_ETHEREUM_SEPOLIA_VERIFIER_ADDRESS } from '../src/lib/ethereum-transaction-digest';
 import { POLET_SUI_DEVNET_VERIFIER_ADDRESS } from '../src/lib/sui-transaction-digest';
 import type { WalletData } from '../src/lib/wallet-store';
 import type { Intent } from '../src/types/intent';
@@ -141,7 +142,72 @@ describe('Ika bridgeless execution request', () => {
       expect(JSON.stringify(result)).not.toContain('10000000');
       expect(JSON.stringify(result)).not.toContain('20000000');
       expect(JSON.stringify(result)).not.toContain('suiTransactionDigest');
+      expect(JSON.stringify(result)).not.toContain('ethereumMessageDigest');
       expect(JSON.stringify(result)).not.toContain('polet.sui.devnet.transaction-digest.v1');
+      expect(JSON.stringify(result)).not.toContain('polet.ethereum.sepolia.message-digest.v1');
+    }
+  });
+
+  test('creates an optional Ethereum Ika request with a Sepolia EIP-191 digest after policy approval', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5', 'ethereum', 'ETH');
+    const transactionRequests: unknown[] = [];
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async (request) => {
+        transactionRequests.push(request);
+        return fixture.approvalTransaction;
+      },
+    });
+
+    expect(result.allowed).toBe(true);
+    expect(transactionRequests).toHaveLength(1);
+    if (result.allowed) {
+      expect(result.ikaRequest.target).toEqual({ chain: 'ethereum', asset: 'ETH' });
+      expect(result.ikaRequest.canonicalOrder.target).toEqual({ chain: 'ethereum', asset: 'ETH' });
+      expect(result.ikaRequest.ethereumMessageDigest).toMatchObject({
+        schema: 'polet.ethereum.sepolia.message-digest.v1',
+        chain: 'ethereum',
+        network: 'sepolia',
+        chainId: 11_155_111,
+        action: 'zero-wei-transfer-proof',
+        broadcastable: false,
+        productionSettlement: false,
+        message: {
+          recipient: POLET_ETHEREUM_SEPOLIA_VERIFIER_ADDRESS,
+          amountWei: '0',
+          canonicalOrderHash: result.ikaRequest.canonicalOrderHash,
+        },
+      });
+      expect(result.ikaRequest.ethereumMessageDigest?.digestHex).toMatch(/^[0-9a-f]{64}$/);
+      expect(result.ikaRequest.suiTransactionDigest).toBeUndefined();
+      expect(result.ikaRequest.preAlphaSigning?.messageDigest).toBe(result.ikaRequest.ethereumMessageDigest?.digestHex);
+      expect(result.ikaRequest.preAlphaSigning?.messageDigest).not.toBe(result.ikaRequest.canonicalOrderHash);
+      expect(result.ikaRequest.preAlphaSigning?.messageDigestSource).toBe('ethereum-sepolia-message-digest');
+      expect(result.ikaRequest.preAlphaSigning?.signatureScheme).toBe('ecdsa-secp256k1-sha256');
+      expect(transactionRequests[0]).toMatchObject({
+        canonicalOrderHash: result.ikaRequest.ethereumMessageDigest?.digestHex,
+        signatureScheme: 0,
+      });
+    }
+  });
+
+  test('rejects invalid Ethereum destination data before Ika approval construction', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5', 'ethereum', 'ETH');
+    (intent.params as { nativeDestinationAccount?: string }).nativeDestinationAccount = '0xnot-an-evm-address';
+
+    try {
+      await createIkaBridgelessExecutionRequest(intent, {
+        getWalletData: async () => fixture.wallet,
+        buildApprovalTransaction: async () => fixture.approvalTransaction,
+      });
+      throw new Error('expected invalid Ethereum destination to be rejected');
+    } catch (error) {
+      expect(error).toHaveProperty('code', 'INVALID_ETHEREUM_DESTINATION');
+      expect(error).toHaveProperty('status', 400);
+      expect(error instanceof Error ? error.message : '').toMatch(/Ethereum address/);
     }
   });
 
@@ -235,7 +301,12 @@ describe('Ika bridgeless execution request', () => {
   });
 });
 
-function createIkaIntent(fixture: ReturnType<typeof createFixture>, amount: string): Intent {
+function createIkaIntent(
+  fixture: ReturnType<typeof createFixture>,
+  amount: string,
+  targetChain: 'sui' | 'ethereum' = 'sui',
+  targetAsset = 'SUI'
+): Intent {
   return {
     id: `ika-${amount}`,
     owner: fixture.owner,
@@ -244,8 +315,8 @@ function createIkaIntent(fixture: ReturnType<typeof createFixture>, amount: stri
     params: {
       sourceChain: 'solana',
       sourceAsset: 'USDC',
-      targetChain: 'sui',
-      targetAsset: 'SUI',
+      targetChain,
+      targetAsset,
       amount,
       executionRail: 'ika',
       strategy: 'dca',

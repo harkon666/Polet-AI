@@ -271,6 +271,15 @@ export interface IkaRequestPreview {
     broadcastable?: boolean;
     productionSettlement?: boolean;
   };
+  ethereumMessageDigest?: {
+    digestHex?: string;
+    action?: string;
+    chain?: string;
+    network?: string;
+    chainId?: number;
+    broadcastable?: boolean;
+    productionSettlement?: boolean;
+  };
   source: {
     chain: string;
     asset: string;

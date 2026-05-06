@@ -53,7 +53,6 @@ Track alignment:
 
 ### Stretch
 
-- `034-ethereum-transaction-digest-adapter`
 - `035-shared-access-and-multisig-lite-ika-approvals`
 - `036-passkey-owner-session-auth`
 - `037-recovery-authority-and-dwallet-controller-rotation`
@@ -224,6 +223,9 @@ Track alignment:
 - [x] `033-sui-transaction-digest-adapter` — Added the Sui-primary Ika digest adapter. Approved Solana USDC -> Sui SUI requests now keep the canonical Polet order hash as an order reference, map the approved order into a Sui devnet sign-only `zero-mist-transfer-proof` digest artifact, use `suiTransactionDigest.digestHex` as the Ika/Polet approval message hash, and expose SDK proof metadata without claiming broadcast or settlement.
   - Verification: `bun test ./tests/sui-transaction-digest.test.ts ./tests/ika-bridgeless-request.test.ts` and `bun run build` pass in `proxy/`; `bun test ./tests/intent-builder.test.ts ./tests/local-agent-runtime.test.ts` and `bun run build` pass in `sdk/`; `bun run build` passes in `frontend/`.
   - Note: the Sui artifact is `broadcastable: false`, `productionSettlement: false`, and uses either a validated `nativeDestinationAccount` recipient or Polet's fixed devnet verifier address. Policy-blocked responses still suppress all Ika/Sui digest proof fields.
+- [x] `034-ethereum-transaction-digest-adapter` — Added the optional Ethereum Ika digest adapter without changing the Sui-primary demo path. Approved Solana USDC -> Ethereum ETH requests now map the canonical Polet order into a Sepolia sign-only EIP-191 `zero-wei-transfer-proof` digest, use `ethereumMessageDigest.digestHex` as the Ika/Polet approval message hash, and expose SDK proof metadata without claiming broadcast or settlement.
+  - Verification: `bun test ./tests/ethereum-transaction-digest.test.ts ./tests/sui-transaction-digest.test.ts ./tests/ika-bridgeless-request.test.ts` and `bun run build` pass in `proxy/`; `bun test ./tests/intent-builder.test.ts ./tests/local-agent-runtime.test.ts` and `bun run build` pass in `sdk/`; `bun run build` passes in `frontend/`.
+  - Note: the Ethereum artifact is `broadcastable: false`, `productionSettlement: false`, and uses either a validated `nativeDestinationAccount` recipient or Polet's fixed Sepolia verifier address. Policy-blocked responses still suppress all Ika/Sui/Ethereum digest proof fields.
 
 ### Planning
 
