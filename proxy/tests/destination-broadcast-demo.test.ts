@@ -35,7 +35,7 @@ describe('destination broadcast demo', () => {
     expect(memo).toMatchObject({
       polet: 'ika-prealpha-destination-broadcast-demo',
       requestId: fixture.ikaRequest.requestId,
-      target: { chain: 'solana', asset: 'MEMO_PROOF' },
+      target: { chain: 'sui', asset: 'SUI' },
       messageDigest: fixture.signing.messageDigest,
       productionSettlement: false,
     });
@@ -107,7 +107,7 @@ describe('destination broadcast demo', () => {
     const unsupported = await runDestinationBroadcastDemo({
       ikaRequest: {
         ...fixture.ikaRequest,
-        target: { chain: 'sui', asset: 'SUI' },
+        target: { chain: 'base' as never, asset: 'ETH' },
       },
       producedSignature,
       demoConfig: { enabled: true },
@@ -201,8 +201,8 @@ function createIkaIntent(fixture: ReturnType<typeof createFixture>, amount: stri
     params: {
       sourceChain: 'solana',
       sourceAsset: 'USDC',
-      targetChain: 'solana',
-      targetAsset: 'MEMO_PROOF',
+      targetChain: 'sui',
+      targetAsset: 'SUI',
       amount,
       executionRail: 'ika',
       strategy: 'dca',

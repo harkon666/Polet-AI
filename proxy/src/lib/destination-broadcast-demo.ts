@@ -243,10 +243,10 @@ export function buildDestinationMemoProofInstruction(input: DestinationBroadcast
 }
 
 export function validateDestinationBroadcastInput(input: DestinationBroadcastInput): DestinationBroadcastFailure | { ok: true } {
-  if (input.ikaRequest.target.chain !== DESTINATION_BROADCAST_DEMO_CHAIN) {
+  if (input.ikaRequest.target.chain !== 'sui' && input.ikaRequest.target.chain !== 'ethereum') {
     return failed(
       'UNSUPPORTED_DESTINATION_CHAIN',
-      'Issue 020 demo supports only Solana devnet memo-proof destination broadcast.',
+      'Issue 020 demo supports Solana devnet memo-proof receipts for Sui or Ethereum Ika request targets.',
       400
     );
   }

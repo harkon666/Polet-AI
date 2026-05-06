@@ -49,7 +49,6 @@ Track alignment:
 
 ### Critical Path
 
-- `026-canonical-bridgeless-order-message`
 - `027-polet-contract-ika-approve-message-cpi`
 - `028-proxy-ika-dwallet-transaction-builder`
 - `029-agent-sdk-ika-sui-signed-intent`
@@ -207,6 +206,9 @@ Track alignment:
 - [x] `025-official-ika-dwallet-prealpha-alignment` — Added the official Ika Solana Pre-Alpha integration memo with checked date, docs/repo links, devnet program id, gRPC/RPC endpoints, SDK/CPI crate references, dWallet creation/import notes, Polet CPI authority transfer flow, `approve_message` account/argument shape, MessageApproval read path, Sui-primary and Ethereum-optional smoke plans, and mock-signer/pre-alpha limitations. Updated README, demo script, agent runtime docs, and issue notes so the current local Ika metadata is not described as production MPC, verified settlement, or official on-chain MessageApproval execution.
   - Verification: documentation-only change; no code tests were required.
   - Note: issue 027 must replace the local proxy compatibility derivation with the official program id `87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY`, Polet CPI authority seed `__ika_cpi_authority`, and official MessageApproval PDA/account helpers.
+- [x] `026-canonical-bridgeless-order-message` — Added canonical `polet.bridgeless.order.v1` modules in SDK and proxy for deterministic Ika dWallet order messages. The payload includes intent id, Solana USDC source, Sui-primary/Ethereum-optional target, source USDC-equivalent policy amount, slippage, owner, session key, policy sequence, nonce, and expiry. The proxy now attaches `canonicalOrder` and `canonicalOrderHash` to approved Ika envelopes only, and docs show the canonical JSON payload plus stable digest.
+  - Verification: `bun test ./tests/bridgeless-order.test.ts ./tests/ika-bridgeless-request.test.ts` and `bun run build` pass in `proxy/`; `bun test ./tests/intent-builder.test.ts` and `bun run build` pass in `sdk/`.
+  - Note: issue 027 should use `canonicalOrderHash` as the message hash input for the official Ika `approve_message` CPI after re-deriving accounts with the official Pre-Alpha SDK helpers.
 
 ### Planning
 

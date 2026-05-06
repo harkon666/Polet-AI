@@ -28,6 +28,21 @@
 export const JUPITER_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 export const JUPITER_SOL_MINT = 'So11111111111111111111111111111111111111112';
 
+export {
+  CANONICAL_BRIDGELESS_ORDER_SCHEMA,
+  assertCanonicalBridgelessOrderActive,
+  buildCanonicalBridgelessOrder,
+  hashCanonicalBridgelessOrder,
+  serializeCanonicalBridgelessOrder,
+  validateCanonicalBridgelessOrder,
+  verifyCanonicalBridgelessOrderHash,
+  type BuildCanonicalBridgelessOrderInput,
+  type CanonicalBridgelessOrder,
+  type CanonicalBridgelessOrderAsset,
+  type CanonicalBridgelessSourceChain,
+  type CanonicalBridgelessTargetChain,
+} from './bridgeless-order.js';
+
 // Intent action types
 export type IntentAction = 'transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom';
 export type StrategyIntentAction = 'dca' | 'multichain-strategy';

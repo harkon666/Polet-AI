@@ -2,6 +2,11 @@ import { createHash } from 'crypto';
 import { deriveWalletPda } from './confidential-dca-execution';
 import { parseUsdcAmount } from './confidential-numeric-policy';
 import {
+  buildCanonicalBridgelessOrder,
+  hashCanonicalBridgelessOrder,
+  type CanonicalBridgelessOrder,
+} from './bridgeless-order';
+import {
   createIkaPreAlphaSigningRequest,
   type IkaPreAlphaSigningRequest,
   type IkaPreAlphaSigningStatus,
@@ -47,6 +52,8 @@ export interface IkaBridgelessExecutionRequest {
     policyCommitment: number[];
     attestationHash: string;
   };
+  canonicalOrder: CanonicalBridgelessOrder;
+  canonicalOrderHash: string;
   executionBoundary: {
     status: IkaPreAlphaSigningStatus;
     note: string;
@@ -134,15 +141,38 @@ function parseIkaPolicyAmount(value: number | string): bigint {
   }
 }
 
-function buildIkaAllowedResult(
+async function buildIkaAllowedResult(
   intent: Intent,
   params: MultichainStrategyParams,
   wallet: WalletData,
   amountBaseUnits: bigint
-): IkaBridgelessAllowed {
+): Promise<IkaBridgelessAllowed> {
   const amount = params.amount.toString();
   const smartWalletAuthority = wallet.walletPda || deriveWalletPda(intent.owner);
   const preAlphaOverrides = getIkaPreAlphaOverrides(params);
+  const canonicalOrder = buildCanonicalBridgelessOrder({
+    intentId: intent.id,
+    source: {
+      chain: 'solana',
+      asset: params.sourceAsset,
+      ...(params.sourceMint && { mint: params.sourceMint }),
+    },
+    target: {
+      chain: params.targetChain,
+      asset: params.targetAsset,
+      ...(params.targetMint && { mint: params.targetMint }),
+    },
+    amount,
+    amountBaseUnits: amountBaseUnits.toString(),
+    policyBaseUnits: amountBaseUnits.toString(),
+    slippageBps: params.slippageBps,
+    owner: intent.owner,
+    sessionKey: intent.sessionKey,
+    policySequence: wallet.policySeq,
+    nonce: intent.id,
+    expiresAtUnix: intent.timestamp + 600,
+  });
+  const canonicalOrderHash = await hashCanonicalBridgelessOrder(canonicalOrder);
   const attestationHash = hashIkaAttestation({
     intentId: intent.id,
     owner: intent.owner,
@@ -187,6 +217,8 @@ function buildIkaAllowedResult(
       policyCommitment: wallet.confidentialPolicy.policyCommitment,
       attestationHash,
     },
+    canonicalOrder,
+    canonicalOrderHash,
     executionBoundary: {
       status: 'request-prepared',
       note: 'Ika request envelope is prepared; the Pre-Alpha message approval proof is attached when available.',

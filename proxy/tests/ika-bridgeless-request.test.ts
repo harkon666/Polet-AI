@@ -6,6 +6,7 @@ import {
 } from '../src/lib/confidential-numeric-policy';
 import { deriveWalletPda } from '../src/lib/confidential-dca-execution';
 import { createIkaBridgelessExecutionRequest } from '../src/lib/ika-bridgeless-request';
+import { hashCanonicalBridgelessOrder } from '../src/lib/bridgeless-order';
 import {
   IKA_PREALPHA_CLUSTER,
   deriveIkaMessageDigest,
@@ -41,6 +42,15 @@ describe('Ika bridgeless execution request', () => {
       expect(result.ikaRequest.sessionContext.policySequence).toBe(7);
       expect(result.ikaRequest.policyAttestation.status).toBe('approved');
       expect(result.ikaRequest.policyAttestation.policySequence).toBe(7);
+      expect(result.ikaRequest.canonicalOrder.schema).toBe('polet.bridgeless.order.v1');
+      expect(result.ikaRequest.canonicalOrder.intentId).toBe(intent.id);
+      expect(result.ikaRequest.canonicalOrder.source).toEqual({ chain: 'solana', asset: 'USDC' });
+      expect(result.ikaRequest.canonicalOrder.target).toEqual({ chain: 'sui', asset: 'SUI' });
+      expect(result.ikaRequest.canonicalOrder.amount.policyBaseUnits).toBe('5000000');
+      expect(result.ikaRequest.canonicalOrder.nonce).toBe(intent.id);
+      expect(result.ikaRequest.canonicalOrderHash).toBe(
+        await hashCanonicalBridgelessOrder(result.ikaRequest.canonicalOrder)
+      );
       expect(result.ikaRequest.executionBoundary.status).toBe('message-approved');
       expect(result.ikaRequest.executionBoundary.note).toMatch(/pre-alpha/i);
       expect(result.ikaRequest.preAlphaSigning?.status).toBe('message-approved');
