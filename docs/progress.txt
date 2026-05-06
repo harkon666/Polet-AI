@@ -49,7 +49,8 @@ Track alignment:
 
 ### Critical Path
 
-- `040-official-encrypt-policy-graph-execution` — Replace the masked-witness confidential numeric policy simulation with the official Encrypt pre-alpha policy graph execution lifecycle. This should wire the existing `#[encrypt_fn]` graph through `encrypt_anchor::EncryptContext`, track ciphertext accounts and pending/verified outputs, update DCA and Ika response states, and test with `EncryptTestContext/process_pending()`.
+- `040-official-ika-message-hash-and-signing-lifecycle` — Fix Ika approval semantics so Polet separates canonical order hashes, Ika Keccak-256 MessageApproval lookup hashes, destination signing digests, and approval/signature lifecycle statuses before claiming official Ika alignment.
+- `041-official-encrypt-policy-graph-execution` — Replace the masked-witness confidential numeric policy simulation with the official Encrypt pre-alpha policy graph execution lifecycle. This should wire the existing `#[encrypt_fn]` graph through `encrypt_anchor::EncryptContext`, track ciphertext accounts and pending/verified outputs, update DCA and Ika response states, and test with `EncryptTestContext/process_pending()`.
 
 ### Stretch
 
@@ -90,7 +91,7 @@ Track alignment:
 013-smart-wallet-identity-module
 └── 014-confidential-numeric-policy-module
     ├── 015-legacy-policy-path-quarantine
-    ├── 040-official-encrypt-policy-graph-execution
+    ├── 041-official-encrypt-policy-graph-execution
     └── 016-proxy-execution-module
         └── 017-execution-payload-module
 
@@ -113,6 +114,7 @@ Track alignment:
 │               │   └── 038-chain-and-asset-allowlist-guardrails
 │               │       └── 039-bridgeless-slippage-and-risk-guardrails
 │               └── 031-ika-devnet-smoke-and-messageapproval-verification
+│                   ├── 040-official-ika-message-hash-and-signing-lifecycle
 │                   ├── 032-control-layer-readme-video-narrative
 │                   ├── 033-sui-transaction-digest-adapter
 │                   └── 034-ethereum-transaction-digest-adapter
