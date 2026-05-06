@@ -44,4 +44,8 @@ pub enum ErrorCode {
     InvalidTokenCustody,
     #[msg("Demo token custody is not configured")]
     TokenCustodyNotConfigured,
+    #[msg("Bridgeless order is expired")]
+    OrderExpired,
+    #[msg("Invalid Ika approval request")]
+    InvalidIkaApproval,
 }

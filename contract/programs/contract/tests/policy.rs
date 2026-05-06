@@ -1,8 +1,8 @@
 use {
     anchor_lang::{InstructionData, ToAccountMetas},
+    common::{initialize, read_wallet, send_ix, set_policy, setup_svm},
     solana_keypair::Keypair,
     solana_signer::Signer,
-    common::{initialize, read_wallet, send_ix, set_policy, setup_svm},
 };
 
 mod common;

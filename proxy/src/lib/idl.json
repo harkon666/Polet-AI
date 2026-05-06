@@ -8,6 +8,153 @@
   },
   "instructions": [
     {
+      "name": "approve_ika_message_as_session",
+      "discriminator": [
+        133,
+        198,
+        111,
+        169,
+        240,
+        8,
+        18,
+        170
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  101,
+                  116,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet.owner",
+                "account": "Wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "session_key",
+          "signer": true
+        },
+        {
+          "name": "dwallet"
+        },
+        {
+          "name": "message_approval",
+          "writable": true
+        },
+        {
+          "name": "cpi_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  105,
+                  107,
+                  97,
+                  95,
+                  99,
+                  112,
+                  105,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "ika_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "canonical_order_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "source_amount",
+          "type": "u64"
+        },
+        {
+          "name": "order_expires_at",
+          "type": "i64"
+        },
+        {
+          "name": "attestation_slot",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_policy_seq",
+          "type": "u64"
+        },
+        {
+          "name": "encryption_witness",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "user_pubkey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "signature_scheme",
+          "type": "u16"
+        },
+        {
+          "name": "message_approval_bump",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "execute_confidential_transfer_as_session",
       "discriminator": [
         142,
@@ -761,6 +908,16 @@
       "code": 6020,
       "name": "TokenCustodyNotConfigured",
       "msg": "Demo token custody is not configured"
+    },
+    {
+      "code": 6021,
+      "name": "OrderExpired",
+      "msg": "Bridgeless order is expired"
+    },
+    {
+      "code": 6022,
+      "name": "InvalidIkaApproval",
+      "msg": "Invalid Ika approval request"
     }
   ],
   "types": [

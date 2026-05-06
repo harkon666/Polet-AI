@@ -49,7 +49,6 @@ Track alignment:
 
 ### Critical Path
 
-- `027-polet-contract-ika-approve-message-cpi`
 - `028-proxy-ika-dwallet-transaction-builder`
 - `029-agent-sdk-ika-sui-signed-intent`
 - `030-control-layer-frontend-ika-dwallet-demo`
@@ -209,6 +208,9 @@ Track alignment:
 - [x] `026-canonical-bridgeless-order-message` — Added canonical `polet.bridgeless.order.v1` modules in SDK and proxy for deterministic Ika dWallet order messages. The payload includes intent id, Solana USDC source, Sui-primary/Ethereum-optional target, source USDC-equivalent policy amount, slippage, owner, session key, policy sequence, nonce, and expiry. The proxy now attaches `canonicalOrder` and `canonicalOrderHash` to approved Ika envelopes only, and docs show the canonical JSON payload plus stable digest.
   - Verification: `bun test ./tests/bridgeless-order.test.ts ./tests/ika-bridgeless-request.test.ts` and `bun run build` pass in `proxy/`; `bun test ./tests/intent-builder.test.ts` and `bun run build` pass in `sdk/`.
   - Note: issue 027 should use `canonicalOrderHash` as the message hash input for the official Ika `approve_message` CPI after re-deriving accounts with the official Pre-Alpha SDK helpers.
+- [x] `027-polet-contract-ika-approve-message-cpi` — Added Polet's on-chain `approve_ika_message_as_session` instruction. It accepts wallet/session/dWallet/MessageApproval/Ika-program accounts, canonical order hash, source amount, expiry, attestation slot/policy sequence, policy witness, user public key, signature scheme, and MessageApproval bump. The instruction validates session freshness, order expiry, and confidential numeric policy before signing an Ika `approve_message` CPI with Polet's `__ika_cpi_authority` PDA. Added a deterministic `mock_ika` Anchor program for CI and tests that prove allowed 5-unit requests call CPI while blocked 25-unit, stale, and expired requests do not.
+  - Verification: `NO_DNA=1 cargo fmt --check`, `NO_DNA=1 anchor build`, and `NO_DNA=1 cargo test` pass in `contract/`; `bun test` and `bun run build` pass in `proxy/`.
+  - Note: CI uses the mock Ika program. Issue 031 still owns live devnet smoke verification against official Ika Pre-Alpha MessageApproval behavior. This is not production MPC or settlement.
 
 ### Planning
 

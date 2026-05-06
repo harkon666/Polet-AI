@@ -4,6 +4,7 @@ pub mod confidential_policy;
 pub mod constants;
 pub mod error;
 pub mod execution_payload;
+pub mod ika_approval;
 pub mod state;
 
 declare_id!("J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus");
@@ -12,6 +13,7 @@ use confidential_policy::enforce_confidential_numeric_policy;
 pub use constants::WALLET_SEED;
 pub use error::ErrorCode;
 use execution_payload::parse_transfer_intent;
+use ika_approval::{approve_ika_message, IkaApproveMessageAccounts, IKA_CPI_AUTHORITY_SEED};
 pub use state::{ConfidentialNumericPolicy, DemoTokenCustody, SessionKey, Wallet};
 
 const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
@@ -151,6 +153,28 @@ pub struct ExecuteConfidentialTransferAsSession<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct ApproveIkaMessageAsSession<'info> {
+    #[account(
+        mut,
+        seeds = [WALLET_SEED, wallet.owner.as_ref()],
+        bump,
+    )]
+    pub wallet: Account<'info, Wallet>,
+    pub session_key: Signer<'info>,
+    /// CHECK: Official Ika dWallet account. The Ika program validates its own account schema.
+    pub dwallet: UncheckedAccount<'info>,
+    /// CHECK: Official Ika MessageApproval PDA. The Ika program owns creation/validation.
+    #[account(mut)]
+    pub message_approval: UncheckedAccount<'info>,
+    /// CHECK: Polet CPI authority PDA used as the dWallet authority.
+    #[account(seeds = [IKA_CPI_AUTHORITY_SEED], bump)]
+    pub cpi_authority: UncheckedAccount<'info>,
+    /// CHECK: Ika Pre-Alpha program on devnet, or a deterministic mock Ika program in CI.
+    pub ika_program: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 fn require_policy_commitment(wallet: &Wallet) -> Result<()> {
     require!(
         wallet.policy_commitment != [0u8; 32] || wallet.merkle_root != [0u8; 32],
@@ -177,6 +201,34 @@ fn validate_session(wallet: &Wallet, session_key: Pubkey) -> Result<usize> {
     );
 
     Ok(session_index)
+}
+
+fn validate_session_and_attestation(
+    wallet: &Wallet,
+    session_key: Pubkey,
+    attestation_slot: u64,
+    attestation_policy_seq: u64,
+) -> Result<()> {
+    validate_session(wallet, session_key)?;
+
+    require!(
+        attestation_policy_seq == wallet.policy_seq,
+        ErrorCode::StalePolicySeq
+    );
+    require!(
+        attestation_slot > wallet.last_revoked_slot,
+        ErrorCode::StaleSlot
+    );
+
+    Ok(())
+}
+
+fn require_not_expired(expires_at: i64) -> Result<()> {
+    require!(
+        Clock::get()?.unix_timestamp < expires_at,
+        ErrorCode::OrderExpired
+    );
+    Ok(())
 }
 
 fn transfer_lamports<'info>(
@@ -454,16 +506,12 @@ pub mod contract {
             attestation_signature,
         );
         require_policy_commitment(&ctx.accounts.wallet)?;
-        validate_session(&ctx.accounts.wallet, ctx.accounts.session_key.key())?;
-
-        require!(
-            attestation_policy_seq == ctx.accounts.wallet.policy_seq,
-            ErrorCode::StalePolicySeq
-        );
-        require!(
-            attestation_slot > ctx.accounts.wallet.last_revoked_slot,
-            ErrorCode::StaleSlot
-        );
+        validate_session_and_attestation(
+            &ctx.accounts.wallet,
+            ctx.accounts.session_key.key(),
+            attestation_slot,
+            attestation_policy_seq,
+        )?;
 
         let payload = parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
 
@@ -489,16 +537,12 @@ pub mod contract {
         attestation_policy_seq: u64,
         encryption_witness: [u8; 32],
     ) -> Result<()> {
-        validate_session(&ctx.accounts.wallet, ctx.accounts.session_key.key())?;
-
-        require!(
-            attestation_policy_seq == ctx.accounts.wallet.policy_seq,
-            ErrorCode::StalePolicySeq
-        );
-        require!(
-            attestation_slot > ctx.accounts.wallet.last_revoked_slot,
-            ErrorCode::StaleSlot
-        );
+        validate_session_and_attestation(
+            &ctx.accounts.wallet,
+            ctx.accounts.session_key.key(),
+            attestation_slot,
+            attestation_policy_seq,
+        )?;
 
         let payload = parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
 
@@ -518,6 +562,53 @@ pub mod contract {
             payload.instruction,
             ctx.accounts.destination.key(),
         );
+        Ok(())
+    }
+
+    pub fn approve_ika_message_as_session(
+        ctx: Context<ApproveIkaMessageAsSession>,
+        canonical_order_hash: [u8; 32],
+        source_amount: u64,
+        order_expires_at: i64,
+        attestation_slot: u64,
+        attestation_policy_seq: u64,
+        encryption_witness: [u8; 32],
+        user_pubkey: [u8; 32],
+        signature_scheme: u16,
+        message_approval_bump: u8,
+    ) -> Result<()> {
+        validate_session_and_attestation(
+            &ctx.accounts.wallet,
+            ctx.accounts.session_key.key(),
+            attestation_slot,
+            attestation_policy_seq,
+        )?;
+        require_not_expired(order_expires_at)?;
+
+        enforce_confidential_numeric_policy(
+            &mut ctx.accounts.wallet,
+            source_amount,
+            &encryption_witness,
+        )?;
+
+        approve_ika_message(
+            IkaApproveMessageAccounts {
+                ika_program: ctx.accounts.ika_program.to_account_info(),
+                message_approval: ctx.accounts.message_approval.to_account_info(),
+                dwallet: ctx.accounts.dwallet.to_account_info(),
+                payer: ctx.accounts.session_key.to_account_info(),
+                cpi_authority: ctx.accounts.cpi_authority.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                signer_bump: ctx.bumps.cpi_authority,
+                message_approval_bump,
+                user_pubkey,
+                signature_scheme,
+                _marker: core::marker::PhantomData,
+            },
+            canonical_order_hash,
+        )?;
+
+        msg!("Ika approve_message CPI submitted after Polet policy approval");
         Ok(())
     }
 }

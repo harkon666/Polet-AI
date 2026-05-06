@@ -1,10 +1,10 @@
 use {
-    solana_keypair::Keypair,
-    solana_signer::Signer,
     common::{
         execute_as_session, grant_session, initialize, read_wallet, revoke_all_sessions,
         revoke_session, set_policy, set_policy_commitment, setup_svm,
     },
+    solana_keypair::Keypair,
+    solana_signer::Signer,
 };
 
 mod common;

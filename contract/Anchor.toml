@@ -7,6 +7,7 @@ skip-lint = false
 
 [programs.devnet]
 contract = "J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus"
+mock_ika = "CXHt5JcKMshPiW7HJUqyRnyUugQTnoWN3mbWm92sGLMw"
 
 [provider]
 cluster = "devnet"

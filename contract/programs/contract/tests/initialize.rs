@@ -1,6 +1,6 @@
 use {
-    solana_signer::Signer,
     common::{initialize, read_wallet, setup_svm},
+    solana_signer::Signer,
 };
 
 mod common;

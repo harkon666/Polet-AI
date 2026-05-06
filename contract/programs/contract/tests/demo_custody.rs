@@ -1,10 +1,10 @@
 use {
-    solana_keypair::Keypair,
-    solana_signer::Signer,
     common::{
         initialize, read_wallet, register_demo_custody, setup_svm, spl_token_program_id,
         write_mock_token_account, wsol_mint,
     },
+    solana_keypair::Keypair,
+    solana_signer::Signer,
 };
 
 mod common;

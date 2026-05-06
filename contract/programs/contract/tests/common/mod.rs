@@ -23,6 +23,7 @@ pub const WSOL_MINT_BYTES: [u8; 32] = [
     6, 155, 136, 87, 254, 171, 129, 132, 251, 104, 127, 99, 70, 24, 192, 53, 218, 196, 57, 220, 26,
     235, 59, 85, 152, 160, 240, 0, 0, 0, 0, 1,
 ];
+pub const IKA_CPI_AUTHORITY_SEED: &[u8] = b"__ika_cpi_authority";
 
 pub fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
     let program_id = contract::id();
@@ -33,6 +34,10 @@ pub fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
         std::fs::read("/home/harkon666/Dev/hackathon/Polet-AI/contract/target/deploy/contract.so")
             .expect("Build program first with: NO_DNA=1 anchor build");
     svm.add_program(program_id, &bytes).unwrap();
+    let mock_ika_bytes =
+        std::fs::read("/home/harkon666/Dev/hackathon/Polet-AI/contract/target/deploy/mock_ika.so")
+            .expect("Build mock Ika program first with: NO_DNA=1 anchor build");
+    svm.add_program(mock_ika::id(), &mock_ika_bytes).unwrap();
     svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
 
     let (wallet_pda, _bump) = anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
@@ -347,4 +352,96 @@ pub fn execute_confidential_as_session(
         accounts: ix_accounts.to_account_metas(None),
     };
     send_ix(svm, payer, &[session_key], ix)
+}
+
+pub fn ika_cpi_authority() -> (anchor_lang::prelude::Pubkey, u8) {
+    anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
+        &[IKA_CPI_AUTHORITY_SEED],
+        &contract::id(),
+    )
+}
+
+pub fn write_mock_ika_account(
+    svm: &mut LiteSVM,
+    account: anchor_lang::prelude::Pubkey,
+    data_len: usize,
+) {
+    svm.set_account(
+        account,
+        Account {
+            lamports: 1_000_000_000,
+            data: vec![0u8; data_len],
+            owner: mock_ika::id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .expect("mock Ika account write failed");
+}
+
+pub fn write_system_account(svm: &mut LiteSVM, account: anchor_lang::prelude::Pubkey) {
+    svm.set_account(
+        account,
+        Account {
+            lamports: 1_000_000_000,
+            data: vec![],
+            owner: anchor_lang::solana_program::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .expect("system account write failed");
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn approve_ika_message_as_session(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    session_key: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    dwallet: anchor_lang::prelude::Pubkey,
+    message_approval: anchor_lang::prelude::Pubkey,
+    canonical_order_hash: [u8; 32],
+    source_amount: u64,
+    order_expires_at: i64,
+    attestation_slot: u64,
+    attestation_policy_seq: u64,
+    witness: [u8; 32],
+) -> Result<(), String> {
+    let (cpi_authority, _cpi_bump) = ika_cpi_authority();
+    let ix_data = contract::instruction::ApproveIkaMessageAsSession {
+        canonical_order_hash,
+        source_amount,
+        order_expires_at,
+        attestation_slot,
+        attestation_policy_seq,
+        encryption_witness: witness,
+        user_pubkey: [0xedu8; 32],
+        signature_scheme: 5,
+        message_approval_bump: 9,
+    };
+    let ix_accounts = contract::accounts::ApproveIkaMessageAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        dwallet,
+        message_approval,
+        cpi_authority,
+        ika_program: mock_ika::id(),
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, payer, &[session_key], ix)
+}
+
+pub fn read_mock_message_approval(
+    svm: &LiteSVM,
+    message_approval: anchor_lang::prelude::Pubkey,
+) -> Vec<u8> {
+    svm.get_account(&message_approval)
+        .expect("message approval account not found")
+        .data
 }
