@@ -949,6 +949,10 @@ pub mod contract {
             ctx.accounts.daily_spent_ciphertext.key(),
             ciphertexts.daily_spent,
         )?;
+        require!(
+            ctx.accounts.program.key() == crate::ID,
+            ErrorCode::InvalidEncryptPolicy
+        );
 
         let encrypt_ctx = EncryptContext {
             encrypt_program: ctx.accounts.encrypt_program.to_account_info(),
