@@ -1,180 +1,193 @@
-# PRD: Polet AI Confidential DCA Smart Wallet
+# PRD: Polet AI Confidential Control Layer
+
+Labels: `needs-triage`
 
 ## Problem Statement
 
-AI agents can help users manage DeFi strategies, but users cannot safely delegate funds if their policy rules are public, easy to infer, or enforced only by an off-chain service. A user who wants an agent to run a DCA strategy should not have to reveal their exact spending limits, daily cap, remaining allowance, or risk threshold on a public blockchain.
+AI agents can help users execute DeFi and cross-chain strategies, but delegation is unsafe when the agent receives broad wallet authority, policy limits are public, or cross-chain signing requests can bypass the same policy boundary that protects local Solana actions.
 
-Polet AI currently has a strong public policy wallet foundation: wallet PDA custody, owner-controlled policy setup, temporal session keys, intent parsing, policy templates, Merkle commitments, proxy routing, frontend configuration, and SDK intent builders. However, the existing policy model stores and evaluates important rules in plaintext. That weakens the product's fit for the Encrypt/Ika track, where privacy must be core rather than decorative.
+Polet AI has evolved beyond the older DCA-only PRD. The current codebase is a confidential Solana control layer for AI agents: it has a PDA smart wallet, owner-controlled sessions, confidential numeric guardrails, Jupiter route/build previews, Ika dWallet approval preparation, shared Ika approval quorum, recovery authority controls, passkey co-approval prototype support, route-risk guardrails, and an in-progress official Encrypt policy graph lifecycle.
 
-The new direction is to turn Polet AI into a single-contract confidential smart wallet for AI agents. The wallet should custody funds directly, enforce confidential numeric policy rules before execution, and let an AI agent run a Jupiter-powered DCA strategy without exposing the user's private policy parameters.
+The remaining product problem is to make this control-layer shape coherent end to end. A user should be able to give an AI agent limited authority, keep numeric spend guardrails private, prove allowed and blocked outcomes without leaking thresholds, and prepare Jupiter or Ika actions only after Polet's policy boundary approves them. The product must also be honest about current pre-alpha limits: masked-witness policy simulation and official Encrypt graph integration are not production privacy guarantees, and Ika Pre-Alpha approval is not production MPC settlement.
 
 ## Solution
 
-Polet AI will become a confidential DCA smart wallet for AI agents.
+Polet AI will be positioned and completed as a confidential Solana control layer for agentic finance.
 
-The user deposits funds into a smart wallet PDA, configures confidential spending policy rules, grants an AI agent a temporary session key, and creates a DCA strategy. The agent can request strategy execution, but the smart wallet only executes when the confidential policy check passes.
+The owner initializes a Polet smart wallet PDA, registers demo custody, configures confidential numeric policy, optionally configures recovery and shared Ika approvers, and grants an AI agent a temporary session key. The agent submits structured strategy intents through the SDK or proxy. Polet validates session freshness, policy sequence, amount, route allowlist, risk metadata, and shared approval quorum before returning any executable or approval payload.
 
-The primary demo strategy is USDC to SOL DCA:
+The primary demo sequence remains:
 
-- Normal strategy run: 5 USDC to SOL.
-- Confidential max per run: 10 USDC.
-- Confidential daily cap: 20 USDC.
-- Block scenario: the agent attempts 25 USDC and is blocked.
-- Allow scenario: the agent attempts 5 USDC and is allowed.
+- 25 USDC request is blocked without revealing max-per-run, daily cap, daily spent, dWallet approval data, or Jupiter execution payload.
+- 5 USDC Jupiter USDC to SOL DCA request is approved as a route/build preview and unsigned session transaction.
+- 5 USDC-equivalent Sui Ika request is approved as a canonical bridgeless order and unsigned Polet dWallet approval transaction.
+- Missing shared Ika quorum returns `needs-approval` progress instead of preparing approval data.
+- Official Encrypt lifecycle states return pending, verified allowed, or verified blocked outcomes without witness bytes or private thresholds.
 
-The Jupiter integration should be more than a basic swap. The product should use Jupiter as the execution and market intelligence layer:
-
-- Tokens API for token metadata, verification, risk, and quality signals.
-- Price API for pricing and volatility checks.
-- Recurring API as the primary DCA integration if compatible with the smart wallet flow.
-- Swap V2 `/build` as the fallback and immediate execution path, because it gives raw instruction control for smart wallet composition.
-
-The Encrypt integration should focus first on confidential numeric policy rules:
-
-- Max per execution.
-- Daily cap.
-- Daily spent.
-- Risk threshold if feasible.
-
-Allowlists and blocklists should not be the first FHE target. They can remain represented by public commitments or Merkle roots for the first milestone, because encrypted membership checks are more complex and higher risk within the hackathon timeline.
+The product should keep one single Polet contract as the authority boundary. Jupiter remains the Solana strategy and market-intelligence rail. Ika remains the dWallet signed-intent rail for Sui-primary and Ethereum-optional destination artifacts. Encrypt remains the confidential policy rail, with the current masked-witness path treated as pre-alpha simulation while the official policy graph lifecycle becomes the forward path.
 
 ## User Stories
 
-1. As an Indonesian DeFi user, I want to delegate a DCA strategy to an AI agent, so that I can automate investing without constantly signing every action.
-2. As a wallet owner, I want to deposit funds into a Polet smart wallet, so that the smart wallet can execute approved actions directly.
-3. As a wallet owner, I want my AI agent's per-run spending limit to remain private, so that observers cannot infer my risk tolerance.
-4. As a wallet owner, I want my daily spending cap to remain private, so that my financial constraints are not exposed on-chain.
-5. As a wallet owner, I want daily spent to be tracked confidentially, so that public observers cannot reconstruct my agent budget.
-6. As a wallet owner, I want to grant a temporary session key to an AI agent, so that the agent can act without receiving my main wallet authority.
-7. As a wallet owner, I want to revoke an AI session key, so that I can stop agent access immediately.
-8. As a wallet owner, I want a kill switch for all sessions, so that I can respond quickly if an agent behaves unexpectedly.
-9. As a wallet owner, I want to configure DCA from USDC to SOL, so that the first product flow is simple and easy to understand.
-10. As a wallet owner, I want a "Run Agent Now" button, so that the demo can trigger the same flow without waiting for a real interval.
-11. As a wallet owner, I want automatic DCA scheduling if available, so that the product can support real ongoing strategies.
-12. As a wallet owner, I want the system to block a DCA run that exceeds my confidential max per run, so that the agent cannot overspend.
-13. As a wallet owner, I want the system to block a DCA run that exceeds my confidential daily cap, so that repeated small actions cannot drain the wallet.
-14. As a wallet owner, I want the UI to show that a policy exists without revealing exact private values after saving, so that my confidential setup remains confidential.
-15. As a wallet owner, I want to see whether an agent action was approved or blocked, so that I can understand agent behavior.
-16. As a wallet owner, I want blocked actions to show a safe explanation without revealing the exact private threshold, so that the UI does not leak the policy.
-17. As a wallet owner, I want to choose between Indonesian and English UI, so that the product fits the National Campus Hackathon audience.
-18. As a wallet owner, I want the app to feel like a working consumer product, so that the value is clear beyond technical infrastructure.
-19. As an AI agent, I want to submit a structured DCA intent, so that I do not need to construct Solana transactions manually.
-20. As an AI agent, I want to submit a risk-gated swap intent, so that Polet can decide whether the action is allowed.
-21. As an AI agent, I want a simple SDK interface for creating strategy intents, so that OpenClaw, Hermes, and similar runtimes can integrate quickly.
-22. As an AI agent developer, I want example code for DCA intents, so that I can understand how to integrate Polet into an agent runtime.
-23. As an AI agent developer, I want a submit helper in the SDK, so that I can send intents to the Polet proxy without hand-rolling request code.
-24. As a hackathon judge, I want to see a live functional MVP, so that I can verify Polet is more than a design mockup.
-25. As a hackathon judge, I want to see the smart wallet execute from its PDA, so that custody and policy enforcement are real.
-26. As a hackathon judge, I want to see confidential policy enforcement as a core feature, so that the Encrypt integration is fundamental.
-27. As a hackathon judge, I want to see Jupiter APIs used in a composed strategy flow, so that the Jupiter integration is deeper than a basic swap.
-28. As a hackathon judge, I want to see honest pre-alpha disclaimers, so that the project does not overclaim production confidentiality.
-29. As a Jupiter reviewer, I want a clear DX report, so that I can understand what worked and what blocked development.
-30. As a Jupiter reviewer, I want feedback on API onboarding, docs, API keys, and AI tooling, so that the report is actionable.
-31. As a Jupiter reviewer, I want to see Tokens, Price, Recurring, and Swap V2 considered together, so that the project demonstrates creative API composition.
-32. As an Encrypt/Ika reviewer, I want to see private policy rules used in the critical execution path, so that Encrypt is not superficial.
-33. As an Encrypt/Ika reviewer, I want the README to disclose pre-alpha limitations, so that the project is technically honest.
-34. As a developer maintaining Polet AI, I want the final contract to avoid plaintext numeric policy fields, so that the privacy claim is not contradicted by state.
-35. As a developer maintaining Polet AI, I want to preserve useful v1 concepts, so that the rewrite does not lose proven domain behavior.
-36. As a developer maintaining Polet AI, I want policy logic isolated behind testable modules, so that FHE and non-FHE behavior can be verified.
-37. As a developer maintaining Polet AI, I want Jupiter integration isolated behind a gateway module, so that API changes are contained.
-38. As a developer maintaining Polet AI, I want SDK intent builders to remain backwards-compatible where practical, so that existing examples still work.
-39. As a demo presenter, I want an allow scenario and a block scenario, so that the core value is obvious in under five minutes.
-40. As a demo presenter, I want the demo to work even if real scheduling is slow, so that the video is reliable.
+1. As an Indonesian DeFi user, I want to delegate strategy execution to an AI agent, so that I can automate finance without handing over unlimited wallet authority.
+2. As a wallet owner, I want to initialize a Polet smart wallet PDA, so that policy enforcement and custody share one Solana authority boundary.
+3. As a wallet owner, I want to register demo USDC and SOL custody accounts, so that the app can show where strategy funds are controlled.
+4. As a wallet owner, I want to configure confidential max-per-run and daily-cap values, so that my private risk limits are not shown in the activity log.
+5. As a wallet owner, I want daily spend to update through the confidential policy path, so that repeated small agent actions cannot bypass my cap.
+6. As a wallet owner, I want saved policy values redacted after setup, so that the UI does not leak my thresholds.
+7. As a wallet owner, I want to grant a temporary session key to an agent, so that the agent can request actions without using my main wallet.
+8. As a wallet owner, I want to revoke one session key, so that I can stop a specific agent.
+9. As a wallet owner, I want to revoke all sessions, so that I can shut down agent access quickly.
+10. As a wallet owner, I want stale policy-sequence requests rejected, so that an agent cannot reuse old approvals after policy changes.
+11. As a wallet owner, I want expired sessions rejected, so that unattended authority naturally ends.
+12. As a wallet owner, I want to configure a recovery authority, so that compromised sessions can be revoked and access can be restored.
+13. As a wallet owner, I want recovery to stage dWallet controller migration metadata, so that emergency flows can be prepared without claiming live settlement.
+14. As a wallet owner, I want a Jupiter DCA run for USDC to SOL, so that the Solana strategy rail is easy to understand.
+15. As a wallet owner, I want a 25 USDC Jupiter request blocked, so that I can prove the agent cannot exceed policy.
+16. As a wallet owner, I want a 5 USDC Jupiter request approved, so that I can see the allowed path.
+17. As a wallet owner, I want Jupiter token and price context before a run, so that the route is not a blind transaction.
+18. As a wallet owner, I want Jupiter route/build preview metadata, so that I can inspect what would be executed.
+19. As a wallet owner, I want the app to state that Jupiter swaps are previewed or unsigned when they are not broadcast, so that the demo does not overclaim execution.
+20. As a wallet owner, I want to request a Sui-primary Ika signed intent, so that the same Solana policy can control a bridgeless destination action.
+21. As a wallet owner, I want optional Ethereum route support clearly separated from the primary Sui demo, so that risk and scope stay understandable.
+22. As a wallet owner, I want Ika approval data suppressed when policy blocks, so that a blocked request cannot continue off-chain.
+23. As a wallet owner, I want Ika approval data suppressed while Encrypt graph execution is pending, so that unresolved policy output cannot prepare signing data.
+24. As a wallet owner, I want verified-blocked Encrypt output to suppress all execution payloads, so that final blocked states are safe.
+25. As a wallet owner, I want verified-allowed Encrypt output to carry safe policy attestation metadata, so that approved actions can proceed without revealing thresholds.
+26. As a wallet owner, I want shared Ika approval quorum, so that sensitive dWallet approvals can require additional humans or devices.
+27. As a wallet owner, I want missing shared approvals to show required, received, and missing counts, so that I know what is needed without leaking policy values.
+28. As a wallet owner, I want to revoke a shared Ika approver, so that stale co-approvers lose approval power.
+29. As a wallet owner, I want passkey co-approval available as a UX helper, so that shared approvals can feel consumer-friendly.
+30. As a wallet owner, I want passkeys to remain outside the authority boundary, so that Solana signatures and contract checks still decide access.
+31. As a wallet owner, I want chain and asset allowlist guardrails, so that agents can only request supported routes.
+32. As a wallet owner, I want route-risk guardrails for slippage, price impact, liquidity, and risk level, so that bridgeless requests are constrained before Ika approval.
+33. As an AI agent, I want to create DCA and multichain strategy intents with a typed SDK, so that I do not hand-roll proxy payloads.
+34. As an AI agent, I want a high-level trade adapter, so that simple Jupiter and Ika requests can be integrated into agent runtimes.
+35. As an AI agent, I want blocked responses to be normalized, so that I can react without learning private policy thresholds.
+36. As an AI agent, I want pending Encrypt responses to be explicit, so that I do not treat unresolved policy as approval.
+37. As an AI agent developer, I want canonical bridgeless order hashes, so that dWallet signing inputs are deterministic.
+38. As an AI agent developer, I want Sui and Ethereum destination digest artifacts separated from Ika MessageApproval hashes, so that signing semantics are not confused.
+39. As an AI agent developer, I want local runtime examples, so that OpenClaw or Hermes-style integrations can be demonstrated.
+40. As a frontend user, I want a compact command-center workflow, so that I can run setup, block, allow, and Ika demos from one operational surface.
+41. As a frontend user, I want Indonesian and English copy, so that the demo fits the local hackathon audience.
+42. As a frontend user, I want an activity log that never displays witness bytes, private thresholds, or raw private policy data, so that privacy is preserved in the UX.
+43. As a frontend user, I want clear status cards for blocked, pending, approved, needs-approval, and not-executed states, so that I understand each boundary.
+44. As a frontend user, I want mobile and desktop layouts to remain readable, so that the demo works during judging.
+45. As a hackathon reviewer, I want to see Polet block an over-limit agent action on-chain or through the policy boundary, so that the core control-layer value is credible.
+46. As a hackathon reviewer, I want to see Jupiter integrated beyond a basic token swap, so that token metadata, price context, and route/build composition are visible.
+47. As a hackathon reviewer, I want to see Ika Pre-Alpha integration use the official approval vocabulary, so that Polet's dWallet story is grounded in the real interface.
+48. As an Encrypt reviewer, I want masked-witness simulation clearly distinguished from official Encrypt policy graph execution, so that the project does not overclaim confidentiality.
+49. As an Ika reviewer, I want dWallet approval preparation clearly distinguished from production MPC settlement, so that the project does not overclaim bridgeless trading.
+50. As a maintainer, I want legacy public policy routes quarantined, so that the main product path does not contradict the confidential positioning.
+51. As a maintainer, I want deep policy, execution, Ika, Jupiter, SDK, and frontend modules, so that each boundary can be tested independently.
+52. As a maintainer, I want current docs and issues to share the same vocabulary, so that future work can be picked up by humans or AFK agents.
 
 ## Implementation Decisions
 
-- Polet AI will use one contract, not separate v1/v2 programs. "v2" is a product direction, not an on-chain versioning strategy.
-- The final contract can be substantially refactored. Plaintext policy fields that contradict the confidentiality claim should be removed from the final execution path.
-- The smart wallet PDA must custody funds and execute actions directly. Polet is not only a policy gate for an external wallet.
-- The first confidential policy scope is numeric: max per run, daily cap, daily spent, and optionally risk threshold.
-- Allowlist and blocklist privacy is deferred. The first milestone can use commitments or Merkle roots for non-numeric rules.
-- The main demo pair is USDC to SOL.
-- The main demo strategy is DCA.
-- Jupiter Recurring is the primary DCA target if it supports the required smart wallet flow.
-- Polet scheduler plus Jupiter Swap V2 `/build` is the fallback path for DCA execution.
-- Swap V2 `/build` is preferred over `/order` plus `/execute` for smart wallet execution because Polet needs raw instruction control.
-- The Jupiter integration should include Tokens and Price checks before execution.
-- The frontend should include a "Run Agent Now" control to trigger the strategy flow during demos.
-- The SDK should keep existing general intent builders while adding DCA and risk-gated swap builders.
-- OpenClaw/Hermes support is required as an agent-compatible SDK example. Real runtime integration is a stretch goal after the core flow works.
-- The product should be positioned for three aligned opportunities: Encrypt/Ika as the primary technical track, Jupiter as a complex API integration and DX report track, and Indonesia National Campus Hackathon as a Consumer App/DeFi product for Indonesian users.
-- The README and pitch must be honest about Encrypt pre-alpha limitations. The implementation should be described as built against Encrypt pre-alpha confidential policy flow, not as production-grade private custody.
+- Polet is a single-contract Solana control layer, not separate DCA and Ika products.
+- The smart wallet PDA remains the policy and custody boundary for the demo.
+- The current product routes are confidential wallet setup, DCA run, multichain run, Ika destination broadcast demo, passkey co-approval, shared Ika approval configuration, and recovery operations.
+- Legacy public policy templates and plaintext evaluation stay explicitly namespaced as prior-foundation compatibility. They are not part of the primary product path.
+- Confidential numeric policy is the core private policy surface: max-per-run, daily cap, daily spent, policy commitment, policy sequence, and safe attestation metadata.
+- The masked-witness path remains a pre-alpha simulation and compatibility fallback until official Encrypt graph setup, execution, and verification are complete.
+- The official Encrypt path uses a policy graph lifecycle with pending execution, verified allowed, and verified blocked states.
+- Pending or verified-blocked Encrypt states must not return Jupiter unsigned execution payloads, Ika dWallet metadata, MessageApproval data, or private witness material.
+- Jupiter is the Solana execution and market-intelligence rail. Tokens and price checks are part of the strategy plan; Recurring remains incompatible with the current immediate policy-gated spend model; Swap build is the practical route/build fallback.
+- Jupiter responses are route/build previews and unsigned policy-gated payloads unless a later signer/broadcast flow explicitly executes them.
+- Ika is the dWallet signed-intent rail. The primary destination is Sui/SUI; Ethereum/ETH is optional and must stay clearly labeled.
+- Ika requests use a canonical bridgeless order and separate destination-chain digest artifacts. Destination digest artifacts are not the same as the Ika MessageApproval lookup hash.
+- The Polet Ika approval path must validate session freshness, expiry, policy sequence, confidential policy approval, route guardrails, risk guardrails, and shared approver quorum before any Ika approval data is prepared.
+- Shared Ika approval is M-of-N signer quorum. Passkey co-approval is a UX helper and does not replace Solana signer authority.
+- Recovery authority can revoke compromised sessions, advance revocation state, rotate shared approval metadata, and stage controller migration metadata without touching confidential policy values.
+- The SDK should expose both low-level intent builders and a higher-level agent trade API.
+- The frontend should remain an operational fintech command center, not a marketing landing page.
+- Documentation must keep pre-alpha disclaimers explicit for Encrypt, Ika, and destination broadcast demos.
 
 Major modules to build or modify:
 
-- Confidential policy module: owns encrypted numeric policy state, policy checks, and daily spend updates behind a small interface.
-- Smart wallet custody module: owns deposits, PDA authority, token account management, session authorization, revocation, and execution gating.
-- Jupiter strategy gateway: owns Tokens, Price, Recurring, and Swap V2 `/build` calls and normalizes responses for the proxy.
-- Agent strategy module: turns DCA and risk-gated swap intents into executable strategy requests.
-- Proxy execution module: coordinates agent intent parsing, Jupiter prechecks, confidential contract calls, and response formatting.
-- SDK intent module: exposes DCA and risk-gated swap builders plus submit/evaluate helpers.
-- Frontend strategy UI: supports deposit, policy setup, strategy setup, run-now demo, activity log, and ID/EN copy.
-- DX report module/documentation: records Jupiter onboarding time, API friction, AI stack usage, docs gaps, edge cases, and requested platform improvements.
+- Confidential policy module: owns masked-witness compatibility, official Encrypt lifecycle state, policy-sequence validation, safe attestation output, and non-leaking block semantics.
+- Official Encrypt graph module: owns graph submission, ciphertext identifiers, pending output tracking, verified result consumption, and test executor integration.
+- Smart wallet identity and session module: owns PDA derivation, wallet initialization, temporal keys, session revocation, stale-session rejection, and recovery authority.
+- Jupiter strategy gateway: owns token metadata, price context, Recurring compatibility notes, Swap build requests, and normalized strategy previews.
+- Guarded execution module: owns the shared allow/block orchestration for DCA and Ika rails.
+- Ika bridgeless approval module: owns canonical orders, Ika message hashes, dWallet approval accounts, approval transaction building, destination digest artifacts, and pre-alpha boundaries.
+- Shared approval module: owns M-of-N co-approval policy, challenge construction, signature verification, quorum progress, and safe `needs-approval` output.
+- Route guardrail module: owns supported chain/asset rules and bridgeless route-risk checks.
+- Recovery module: owns recovery authority updates, compromised-session revocation, shared approver rotation, and staged dWallet controller migration.
+- Passkey co-approval module: owns passkey challenge and verification UX support while preserving Solana authority boundaries.
+- SDK agent module: owns typed intent builders, local agent runtime, high-level trade adapters, response normalization, and redaction.
+- Frontend command-center module: owns wallet setup, policy setup, custody setup, DCA demo, Ika demo, shared approval UI, recovery UI, Encrypt lifecycle display, and activity redaction.
 
 ## Testing Decisions
 
-Good tests should validate externally observable behavior rather than implementation details. The important behaviors are: a confidential policy allows an in-limit action, blocks an over-limit action, tracks daily spend correctly, honors session revocation, and prevents execution when Jupiter or policy preconditions fail.
+Good tests should validate external behavior and security boundaries rather than private implementation details. A test should prove what the user, agent, proxy, or contract observes: allowed actions produce only the correct safe payload, blocked actions suppress sensitive data, pending states cannot be treated as approval, revoked sessions fail, and pre-alpha limitations are visible.
 
 The contract tests should cover:
 
 - Wallet initialization and PDA authority.
-- Deposit and custody assumptions.
-- Session grant, expiry, and revocation.
-- Confidential policy setup.
-- In-limit DCA execution approval.
-- Over max-per-run block.
-- Over daily-cap block.
-- Daily spent update after allowed execution.
-- Kill switch behavior.
-- Jupiter CPI or instruction execution path at the smallest reliable integration scope.
+- Demo custody registration and PDA-owned token-account validation.
+- Session grant, expiry, single revocation, and revoke-all behavior.
+- Stale policy sequence rejection.
+- Masked-witness confidential numeric policy allow, block, daily-spend update, and day reset behavior while it remains supported.
+- Official Encrypt graph pending, verified allowed, and verified blocked lifecycle.
+- Ika approval lifecycle under official Encrypt verified output.
+- Shared Ika quorum enforcement with missing and sufficient co-approver signers.
+- Recovery authority setup and recover-access behavior.
+- Expired order and invalid Ika approval rejection.
 
 The proxy tests should cover:
 
-- DCA intent parsing.
-- Risk-gated swap intent parsing.
-- Jupiter Tokens and Price precheck behavior.
-- Recurring primary path selection.
-- Swap V2 fallback path selection.
-- Safe error handling when Jupiter APIs fail.
-- Blocked responses that do not reveal private policy thresholds.
+- Wallet setup transaction builders for initialization, confidential policy, custody, shared approvers, recovery, and session operations.
+- DCA intent parsing and guarded execution responses.
+- Jupiter token, price, and route/build fallback behavior with deterministic fetch injection.
+- Official Encrypt lifecycle response mapping.
+- Ika route and risk guardrail blocks.
+- Canonical bridgeless order hashing and destination digest construction.
+- Ika approval transaction construction without signing or broadcasting.
+- Shared approval challenge, signature verification, missing quorum, and ready quorum.
+- Passkey co-approval challenge and verification boundaries.
+- Destination broadcast demo disabled-by-default behavior.
+- Legacy route quarantine.
 
 The SDK tests should cover:
 
-- Existing intent builders remain valid.
-- DCA intent builder emits the expected shape.
-- Risk-gated swap intent builder emits the expected shape.
-- Submit/evaluate helpers call the expected proxy endpoints and handle errors.
+- DCA, risk-gated swap, and multichain strategy intent builders.
+- High-level agent `trade` adapters for Jupiter and Ika.
+- Local runtime scenarios for allow, block, Ika Sui, and hybrid flows.
+- Redaction of confidential witnesses and private params in returned agent results.
+- Normalization of blocked, not-supported, preview-ready, request-prepared, needs-approval, and not-executed outcomes.
+- Canonical order helpers and session helper compatibility.
 
 The frontend tests should cover:
 
-- Policy setup hides saved confidential values.
-- Run Agent Now displays allow and block outcomes.
-- Activity log does not leak private thresholds.
-- ID/EN toggle updates key user-facing flows.
+- Linear setup checklist and CTA gating.
+- Confidential policy redaction after save.
+- 25 USDC blocked path with no leaked thresholds or approval payloads.
+- 5 USDC Jupiter allowed path with route/build preview and unsigned transaction boundary.
+- 5 USDC-equivalent Ika allowed path with pre-alpha approval transaction metadata and non-settlement boundary.
+- Missing and ready shared Ika approval UI states.
+- Official Encrypt pending, verified allowed, and verified blocked states.
+- Recovery authority and passkey co-approval UI once exposed.
+- Desktop and mobile readability through component and Playwright coverage.
 
-Prior art exists in the current codebase for policy templates, policy engine tests, intent parser tests, Merkle tree tests, SDK intent builder tests, and end-to-end policy block tests. New tests should follow those behavioral patterns while adapting to the confidential policy architecture.
+Prior art already exists across contract tests, proxy unit tests, SDK unit tests, frontend component tests, and Playwright E2E tests. New tests should extend those suites using deterministic injected dependencies where possible.
 
 ## Out of Scope
 
-- Full encrypted allowlist or blocklist membership checks.
-- Production confidentiality guarantees beyond Encrypt pre-alpha capabilities.
-- Mainnet deployment.
-- Full OpenClaw/Hermes runtime integration before the core MVP is stable.
-- Multi-token strategy portfolio optimization.
+- Production confidentiality guarantees.
+- Claims that Encrypt pre-alpha is production FHE or production private custody.
+- Production Ika MPC, production bridgeless settlement, or real destination-chain asset movement.
+- Mainnet trading as the default demo path.
+- Encrypted allowlist or blocklist membership checks.
+- Generic multi-strategy portfolio management.
 - Perps, lending, prediction markets, or flashloan strategies.
-- Production Ika settlement or real bridgeless trading before a verified Ika request/execution path exists. A structured Ika request envelope and multichain demo boundary are in scope for the final hybrid demo.
-- A separate v2 contract or parallel legacy program.
-- A generic marketing landing page as the main deliverable.
+- Passkeys as direct wallet, dWallet, or policy authority.
+- A marketing landing page as the main deliverable.
+- Removing legacy compatibility code unless a separate cleanup issue owns that migration.
 
 ## Further Notes
 
-The strongest demo is a two-part sequence:
+The strongest demo remains a short control-layer sequence: initialize wallet, set confidential policy, grant agent session, block 25 USDC, approve 5 USDC Jupiter preview, show missing or ready shared Ika approval, then prepare a 5 USDC-equivalent Sui Ika approval transaction only after policy approval.
 
-1. The agent attempts to DCA 25 USDC to SOL. Polet blocks the action because it violates confidential policy, but the UI does not reveal the exact max-per-run or daily cap.
-2. The agent attempts to DCA 5 USDC to SOL. Polet approves the action and executes through the smart wallet flow.
+The highest-priority technical follow-through is finishing the official Encrypt graph lifecycle: policy ciphertext account setup, deterministic test executor coverage, frontend lifecycle display, and migration of the Ika CPI boundary away from masked-witness immediate approval when official Encrypt policy is configured.
 
-The pitch should emphasize that Polet AI solves the delegation problem for AI finance: users can let agents act without revealing their private guardrails or surrendering unlimited wallet authority.
-
-The Jupiter DX report is a required deliverable for the Jupiter bounty. It should be written during implementation, not after, so onboarding time, API errors, confusing docs, and AI stack feedback are captured while fresh.
-
-The Encrypt/Ika messaging must remain precise. Polet should claim it is built on Encrypt pre-alpha to demonstrate confidential policy enforcement, while clearly stating that production privacy depends on Encrypt's later alpha/mainnet guarantees.
+All product copy should use precise language: Polet prepares or previews actions unless a signer/broadcast flow actually executes them; Ika artifacts are Pre-Alpha signed-intent proofs, not production settlement; Encrypt integration is pre-alpha and must not be described as production privacy.
