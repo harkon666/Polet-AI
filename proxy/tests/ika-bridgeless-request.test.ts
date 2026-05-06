@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Keypair, PublicKey } from '@solana/web3.js';
+import nacl from 'tweetnacl';
 import {
   buildConfidentialNumericPolicySetup,
   currentDayIndex,
@@ -211,6 +212,131 @@ describe('Ika bridgeless execution request', () => {
     }
   });
 
+  test('returns needs-approval without Ika signing data when shared quorum is missing', async () => {
+    const fixture = createFixture();
+    const approverA = Keypair.generate();
+    const approverB = Keypair.generate();
+    const intent = createIkaIntent(fixture, '5');
+    (intent.params as { sharedAccess?: unknown }).sharedAccess = {
+      policy: {
+        mode: 'ika-approval-quorum',
+        threshold: 2,
+        approvers: [approverA.publicKey.toString(), approverB.publicKey.toString()],
+      },
+    };
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
+      expect(result.status).toBe('needs-approval');
+      expect(result.approval).toMatchObject({
+        status: 'needs-approval',
+        required: 2,
+        received: 0,
+        threshold: 2,
+        totalApprovers: 2,
+        missingApprovals: 2,
+      });
+      expect(result.approval.challenge).toContain('polet.ika.shared-approval.v1');
+      expect('ikaRequest' in result).toBe(false);
+      expect(JSON.stringify(result)).not.toContain('preAlphaSigning');
+      expect(JSON.stringify(result)).not.toContain('messageApprovalPda');
+      expect(JSON.stringify(result)).not.toContain('10000000');
+      expect(JSON.stringify(result)).not.toContain('20000000');
+    }
+  });
+
+  test('prepares Ika approval only after shared quorum reaches 2 of 2', async () => {
+    const fixture = createFixture();
+    const approverA = Keypair.generate();
+    const approverB = Keypair.generate();
+    const intent = createIkaIntent(fixture, '5');
+    const policy = {
+      mode: 'ika-approval-quorum' as const,
+      threshold: 2,
+      approvers: [approverA.publicKey.toString(), approverB.publicKey.toString()],
+    };
+    (intent.params as { sharedAccess?: unknown }).sharedAccess = { policy };
+    const first = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+    expect(first.allowed).toBe(false);
+    if (first.allowed || first.code !== 'IKA_APPROVAL_QUORUM_REQUIRED') {
+      throw new Error('expected shared quorum challenge');
+    }
+
+    (intent.params as { sharedAccess?: unknown }).sharedAccess = {
+      policy,
+      approvals: [
+        signSharedApproval(approverA, first.approval.challenge),
+        signSharedApproval(approverB, first.approval.challenge),
+      ],
+    };
+    const transactionRequests: unknown[] = [];
+    const approved = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async (request) => {
+        transactionRequests.push(request);
+        return fixture.approvalTransaction;
+      },
+    });
+
+    expect(approved.allowed).toBe(true);
+    expect(transactionRequests).toHaveLength(1);
+    if (approved.allowed) {
+      expect(approved.ikaRequest.preAlphaSigning?.status).toBe('message-approved');
+      expect(approved.ikaRequest.poletApprovalTransaction).toEqual(fixture.approvalTransaction);
+    }
+  });
+
+  test('does not count revoked or duplicate shared approver signatures', async () => {
+    const fixture = createFixture();
+    const revokedApprover = Keypair.generate();
+    const activeApprover = Keypair.generate();
+    const intent = createIkaIntent(fixture, '5');
+    const policy = {
+      mode: 'ika-approval-quorum' as const,
+      threshold: 2,
+      approvers: [activeApprover.publicKey.toString(), Keypair.generate().publicKey.toString()],
+    };
+    (intent.params as { sharedAccess?: unknown }).sharedAccess = { policy };
+    const first = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+    expect(first.allowed).toBe(false);
+    if (first.allowed || first.code !== 'IKA_APPROVAL_QUORUM_REQUIRED') {
+      throw new Error('expected shared quorum challenge');
+    }
+
+    (intent.params as { sharedAccess?: unknown }).sharedAccess = {
+      policy,
+      approvals: [
+        signSharedApproval(activeApprover, first.approval.challenge),
+        signSharedApproval(activeApprover, first.approval.challenge),
+        signSharedApproval(revokedApprover, first.approval.challenge),
+      ],
+    };
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
+      expect(result.approval.received).toBe(1);
+      expect(result.approval.missingApprovals).toBe(1);
+      expect(result.approval.approvedApprovers).toEqual([activeApprover.publicKey.toString()]);
+    }
+  });
+
   test('rejects invalid Sui destination data before Ika approval construction', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5');
@@ -386,4 +512,15 @@ function createFixture(options: {
   };
 
   return { owner, sessionKey, wallet, witness, approvalTransaction };
+}
+
+function signSharedApproval(approver: Keypair, challenge: string) {
+  return {
+    approver: approver.publicKey.toString(),
+    signature: Buffer.from(nacl.sign.detached(
+      new TextEncoder().encode(challenge),
+      approver.secretKey
+    )).toString('base64'),
+    encoding: 'base64' as const,
+  };
 }

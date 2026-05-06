@@ -23,6 +23,10 @@ import {
   buildEthereumSepoliaMessageDigest,
   type EthereumMessageDigestArtifact,
 } from './ethereum-transaction-digest';
+import {
+  evaluateSharedIkaApproval,
+  type SharedIkaApprovalProgress,
+} from './shared-ika-approval';
 import type { WalletData } from './wallet-store';
 import {
   executeGuardedStrategy,
@@ -83,6 +87,14 @@ export interface IkaBridgelessAllowed {
   ikaRequest: IkaBridgelessExecutionRequest;
 }
 
+export interface IkaBridgelessNeedsApproval {
+  allowed: false;
+  code: 'IKA_APPROVAL_QUORUM_REQUIRED';
+  status: 'needs-approval';
+  reason: string;
+  approval: SharedIkaApprovalProgress;
+}
+
 export interface IkaBridgelessBlocked {
   allowed: false;
   code:
@@ -95,7 +107,7 @@ export interface IkaBridgelessBlocked {
   reason: string;
 }
 
-export type IkaBridgelessResult = IkaBridgelessAllowed | IkaBridgelessBlocked;
+export type IkaBridgelessResult = IkaBridgelessAllowed | IkaBridgelessNeedsApproval | IkaBridgelessBlocked;
 
 export interface IkaBridgelessDeps extends StrategyExecutionDeps {
   buildApprovalTransaction?: (
@@ -130,7 +142,7 @@ export async function createIkaBridgelessExecutionRequest(
   const amountBaseUnits = parseIkaPolicyAmount(params.amount);
 
   try {
-    const decision = await executeGuardedStrategy<undefined, IkaBridgelessAllowed>(
+    const decision = await executeGuardedStrategy<undefined, IkaBridgelessAllowed | IkaBridgelessNeedsApproval>(
       {
         owner: intent.owner,
         sessionKey: intent.sessionKey,
@@ -247,6 +259,24 @@ async function buildIkaAllowedResult(
       note: `Ika request envelope is prepared with a ${destinationDigest.label} sign-only digest; the Pre-Alpha message approval proof is attached when available.`,
     },
   };
+  const sharedApproval = evaluateSharedIkaApproval({
+    owner: intent.owner,
+    sessionKey: intent.sessionKey,
+    requestId: ikaRequestBase.requestId,
+    canonicalOrder,
+    canonicalOrderHash,
+    destinationDigest: destinationDigest.digestHex,
+    params,
+  });
+  if (!sharedApproval.ready) {
+    return {
+      allowed: false,
+      code: 'IKA_APPROVAL_QUORUM_REQUIRED',
+      status: 'needs-approval',
+      reason: 'Shared access quorum is required before Polet prepares Ika approval data.',
+      approval: sharedApproval.progress,
+    };
+  }
   const preAlphaSigning = createIkaPreAlphaSigningRequest({
     request: ikaRequestBase,
     ...preAlphaOverrides,
@@ -291,31 +321,36 @@ function buildDestinationDigest(
   params: MultichainStrategyParams
 ): {
   label: string;
+  digestHex: string;
   requestFields: Pick<IkaBridgelessExecutionRequest, 'suiTransactionDigest' | 'ethereumMessageDigest'>;
 } {
   try {
     if (params.targetChain === 'sui') {
+      const suiTransactionDigest = buildSuiDevnetTransactionDigest({
+        order: canonicalOrder,
+        canonicalOrderHash,
+        recipient: params.nativeDestinationAccount,
+      });
       return {
         label: 'Sui devnet',
+        digestHex: suiTransactionDigest.digestHex,
         requestFields: {
-          suiTransactionDigest: buildSuiDevnetTransactionDigest({
-            order: canonicalOrder,
-            canonicalOrderHash,
-            recipient: params.nativeDestinationAccount,
-          }),
+          suiTransactionDigest,
         },
       };
     }
 
     if (params.targetChain === 'ethereum') {
+      const ethereumMessageDigest = buildEthereumSepoliaMessageDigest({
+        order: canonicalOrder,
+        canonicalOrderHash,
+        recipient: params.nativeDestinationAccount,
+      });
       return {
         label: 'Ethereum Sepolia EIP-191',
+        digestHex: ethereumMessageDigest.digestHex,
         requestFields: {
-          ethereumMessageDigest: buildEthereumSepoliaMessageDigest({
-            order: canonicalOrder,
-            canonicalOrderHash,
-            recipient: params.nativeDestinationAccount,
-          }),
+          ethereumMessageDigest,
         },
       };
     }

@@ -15,7 +15,8 @@
     "@solana/kit": "^2.1.0",
     "@solana/web3.js": "^1.95.8",
     "bs58": "^6.0.0",
-    "hono": "^4.7.4"
+    "hono": "^4.7.4",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "bun-types": "^1.3.6"

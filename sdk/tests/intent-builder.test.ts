@@ -897,6 +897,84 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(JSON.stringify(result)).not.toContain('6,6,6');
     });
 
+    test('normalizes Ika shared approval quorum requirements without proof data', async () => {
+      const requests: Array<{ url: string; body: unknown }> = [];
+      const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
+        requests.push({
+          url: input.toString(),
+          body: JSON.parse(init?.body?.toString() ?? '{}'),
+        });
+        return Response.json({
+          success: true,
+          data: {
+            allowed: false,
+            code: 'IKA_APPROVAL_QUORUM_REQUIRED',
+            status: 'needs-approval',
+            reason: 'Shared access quorum is required before Polet prepares Ika approval data.',
+            approval: {
+              status: 'needs-approval',
+              required: 2,
+              received: 1,
+              threshold: 2,
+              totalApprovers: 3,
+              approvedApprovers: ['approver-1'],
+              missingApprovals: 1,
+              challenge: '{"schema":"polet.ika.shared-approval.v1"}',
+            },
+          },
+        });
+      };
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: Array.from({ length: 32 }, () => 8),
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'sui', asset: 'SUI' },
+        amount: '5',
+        sharedAccess: {
+          policy: {
+            mode: 'ika-approval-quorum',
+            threshold: 2,
+            approvers: ['approver-1', 'approver-2', 'approver-3'],
+          },
+          approvals: [{ approver: 'approver-1', signature: 'base64-signature', encoding: 'base64' }],
+        },
+      });
+
+      expect(result.allowed).toBe(false);
+      expect(result.status).toBe('needs-approval');
+      expect(result.policy).toMatchObject({
+        allowed: true,
+        code: 'IKA_APPROVAL_QUORUM_REQUIRED',
+      });
+      expect(result.approval).toMatchObject({
+        status: 'needs-approval',
+        required: 2,
+        received: 1,
+        missingApprovals: 1,
+      });
+      expect(result.execution).toBeUndefined();
+      expect(result.details).toBeUndefined();
+      expect(requests[0].body).toMatchObject({
+        params: {
+          sharedAccess: {
+            policy: {
+              mode: 'ika-approval-quorum',
+              threshold: 2,
+            },
+          },
+        },
+      });
+      expect(JSON.stringify(result)).not.toContain('8,8,8');
+      expect(JSON.stringify(result)).not.toContain('messageApprovalPda');
+    });
+
     test('normalizes Ika signature and devnet smoke proof statuses', async () => {
       const fetchMock = async () => Response.json({
         success: true,

@@ -323,7 +323,18 @@ export interface IkaRequestPreview {
 export type RunMultichainIntentResult = {
   allowed: boolean;
   code: string;
+  status?: 'needs-approval' | string;
   reason?: string;
+  approval?: {
+    status: 'not-required' | 'needs-approval' | 'ready';
+    required: number;
+    received: number;
+    threshold: number;
+    totalApprovers: number;
+    approvedApprovers: string[];
+    missingApprovals: number;
+    challenge: string;
+  };
   ikaRequest?: IkaRequestPreview;
 };
 

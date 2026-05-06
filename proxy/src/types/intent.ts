@@ -47,6 +47,19 @@ export interface MultichainStrategyParams {
     userPublicKey?: string;
     signatureScheme?: 'ecdsa-secp256k1-sha256' | 'ed25519-prealpha';
   };
+  sharedAccess?: {
+    policy?: {
+      mode: 'ika-approval-quorum';
+      threshold: number;
+      approvers: string[];
+      requireFor?: 'all-ika' | 'ethereum-only';
+    };
+    approvals?: Array<{
+      approver: string;
+      signature: string;
+      encoding?: 'base64';
+    }>;
+  };
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }

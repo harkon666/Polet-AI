@@ -32,7 +32,7 @@ import {
 } from '../lib/api';
 
 type Locale = 'id' | 'en';
-type RunStatus = 'approved' | 'blocked' | 'setup' | 'error';
+type RunStatus = 'approved' | 'blocked' | 'needs-approval' | 'setup' | 'error';
 
 interface ConfidentialPolicyDraft {
   maxPerRunUsdc: string;
@@ -58,6 +58,7 @@ interface ActivityEntry {
   amountUsdc?: string;
   jupiterPlan?: JupiterPlanPreview;
   ikaRequest?: IkaRequestPreview;
+  approval?: RunMultichainIntentResult['approval'];
   transactionSigners?: string[];
   smartWalletAuthority?: string;
 }
@@ -516,11 +517,12 @@ export function DemoTabContent({
         encryptionWitness: witness,
       });
       addActivity({
-        status: result.allowed ? 'approved' : 'blocked',
+        status: result.allowed ? 'approved' : result.status === 'needs-approval' ? 'needs-approval' : 'blocked',
         amountUsdc: amount,
         message: result.allowed ? t.ikaExecutionBoundary : result.reason ?? t.ikaBlockedBoundary,
         route: result.allowed ? 'Ika dWallet approval' : `Ika ${result.code}`,
         ikaRequest: result.allowed ? result.ikaRequest : undefined,
+        approval: result.allowed ? undefined : result.approval,
         smartWalletAuthority: result.allowed ? result.ikaRequest?.sessionContext.smartWalletAuthority : undefined,
       });
     } catch (err) {
@@ -849,8 +851,9 @@ function PrivatePolicyTile({ label }: { label: string }) {
 function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof COPY)[Locale] }) {
   const approved = entry.status === 'approved';
   const blocked = entry.status === 'blocked';
+  const needsApproval = entry.status === 'needs-approval';
   const setup = entry.status === 'setup';
-  const label = approved ? labels.approved : blocked ? labels.blocked : setup ? labels.setup : labels.error;
+  const label = approved ? labels.approved : needsApproval ? 'Needs approval' : blocked ? labels.blocked : setup ? labels.setup : labels.error;
   const tone = approved || setup ? 'green' : blocked ? 'red' : 'amber';
 
   return (
@@ -862,7 +865,7 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${tone === 'green' ? 'bg-green-600' : tone === 'red' ? 'bg-red-600' : 'bg-amber-600'} text-white`}>
-            {approved || setup ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
+            {approved || setup ? <Check className="h-5 w-5" /> : needsApproval ? <AlertTriangle className="h-5 w-5" /> : <X className="h-5 w-5" />}
           </span>
           <div>
             <p className="text-sm font-black text-[var(--sea-ink)]">{label}</p>
@@ -884,8 +887,20 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
         </p>
       </div>
       {entry.jupiterPlan && <JupiterRoutePreview entry={entry} labels={labels} />}
+      {entry.approval && <ApprovalProgressCard approval={entry.approval} />}
       {entry.ikaRequest && <IkaRequestPreviewCard request={entry.ikaRequest} labels={labels} />}
     </article>
+  );
+}
+
+function ApprovalProgressCard({ approval }: { approval: NonNullable<RunMultichainIntentResult['approval']> }) {
+  return (
+    <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
+      <InfoPill label="Shared approval" value={`${approval.received}/${approval.required} ready`} />
+      <InfoPill label="Missing" value={`${approval.missingApprovals} co-approval${approval.missingApprovals === 1 ? '' : 's'}`} />
+      <InfoPill label="Approvers" value={`${approval.totalApprovers} registered`} />
+      <InfoPill label="Challenge" value={short(approval.challenge)} />
+    </div>
   );
 }
 

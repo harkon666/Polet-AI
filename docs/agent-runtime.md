@@ -202,6 +202,7 @@ export function createPoletTool(env: {
 Runtime handling rules:
 
 - If `status` is `blocked`, tell the user Polet blocked the action without exposing private thresholds.
+- If Ika returns `needs-approval`, show shared approval progress such as `1/2 ready`, collect co-approver signatures over the returned challenge outside the model context, and resubmit without showing confidential numeric thresholds.
 - If Jupiter returns `preview-ready`, show the route/build preview and require a session-signer flow before any transaction can be sent.
 - If Ika returns `message-approved`, show the dWallet, MessageApproval, Sui or Ethereum message digest, signature scheme, and unsigned Polet approval transaction; do not claim settlement.
 - If a live `devnet-smoke-proof` is attached, show it as Pre-Alpha evidence only.

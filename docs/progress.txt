@@ -38,7 +38,8 @@ Track alignment:
 
 ## In Progress
 
-- None.
+- `035-shared-access-and-multisig-lite-ika-approvals` — First vertical slice implemented in proxy/SDK/frontend types: Ika intents can carry a `sharedAccess` M-of-N policy, proxy verifies Ed25519 co-approver signatures over a deterministic `polet.ika.shared-approval.v1` challenge, missing quorum returns structured `needs-approval` progress without Ika proof data, and frontend activity cards can render `received/required` approval progress. Remaining work: persist co-approvers on-chain and enforce quorum inside the Polet contract before `approve_ika_message_as_session` CPI.
+  - Verification: `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with a Vitest/Vite shutdown warning after tests complete; `bun run build` passes in `frontend/`.
 
 ## Blocked
 
@@ -53,7 +54,6 @@ Track alignment:
 
 ### Stretch
 
-- `035-shared-access-and-multisig-lite-ika-approvals`
 - `036-passkey-owner-session-auth`
 - `037-recovery-authority-and-dwallet-controller-rotation`
 - `038-chain-and-asset-allowlist-guardrails`

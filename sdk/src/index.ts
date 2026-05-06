@@ -134,6 +134,7 @@ export interface MultichainStrategyParams {
   slippageBps?: number;
   encryptionWitness: number[];
   ikaPreAlpha?: IkaPreAlphaSigningInput;
+  sharedAccess?: SharedIkaApprovalInput;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }
@@ -144,6 +145,31 @@ export interface IkaPreAlphaSigningInput {
   dwalletAccount?: string;
   userPublicKey?: string;
   signatureScheme?: IkaPreAlphaSignatureScheme;
+}
+
+export interface SharedIkaApprovalInput {
+  policy?: {
+    mode: 'ika-approval-quorum';
+    threshold: number;
+    approvers: string[];
+    requireFor?: 'all-ika' | 'ethereum-only';
+  };
+  approvals?: Array<{
+    approver: string;
+    signature: string;
+    encoding?: 'base64';
+  }>;
+}
+
+export interface SharedIkaApprovalProgress {
+  status: 'not-required' | 'needs-approval' | 'ready';
+  required: number;
+  received: number;
+  threshold: number;
+  totalApprovers: number;
+  approvedApprovers: string[];
+  missingApprovals: number;
+  challenge: string;
 }
 
 export interface IkaPreAlphaProducedSignature {
@@ -265,6 +291,7 @@ export interface MultichainStrategyIntentInput {
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
   ikaPreAlpha?: IkaPreAlphaSigningInput;
+  sharedAccess?: SharedIkaApprovalInput;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
   policyHash?: string;
@@ -422,6 +449,7 @@ export function createMultichainStrategyIntent(input: MultichainStrategyIntentIn
       encryptionWitness: input.encryptionWitness,
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
       ...(input.ikaPreAlpha && { ikaPreAlpha: input.ikaPreAlpha }),
+      ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
       ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
       ...(input.nativeDestinationAccount && { nativeDestinationAccount: input.nativeDestinationAccount }),
     },
@@ -594,6 +622,7 @@ export type PoletTradeStatus =
   | 'devnet-smoke-proof'
   | 'broadcast-submitted'
   | 'broadcast-confirmed'
+  | 'needs-approval'
   | 'blocked'
   | 'not-supported';
 export type PoletSettlementStatus = 'not-executed';
@@ -614,6 +643,7 @@ export interface SimplePoletTradeInput {
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
   ikaPreAlpha?: IkaPreAlphaSigningInput;
+  sharedAccess?: SharedIkaApprovalInput;
   encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
@@ -629,6 +659,7 @@ export interface ExplicitPoletTradeInput {
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
   ikaPreAlpha?: IkaPreAlphaSigningInput;
+  sharedAccess?: SharedIkaApprovalInput;
   encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
@@ -648,6 +679,7 @@ export interface PoletTradeResult {
     code?: string;
     reason?: string;
   };
+  approval?: SharedIkaApprovalProgress;
   execution?: {
     intent?: RedactedPoletIntent;
     path?: string;
@@ -819,6 +851,7 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
     encryptionWitness: witness,
     slippageBps: input.slippageBps,
     ikaPreAlpha: input.ikaPreAlpha,
+    sharedAccess: input.sharedAccess,
     destinationTokenAccount: input.destinationTokenAccount,
     nativeDestinationAccount: input.nativeDestinationAccount,
     policyHash: input.policyHash,
@@ -846,6 +879,7 @@ interface ProxyTradeDataLike {
   allowed?: boolean;
   code?: string;
   reason?: string;
+  approval?: SharedIkaApprovalProgress;
   status?: PoletTradeStatus;
   devnetSmokeProof?: unknown;
   executionPath?: string;
@@ -932,6 +966,9 @@ function normalizeJupiterTradeResponse(response: ProxyEnvelopeLike, intent: DcaI
 
 function normalizeIkaTradeResponse(response: ProxyEnvelopeLike, intent: MultichainStrategyIntent): PoletTradeResult {
   const data = response.data ?? {};
+  if (data.allowed === false && data.code === 'IKA_APPROVAL_QUORUM_REQUIRED') {
+    return needsApprovalTradeResult('ika', data.approval, data.reason, response);
+  }
   if (data.allowed === false) return blockedTradeResult('ika', data.code, data.reason, response);
 
   return {
@@ -1007,6 +1044,27 @@ function blockedTradeResult(
       code,
       reason: reason ?? 'Polet confidential policy blocked this trade without revealing private thresholds.',
     },
+    raw,
+  };
+}
+
+function needsApprovalTradeResult(
+  rail: PoletExecutionRail,
+  approval?: SharedIkaApprovalProgress,
+  reason?: string,
+  raw?: unknown
+): PoletTradeResult {
+  return {
+    allowed: false,
+    rail,
+    status: 'needs-approval',
+    settlement: 'not-executed',
+    policy: {
+      allowed: true,
+      code: 'IKA_APPROVAL_QUORUM_REQUIRED',
+      reason: reason ?? 'Shared access quorum is required before Polet prepares Ika approval data.',
+    },
+    approval,
     raw,
   };
 }
