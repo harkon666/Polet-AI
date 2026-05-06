@@ -11,6 +11,10 @@ import {
   type IkaPreAlphaSigningRequest,
   type IkaPreAlphaSigningStatus,
 } from './ika-prealpha-signing';
+import {
+  buildApproveIkaMessageSessionTransaction,
+  type BuiltTransaction,
+} from './transaction-builder';
 import type { WalletData } from './wallet-store';
 import {
   executeGuardedStrategy,
@@ -59,6 +63,7 @@ export interface IkaBridgelessExecutionRequest {
     note: string;
   };
   preAlphaSigning?: IkaPreAlphaSigningRequest;
+  poletApprovalTransaction?: BuiltTransaction;
 }
 
 export interface IkaBridgelessAllowed {
@@ -82,7 +87,11 @@ export interface IkaBridgelessBlocked {
 
 export type IkaBridgelessResult = IkaBridgelessAllowed | IkaBridgelessBlocked;
 
-export interface IkaBridgelessDeps extends StrategyExecutionDeps {}
+export interface IkaBridgelessDeps extends StrategyExecutionDeps {
+  buildApprovalTransaction?: (
+    request: Parameters<typeof buildApproveIkaMessageSessionTransaction>[0]
+  ) => Promise<BuiltTransaction>;
+}
 
 export class IkaBridgelessRequestError extends Error {
   constructor(
@@ -118,7 +127,7 @@ export async function createIkaBridgelessExecutionRequest(
         amountBaseUnits,
         encryptionWitness: params.encryptionWitness,
         blockedReason: 'Confidential policy blocked this bridgeless request.',
-        buildAllowed: async ({ wallet }) => buildIkaAllowedResult(intent, params, wallet, amountBaseUnits),
+        buildAllowed: async ({ wallet }) => buildIkaAllowedResult(intent, params, wallet, amountBaseUnits, deps),
       },
       deps
     );
@@ -145,8 +154,10 @@ async function buildIkaAllowedResult(
   intent: Intent,
   params: MultichainStrategyParams,
   wallet: WalletData,
-  amountBaseUnits: bigint
+  amountBaseUnits: bigint,
+  deps: IkaBridgelessDeps
 ): Promise<IkaBridgelessAllowed> {
+  validateSupportedIkaRoute(params);
   const amount = params.amount.toString();
   const smartWalletAuthority = wallet.walletPda || deriveWalletPda(intent.owner);
   const preAlphaOverrides = getIkaPreAlphaOverrides(params);
@@ -228,20 +239,57 @@ async function buildIkaAllowedResult(
     request: ikaRequestBase,
     ...preAlphaOverrides,
   });
+  const poletApprovalTransaction = await (deps.buildApprovalTransaction ?? buildApproveIkaMessageSessionTransaction)({
+    wallet: smartWalletAuthority,
+    sessionKey: intent.sessionKey,
+    dwallet: preAlphaSigning.dwalletAccount,
+    messageApproval: preAlphaSigning.messageApprovalPda,
+    cpiAuthority: preAlphaSigning.cpiAuthorityPda,
+    ikaProgram: preAlphaSigning.approveMessage.programId,
+    canonicalOrderHash,
+    sourceAmount: amountBaseUnits,
+    orderExpiresAt: canonicalOrder.expiresAtUnix,
+    attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
+    attestationPolicySeq: wallet.policySeq,
+    encryptionWitness: params.encryptionWitness,
+    userPubkey: preAlphaSigning.userPublicKey,
+    signatureScheme: signatureSchemeCode(preAlphaSigning.signatureScheme),
+    messageApprovalBump: preAlphaSigning.messageApprovalBump,
+  });
 
   return {
     allowed: true,
     code: 'IKA_PREALPHA_MESSAGE_APPROVED',
-    status: preAlphaSigning.status,
+    status: 'message-approved',
     ikaRequest: {
       ...ikaRequestBase,
       preAlphaSigning,
+      poletApprovalTransaction,
       executionBoundary: {
-        status: preAlphaSigning.status,
-        note: 'Ika Pre-Alpha approve_message proof is prepared after Polet policy approval. Devnet mock signer only; production MPC and settlement are not executed.',
+        status: 'message-approved',
+        note: 'Unsigned Polet approve_ika_message transaction is prepared for the session signer in Ika Pre-Alpha. Devnet mock signer only; production MPC and settlement are not executed.',
       },
     },
   };
+}
+
+function validateSupportedIkaRoute(params: MultichainStrategyParams): void {
+  if (
+    params.sourceChain !== 'solana'
+    || params.sourceAsset.toUpperCase() !== 'USDC'
+    || params.targetChain !== 'sui'
+    || params.targetAsset.toUpperCase() !== 'SUI'
+  ) {
+    throw new IkaBridgelessRequestError(
+      'Unsupported Ika route: this slice only builds Solana USDC -> Sui SUI approvals',
+      'UNSUPPORTED_IKA_ROUTE'
+    );
+  }
+}
+
+function signatureSchemeCode(value: IkaPreAlphaSigningRequest['signatureScheme']): number {
+  if (value === 'ed25519-prealpha') return 5;
+  return 0;
 }
 
 function getIkaPreAlphaOverrides(params: MultichainStrategyParams): {

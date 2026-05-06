@@ -49,7 +49,6 @@ Track alignment:
 
 ### Critical Path
 
-- `028-proxy-ika-dwallet-transaction-builder`
 - `029-agent-sdk-ika-sui-signed-intent`
 - `030-control-layer-frontend-ika-dwallet-demo`
 - `031-ika-devnet-smoke-and-messageapproval-verification`
@@ -211,6 +210,9 @@ Track alignment:
 - [x] `027-polet-contract-ika-approve-message-cpi` — Added Polet's on-chain `approve_ika_message_as_session` instruction. It accepts wallet/session/dWallet/MessageApproval/Ika-program accounts, canonical order hash, source amount, expiry, attestation slot/policy sequence, policy witness, user public key, signature scheme, and MessageApproval bump. The instruction validates session freshness, order expiry, and confidential numeric policy before signing an Ika `approve_message` CPI with Polet's `__ika_cpi_authority` PDA. Added a deterministic `mock_ika` Anchor program for CI and tests that prove allowed 5-unit requests call CPI while blocked 25-unit, stale, and expired requests do not.
   - Verification: `NO_DNA=1 cargo fmt --check`, `NO_DNA=1 anchor build`, and `NO_DNA=1 cargo test` pass in `contract/`; `bun test` and `bun run build` pass in `proxy/`.
   - Note: CI uses the mock Ika program. Issue 031 still owns live devnet smoke verification against official Ika Pre-Alpha MessageApproval behavior. This is not production MPC or settlement.
+- [x] `028-proxy-ika-dwallet-transaction-builder` — Updated the proxy Ika rail to build the unsigned Polet `approve_ika_message_as_session` transaction for allowed Solana USDC -> Sui SUI intents. Allowed responses now include canonical order hash, dWallet, MessageApproval, signature scheme, destination metadata, Pre-Alpha boundary, and `poletApprovalTransaction` for the session signer. Blocked/stale paths still suppress Ika approval data and private thresholds. The proxy uses the pinned official Ika devnet program id and Polet `__ika_cpi_authority` PDA seed, but does not sign, simulate, send, or claim settlement.
+  - Verification: `bun test` and `bun run build` pass in `proxy/`.
+  - Note: issue 031 still owns live devnet smoke verification and reading produced MessageApproval signatures from Ika Pre-Alpha.
 
 ### Planning
 

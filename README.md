@@ -64,7 +64,7 @@ The demo does not claim mainnet Jupiter swap execution. It proves that Polet can
 
 Ika is the target rail for future bridgeless native-asset trading requests using the same agent intent and confidential guardrail model. The official Solana Pre-Alpha surface is pinned in `docs/ika-dwallet-prealpha-alignment.md`: devnet program id `87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY`, mock-signer Pre-Alpha constraints, Polet CPI authority PDA, and MessageApproval read path.
 
-The current repo still treats Ika execution as a request/proof model until the on-chain CPI path is implemented. It does not claim production MPC, verified Ika settlement, or bridgeless asset movement.
+The proxy now builds the unsigned Polet `approve_ika_message_as_session` transaction for Sui-primary Ika intents after confidential policy approval. It still does not sign, broadcast, claim production MPC, claim verified Ika settlement, or move bridgeless assets.
 
 ## Repository Layout
 
@@ -91,6 +91,16 @@ SOLANA_RPC_URL=https://api.devnet.solana.com
 JUPITER_API_KEY=your_jupiter_api_key
 PROXY_MASTER_KEY=64_hex_chars_for_local_demo_key_encryption
 PORT=3001
+```
+
+Optional Ika devnet smoke configuration:
+
+```bash
+SOLANA_RPC_URL=https://api.devnet.solana.com
+# The Ika Pre-Alpha program id is pinned in code/docs:
+# 87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY
+# Allowed /intent/multichain/run responses include an unsigned Polet approval transaction.
+# A separate session signer flow must simulate/sign/send it; the proxy will not sign or broadcast.
 ```
 
 Frontend:

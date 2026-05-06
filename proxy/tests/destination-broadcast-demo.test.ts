@@ -178,6 +178,12 @@ async function createApprovedIkaFixture() {
   const intent = createIkaIntent(fixture, '5');
   const result = await createIkaBridgelessExecutionRequest(intent, {
     getWalletData: async () => fixture.wallet,
+    buildApprovalTransaction: async () => ({
+      transaction: 'base64-polet-ika-approval',
+      blockHash: 'mock-blockhash',
+      slot: 456,
+      signers: [fixture.sessionKey],
+    }),
   });
 
   expect(result.allowed).toBe(true);

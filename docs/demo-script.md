@@ -79,10 +79,11 @@ Do not reveal the exact saved thresholds from the normal product UI after setup.
 
    - Status: approved.
    - Ika request envelope appears.
+   - Unsigned Polet `approve_ika_message_as_session` transaction appears for the session signer.
    - Source/target chains are shown.
    - Settlement boundary says real bridgeless settlement is not executed.
 
-   Say: "The same model extends to multichain requests through Ika: the agent submits an intent, Polet checks confidential guardrails, and only approved requests receive an execution request envelope. The official Ika Solana Pre-Alpha CPI surface is pinned in the repo docs, but this screen does not claim verified Ika settlement yet."
+   Say: "The same model extends to multichain requests through Ika: the agent submits an intent, Polet checks confidential guardrails, and only approved requests receive an unsigned Polet approval transaction for the session signer. This does not claim verified Ika settlement yet."
 
 9. Optional Pre-Alpha destination broadcast proof.
 

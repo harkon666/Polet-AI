@@ -24,6 +24,7 @@ describe('Ika bridgeless execution request', () => {
 
     const result = await createIkaBridgelessExecutionRequest(intent, {
       getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
     });
 
     expect(result.allowed).toBe(true);
@@ -58,6 +59,8 @@ describe('Ika bridgeless execution request', () => {
       expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.cluster).toBe(IKA_PREALPHA_CLUSTER);
       expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.mockSigner).toBe(true);
       expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.productionMpc).toBe(false);
+      expect(result.ikaRequest.poletApprovalTransaction).toEqual(fixture.approvalTransaction);
+      expect(result.ikaRequest.poletApprovalTransaction?.signers).toEqual([fixture.sessionKey]);
     }
   });
 
@@ -67,6 +70,7 @@ describe('Ika bridgeless execution request', () => {
 
     const result = await createIkaBridgelessExecutionRequest(intent, {
       getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
     });
 
     expect(result.allowed).toBe(true);
@@ -102,6 +106,7 @@ describe('Ika bridgeless execution request', () => {
 
     const result = await createIkaBridgelessExecutionRequest(intent, {
       getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
     });
 
     expect(result.allowed).toBe(false);
@@ -125,6 +130,7 @@ describe('Ika bridgeless execution request', () => {
 
     const result = await createIkaBridgelessExecutionRequest(intent, {
       getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
     });
 
     expect(result.allowed).toBe(false);
@@ -140,6 +146,7 @@ describe('Ika bridgeless execution request', () => {
 
     const result = await createIkaBridgelessExecutionRequest(intent, {
       getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
     });
     const serialized = JSON.stringify(result);
 
@@ -150,6 +157,37 @@ describe('Ika bridgeless execution request', () => {
     expect(serialized).not.toContain('maxPerRun');
     expect(serialized).not.toContain('dailyCap');
     expect(serialized).not.toContain(fixture.witness.join(','));
+  });
+
+  test('passes official Ika accounts and canonical order hash into the Polet transaction builder', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+    const transactionRequests: unknown[] = [];
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async (request) => {
+        transactionRequests.push(request);
+        return fixture.approvalTransaction;
+      },
+    });
+
+    expect(result.allowed).toBe(true);
+    expect(transactionRequests).toHaveLength(1);
+    if (result.allowed) {
+      expect(transactionRequests[0]).toMatchObject({
+        wallet: fixture.wallet.walletPda,
+        sessionKey: fixture.sessionKey,
+        canonicalOrderHash: result.ikaRequest.canonicalOrderHash,
+        sourceAmount: 5_000_000n,
+        orderExpiresAt: result.ikaRequest.canonicalOrder.expiresAtUnix,
+        attestationSlot: BigInt(fixture.wallet.lastRevokedSlot) + 1n,
+        attestationPolicySeq: fixture.wallet.policySeq,
+        encryptionWitness: Array.from(fixture.witness),
+        userPubkey: fixture.owner,
+      });
+      expect((transactionRequests[0] as { ikaProgram: string }).ikaProgram).toBe('87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY');
+    }
   });
 });
 
@@ -225,5 +263,12 @@ function createFixture(options: {
   };
   wallet.temporalKeys = wallet.sessions;
 
-  return { owner, sessionKey, wallet, witness };
+  const approvalTransaction = {
+    transaction: 'base64-polet-ika-approval',
+    blockHash: 'mock-blockhash',
+    slot: 456,
+    signers: [sessionKey],
+  };
+
+  return { owner, sessionKey, wallet, witness, approvalTransaction };
 }

@@ -13,6 +13,7 @@ import {
   encodeU64Le,
   TRANSFER_INTENT_LENGTH,
 } from './execution-payload';
+import { PROGRAM_ID_STRING } from './program-identity';
 
 /**
  * Transaction builder for constructing Solana transactions
@@ -49,6 +50,28 @@ export interface ConfidentialTransferTransactionRequest {
   encryptionWitness: Uint8Array | number[];
 }
 
+export interface ApproveIkaMessageTransactionRequest {
+  wallet: string;
+  sessionKey: string;
+  dwallet: string;
+  messageApproval: string;
+  cpiAuthority: string;
+  ikaProgram: string;
+  canonicalOrderHash: string | Uint8Array | number[];
+  sourceAmount: number | bigint;
+  orderExpiresAt: number | bigint;
+  attestationSlot: number | bigint;
+  attestationPolicySeq: number | bigint;
+  encryptionWitness: Uint8Array | number[];
+  userPubkey: string | Uint8Array | number[];
+  signatureScheme: number;
+  messageApprovalBump: number;
+}
+
+export const APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR = Buffer.from([
+  133, 198, 111, 169, 240, 8, 18, 170,
+]);
+
 /**
  * Build instruction data matching the Solana program's execute_intent format
  * Format: [instruction(1) + destination(32) + amount(8)]
@@ -69,6 +92,35 @@ export function buildExecuteConfidentialTransferInstructionData(
   request: ConfidentialTransferTransactionRequest
 ): Buffer {
   return buildExecuteConfidentialTransferPayload(request);
+}
+
+export function buildApproveIkaMessageAsSessionInstructionData(
+  request: ApproveIkaMessageTransactionRequest
+): Buffer {
+  const data = Buffer.alloc(8 + 32 + 8 + 8 + 8 + 8 + 32 + 32 + 2 + 1);
+  let offset = 0;
+
+  APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR.copy(data, offset);
+  offset += 8;
+  Buffer.from(normalizeBytes32(request.canonicalOrderHash, 'canonicalOrderHash')).copy(data, offset);
+  offset += 32;
+  data.writeBigUInt64LE(toU64(request.sourceAmount), offset);
+  offset += 8;
+  data.writeBigInt64LE(toI64(request.orderExpiresAt), offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.attestationSlot), offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.attestationPolicySeq), offset);
+  offset += 8;
+  Buffer.from(normalizeBytes32(request.encryptionWitness, 'encryptionWitness')).copy(data, offset);
+  offset += 32;
+  Buffer.from(normalizeUserPubkey(request.userPubkey)).copy(data, offset);
+  offset += 32;
+  data.writeUInt16LE(toU16(request.signatureScheme), offset);
+  offset += 2;
+  data.writeUInt8(toU8(request.messageApprovalBump, 'messageApprovalBump'), offset);
+
+  return data;
 }
 
 /**
@@ -111,6 +163,56 @@ export async function buildConfidentialTransferSessionTransaction(
     slot: recentSlot,
     signers: [request.sessionKey],
   };
+}
+
+export async function buildApproveIkaMessageSessionTransaction(
+  request: ApproveIkaMessageTransactionRequest,
+  programId = PROGRAM_ID_STRING
+): Promise<BuiltTransaction> {
+  const connection = getConnection();
+  const { blockhash } = await connection.getLatestBlockhash();
+  const recentSlot = await connection.getSlot();
+
+  const sessionKeyPubkey = new PublicKey(request.sessionKey);
+  const instruction = new TransactionInstruction({
+    keys: buildApproveIkaMessageAsSessionAccounts(request),
+    programId: new PublicKey(programId),
+    data: buildApproveIkaMessageAsSessionInstructionData(request),
+  });
+
+  const transaction = new Transaction();
+  transaction.add(instruction);
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = sessionKeyPubkey;
+
+  const serialized = transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  });
+
+  return {
+    transaction: serialized.toString('base64'),
+    blockHash: blockhash,
+    slot: recentSlot,
+    signers: [request.sessionKey],
+  };
+}
+
+export function buildApproveIkaMessageAsSessionAccounts(
+  request: Pick<
+    ApproveIkaMessageTransactionRequest,
+    'wallet' | 'sessionKey' | 'dwallet' | 'messageApproval' | 'cpiAuthority' | 'ikaProgram'
+  >
+) {
+  return [
+    { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.sessionKey), isSigner: true, isWritable: false },
+    { pubkey: new PublicKey(request.dwallet), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.messageApproval), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.cpiAuthority), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.ikaProgram), isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  ];
 }
 
 /**
@@ -346,4 +448,52 @@ export function getConnection(): Connection {
  */
 export function setConnection(connection: Connection): void {
   _connection = connection;
+}
+
+function normalizeUserPubkey(value: string | Uint8Array | number[]): Uint8Array {
+  if (typeof value === 'string') return new PublicKey(value).toBytes();
+  return normalizeBytes32(value, 'userPubkey');
+}
+
+function normalizeBytes32(value: string | Uint8Array | number[], label: string): Uint8Array {
+  if (typeof value === 'string') {
+    if (!/^[0-9a-f]{64}$/i.test(value)) {
+      throw new Error(`${label} must be a 32-byte hex string`);
+    }
+    return Uint8Array.from(Buffer.from(value, 'hex'));
+  }
+  if (value.length !== 32) {
+    throw new Error(`${label} must contain exactly 32 bytes`);
+  }
+  return Uint8Array.from(value);
+}
+
+function toU64(value: number | bigint): bigint {
+  const bigintValue = BigInt(value);
+  if (bigintValue < 0n || bigintValue > 18446744073709551615n) {
+    throw new Error('u64 value out of range');
+  }
+  return bigintValue;
+}
+
+function toI64(value: number | bigint): bigint {
+  const bigintValue = BigInt(value);
+  if (bigintValue < -9223372036854775808n || bigintValue > 9223372036854775807n) {
+    throw new Error('i64 value out of range');
+  }
+  return bigintValue;
+}
+
+function toU16(value: number): number {
+  if (!Number.isInteger(value) || value < 0 || value > 65535) {
+    throw new Error('signatureScheme must be a u16');
+  }
+  return value;
+}
+
+function toU8(value: number, label: string): number {
+  if (!Number.isInteger(value) || value < 0 || value > 255) {
+    throw new Error(`${label} must be a u8`);
+  }
+  return value;
 }

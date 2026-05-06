@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { PublicKey } from '@solana/web3.js';
+import { PROGRAM_ID } from './program-identity';
 import type { IkaBridgelessExecutionRequest } from './ika-bridgeless-request';
 
 export type IkaPreAlphaSigningStatus =
@@ -12,7 +13,7 @@ export type IkaPreAlphaSignatureScheme = 'ecdsa-secp256k1-sha256' | 'ed25519-pre
 
 export const IKA_PREALPHA_CLUSTER = 'devnet';
 export const IKA_PREALPHA_RPC_URL = 'https://api.devnet.solana.com';
-export const IKA_PREALPHA_PROGRAM_ID_STRING = '7ezeXeFypeaaBs37a43xjS9cdAj7MRZdLmzomVDknkGg';
+export const IKA_PREALPHA_PROGRAM_ID_STRING = '87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY';
 export const IKA_PREALPHA_PROGRAM_ID = new PublicKey(IKA_PREALPHA_PROGRAM_ID_STRING);
 
 export interface IkaPreAlphaSigningInput {
@@ -114,15 +115,13 @@ export function deriveIkaPreAlphaApprovalAccounts(input: {
   messageDigest: string;
 }): IkaPreAlphaPdaDerivation {
   const dwallet = normalizePublicKey(input.dwalletAccount, 'dwalletAccount');
-  const smartWalletAuthority = normalizePublicKey(input.smartWalletAuthority, 'smartWalletAuthority');
   const digestBytes = parseMessageDigest(input.messageDigest);
 
   const [cpiAuthorityPda, cpiAuthorityBump] = PublicKey.findProgramAddressSync(
     [
-      Buffer.from('ika_cpi_authority'),
-      new PublicKey(smartWalletAuthority).toBuffer(),
+      Buffer.from('__ika_cpi_authority'),
     ],
-    IKA_PREALPHA_PROGRAM_ID
+    PROGRAM_ID
   );
   const [messageApprovalPda, messageApprovalBump] = PublicKey.findProgramAddressSync(
     [

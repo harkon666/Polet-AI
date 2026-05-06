@@ -3,6 +3,7 @@ import {
   Keypair,
   PublicKey,
   SystemProgram,
+  Transaction,
 } from '@solana/web3.js';
 import {
   EXECUTE_CONFIDENTIAL_TRANSFER_AS_SESSION_DISCRIMINATOR,
@@ -15,12 +16,19 @@ import {
   buildTransferIntentPayload,
 } from '../src/lib/execution-payload.js';
 import {
+  APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR,
+  buildApproveIkaMessageAsSessionAccounts,
+  buildApproveIkaMessageAsSessionInstructionData,
+  buildApproveIkaMessageSessionTransaction,
   buildExecuteConfidentialTransferInstructionData,
   buildExecuteIntentData,
+  setConnection,
   to_LE_Bytes,
   type TransactionRequest,
   type BuiltTransaction,
 } from '../src/lib/transaction-builder.js';
+import { PROGRAM_ID_STRING } from '../src/lib/program-identity.js';
+import { IKA_PREALPHA_PROGRAM_ID_STRING } from '../src/lib/ika-prealpha-signing.js';
 import type { Attestation } from '../src/types/intent.js';
 
 describe('Transaction Builder', () => {
@@ -176,6 +184,66 @@ describe('Transaction Builder', () => {
     });
   });
 
+  describe('Ika approve_message transaction builder', () => {
+    test('encodes the Polet approve_ika_message_as_session instruction args', () => {
+      const user = Keypair.generate().publicKey;
+      const request = createApproveIkaRequest({ userPubkey: user.toString() });
+      const data = buildApproveIkaMessageAsSessionInstructionData(request);
+
+      expect(data.subarray(0, 8)).toEqual(APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR);
+      expect(data.subarray(8, 40)).toEqual(Buffer.alloc(32, 0x11));
+      expect(data.readBigUInt64LE(40)).toBe(5_000_000n);
+      expect(data.readBigInt64LE(48)).toBe(1_700_000_600n);
+      expect(data.readBigUInt64LE(56)).toBe(9n);
+      expect(data.readBigUInt64LE(64)).toBe(7n);
+      expect(Array.from(data.subarray(72, 104))).toEqual(request.encryptionWitness as number[]);
+      expect(data.subarray(104, 136)).toEqual(Buffer.from(user.toBytes()));
+      expect(data.readUInt16LE(136)).toBe(5);
+      expect(data.readUInt8(138)).toBe(201);
+      expect(data.length).toBe(139);
+    });
+
+    test('defines the Polet account order used by the contract CPI path', () => {
+      const request = createApproveIkaRequest();
+
+      expect(buildApproveIkaMessageAsSessionAccounts(request)).toEqual([
+        { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(request.sessionKey), isSigner: true, isWritable: false },
+        { pubkey: new PublicKey(request.dwallet), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.messageApproval), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(request.cpiAuthority), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.ikaProgram), isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ]);
+    });
+
+    test('builds an unsigned session-signer transaction for Polet Ika approval', async () => {
+      const blockhash = Keypair.generate().publicKey.toString();
+      setConnection({
+        getLatestBlockhash: async () => ({ blockhash, lastValidBlockHeight: 99 }),
+        getSlot: async () => 123456,
+      } as never);
+
+      const request = createApproveIkaRequest();
+      const built = await buildApproveIkaMessageSessionTransaction(request);
+      const transaction = Transaction.from(Buffer.from(built.transaction, 'base64'));
+
+      expect(built.blockHash).toBe(blockhash);
+      expect(built.slot).toBe(123456);
+      expect(built.signers).toEqual([request.sessionKey]);
+      expect(transaction.feePayer?.toString()).toBe(request.sessionKey);
+      expect(transaction.recentBlockhash).toBe(blockhash);
+      expect(transaction.instructions).toHaveLength(1);
+      expect(transaction.instructions[0].programId.toString()).toBe(PROGRAM_ID_STRING);
+      expect(transaction.instructions[0].keys.map((meta) => meta.pubkey.toString())).toEqual(
+        buildApproveIkaMessageAsSessionAccounts(request).map((meta) => meta.pubkey.toString())
+      );
+      expect(transaction.instructions[0].keys[0].isWritable).toBe(true);
+      expect(transaction.instructions[0].keys[1].isSigner).toBe(true);
+      expect(transaction.instructions[0].data).toEqual(buildApproveIkaMessageAsSessionInstructionData(request));
+    });
+  });
+
   describe('BuiltTransaction interface', () => {
     test('BuiltTransaction has required fields', () => {
       const mockTx: BuiltTransaction = {
@@ -222,3 +290,24 @@ describe('Transaction Builder', () => {
     });
   });
 });
+
+function createApproveIkaRequest(overrides: Partial<Parameters<typeof buildApproveIkaMessageAsSessionInstructionData>[0]> = {}) {
+  return {
+    wallet: Keypair.generate().publicKey.toString(),
+    sessionKey: Keypair.generate().publicKey.toString(),
+    dwallet: Keypair.generate().publicKey.toString(),
+    messageApproval: Keypair.generate().publicKey.toString(),
+    cpiAuthority: Keypair.generate().publicKey.toString(),
+    ikaProgram: IKA_PREALPHA_PROGRAM_ID_STRING,
+    canonicalOrderHash: '11'.repeat(32),
+    sourceAmount: 5_000_000n,
+    orderExpiresAt: 1_700_000_600n,
+    attestationSlot: 9n,
+    attestationPolicySeq: 7n,
+    encryptionWitness: Array.from({ length: 32 }, (_, index) => index + 1),
+    userPubkey: Keypair.generate().publicKey.toString(),
+    signatureScheme: 5,
+    messageApprovalBump: 201,
+    ...overrides,
+  };
+}
