@@ -6,6 +6,7 @@ import { templateRouter } from './routes/template';
 import { walletRouter } from './routes/wallet';
 import { agentRouter } from './routes/agent';
 import { legacyIntentRouter } from './routes/legacy-intent';
+import { passkeyRouter } from './routes/passkey';
 
 const app = new Hono();
 
@@ -23,6 +24,7 @@ app.route('/legacy/intent', legacyIntentRouter);
 app.route('/legacy/template', templateRouter);
 app.route('/wallet', walletRouter);
 app.route('/agent', agentRouter);
+app.route('/passkey', passkeyRouter);
 
 // Error handling middleware
 app.onError((err, c) => {

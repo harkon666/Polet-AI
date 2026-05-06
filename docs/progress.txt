@@ -53,7 +53,6 @@ Track alignment:
 
 ### Stretch
 
-- `036-passkey-owner-session-auth`
 - `037-recovery-authority-and-dwallet-controller-rotation`
 - `038-chain-and-asset-allowlist-guardrails`
 - `039-bridgeless-slippage-and-risk-guardrails`
@@ -228,6 +227,9 @@ Track alignment:
 - [x] `035-shared-access-and-multisig-lite-ika-approvals` — Added shared-access M-of-N approval for Ika requests across proxy, SDK, frontend activity state, and contract enforcement. Ika intents can carry `sharedAccess`, proxy verifies deterministic co-approver challenge signatures and returns non-leaking `needs-approval` progress when quorum is missing, owner-signed proxy routes can configure/revoke shared Ika approvers on-chain, and `approve_ika_message_as_session` now requires enough authorized co-approver signer remaining accounts before confidential spend mutation or Ika CPI.
   - Verification: `NO_DNA=1 cargo build-sbf` and `NO_DNA=1 cargo test` pass in `contract/`; `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with a Vitest/Vite shutdown warning after tests complete; `bun run build` passes in `frontend/`.
   - Note: contract enforcement uses Solana signer co-approver accounts for the on-chain boundary. The off-chain challenge signature flow remains the agent-runtime collection UX; no production MPC or settlement is claimed.
+- [x] `036-passkey-owner-session-auth` — Chose passkeys for shared Ika co-approval UX only and added a proxy WebAuthn-style prototype. The new passkey challenge binds owner, session key, shared Ika approval challenge, credential id, rpId, and expiry; verification checks origin, rpId hash, challenge, user presence, optional user verification, and P-256 signature while explicitly preserving Solana owner/session/co-approver signatures and on-chain policy checks as the authority boundary.
+  - Verification: `bun test ./tests/passkey-coapproval.test.ts` and `bun run build` pass in `proxy/`.
+  - Note: passkeys are not the critical path for the MVP and do not control Ika dWallet authority, Polet wallet funds, or contract quorum by themselves.
 
 ### Planning
 
