@@ -57,6 +57,8 @@ export interface MultichainStrategyParams {
   encryptionWitness: number[];
   ikaPreAlpha?: {
     dwalletAccount?: string;
+    dwalletCurve?: number;
+    dwalletPublicKey?: number[] | string;
     userPublicKey?: string;
     signatureScheme?: 'ecdsa-secp256k1-sha256' | 'ed25519-prealpha';
   };

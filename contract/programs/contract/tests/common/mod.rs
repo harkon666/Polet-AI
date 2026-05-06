@@ -451,6 +451,14 @@ pub fn ika_cpi_authority() -> (anchor_lang::prelude::Pubkey, u8) {
     )
 }
 
+pub fn ika_coordinator() -> anchor_lang::prelude::Pubkey {
+    anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
+        &[b"dwallet_coordinator"],
+        &mock_ika::id(),
+    )
+    .0
+}
+
 pub fn write_mock_ika_account(
     svm: &mut LiteSVM,
     account: anchor_lang::prelude::Pubkey,
@@ -532,6 +540,8 @@ pub fn approve_ika_message_as_session_with_coapprovers(
     coapprovers: &[&Keypair],
 ) -> Result<(), String> {
     let (cpi_authority, _cpi_bump) = ika_cpi_authority();
+    let coordinator = ika_coordinator();
+    write_system_account(svm, coordinator);
     let ix_data = contract::instruction::ApproveIkaMessageAsSession {
         canonical_order_hash,
         source_amount,
@@ -546,9 +556,11 @@ pub fn approve_ika_message_as_session_with_coapprovers(
     let ix_accounts = contract::accounts::ApproveIkaMessageAsSession {
         wallet: wallet_pda,
         session_key: session_key.pubkey(),
+        coordinator,
         dwallet,
         message_approval,
         cpi_authority,
+        program: contract::id(),
         ika_program: mock_ika::id(),
         system_program: anchor_lang::solana_program::system_program::ID,
     };

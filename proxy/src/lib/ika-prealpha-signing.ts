@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { PublicKey } from '@solana/web3.js';
-import { PROGRAM_ID } from './program-identity';
+import { PROGRAM_ID, PROGRAM_ID_STRING } from './program-identity';
 import type { IkaBridgelessExecutionRequest } from './ika-bridgeless-request';
 
 export type IkaPreAlphaSigningStatus =
@@ -19,11 +19,14 @@ export const IKA_PREALPHA_PROGRAM_ID = new PublicKey(IKA_PREALPHA_PROGRAM_ID_STR
 export interface IkaPreAlphaSigningInput {
   request: IkaBridgelessExecutionRequest;
   dwalletAccount?: string;
+  dwalletCurve?: number;
+  dwalletPublicKey?: number[] | string;
   userPublicKey?: string;
   signatureScheme?: IkaPreAlphaSignatureScheme;
 }
 
 export interface IkaPreAlphaPdaDerivation {
+  coordinatorPda: string;
   cpiAuthorityPda: string;
   cpiAuthorityBump: number;
   messageApprovalPda: string;
@@ -46,7 +49,9 @@ export interface IkaPreAlphaSigningRequest {
     programId: string;
     instruction: 'approve_message';
     authority: string;
+    callerProgram: string;
     accounts: {
+      coordinator: string;
       dwalletAccount: string;
       messageApproval: string;
       cpiAuthority: string;
@@ -77,8 +82,11 @@ export function createIkaPreAlphaSigningRequest(input: IkaPreAlphaSigningInput):
   const messageDigestSource = deriveIkaMessageDigestSource(input.request);
   const derivation = deriveIkaPreAlphaApprovalAccounts({
     dwalletAccount,
+    dwalletCurve: input.dwalletCurve,
+    dwalletPublicKey: input.dwalletPublicKey,
     smartWalletAuthority: input.request.sessionContext.smartWalletAuthority,
     messageDigest,
+    signatureScheme,
   });
 
   return {
@@ -94,7 +102,9 @@ export function createIkaPreAlphaSigningRequest(input: IkaPreAlphaSigningInput):
       programId: IKA_PREALPHA_PROGRAM_ID_STRING,
       instruction: 'approve_message',
       authority: derivation.cpiAuthorityPda,
+      callerProgram: PROGRAM_ID_STRING,
       accounts: {
+        coordinator: derivation.coordinatorPda,
         dwalletAccount,
         messageApproval: derivation.messageApprovalPda,
         cpiAuthority: derivation.cpiAuthorityPda,
@@ -114,11 +124,15 @@ export function createIkaPreAlphaSigningRequest(input: IkaPreAlphaSigningInput):
 
 export function deriveIkaPreAlphaApprovalAccounts(input: {
   dwalletAccount: string;
+  dwalletCurve?: number;
+  dwalletPublicKey?: number[] | string;
   smartWalletAuthority: string;
   messageDigest: string;
+  signatureScheme?: IkaPreAlphaSignatureScheme;
 }): IkaPreAlphaPdaDerivation {
   const dwallet = normalizePublicKey(input.dwalletAccount, 'dwalletAccount');
   const digestBytes = parseMessageDigest(input.messageDigest);
+  const signatureSchemeCode = input.signatureScheme === 'ecdsa-secp256k1-sha256' ? 0 : 5;
 
   const [cpiAuthorityPda, cpiAuthorityBump] = PublicKey.findProgramAddressSync(
     [
@@ -126,21 +140,67 @@ export function deriveIkaPreAlphaApprovalAccounts(input: {
     ],
     PROGRAM_ID
   );
-  const [messageApprovalPda, messageApprovalBump] = PublicKey.findProgramAddressSync(
+  const [coordinatorPda] = PublicKey.findProgramAddressSync(
     [
-      Buffer.from('ika_message_approval'),
+      Buffer.from('dwallet_coordinator'),
+    ],
+    IKA_PREALPHA_PROGRAM_ID
+  );
+  const messageApprovalSeeds = input.dwalletPublicKey !== undefined && input.dwalletCurve !== undefined
+    ? buildOfficialMessageApprovalSeeds(input.dwalletCurve, input.dwalletPublicKey, signatureSchemeCode, digestBytes)
+    : [
+      Buffer.from('message_approval'),
       new PublicKey(dwallet).toBuffer(),
       digestBytes,
-    ],
+    ];
+  const [messageApprovalPda, messageApprovalBump] = PublicKey.findProgramAddressSync(
+    messageApprovalSeeds,
     IKA_PREALPHA_PROGRAM_ID
   );
 
   return {
+    coordinatorPda: coordinatorPda.toString(),
     cpiAuthorityPda: cpiAuthorityPda.toString(),
     cpiAuthorityBump,
     messageApprovalPda: messageApprovalPda.toString(),
     messageApprovalBump,
   };
+}
+
+function buildOfficialMessageApprovalSeeds(
+  curve: number,
+  dwalletPublicKey: number[] | string,
+  signatureScheme: number,
+  messageDigest: Buffer
+): Buffer[] {
+  if (!Number.isInteger(curve) || curve < 0 || curve > 0xffff) {
+    throw new Error('ikaPreAlpha.dwalletCurve must be a u16 curve code');
+  }
+  const publicKey = parseBytes(dwalletPublicKey, 'ikaPreAlpha.dwalletPublicKey');
+  const payload = Buffer.alloc(2 + publicKey.length);
+  payload.writeUInt16LE(curve, 0);
+  publicKey.copy(payload, 2);
+
+  const seeds: Buffer[] = [Buffer.from('dwallet')];
+  for (let offset = 0; offset < payload.length; offset += 32) {
+    seeds.push(payload.subarray(offset, Math.min(offset + 32, payload.length)));
+  }
+
+  const scheme = Buffer.alloc(2);
+  scheme.writeUInt16LE(signatureScheme, 0);
+  seeds.push(Buffer.from('message_approval'), scheme, messageDigest);
+  return seeds;
+}
+
+function parseBytes(value: number[] | string, field: string): Buffer {
+  if (Array.isArray(value)) {
+    return Buffer.from(Uint8Array.from(value));
+  }
+  const normalized = value.startsWith('0x') ? value.slice(2) : value;
+  if (!/^[0-9a-fA-F]*$/.test(normalized) || normalized.length % 2 !== 0) {
+    throw new Error(`${field} must be hex or a byte array`);
+  }
+  return Buffer.from(normalized, 'hex');
 }
 
 export function deriveIkaMessageDigest(request: IkaBridgelessExecutionRequest): string {

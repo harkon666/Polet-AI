@@ -181,6 +181,8 @@ describe('Polet AI SDK - Intent Builder', () => {
         encryptionWitness: Array.from({ length: 32 }, () => 1),
         ikaPreAlpha: {
           dwalletAccount: 'DwALLET1111111111111111111111111111111111',
+          dwalletCurve: 2,
+          dwalletPublicKey: Array.from({ length: 32 }, () => 7),
           userPublicKey: 'User1111111111111111111111111111111111111',
           signatureScheme: 'ecdsa-secp256k1-sha256',
         },
@@ -188,6 +190,8 @@ describe('Polet AI SDK - Intent Builder', () => {
 
       expect(intent.params.ikaPreAlpha).toEqual({
         dwalletAccount: 'DwALLET1111111111111111111111111111111111',
+        dwalletCurve: 2,
+        dwalletPublicKey: Array.from({ length: 32 }, () => 7),
         userPublicKey: 'User1111111111111111111111111111111111111',
         signatureScheme: 'ecdsa-secp256k1-sha256',
       });

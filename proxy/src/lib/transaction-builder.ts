@@ -53,9 +53,11 @@ export interface ConfidentialTransferTransactionRequest {
 export interface ApproveIkaMessageTransactionRequest {
   wallet: string;
   sessionKey: string;
+  coordinator: string;
   dwallet: string;
   messageApproval: string;
   cpiAuthority: string;
+  callerProgram: string;
   ikaProgram: string;
   canonicalOrderHash: string | Uint8Array | number[];
   sourceAmount: number | bigint;
@@ -202,15 +204,17 @@ export async function buildApproveIkaMessageSessionTransaction(
 export function buildApproveIkaMessageAsSessionAccounts(
   request: Pick<
     ApproveIkaMessageTransactionRequest,
-    'wallet' | 'sessionKey' | 'dwallet' | 'messageApproval' | 'cpiAuthority' | 'ikaProgram' | 'sharedApprovers'
+    'wallet' | 'sessionKey' | 'coordinator' | 'dwallet' | 'messageApproval' | 'cpiAuthority' | 'callerProgram' | 'ikaProgram' | 'sharedApprovers'
   >
 ) {
   return [
     { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
     { pubkey: new PublicKey(request.sessionKey), isSigner: true, isWritable: false },
+    { pubkey: new PublicKey(request.coordinator), isSigner: false, isWritable: false },
     { pubkey: new PublicKey(request.dwallet), isSigner: false, isWritable: false },
     { pubkey: new PublicKey(request.messageApproval), isSigner: false, isWritable: true },
     { pubkey: new PublicKey(request.cpiAuthority), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.callerProgram), isSigner: false, isWritable: false },
     { pubkey: new PublicKey(request.ikaProgram), isSigner: false, isWritable: false },
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
     ...(request.sharedApprovers ?? []).map((approver) => ({

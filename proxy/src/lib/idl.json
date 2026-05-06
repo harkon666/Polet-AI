@@ -55,6 +55,9 @@
           "signer": true
         },
         {
+          "name": "coordinator"
+        },
+        {
           "name": "dwallet"
         },
         {
@@ -91,6 +94,9 @@
               }
             ]
           }
+        },
+        {
+          "name": "program"
         },
         {
           "name": "ika_program"

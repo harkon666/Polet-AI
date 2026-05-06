@@ -319,9 +319,11 @@ async function buildIkaAllowedResult(
   const poletApprovalTransaction = await (deps.buildApprovalTransaction ?? buildApproveIkaMessageSessionTransaction)({
     wallet: smartWalletAuthority,
     sessionKey: intent.sessionKey,
+    coordinator: preAlphaSigning.coordinatorPda,
     dwallet: preAlphaSigning.dwalletAccount,
     messageApproval: preAlphaSigning.messageApprovalPda,
     cpiAuthority: preAlphaSigning.cpiAuthorityPda,
+    callerProgram: preAlphaSigning.approveMessage.callerProgram,
     ikaProgram: preAlphaSigning.approveMessage.programId,
     canonicalOrderHash: preAlphaSigning.messageDigest,
     sourceAmount: amountBaseUnits,
@@ -408,12 +410,16 @@ function signatureSchemeCode(value: IkaPreAlphaSigningRequest['signatureScheme']
 
 function getIkaPreAlphaOverrides(params: MultichainStrategyParams): {
   dwalletAccount?: string;
+  dwalletCurve?: number;
+  dwalletPublicKey?: number[] | string;
   userPublicKey?: string;
   signatureScheme?: IkaPreAlphaSigningRequest['signatureScheme'];
 } {
   const raw = (params as {
     ikaPreAlpha?: {
       dwalletAccount?: unknown;
+      dwalletCurve?: unknown;
+      dwalletPublicKey?: unknown;
       userPublicKey?: unknown;
       signatureScheme?: unknown;
     };
@@ -422,6 +428,10 @@ function getIkaPreAlphaOverrides(params: MultichainStrategyParams): {
 
   return {
     ...(typeof raw.dwalletAccount === 'string' && { dwalletAccount: raw.dwalletAccount }),
+    ...(typeof raw.dwalletCurve === 'number' && { dwalletCurve: raw.dwalletCurve }),
+    ...((Array.isArray(raw.dwalletPublicKey) || typeof raw.dwalletPublicKey === 'string') && {
+      dwalletPublicKey: raw.dwalletPublicKey as number[] | string,
+    }),
     ...(typeof raw.userPublicKey === 'string' && { userPublicKey: raw.userPublicKey }),
     ...(isIkaPreAlphaSignatureScheme(raw.signatureScheme) && { signatureScheme: raw.signatureScheme }),
   };

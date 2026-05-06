@@ -178,6 +178,8 @@ export type IkaPreAlphaSignatureScheme = 'ecdsa-secp256k1-sha256' | 'ed25519-pre
 
 export interface IkaPreAlphaSigningInput {
   dwalletAccount?: string;
+  dwalletCurve?: number;
+  dwalletPublicKey?: number[] | string;
   userPublicKey?: string;
   signatureScheme?: IkaPreAlphaSignatureScheme;
 }

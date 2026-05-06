@@ -2,6 +2,8 @@ use anchor_lang::prelude::*;
 
 pub mod confidential_policy;
 pub mod constants;
+pub mod encrypt_policy_graph;
+pub mod encrypt_prealpha;
 pub mod error;
 pub mod execution_payload;
 pub mod ika_approval;
@@ -193,6 +195,8 @@ pub struct ApproveIkaMessageAsSession<'info> {
     )]
     pub wallet: Account<'info, Wallet>,
     pub session_key: Signer<'info>,
+    /// CHECK: Official Ika DWalletCoordinator PDA. The Ika program validates its own account schema.
+    pub coordinator: UncheckedAccount<'info>,
     /// CHECK: Official Ika dWallet account. The Ika program validates its own account schema.
     pub dwallet: UncheckedAccount<'info>,
     /// CHECK: Official Ika MessageApproval PDA. The Ika program owns creation/validation.
@@ -201,6 +205,8 @@ pub struct ApproveIkaMessageAsSession<'info> {
     /// CHECK: Polet CPI authority PDA used as the dWallet authority.
     #[account(seeds = [IKA_CPI_AUTHORITY_SEED], bump)]
     pub cpi_authority: UncheckedAccount<'info>,
+    /// CHECK: This program's executable account, required by the official Ika CPI SDK for authority verification.
+    pub program: UncheckedAccount<'info>,
     /// CHECK: Ika Pre-Alpha program on devnet, or a deterministic mock Ika program in CI.
     pub ika_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
@@ -830,10 +836,12 @@ pub mod contract {
         approve_ika_message(
             IkaApproveMessageAccounts {
                 ika_program: ctx.accounts.ika_program.to_account_info(),
+                coordinator: ctx.accounts.coordinator.to_account_info(),
                 message_approval: ctx.accounts.message_approval.to_account_info(),
                 dwallet: ctx.accounts.dwallet.to_account_info(),
                 payer: ctx.accounts.session_key.to_account_info(),
                 cpi_authority: ctx.accounts.cpi_authority.to_account_info(),
+                caller_program: ctx.accounts.program.to_account_info(),
                 system_program: ctx.accounts.system_program.to_account_info(),
                 signer_bump: ctx.bumps.cpi_authority,
                 message_approval_bump,

@@ -266,22 +266,66 @@ describe('Ika bridgeless execution request', () => {
         dwalletAccount: signing!.dwalletAccount,
         smartWalletAuthority: fixture.wallet.walletPda,
         messageDigest: deriveIkaMessageDigest(result.ikaRequest),
+        signatureScheme: signing!.signatureScheme,
       });
 
       expect(signing!.messageDigest).toBe(deriveIkaMessageDigest(result.ikaRequest));
       expect(signing!.messageApprovalPda).toBe(expected.messageApprovalPda);
       expect(signing!.messageApprovalBump).toBe(expected.messageApprovalBump);
+      expect(signing!.coordinatorPda).toBe(expected.coordinatorPda);
       expect(signing!.cpiAuthorityPda).toBe(expected.cpiAuthorityPda);
       expect(signing!.cpiAuthorityBump).toBe(expected.cpiAuthorityBump);
       expect(signing!.approveMessage).toMatchObject({
         instruction: 'approve_message',
         authority: expected.cpiAuthorityPda,
+        callerProgram: 'J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus',
         accounts: {
+          coordinator: expected.coordinatorPda,
           messageApproval: expected.messageApprovalPda,
           cpiAuthority: expected.cpiAuthorityPda,
           userPublicKey: fixture.owner,
         },
       });
+    }
+  });
+
+  test('supports official Ika MessageApproval derivation from dWallet curve and public key', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+    intent.params.ikaPreAlpha = {
+      dwalletAccount: Keypair.generate().publicKey.toString(),
+      dwalletCurve: 2,
+      dwalletPublicKey: Array.from(Buffer.alloc(32, 0x42)),
+      signatureScheme: 'ed25519-prealpha',
+    };
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      const signing = result.ikaRequest.preAlphaSigning!;
+      const messageDigest = Buffer.from(signing.messageDigest, 'hex');
+      const payload = Buffer.alloc(34);
+      payload.writeUInt16LE(2, 0);
+      Buffer.alloc(32, 0x42).copy(payload, 2);
+      const scheme = Buffer.alloc(2);
+      scheme.writeUInt16LE(5, 0);
+      const [expectedMessageApproval] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from('dwallet'),
+          payload.subarray(0, 32),
+          payload.subarray(32, 34),
+          Buffer.from('message_approval'),
+          scheme,
+          messageDigest,
+        ],
+        new PublicKey(signing.approveMessage.programId)
+      );
+
+      expect(signing.messageApprovalPda).toBe(expectedMessageApproval.toString());
     }
   });
 
@@ -664,6 +708,8 @@ describe('Ika bridgeless execution request', () => {
       expect(transactionRequests[0]).toMatchObject({
         wallet: fixture.wallet.walletPda,
         sessionKey: fixture.sessionKey,
+        coordinator: result.ikaRequest.preAlphaSigning?.coordinatorPda,
+        callerProgram: 'J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus',
         canonicalOrderHash: result.ikaRequest.suiTransactionDigest?.digestHex,
         sourceAmount: 5_000_000n,
         orderExpiresAt: result.ikaRequest.canonicalOrder.expiresAtUnix,

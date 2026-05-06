@@ -105,12 +105,14 @@ The runner prints JSON with:
 - intent id/action/amount/rail metadata.
 - proxy success/code/reason.
 - Jupiter execution path or Ika request id when returned.
-- Ika Pre-Alpha dWallet, Sui devnet message digest, MessageApproval, signature scheme, PDA/status metadata, and Polet approval transaction signers when returned.
+- Ika Pre-Alpha dWallet, optional dWallet curve/public-key derivation inputs, Sui devnet message digest, MessageApproval, signature scheme, PDA/status metadata, and Polet approval transaction signers when returned.
 - final decision: `allowed`, `blocked`, or `unknown`.
 
 ## Boundary
 
 The runner does not sign or broadcast transactions. It creates agent intents and submits them to the Polet proxy. The proxy returns the policy result and, for allowed Jupiter runs, an unsigned smart-wallet transaction payload for the session signer flow. For Ika, the proxy returns a bridgeless request envelope, technical proof fields, and an unsigned Polet approval transaction for the session signer. Live Ika MessageApproval inspection is documented in `docs/ika-devnet-smoke-runbook.md`; production MPC signing and real settlement remain out of scope.
+
+For Ika devnet smoke work, pass `ikaPreAlpha.dwalletCurve` and `ikaPreAlpha.dwalletPublicKey` when the real dWallet public key is known. The proxy then uses the official MessageApproval PDA derivation from the Ika examples instead of the compatibility fallback.
 
 ## Transaction Simulation Helper
 

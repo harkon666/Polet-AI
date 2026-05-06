@@ -209,9 +209,11 @@ describe('Transaction Builder', () => {
       expect(buildApproveIkaMessageAsSessionAccounts(request)).toEqual([
         { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
         { pubkey: new PublicKey(request.sessionKey), isSigner: true, isWritable: false },
+        { pubkey: new PublicKey(request.coordinator), isSigner: false, isWritable: false },
         { pubkey: new PublicKey(request.dwallet), isSigner: false, isWritable: false },
         { pubkey: new PublicKey(request.messageApproval), isSigner: false, isWritable: true },
         { pubkey: new PublicKey(request.cpiAuthority), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.callerProgram), isSigner: false, isWritable: false },
         { pubkey: new PublicKey(request.ikaProgram), isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ]);
@@ -307,9 +309,11 @@ function createApproveIkaRequest(overrides: Partial<Parameters<typeof buildAppro
   return {
     wallet: Keypair.generate().publicKey.toString(),
     sessionKey: Keypair.generate().publicKey.toString(),
+    coordinator: Keypair.generate().publicKey.toString(),
     dwallet: Keypair.generate().publicKey.toString(),
     messageApproval: Keypair.generate().publicKey.toString(),
     cpiAuthority: Keypair.generate().publicKey.toString(),
+    callerProgram: PROGRAM_ID_STRING,
     ikaProgram: IKA_PREALPHA_PROGRAM_ID_STRING,
     canonicalOrderHash: '11'.repeat(32),
     sourceAmount: 5_000_000n,
