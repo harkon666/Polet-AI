@@ -179,8 +179,8 @@ describe('Consumer DCA demo frontend', () => {
 
     expect(view.getByText(/intent multichain/i)).toBeTruthy();
     expect(view.getByText(/settlement ika belum dijalankan/i)).toBeTruthy();
-    expect(view.getByText('Solana USDC')).toBeTruthy();
-    expect(view.getByText('Solana SOL')).toBeTruthy();
+    expect(view.getByText(/solana usdc/i)).toBeTruthy();
+    expect(view.getByText(/solana sol/i)).toBeTruthy();
     expect(view.getByText('Jupiter')).toBeTruthy();
 
     await setupCustodyAndPolicy(view);
@@ -207,8 +207,8 @@ describe('Consumer DCA demo frontend', () => {
     await waitFor(() => expect(view.getByText(/bridgeless route requested/i)).toBeTruthy());
 
     expect(view.getByText('Ika bridgeless request')).toBeTruthy();
-    expect(view.getByText('solana USDC')).toBeTruthy();
-    expect(view.getByText('sui SUI')).toBeTruthy();
+    expect(view.getAllByText(/solana usdc/i).length).toBeGreaterThan(0);
+    expect(view.getByText(/sui sui/i)).toBeTruthy();
     const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');

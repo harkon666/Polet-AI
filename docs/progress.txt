@@ -2,7 +2,7 @@
 
 ## Status Summary
 
-Polet AI is being redirected from a public policy smart wallet into a single-contract confidential multichain agentic wallet for AI agents.
+Polet AI is being redirected from a public policy smart wallet into a confidential Solana control layer for AI agents.
 
 The old v1 work remains useful as prior art, but the final hackathon path may substantially refactor the contract, proxy, SDK, and frontend. The key privacy requirement is that plaintext numeric policy rules must not remain in the final confidential execution path.
 
@@ -14,9 +14,9 @@ Primary source of truth:
 
 ## Product Direction
 
-**Polet AI Confidential Multichain Agentic Wallet**
+**Polet AI Confidential Solana Control Layer for AI Agents**
 
-Users deposit funds into a Polet smart wallet PDA, configure confidential numeric policy rules, grant an AI agent a temporary session key, and let the agent run guarded strategy intents. The current Solana path uses Jupiter for token intelligence, pricing, and route/build previews. The target ending is a multichain agentic wallet where the same private guardrails can approve bridgeless native-asset trading requests through Ika.
+Users configure confidential numeric policy rules, grant an AI agent a temporary session key, and let the agent request guarded strategy intents. The current Solana path uses Jupiter for token intelligence, pricing, and route/build previews. The new Ika path should use Polet as the Solana policy/control layer: the contract enforces guardrails on-chain and, only after approval, CPI-calls Ika Pre-Alpha `approve_message` so a dWallet can sign a bridgeless destination-chain trading intent.
 
 Core demo:
 
@@ -25,11 +25,14 @@ Core demo:
 - Confidential daily cap: 20 USDC
 - Block scenario: 25 USDC
 - Allow scenario: 5 USDC
+- Ika primary destination: Sui/SUI
+- Ika optional destination: Ethereum/ETH
+- Ika claim boundary: pre-alpha signed bridgeless trading intent, not production MPC or executed asset settlement
 
 Track alignment:
 
 - Encrypt: confidential numeric policy enforcement is core.
-- Ika: target execution rail for multichain bridgeless trading requests after guardrail approval.
+- Ika: dWallet bridgeless signing rail controlled by Polet's Solana program after guardrail approval.
 - Jupiter: Tokens + Price + Recurring compatibility + Swap V2 `/build` fallback.
 - National Campus Hackathon Indonesia: Consumer App / DeFi safety for Indonesian users.
 
@@ -46,11 +49,24 @@ Track alignment:
 
 ### Critical Path
 
-- None.
+- `025-official-ika-dwallet-prealpha-alignment`
+- `026-canonical-bridgeless-order-message`
+- `027-polet-contract-ika-approve-message-cpi`
+- `028-proxy-ika-dwallet-transaction-builder`
+- `029-agent-sdk-ika-sui-signed-intent`
+- `030-control-layer-frontend-ika-dwallet-demo`
+- `031-ika-devnet-smoke-and-messageapproval-verification`
+- `032-control-layer-readme-video-narrative`
 
 ### Stretch
 
-- None.
+- `033-sui-transaction-digest-adapter`
+- `034-ethereum-transaction-digest-adapter`
+- `035-shared-access-and-multisig-lite-ika-approvals`
+- `036-passkey-owner-session-auth`
+- `037-recovery-authority-and-dwallet-controller-rotation`
+- `038-chain-and-asset-allowlist-guardrails`
+- `039-bridgeless-slippage-and-risk-guardrails`
 
 ## Dependency Graph
 
@@ -95,6 +111,23 @@ Track alignment:
     ├── 022-linear-confidential-dca-demo-checklist
     ├── 023-quiet-fintech-frontend-visual-refresh
     └── 024-consumer-frontend-e2e-demo-coverage
+
+025-official-ika-dwallet-prealpha-alignment
+├── 026-canonical-bridgeless-order-message
+│   └── 027-polet-contract-ika-approve-message-cpi
+│       └── 028-proxy-ika-dwallet-transaction-builder
+│           └── 029-agent-sdk-ika-sui-signed-intent
+│               ├── 030-control-layer-frontend-ika-dwallet-demo
+│               │   ├── 032-control-layer-readme-video-narrative
+│               │   ├── 035-shared-access-and-multisig-lite-ika-approvals
+│               │   │   ├── 036-passkey-owner-session-auth
+│               │   │   └── 037-recovery-authority-and-dwallet-controller-rotation
+│               │   └── 038-chain-and-asset-allowlist-guardrails
+│               │       └── 039-bridgeless-slippage-and-risk-guardrails
+│               └── 031-ika-devnet-smoke-and-messageapproval-verification
+│                   ├── 032-control-layer-readme-video-narrative
+│                   ├── 033-sui-transaction-digest-adapter
+│                   └── 034-ethereum-transaction-digest-adapter
 ```
 
 ## Done
@@ -178,7 +211,7 @@ Track alignment:
 - [x] PRD created at `docs/prd.md`.
 - [x] Local issue specs created under `docs/issues/`.
 - [x] Ralph-style prompt updated at `docs/PROMPT.md`.
-- [x] Progress tracker redirected to the final confidential DCA wallet roadmap.
+- [x] Progress tracker redirected to the confidential Solana control-layer roadmap.
 
 ### Previous Foundation
 
