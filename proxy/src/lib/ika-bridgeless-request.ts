@@ -267,6 +267,7 @@ async function buildIkaAllowedResult(
     canonicalOrderHash,
     destinationDigest: destinationDigest.digestHex,
     params,
+    walletSharedIkaApprovals: wallet.sharedIkaApprovals,
   });
   if (!sharedApproval.ready) {
     return {

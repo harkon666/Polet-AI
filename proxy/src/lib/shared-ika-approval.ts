@@ -1,6 +1,7 @@
 import { PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import type { CanonicalBridgelessOrder } from './bridgeless-order';
+import type { WalletData } from './wallet-store';
 import type { MultichainStrategyParams } from '../types/intent';
 
 export const SHARED_IKA_APPROVAL_CHALLENGE_SCHEMA = 'polet.ika.shared-approval.v1';
@@ -26,6 +27,7 @@ export interface SharedIkaApprovalInput {
   canonicalOrderHash: string;
   destinationDigest: string;
   params: MultichainStrategyParams;
+  walletSharedIkaApprovals?: WalletData['sharedIkaApprovals'];
 }
 
 export interface SharedIkaApprovalProgress {
@@ -45,7 +47,8 @@ export interface SharedIkaApprovalDecision {
 }
 
 export function evaluateSharedIkaApproval(input: SharedIkaApprovalInput): SharedIkaApprovalDecision {
-  const policy = normalizePolicy(input.params.sharedAccess?.policy, input.params.targetChain);
+  const policy = normalizeWalletPolicy(input.walletSharedIkaApprovals)
+    ?? normalizePolicy(input.params.sharedAccess?.policy, input.params.targetChain);
   const challenge = buildSharedIkaApprovalChallenge(input);
   if (!policy) {
     return {
@@ -133,6 +136,20 @@ function normalizePolicy(value: MultichainStrategyParams['sharedAccess']['policy
     threshold: value.threshold,
     approvers: uniqueApprovers,
     ...(value.requireFor && { requireFor: value.requireFor }),
+  };
+}
+
+function normalizeWalletPolicy(value: WalletData['sharedIkaApprovals'] | undefined): SharedIkaApprovalPolicy | undefined {
+  if (!value?.enabled || value.threshold < 1) return undefined;
+
+  const approvers = value.approvers
+    .filter((approver) => approver.authorized)
+    .map((approver) => normalizePublicKey(approver.key, 'wallet.sharedIkaApprovals.approver'));
+
+  return {
+    mode: 'ika-approval-quorum',
+    threshold: value.threshold,
+    approvers: Array.from(new Set(approvers)),
   };
 }
 

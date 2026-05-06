@@ -298,6 +298,89 @@ describe('Ika bridgeless execution request', () => {
     }
   });
 
+  test('uses configured wallet shared quorum when intent omits shared policy', async () => {
+    const fixture = createFixture();
+    const approverA = Keypair.generate();
+    const approverB = Keypair.generate();
+    fixture.wallet.sharedIkaApprovals = {
+      enabled: true,
+      threshold: 2,
+      approvers: [
+        { key: approverA.publicKey.toString(), authorized: true },
+        { key: approverB.publicKey.toString(), authorized: true },
+      ],
+    };
+    const intent = createIkaIntent(fixture, '5');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
+      expect(result.status).toBe('needs-approval');
+      expect(result.approval).toMatchObject({
+        status: 'needs-approval',
+        required: 2,
+        received: 0,
+        threshold: 2,
+        totalApprovers: 2,
+        missingApprovals: 2,
+      });
+      expect('ikaRequest' in result).toBe(false);
+      expect(JSON.stringify(result)).not.toContain('preAlphaSigning');
+      expect(JSON.stringify(result)).not.toContain('messageApprovalPda');
+    }
+  });
+
+  test('does not let intent policy lower the configured wallet quorum', async () => {
+    const fixture = createFixture();
+    const approverA = Keypair.generate();
+    const approverB = Keypair.generate();
+    fixture.wallet.sharedIkaApprovals = {
+      enabled: true,
+      threshold: 2,
+      approvers: [
+        { key: approverA.publicKey.toString(), authorized: true },
+        { key: approverB.publicKey.toString(), authorized: true },
+      ],
+    };
+    const intent = createIkaIntent(fixture, '5');
+    (intent.params as { sharedAccess?: unknown }).sharedAccess = {
+      policy: {
+        mode: 'ika-approval-quorum',
+        threshold: 1,
+        approvers: [approverA.publicKey.toString()],
+      },
+    };
+
+    const first = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+    expect(first.allowed).toBe(false);
+    if (first.allowed || first.code !== 'IKA_APPROVAL_QUORUM_REQUIRED') {
+      throw new Error('expected configured wallet quorum challenge');
+    }
+    expect(first.approval.required).toBe(2);
+
+    (intent.params as { sharedAccess?: unknown }).sharedAccess = {
+      approvals: [signSharedApproval(approverA, first.approval.challenge)],
+    };
+    const stillMissing = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+    expect(stillMissing.allowed).toBe(false);
+    if (!stillMissing.allowed) {
+      expect(stillMissing.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
+      expect(stillMissing.approval.received).toBe(1);
+      expect(stillMissing.approval.missingApprovals).toBe(1);
+    }
+  });
+
   test('does not count revoked or duplicate shared approver signatures', async () => {
     const fixture = createFixture();
     const revokedApprover = Keypair.generate();
@@ -494,6 +577,11 @@ function createFixture(options: {
       solTokenAccount: Keypair.generate().publicKey.toString(),
       tokenProgram: TOKEN_PROGRAM,
       configured: true,
+    },
+    sharedIkaApprovals: {
+      threshold: 0,
+      enabled: false,
+      approvers: [],
     },
     sessions: [
       {
