@@ -155,6 +155,44 @@
       ]
     },
     {
+      "name": "configure_shared_ika_approvers",
+      "discriminator": [
+        153,
+        245,
+        11,
+        0,
+        139,
+        247,
+        112,
+        15
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "threshold",
+          "type": "u8"
+        },
+        {
+          "name": "approvers",
+          "type": {
+            "vec": "pubkey"
+          }
+        }
+      ]
+    },
+    {
       "name": "execute_confidential_transfer_as_session",
       "discriminator": [
         142,
@@ -494,6 +532,51 @@
       "args": []
     },
     {
+      "name": "recover_wallet_access",
+      "discriminator": [
+        155,
+        153,
+        200,
+        108,
+        84,
+        110,
+        28,
+        154
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "compromised_sessions",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "shared_ika_threshold",
+          "type": "u8"
+        },
+        {
+          "name": "shared_ika_approvers",
+          "type": {
+            "vec": "pubkey"
+          }
+        },
+        {
+          "name": "pending_dwallet_controller",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "register_demo_custody",
       "discriminator": [
         214,
@@ -615,6 +698,38 @@
       "args": [
         {
           "name": "session_key",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "revoke_shared_ika_approver",
+      "discriminator": [
+        228,
+        124,
+        183,
+        42,
+        111,
+        181,
+        124,
+        97
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "approver",
           "type": "pubkey"
         }
       ]
@@ -756,76 +871,6 @@
       ]
     },
     {
-      "name": "configure_shared_ika_approvers",
-      "discriminator": [
-        153,
-        245,
-        11,
-        0,
-        139,
-        247,
-        112,
-        15
-      ],
-      "accounts": [
-        {
-          "name": "wallet",
-          "writable": true
-        },
-        {
-          "name": "owner",
-          "signer": true,
-          "relations": [
-            "wallet"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "threshold",
-          "type": "u8"
-        },
-        {
-          "name": "approvers",
-          "type": {
-            "vec": "pubkey"
-          }
-        }
-      ]
-    },
-    {
-      "name": "revoke_shared_ika_approver",
-      "discriminator": [
-        228,
-        124,
-        183,
-        42,
-        111,
-        181,
-        124,
-        97
-      ],
-      "accounts": [
-        {
-          "name": "wallet",
-          "writable": true
-        },
-        {
-          "name": "owner",
-          "signer": true,
-          "relations": [
-            "wallet"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "approver",
-          "type": "pubkey"
-        }
-      ]
-    },
-    {
       "name": "set_proxy_key",
       "discriminator": [
         202,
@@ -853,6 +898,38 @@
       "args": [
         {
           "name": "proxy_pk",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_recovery_authority",
+      "discriminator": [
+        230,
+        66,
+        226,
+        203,
+        249,
+        217,
+        247,
+        94
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "recovery_authority",
           "type": "pubkey"
         }
       ]
@@ -1003,6 +1080,16 @@
       "code": 6025,
       "name": "SharedIkaApprovalQuorumMissing",
       "msg": "Shared Ika approval quorum is missing"
+    },
+    {
+      "code": 6026,
+      "name": "NotRecoveryAuthority",
+      "msg": "Only the wallet owner or configured recovery authority can perform this recovery action"
+    },
+    {
+      "code": 6027,
+      "name": "InvalidRecoveryRequest",
+      "msg": "Invalid recovery rotation request"
     }
   ],
   "types": [
@@ -1085,13 +1172,49 @@
       }
     },
     {
-      "name": "SharedIkaApprover",
+      "name": "DwalletControllerRotation",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "current_controller",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_controller",
+            "type": "pubkey"
+          },
+          {
+            "name": "rotation_seq",
+            "type": "u64"
+          },
+          {
+            "name": "last_rotated_slot",
+            "type": "u64"
+          },
+          {
+            "name": "migration_pending",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SessionKey",
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "key",
             "type": "pubkey"
+          },
+          {
+            "name": "expires_at",
+            "type": "i64"
+          },
+          {
+            "name": "granted_slot",
+            "type": "u64"
           },
           {
             "name": "authorized",
@@ -1127,21 +1250,13 @@
       }
     },
     {
-      "name": "SessionKey",
+      "name": "SharedIkaApprover",
       "type": {
         "kind": "struct",
         "fields": [
           {
             "name": "key",
             "type": "pubkey"
-          },
-          {
-            "name": "expires_at",
-            "type": "i64"
-          },
-          {
-            "name": "granted_slot",
-            "type": "u64"
           },
           {
             "name": "authorized",
@@ -1157,6 +1272,10 @@
         "fields": [
           {
             "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "recovery_authority",
             "type": "pubkey"
           },
           {
@@ -1210,6 +1329,14 @@
             "type": {
               "defined": {
                 "name": "SharedIkaApprovalConfig"
+              }
+            }
+          },
+          {
+            "name": "dwallet_controller",
+            "type": {
+              "defined": {
+                "name": "DwalletControllerRotation"
               }
             }
           },

@@ -15,8 +15,8 @@ pub use error::ErrorCode;
 use execution_payload::parse_transfer_intent;
 use ika_approval::{approve_ika_message, IkaApproveMessageAccounts, IKA_CPI_AUTHORITY_SEED};
 pub use state::{
-    ConfidentialNumericPolicy, DemoTokenCustody, SessionKey, SharedIkaApprovalConfig,
-    SharedIkaApprover, Wallet,
+    ConfidentialNumericPolicy, DemoTokenCustody, DwalletControllerRotation, SessionKey,
+    SharedIkaApprovalConfig, SharedIkaApprover, Wallet,
 };
 
 const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
@@ -108,6 +108,20 @@ pub struct RevokeAllSessions<'info> {
     #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetRecoveryAuthority<'info> {
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct RecoverWalletAccess<'info> {
+    #[account(mut)]
+    pub wallet: Account<'info, Wallet>,
+    pub authority: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -270,7 +284,9 @@ fn configure_shared_ika_approval_config(
             ErrorCode::InvalidSharedIkaApprovalConfig
         );
         require!(
-            !approvers[index + 1..].iter().any(|candidate| candidate == approver),
+            !approvers[index + 1..]
+                .iter()
+                .any(|candidate| candidate == approver),
             ErrorCode::InvalidSharedIkaApprovalConfig
         );
         shared_approvers.push(SharedIkaApprover {
@@ -290,6 +306,25 @@ fn configure_shared_ika_approval_config(
         .ok_or(ErrorCode::ArithmeticOverflow)?;
 
     Ok(())
+}
+
+fn require_recovery_authority(wallet: &Wallet, authority: Pubkey) -> Result<()> {
+    require!(
+        authority == wallet.owner || authority == wallet.recovery_authority,
+        ErrorCode::NotRecoveryAuthority
+    );
+    Ok(())
+}
+
+fn mark_sessions_revoked(wallet: &mut Wallet, compromised_sessions: &[Pubkey]) {
+    for session in wallet.sessions.iter_mut() {
+        if compromised_sessions
+            .iter()
+            .any(|candidate| *candidate == session.key)
+        {
+            session.authorized = false;
+        }
+    }
 }
 
 fn revoke_shared_ika_approver_config(wallet: &mut Wallet, approver: Pubkey) -> Result<()> {
@@ -410,6 +445,7 @@ pub mod contract {
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         ctx.accounts.wallet.set_inner(Wallet {
             owner: ctx.accounts.owner.key(),
+            recovery_authority: ctx.accounts.owner.key(),
             proxy_pk: Pubkey::default(),
             policy_commitment: [0u8; 32],
             merkle_root: [0u8; 32],
@@ -418,6 +454,7 @@ pub mod contract {
             confidential_policy: ConfidentialNumericPolicy::default(),
             demo_custody: DemoTokenCustody::default(),
             shared_ika_approvals: SharedIkaApprovalConfig::default(),
+            dwallet_controller: DwalletControllerRotation::default(),
             sessions: Vec::new(),
         });
         msg!("Polet wallet created for: {:?}", ctx.accounts.owner.key());
@@ -582,6 +619,60 @@ pub mod contract {
         msg!(
             "All sessions revoked at slot: {}",
             ctx.accounts.wallet.last_revoked_slot
+        );
+        Ok(())
+    }
+
+    pub fn set_recovery_authority(
+        ctx: Context<SetRecoveryAuthority>,
+        recovery_authority: Pubkey,
+    ) -> Result<()> {
+        require!(
+            recovery_authority != Pubkey::default(),
+            ErrorCode::InvalidRecoveryRequest
+        );
+        ctx.accounts.wallet.recovery_authority = recovery_authority;
+        msg!("Recovery authority updated: {:?}", recovery_authority);
+        Ok(())
+    }
+
+    pub fn recover_wallet_access(
+        ctx: Context<RecoverWalletAccess>,
+        compromised_sessions: Vec<Pubkey>,
+        shared_ika_threshold: u8,
+        shared_ika_approvers: Vec<Pubkey>,
+        pending_dwallet_controller: Pubkey,
+    ) -> Result<()> {
+        require_recovery_authority(&ctx.accounts.wallet, ctx.accounts.authority.key())?;
+        require!(
+            compromised_sessions.len() <= Wallet::MAX_SESSIONS,
+            ErrorCode::TooManySessions
+        );
+        require!(
+            pending_dwallet_controller != Pubkey::default(),
+            ErrorCode::InvalidRecoveryRequest
+        );
+
+        let wallet = &mut ctx.accounts.wallet;
+        mark_sessions_revoked(wallet, &compromised_sessions);
+        wallet.last_revoked_slot = Clock::get()?.slot;
+        configure_shared_ika_approval_config(wallet, shared_ika_threshold, shared_ika_approvers)?;
+        wallet.dwallet_controller = DwalletControllerRotation {
+            current_controller: wallet.dwallet_controller.current_controller,
+            pending_controller: pending_dwallet_controller,
+            rotation_seq: wallet
+                .dwallet_controller
+                .rotation_seq
+                .checked_add(1)
+                .ok_or(ErrorCode::ArithmeticOverflow)?,
+            last_rotated_slot: Clock::get()?.slot,
+            migration_pending: true,
+        };
+
+        msg!(
+            "Recovery rotated access metadata, policy_seq={}, dwallet_rotation_seq={}",
+            wallet.policy_seq,
+            wallet.dwallet_controller.rotation_seq
         );
         Ok(())
     }

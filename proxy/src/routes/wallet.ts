@@ -422,6 +422,138 @@ walletRouter.post('/shared-ika-approvers/revoke', async (c) => {
 });
 
 /**
+ * POST /wallet/recovery-authority
+ * Builds an owner-signed transaction that changes the recovery authority.
+ */
+walletRouter.post('/recovery-authority', async (c) => {
+  try {
+    const { owner, recoveryAuthority } = await c.req.json();
+    if (!owner || !recoveryAuthority) {
+      return c.json({ success: false, error: 'owner and recoveryAuthority are required' }, 400);
+    }
+
+    const ownerPubkey = new PublicKey(owner);
+    const recoveryAuthorityPubkey = new PublicKey(recoveryAuthority);
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const program = getProgram();
+    const ix = await program.methods.setRecoveryAuthority(recoveryAuthorityPubkey)
+      .accounts({
+        wallet: walletPda,
+        owner: ownerPubkey,
+      })
+      .instruction();
+
+    const tx = new Transaction().add(ix);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(ownerPubkey, tx),
+        wallet: walletPda.toString(),
+        recoveryAuthority: recoveryAuthorityPubkey.toString(),
+        activity: {
+          type: 'recovery-authority-updated',
+          status: 'prepared',
+          privacy: 'No confidential policy values are included in this recovery transaction.',
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Set recovery authority error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build recovery authority transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/recover-access
+ * Builds a recovery-authority-signed transaction that revokes sessions,
+ * rotates shared Ika co-approvers, and stages a dWallet controller migration.
+ */
+walletRouter.post('/recover-access', async (c) => {
+  try {
+    const {
+      owner,
+      authority,
+      compromisedSessions,
+      sharedIkaThreshold,
+      sharedIkaApprovers,
+      pendingDwalletController,
+    } = await c.req.json();
+    if (
+      !owner
+      || !authority
+      || !Array.isArray(compromisedSessions)
+      || sharedIkaThreshold === undefined
+      || !Array.isArray(sharedIkaApprovers)
+      || !pendingDwalletController
+    ) {
+      return c.json({
+        success: false,
+        error: 'owner, authority, compromisedSessions, sharedIkaThreshold, sharedIkaApprovers, and pendingDwalletController are required',
+      }, 400);
+    }
+    if (!Number.isInteger(sharedIkaThreshold) || sharedIkaThreshold < 1 || sharedIkaThreshold > sharedIkaApprovers.length) {
+      return c.json({ success: false, error: 'sharedIkaThreshold must be a positive integer no greater than approver count' }, 400);
+    }
+
+    const ownerPubkey = new PublicKey(owner);
+    const authorityPubkey = new PublicKey(authority);
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const compromisedSessionPubkeys = Array.from(new Set(compromisedSessions.map((session) => new PublicKey(session).toString())))
+      .map((session) => new PublicKey(session));
+    const sharedIkaApproverPubkeys = Array.from(new Set(sharedIkaApprovers.map((approver) => new PublicKey(approver).toString())))
+      .map((approver) => new PublicKey(approver));
+    if (compromisedSessionPubkeys.length !== compromisedSessions.length) {
+      return c.json({ success: false, error: 'compromisedSessions must be unique' }, 400);
+    }
+    if (sharedIkaApproverPubkeys.length !== sharedIkaApprovers.length) {
+      return c.json({ success: false, error: 'sharedIkaApprovers must be unique' }, 400);
+    }
+
+    const pendingDwalletControllerPubkey = new PublicKey(pendingDwalletController);
+    const program = getProgram();
+    const ix = await program.methods.recoverWalletAccess(
+      compromisedSessionPubkeys,
+      sharedIkaThreshold,
+      sharedIkaApproverPubkeys,
+      pendingDwalletControllerPubkey
+    )
+      .accounts({
+        wallet: walletPda,
+        authority: authorityPubkey,
+      })
+      .instruction();
+
+    const tx = new Transaction().add(ix);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(authorityPubkey, tx),
+        wallet: walletPda.toString(),
+        authority: authorityPubkey.toString(),
+        compromisedSessions: compromisedSessionPubkeys.map((session) => session.toString()),
+        sharedIkaThreshold,
+        sharedIkaApprovers: sharedIkaApproverPubkeys.map((approver) => approver.toString()),
+        pendingDwalletController: pendingDwalletControllerPubkey.toString(),
+        activity: {
+          type: 'recovery-access-rotation',
+          status: 'prepared',
+          states: [
+            'sessions-revoked',
+            'shared-ika-approvers-rotated',
+            'dwallet-controller-migration-staged',
+          ],
+          privacy: 'Recovery output redacts confidential max-per-run, daily cap, and daily spent values.',
+          boundary: 'The transaction stages dWallet controller metadata only; it does not bypass Polet policy checks or execute Ika settlement.',
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Recover wallet access error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build recovery transaction' }, 500);
+  }
+});
+
+/**
  * POST /wallet/setup-demo-custody
  * Creates PDA-owned ATAs for USDC and wrapped SOL when needed, then registers them on-chain.
  */

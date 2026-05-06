@@ -200,8 +200,17 @@ export interface SharedIkaApprovalConfigAccount {
   approvers: SharedIkaApproverAccount[];
 }
 
+export interface DwalletControllerRotationAccount {
+  currentController: PublicKey;
+  pendingController: PublicKey;
+  rotationSeq: BN;
+  lastRotatedSlot: BN;
+  migrationPending: boolean;
+}
+
 export interface WalletAccount {
   owner: PublicKey;
+  recoveryAuthority: PublicKey;
   proxyPk: PublicKey;
   policyCommitment: number[] | Uint8Array;
   merkleRoot: number[] | Uint8Array;
@@ -210,5 +219,6 @@ export interface WalletAccount {
   confidentialPolicy: ConfidentialNumericPolicyAccount;
   demoCustody: DemoTokenCustodyAccount;
   sharedIkaApprovals: SharedIkaApprovalConfigAccount;
+  dwalletController: DwalletControllerRotationAccount;
   sessions: TemporalKeyAccount[];
 }

@@ -42,9 +42,19 @@ pub struct SharedIkaApprovalConfig {
     pub approvers: Vec<SharedIkaApprover>,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
+pub struct DwalletControllerRotation {
+    pub current_controller: Pubkey,
+    pub pending_controller: Pubkey,
+    pub rotation_seq: u64,
+    pub last_rotated_slot: u64,
+    pub migration_pending: bool,
+}
+
 #[account]
 pub struct Wallet {
     pub owner: Pubkey,
+    pub recovery_authority: Pubkey,
     pub proxy_pk: Pubkey,
     pub policy_commitment: [u8; 32],
     pub merkle_root: [u8; 32],
@@ -53,6 +63,7 @@ pub struct Wallet {
     pub confidential_policy: ConfidentialNumericPolicy,
     pub demo_custody: DemoTokenCustody,
     pub shared_ika_approvals: SharedIkaApprovalConfig,
+    pub dwallet_controller: DwalletControllerRotation,
     pub sessions: Vec<SessionKey>,
 }
 
@@ -63,11 +74,13 @@ impl Wallet {
         + 32
         + 32
         + 32
+        + 32
         + 8
         + 8
         + ConfidentialNumericPolicy::SPACE
         + DemoTokenCustody::SPACE
         + SharedIkaApprovalConfig::SPACE
+        + DwalletControllerRotation::SPACE
         + 4
         + (SessionKey::SPACE * Self::MAX_SESSIONS);
 }
@@ -89,5 +102,10 @@ impl SharedIkaApprover {
 }
 
 impl SharedIkaApprovalConfig {
-    pub const SPACE: usize = 1 + 1 + 4 + (SharedIkaApprover::SPACE * Wallet::MAX_SHARED_IKA_APPROVERS);
+    pub const SPACE: usize =
+        1 + 1 + 4 + (SharedIkaApprover::SPACE * Wallet::MAX_SHARED_IKA_APPROVERS);
+}
+
+impl DwalletControllerRotation {
+    pub const SPACE: usize = 32 + 32 + 8 + 8 + 1;
 }

@@ -263,7 +263,8 @@ fn ika_approval_blocks_until_configured_shared_quorum_signs() {
         "missing shared quorum should block Ika approval"
     );
     assert_eq!(
-        read_mock_message_approval(&svm, message_approval)[0], 0,
+        read_mock_message_approval(&svm, message_approval)[0],
+        0,
         "mock Ika CPI should not be called before quorum"
     );
     assert_eq!(

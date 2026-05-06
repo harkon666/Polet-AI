@@ -54,4 +54,10 @@ pub enum ErrorCode {
     InvalidSharedIkaApprovalConfig,
     #[msg("Shared Ika approval quorum is missing")]
     SharedIkaApprovalQuorumMissing,
+    #[msg(
+        "Only the wallet owner or configured recovery authority can perform this recovery action"
+    )]
+    NotRecoveryAuthority,
+    #[msg("Invalid recovery rotation request")]
+    InvalidRecoveryRequest,
 }

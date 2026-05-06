@@ -53,7 +53,6 @@ Track alignment:
 
 ### Stretch
 
-- `037-recovery-authority-and-dwallet-controller-rotation`
 - `038-chain-and-asset-allowlist-guardrails`
 - `039-bridgeless-slippage-and-risk-guardrails`
 
@@ -230,6 +229,9 @@ Track alignment:
 - [x] `036-passkey-owner-session-auth` — Chose passkeys for shared Ika co-approval UX only and added a proxy WebAuthn-style prototype. The new passkey challenge binds owner, session key, shared Ika approval challenge, credential id, rpId, and expiry; verification checks origin, rpId hash, challenge, user presence, optional user verification, and P-256 signature while explicitly preserving Solana owner/session/co-approver signatures and on-chain policy checks as the authority boundary.
   - Verification: `bun test ./tests/passkey-coapproval.test.ts` and `bun run build` pass in `proxy/`.
   - Note: passkeys are not the critical path for the MVP and do not control Ika dWallet authority, Polet wallet funds, or contract quorum by themselves.
+- [x] `037-recovery-authority-and-dwallet-controller-rotation` — Added owner-configured recovery authority support plus a guarded recovery instruction that can revoke compromised sessions, advance the global revocation slot, rotate shared Ika co-approver quorum metadata, and stage pending dWallet controller migration metadata without touching confidential numeric policy values. Added proxy transaction builders for recovery authority setup and access recovery with redacted activity states.
+  - Verification: `NO_DNA=1 cargo fmt --check`, `NO_DNA=1 anchor build`, and `NO_DNA=1 cargo test` pass in `contract/`; `bun test` and `bun run build` pass in `proxy/`.
+  - Note: the dWallet controller migration is staged metadata only. It does not execute live Ika authority transfer, settlement, or production MPC, and older initialized wallet accounts may need migration/reinitialization because the account layout grew.
 
 ### Planning
 

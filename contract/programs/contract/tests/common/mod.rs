@@ -169,6 +169,52 @@ pub fn revoke_all_sessions(
     send_ix(svm, owner, &[], ix)
 }
 
+pub fn set_recovery_authority(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    recovery_authority: anchor_lang::prelude::Pubkey,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::SetRecoveryAuthority { recovery_authority };
+    let ix_accounts = contract::accounts::SetRecoveryAuthority {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[], ix)
+}
+
+pub fn recover_wallet_access(
+    svm: &mut LiteSVM,
+    authority: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    compromised_sessions: Vec<anchor_lang::prelude::Pubkey>,
+    shared_ika_threshold: u8,
+    shared_ika_approvers: Vec<anchor_lang::prelude::Pubkey>,
+    pending_dwallet_controller: anchor_lang::prelude::Pubkey,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::RecoverWalletAccess {
+        compromised_sessions,
+        shared_ika_threshold,
+        shared_ika_approvers,
+        pending_dwallet_controller,
+    };
+    let ix_accounts = contract::accounts::RecoverWalletAccess {
+        wallet: wallet_pda,
+        authority: authority.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, authority, &[], ix)
+}
+
 pub fn configure_shared_ika_approvers(
     svm: &mut LiteSVM,
     owner: &Keypair,

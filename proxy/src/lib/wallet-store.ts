@@ -36,6 +36,7 @@ function deserializePolicy(data: Uint8Array): Policy {
 export interface WalletData {
   walletPda: string;
   owner: string;
+  recoveryAuthority: string;
   proxyPk: string;
   policyCommitment: number[];
   merkleRoot: number[];
@@ -65,6 +66,13 @@ export interface WalletData {
       key: string;
       authorized: boolean;
     }>;
+  };
+  dwalletController: {
+    currentController: string;
+    pendingController: string;
+    rotationSeq: number;
+    lastRotatedSlot: number;
+    migrationPending: boolean;
   };
   sessions: Array<{
     key: string;
@@ -109,6 +117,7 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
     return {
       walletPda: walletPda.toString(),
       owner: accountData.owner.toString(),
+      recoveryAuthority: accountData.recoveryAuthority.toString(),
       proxyPk: accountData.proxyPk.toString(),
       policyCommitment: Array.from(accountData.policyCommitment),
       merkleRoot: Array.from(accountData.merkleRoot),
@@ -138,6 +147,13 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
           key: approver.key.toString(),
           authorized: approver.authorized,
         })),
+      },
+      dwalletController: {
+        currentController: accountData.dwalletController.currentController.toString(),
+        pendingController: accountData.dwalletController.pendingController.toString(),
+        rotationSeq: accountData.dwalletController.rotationSeq.toNumber(),
+        lastRotatedSlot: accountData.dwalletController.lastRotatedSlot.toNumber(),
+        migrationPending: accountData.dwalletController.migrationPending,
       },
       sessions,
       temporalKeys: sessions,
