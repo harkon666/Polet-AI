@@ -1,9 +1,12 @@
 use {
     common::{
         approve_ika_message_as_session, approve_ika_message_as_session_with_coapprovers,
+        approve_ika_message_with_verified_encrypt_as_session_with_coapprovers,
         configure_shared_ika_approvers, encrypt_amount, grant_session, initialize,
-        read_mock_message_approval, read_wallet, revoke_shared_ika_approver,
-        set_confidential_numeric_policy, setup_svm, write_mock_ika_account, write_system_account,
+        read_mock_message_approval, read_wallet, revoke_session, revoke_shared_ika_approver,
+        set_confidential_numeric_policy, set_encrypt_ciphertext_policy, setup_svm, update_wallet,
+        write_mock_encrypt_bool_decryption_request, write_mock_encrypt_ciphertext,
+        write_mock_ika_account, write_system_account,
     },
     solana_keypair::Keypair,
     solana_signer::Signer,
@@ -12,6 +15,74 @@ use {
 mod common;
 
 const FUTURE_EXPIRY: i64 = 4_102_444_800;
+
+struct OfficialEncryptIkaFixture {
+    allowed_output: anchor_lang::prelude::Pubkey,
+    daily_spent_output: anchor_lang::prelude::Pubkey,
+    allowed_request: anchor_lang::prelude::Pubkey,
+}
+
+fn configure_pending_official_encrypt_policy(
+    svm: &mut litesvm::LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    allowed: Option<bool>,
+) -> OfficialEncryptIkaFixture {
+    let max_per_run_ciphertext = Keypair::new().pubkey();
+    let daily_cap_ciphertext = Keypair::new().pubkey();
+    let daily_spent_ciphertext = Keypair::new().pubkey();
+    let allowed_output = Keypair::new().pubkey();
+    let daily_spent_output = Keypair::new().pubkey();
+    let source_amount = Keypair::new().pubkey();
+    let allowed_request = Keypair::new().pubkey();
+    let allowed_digest = [0x91u8; 32];
+
+    set_encrypt_ciphertext_policy(
+        svm,
+        owner,
+        wallet_pda,
+        max_per_run_ciphertext,
+        daily_cap_ciphertext,
+        daily_spent_ciphertext,
+    )
+    .expect("set Encrypt ciphertext policy failed");
+    update_wallet(svm, wallet_pda, |wallet| {
+        wallet
+            .confidential_policy
+            .encrypt_ciphertexts
+            .pending_allowed_output = allowed_output;
+        wallet
+            .confidential_policy
+            .encrypt_ciphertexts
+            .pending_daily_spent_output = daily_spent_output;
+        wallet
+            .confidential_policy
+            .encrypt_ciphertexts
+            .pending_source_amount = source_amount;
+        wallet.confidential_policy.encrypt_ciphertexts.pending_slot = 10_000;
+        wallet
+            .confidential_policy
+            .encrypt_ciphertexts
+            .pending_policy_seq = wallet.policy_seq;
+        wallet.confidential_policy.encrypt_ciphertexts.pending = true;
+    });
+    write_mock_encrypt_ciphertext(svm, allowed_output, allowed_digest, 0);
+    write_mock_encrypt_ciphertext(svm, daily_spent_output, [0x92u8; 32], 4);
+    write_mock_encrypt_bool_decryption_request(
+        svm,
+        allowed_request,
+        allowed_output,
+        allowed_digest,
+        wallet_pda,
+        allowed,
+    );
+
+    OfficialEncryptIkaFixture {
+        allowed_output,
+        daily_spent_output,
+        allowed_request,
+    }
+}
 
 #[test]
 fn ika_approval_allows_in_limit_order_and_cpi_calls_mock_ika() {
@@ -75,6 +146,427 @@ fn ika_approval_allows_in_limit_order_and_cpi_calls_mock_ika() {
         wallet.confidential_policy.encrypted_daily_spent,
         encrypt_amount(5, &witness)
     );
+}
+
+#[test]
+fn official_encrypt_pending_output_cannot_call_mock_ika() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let dwallet = Keypair::new().pubkey();
+    let message_approval = Keypair::new().pubkey();
+
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    let fixture = configure_pending_official_encrypt_policy(&mut svm, &owner, wallet_pda, None);
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        FUTURE_EXPIRY,
+    )
+    .expect("grant session failed");
+    write_system_account(&mut svm, dwallet);
+    write_mock_ika_account(&mut svm, message_approval, 100);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    let res = approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        fixture.allowed_output,
+        fixture.daily_spent_output,
+        fixture.allowed_request,
+        dwallet,
+        message_approval,
+        [0x81u8; 32],
+        FUTURE_EXPIRY,
+        10_000,
+        wallet.policy_seq,
+        &[],
+    );
+    assert!(
+        res.is_err(),
+        "pending Encrypt output should not approve Ika"
+    );
+    assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
+    assert!(
+        read_wallet(&svm, wallet_pda)
+            .confidential_policy
+            .encrypt_ciphertexts
+            .pending
+    );
+}
+
+#[test]
+fn official_encrypt_verified_blocked_output_cannot_call_mock_ika_or_mutate_spend() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let dwallet = Keypair::new().pubkey();
+    let message_approval = Keypair::new().pubkey();
+
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    let fixture =
+        configure_pending_official_encrypt_policy(&mut svm, &owner, wallet_pda, Some(false));
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        FUTURE_EXPIRY,
+    )
+    .expect("grant session failed");
+    write_system_account(&mut svm, dwallet);
+    write_mock_ika_account(&mut svm, message_approval, 100);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    let original_daily_spent = wallet.confidential_policy.encrypt_ciphertexts.daily_spent;
+    let res = approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        fixture.allowed_output,
+        fixture.daily_spent_output,
+        fixture.allowed_request,
+        dwallet,
+        message_approval,
+        [0x82u8; 32],
+        FUTURE_EXPIRY,
+        10_000,
+        wallet.policy_seq,
+        &[],
+    );
+    assert!(
+        res.is_err(),
+        "verified blocked Encrypt output should not approve Ika"
+    );
+    assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert_eq!(
+        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        original_daily_spent
+    );
+    assert!(wallet.confidential_policy.encrypt_ciphertexts.pending);
+}
+
+#[test]
+fn official_encrypt_verified_allowed_output_calls_mock_ika_and_consumes_pending_spend() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let dwallet = Keypair::new().pubkey();
+    let message_approval = Keypair::new().pubkey();
+    let ika_message_hash = [0x83u8; 32];
+
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    let fixture =
+        configure_pending_official_encrypt_policy(&mut svm, &owner, wallet_pda, Some(true));
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        FUTURE_EXPIRY,
+    )
+    .expect("grant session failed");
+    write_system_account(&mut svm, dwallet);
+    write_mock_ika_account(&mut svm, message_approval, 100);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    let res = approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        fixture.allowed_output,
+        fixture.daily_spent_output,
+        fixture.allowed_request,
+        dwallet,
+        message_approval,
+        ika_message_hash,
+        FUTURE_EXPIRY,
+        10_000,
+        wallet.policy_seq,
+        &[],
+    );
+    assert!(
+        res.is_ok(),
+        "verified allowed Encrypt output should approve Ika: {res:?}"
+    );
+    assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 1);
+    assert_eq!(
+        &read_mock_message_approval(&svm, message_approval)[1..33],
+        &ika_message_hash
+    );
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert_eq!(
+        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        fixture.daily_spent_output
+    );
+    assert!(!wallet.confidential_policy.encrypt_ciphertexts.pending);
+}
+
+#[test]
+fn masked_witness_ika_instruction_is_disabled_when_official_encrypt_policy_is_configured() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let witness = [0x84u8; 32];
+    let dwallet = Keypair::new().pubkey();
+    let message_approval = Keypair::new().pubkey();
+
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    set_confidential_numeric_policy(&mut svm, &owner, wallet_pda, witness, 10, 20, 0, 0)
+        .expect("set confidential policy failed");
+    let _fixture =
+        configure_pending_official_encrypt_policy(&mut svm, &owner, wallet_pda, Some(true));
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        FUTURE_EXPIRY,
+    )
+    .expect("grant session failed");
+    write_system_account(&mut svm, dwallet);
+    write_mock_ika_account(&mut svm, message_approval, 100);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    let res = approve_ika_message_as_session(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        dwallet,
+        message_approval,
+        [0x84u8; 32],
+        5,
+        FUTURE_EXPIRY,
+        10_000,
+        wallet.policy_seq,
+        witness,
+    );
+    assert!(
+        res.is_err(),
+        "official Encrypt configured Ika path must not use masked witness approval"
+    );
+    assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
+}
+
+#[test]
+fn official_encrypt_verified_allowed_rejects_stale_policy_sequence_before_cpi() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let dwallet = Keypair::new().pubkey();
+    let message_approval = Keypair::new().pubkey();
+
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    let fixture =
+        configure_pending_official_encrypt_policy(&mut svm, &owner, wallet_pda, Some(true));
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        FUTURE_EXPIRY,
+    )
+    .expect("grant session failed");
+    write_system_account(&mut svm, dwallet);
+    write_mock_ika_account(&mut svm, message_approval, 100);
+
+    let res = approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        fixture.allowed_output,
+        fixture.daily_spent_output,
+        fixture.allowed_request,
+        dwallet,
+        message_approval,
+        [0x85u8; 32],
+        FUTURE_EXPIRY,
+        10_000,
+        0,
+        &[],
+    );
+    assert!(res.is_err(), "stale policy sequence should be rejected");
+    assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
+}
+
+#[test]
+fn official_encrypt_verified_allowed_rejects_revoked_session_before_cpi() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let dwallet = Keypair::new().pubkey();
+    let message_approval = Keypair::new().pubkey();
+
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    let fixture =
+        configure_pending_official_encrypt_policy(&mut svm, &owner, wallet_pda, Some(true));
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        FUTURE_EXPIRY,
+    )
+    .expect("grant session failed");
+    revoke_session(&mut svm, &owner, wallet_pda, session_key.pubkey())
+        .expect("revoke session failed");
+    write_system_account(&mut svm, dwallet);
+    write_mock_ika_account(&mut svm, message_approval, 100);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    let res = approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        fixture.allowed_output,
+        fixture.daily_spent_output,
+        fixture.allowed_request,
+        dwallet,
+        message_approval,
+        [0x86u8; 32],
+        FUTURE_EXPIRY,
+        10_000,
+        wallet.policy_seq,
+        &[],
+    );
+    assert!(res.is_err(), "revoked session should be rejected");
+    assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
+}
+
+#[test]
+fn official_encrypt_verified_allowed_rejects_expired_order_before_cpi() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let dwallet = Keypair::new().pubkey();
+    let message_approval = Keypair::new().pubkey();
+
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    let fixture =
+        configure_pending_official_encrypt_policy(&mut svm, &owner, wallet_pda, Some(true));
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        FUTURE_EXPIRY,
+    )
+    .expect("grant session failed");
+    write_system_account(&mut svm, dwallet);
+    write_mock_ika_account(&mut svm, message_approval, 100);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    let res = approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        fixture.allowed_output,
+        fixture.daily_spent_output,
+        fixture.allowed_request,
+        dwallet,
+        message_approval,
+        [0x87u8; 32],
+        i64::MIN,
+        10_000,
+        wallet.policy_seq,
+        &[],
+    );
+    assert!(res.is_err(), "expired order should be rejected");
+    assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
+}
+
+#[test]
+fn official_encrypt_verified_allowed_requires_shared_quorum_before_cpi() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let session_key = Keypair::new();
+    let approver_a = Keypair::new();
+    let approver_b = Keypair::new();
+    let dwallet = Keypair::new().pubkey();
+    let message_approval = Keypair::new().pubkey();
+
+    svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
+    svm.airdrop(&approver_a.pubkey(), 1_000_000_000).unwrap();
+    svm.airdrop(&approver_b.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    let fixture =
+        configure_pending_official_encrypt_policy(&mut svm, &owner, wallet_pda, Some(true));
+    configure_shared_ika_approvers(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        2,
+        vec![approver_a.pubkey(), approver_b.pubkey()],
+    )
+    .expect("configure shared Ika approvers failed");
+    update_wallet(&mut svm, wallet_pda, |wallet| {
+        wallet
+            .confidential_policy
+            .encrypt_ciphertexts
+            .pending_policy_seq = wallet.policy_seq;
+    });
+    grant_session(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        session_key.pubkey(),
+        FUTURE_EXPIRY,
+    )
+    .expect("grant session failed");
+    write_system_account(&mut svm, dwallet);
+    write_mock_ika_account(&mut svm, message_approval, 100);
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    let missing_quorum = approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        fixture.allowed_output,
+        fixture.daily_spent_output,
+        fixture.allowed_request,
+        dwallet,
+        message_approval,
+        [0x88u8; 32],
+        FUTURE_EXPIRY,
+        10_000,
+        wallet.policy_seq,
+        &[],
+    );
+    assert!(missing_quorum.is_err(), "missing quorum should be rejected");
+    assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
+
+    let approved = approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
+        &mut svm,
+        &session_key,
+        &session_key,
+        wallet_pda,
+        fixture.allowed_output,
+        fixture.daily_spent_output,
+        fixture.allowed_request,
+        dwallet,
+        message_approval,
+        [0x88u8; 32],
+        FUTURE_EXPIRY,
+        10_000,
+        wallet.policy_seq,
+        &[&approver_a, &approver_b],
+    );
+    assert!(
+        approved.is_ok(),
+        "complete quorum should allow verified Ika"
+    );
+    assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 1);
 }
 
 #[test]

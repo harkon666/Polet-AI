@@ -52,7 +52,6 @@ Track alignment:
 
 ### Critical Path
 
-- `050-contract-official-encrypt-verified-ika-cpi-lifecycle` — Contract-only issue for migrating the on-chain Ika CPI path from masked-witness approval to pending/verified official Encrypt graph output before `approve_message`.
 - Continue `041-official-encrypt-policy-graph-execution` — wire official Encrypt ciphertext account creation and add `EncryptTestContext/process_pending()` graph executor coverage.
 - `042-frontend-shared-ika-approval-ui` — Add frontend configure/revoke shared Ika approvers and needs-approval/ready quorum states for the Ika demo.
 - `046-frontend-ethereum-ika-optional-route-ui` — Add the optional Ethereum/ETH Ika approved route as a first-class frontend demo path instead of using it as an unsupported route.
@@ -267,6 +266,9 @@ Track alignment:
 - [x] `040-official-ika-message-hash-and-signing-lifecycle` — Aligned Polet's Ika approval path with official Pre-Alpha hash semantics. Proxy responses now separate `canonicalOrderHash`, Keccak-256 `ikaMessageHash`, and destination signing digests; unsigned approval transactions use `approval-transaction-prepared` rather than `message-approved`; the transaction builder and contract argument names now pass `ika_message_hash` into Ika `approve_message`; SDK/frontend/docs use the new lifecycle wording.
   - Verification: `bun test ./tests/ika-bridgeless-request.test.ts ./tests/transaction-builder.test.ts` and `bun run build` pass in `proxy/`; `bun test ./tests/intent-builder.test.ts ./tests/local-agent-runtime.test.ts` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`; `NO_DNA=1 cargo test ika_approval` passes in `contract/`.
   - Note: `NO_DNA=1 anchor build` compiled both programs but exited with `IDL doesn't exist` during Anchor's IDL step. The checked-in proxy IDL argument name was updated manually.
+- [x] `050-contract-official-encrypt-verified-ika-cpi-lifecycle` — Added the contract-side verified Encrypt consume path for Ika approval. `approve_ika_message_with_verified_encrypt_as_session` requires the pending official Encrypt output ciphertexts, verifies the allowed decryption request against the current ciphertext digest, rejects pending or verified-blocked outputs before Ika CPI, updates the official daily-spent ciphertext pointer only on verified allowed output, and preserves session, expiry, policy sequence, canonical Ika hash, dWallet/MessageApproval, and shared approver quorum checks. The masked-witness Ika instruction now rejects when an official Encrypt ciphertext policy is configured. Synced the proxy IDL to expose the new contract instruction and errors.
+  - Verification: `NO_DNA=1 anchor build`, `NO_DNA=1 cargo fmt --check`, `NO_DNA=1 cargo test -p contract --test ika_approval`, and `NO_DNA=1 cargo test` pass in `contract/`; `bun run build` passes in `proxy/`.
+  - Note: tests cover the consume lifecycle with deterministic mock ciphertext/decryption request accounts because the broader `EncryptTestContext/process_pending()` setup remains in issue 041. No production privacy, MPC, settlement, or broadcast claims were added.
 
 ### Planning
 

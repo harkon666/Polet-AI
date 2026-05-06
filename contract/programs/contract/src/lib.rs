@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use encrypt_anchor::EncryptContext;
+use encrypt_types::encrypted::{Bool, EncryptedType};
 
 pub mod confidential_policy;
 pub mod constants;
@@ -271,6 +272,38 @@ pub struct ApproveIkaMessageAsSession<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct ApproveIkaMessageWithVerifiedEncryptAsSession<'info> {
+    #[account(
+        mut,
+        seeds = [WALLET_SEED, wallet.owner.as_ref()],
+        bump,
+    )]
+    pub wallet: Account<'info, Wallet>,
+    pub session_key: Signer<'info>,
+    /// CHECK: Pending allowed-output ciphertext recorded by Polet graph execution.
+    pub allowed_output_ciphertext: UncheckedAccount<'info>,
+    /// CHECK: Pending updated daily-spent ciphertext recorded by Polet graph execution.
+    pub daily_spent_output_ciphertext: UncheckedAccount<'info>,
+    /// CHECK: Decryption request for allowed_output_ciphertext; verified against the current ciphertext digest.
+    pub allowed_decryption_request: UncheckedAccount<'info>,
+    /// CHECK: Official Ika DWalletCoordinator PDA. The Ika program validates its own account schema.
+    pub coordinator: UncheckedAccount<'info>,
+    /// CHECK: Official Ika dWallet account. The Ika program validates its own account schema.
+    pub dwallet: UncheckedAccount<'info>,
+    /// CHECK: Official Ika MessageApproval PDA. The Ika program owns creation/validation.
+    #[account(mut)]
+    pub message_approval: UncheckedAccount<'info>,
+    /// CHECK: Polet CPI authority PDA used as the dWallet authority.
+    #[account(seeds = [IKA_CPI_AUTHORITY_SEED], bump)]
+    pub cpi_authority: UncheckedAccount<'info>,
+    /// CHECK: This program's executable account, required by the official Ika CPI SDK for authority verification.
+    pub program: UncheckedAccount<'info>,
+    /// CHECK: Ika Pre-Alpha program on devnet, or a deterministic mock Ika program in CI.
+    pub ika_program: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
 fn require_policy_commitment(wallet: &Wallet) -> Result<()> {
     require!(
         wallet.policy_commitment != [0u8; 32] || wallet.merkle_root != [0u8; 32],
@@ -343,6 +376,91 @@ fn require_encrypt_ciphertext_policy(wallet: &Wallet) -> Result<()> {
 
 fn require_expected_ciphertext(actual: Pubkey, expected: Pubkey) -> Result<()> {
     require!(actual == expected, ErrorCode::InvalidEncryptPolicy);
+    Ok(())
+}
+
+fn read_verified_encrypt_allowed_output(
+    allowed_output_ciphertext: &AccountInfo,
+    allowed_decryption_request: &AccountInfo,
+) -> Result<bool> {
+    require!(
+        allowed_output_ciphertext.owner == allowed_decryption_request.owner,
+        ErrorCode::InvalidEncryptPolicy
+    );
+    let allowed_output_key = allowed_output_ciphertext.key();
+    let output_data = allowed_output_ciphertext.try_borrow_data()?;
+    require!(
+        output_data.len() > 98 && output_data[98] == Bool::FHE_TYPE_ID,
+        ErrorCode::InvalidEncryptPolicy
+    );
+    let expected_digest = encrypt_anchor::accounts::ciphertext_digest(&output_data)
+        .map_err(|_| error!(ErrorCode::InvalidEncryptPolicy))?;
+    let request_data = allowed_decryption_request.try_borrow_data()?;
+    require!(
+        request_data.len() > 98
+            && request_data[2..34] == allowed_output_key.to_bytes()
+            && request_data[98] == Bool::FHE_TYPE_ID,
+        ErrorCode::InvalidEncryptPolicy
+    );
+    let allowed =
+        encrypt_anchor::accounts::read_decrypted_verified::<Bool>(&request_data, expected_digest)
+            .map_err(|_| error!(ErrorCode::EncryptPolicyPending))?;
+    Ok(*allowed)
+}
+
+fn consume_verified_encrypt_policy_for_ika(
+    wallet: &mut Wallet,
+    allowed_output_ciphertext: &AccountInfo,
+    daily_spent_output_ciphertext: &AccountInfo,
+    allowed_decryption_request: &AccountInfo,
+    attestation_policy_seq: u64,
+) -> Result<()> {
+    require_encrypt_ciphertext_policy(wallet)?;
+    let ciphertexts = &wallet.confidential_policy.encrypt_ciphertexts;
+    require!(ciphertexts.pending, ErrorCode::EncryptPolicyPending);
+    require!(
+        ciphertexts.pending_policy_seq == wallet.policy_seq
+            && attestation_policy_seq == wallet.policy_seq,
+        ErrorCode::StalePolicySeq
+    );
+    require_expected_ciphertext(
+        allowed_output_ciphertext.key(),
+        ciphertexts.pending_allowed_output,
+    )?;
+    require_expected_ciphertext(
+        daily_spent_output_ciphertext.key(),
+        ciphertexts.pending_daily_spent_output,
+    )?;
+
+    let allowed = read_verified_encrypt_allowed_output(
+        allowed_output_ciphertext,
+        allowed_decryption_request,
+    )?;
+    require!(allowed, ErrorCode::EncryptPolicyBlocked);
+
+    wallet.confidential_policy.encrypt_ciphertexts.daily_spent = wallet
+        .confidential_policy
+        .encrypt_ciphertexts
+        .pending_daily_spent_output;
+    wallet
+        .confidential_policy
+        .encrypt_ciphertexts
+        .pending_allowed_output = Pubkey::default();
+    wallet
+        .confidential_policy
+        .encrypt_ciphertexts
+        .pending_daily_spent_output = Pubkey::default();
+    wallet
+        .confidential_policy
+        .encrypt_ciphertexts
+        .pending_source_amount = Pubkey::default();
+    wallet.confidential_policy.encrypt_ciphertexts.pending_slot = 0;
+    wallet
+        .confidential_policy
+        .encrypt_ciphertexts
+        .pending_policy_seq = 0;
+    wallet.confidential_policy.encrypt_ciphertexts.pending = false;
+
     Ok(())
 }
 
@@ -1009,6 +1127,14 @@ pub mod contract {
         signature_scheme: u16,
         message_approval_bump: u8,
     ) -> Result<()> {
+        require!(
+            !ctx.accounts
+                .wallet
+                .confidential_policy
+                .encrypt_ciphertexts
+                .configured,
+            ErrorCode::EncryptPolicyPending
+        );
         validate_session_and_attestation(
             &ctx.accounts.wallet,
             ctx.accounts.session_key.key(),
@@ -1047,6 +1173,59 @@ pub mod contract {
         )?;
 
         msg!("Ika approve_message CPI submitted after Polet policy approval");
+        Ok(())
+    }
+
+    pub fn approve_ika_message_with_verified_encrypt_as_session(
+        ctx: Context<ApproveIkaMessageWithVerifiedEncryptAsSession>,
+        ika_message_hash: [u8; 32],
+        order_expires_at: i64,
+        attestation_slot: u64,
+        attestation_policy_seq: u64,
+        user_pubkey: [u8; 32],
+        signature_scheme: u16,
+        message_approval_bump: u8,
+    ) -> Result<()> {
+        validate_session_and_attestation(
+            &ctx.accounts.wallet,
+            ctx.accounts.session_key.key(),
+            attestation_slot,
+            attestation_policy_seq,
+        )?;
+        require_not_expired(order_expires_at)?;
+        enforce_shared_ika_quorum(
+            &ctx.accounts.wallet.shared_ika_approvals,
+            ctx.remaining_accounts,
+        )?;
+
+        consume_verified_encrypt_policy_for_ika(
+            &mut ctx.accounts.wallet,
+            &ctx.accounts.allowed_output_ciphertext.to_account_info(),
+            &ctx.accounts.daily_spent_output_ciphertext.to_account_info(),
+            &ctx.accounts.allowed_decryption_request.to_account_info(),
+            attestation_policy_seq,
+        )?;
+
+        approve_ika_message(
+            IkaApproveMessageAccounts {
+                ika_program: ctx.accounts.ika_program.to_account_info(),
+                coordinator: ctx.accounts.coordinator.to_account_info(),
+                message_approval: ctx.accounts.message_approval.to_account_info(),
+                dwallet: ctx.accounts.dwallet.to_account_info(),
+                payer: ctx.accounts.session_key.to_account_info(),
+                cpi_authority: ctx.accounts.cpi_authority.to_account_info(),
+                caller_program: ctx.accounts.program.to_account_info(),
+                system_program: ctx.accounts.system_program.to_account_info(),
+                signer_bump: ctx.bumps.cpi_authority,
+                message_approval_bump,
+                user_pubkey,
+                signature_scheme,
+                _marker: core::marker::PhantomData,
+            },
+            ika_message_hash,
+        )?;
+
+        msg!("Ika approve_message CPI submitted after verified Encrypt policy approval");
         Ok(())
     }
 }

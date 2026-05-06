@@ -161,6 +161,155 @@
       ]
     },
     {
+      "name": "approve_ika_message_with_verified_encrypt_as_session",
+      "discriminator": [
+        90,
+        155,
+        234,
+        78,
+        137,
+        233,
+        226,
+        101
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  101,
+                  116,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet.owner",
+                "account": "Wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "session_key",
+          "signer": true
+        },
+        {
+          "name": "allowed_output_ciphertext"
+        },
+        {
+          "name": "daily_spent_output_ciphertext"
+        },
+        {
+          "name": "allowed_decryption_request"
+        },
+        {
+          "name": "coordinator"
+        },
+        {
+          "name": "dwallet"
+        },
+        {
+          "name": "message_approval",
+          "writable": true
+        },
+        {
+          "name": "cpi_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  105,
+                  107,
+                  97,
+                  95,
+                  99,
+                  112,
+                  105,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        },
+        {
+          "name": "ika_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "ika_message_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "order_expires_at",
+          "type": "i64"
+        },
+        {
+          "name": "attestation_slot",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_policy_seq",
+          "type": "u64"
+        },
+        {
+          "name": "user_pubkey",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "signature_scheme",
+          "type": "u16"
+        },
+        {
+          "name": "message_approval_bump",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "configure_shared_ika_approvers",
       "discriminator": [
         153,
@@ -1301,6 +1450,16 @@
       "code": 6028,
       "name": "InvalidEncryptPolicy",
       "msg": "Invalid Encrypt pre-alpha policy ciphertext account"
+    },
+    {
+      "code": 6029,
+      "name": "EncryptPolicyPending",
+      "msg": "Official Encrypt policy graph output is still pending"
+    },
+    {
+      "code": 6030,
+      "name": "EncryptPolicyBlocked",
+      "msg": "Official Encrypt policy graph verified this action as blocked"
     }
   ],
   "types": [

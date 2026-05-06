@@ -62,4 +62,8 @@ pub enum ErrorCode {
     InvalidRecoveryRequest,
     #[msg("Invalid Encrypt pre-alpha policy ciphertext account")]
     InvalidEncryptPolicy,
+    #[msg("Official Encrypt policy graph output is still pending")]
+    EncryptPolicyPending,
+    #[msg("Official Encrypt policy graph verified this action as blocked")]
+    EncryptPolicyBlocked,
 }

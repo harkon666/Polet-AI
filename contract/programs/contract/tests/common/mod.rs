@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use {
-    anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas},
+    anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData, ToAccountMetas},
     contract::execution_payload::{
         TRANSFER_INTENT_AMOUNT_OFFSET, TRANSFER_INTENT_DESTINATION_OFFSET,
         TRANSFER_INTENT_INSTRUCTION, TRANSFER_INTENT_LEN,
@@ -271,6 +271,32 @@ pub fn read_wallet(svm: &LiteSVM, wallet_pda: anchor_lang::prelude::Pubkey) -> c
     contract::Wallet::try_deserialize(&mut data).expect("failed to deserialize wallet")
 }
 
+pub fn update_wallet(
+    svm: &mut LiteSVM,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    update: impl FnOnce(&mut contract::Wallet),
+) {
+    let mut account = svm
+        .get_account(&wallet_pda)
+        .expect("wallet account not found");
+    let mut data = account.data.as_slice();
+    let mut wallet =
+        contract::Wallet::try_deserialize(&mut data).expect("failed to deserialize wallet");
+    update(&mut wallet);
+
+    let mut serialized = Vec::with_capacity(account.data.len());
+    wallet
+        .try_serialize(&mut serialized)
+        .expect("failed to serialize wallet");
+    assert!(
+        serialized.len() <= account.data.len(),
+        "serialized wallet grew beyond allocated account"
+    );
+    account.data[..serialized.len()].copy_from_slice(&serialized);
+    svm.set_account(wallet_pda, account)
+        .expect("wallet account write failed");
+}
+
 pub fn spl_token_program_id() -> anchor_lang::prelude::Pubkey {
     anchor_lang::prelude::Pubkey::new_from_array(SPL_TOKEN_PROGRAM_ID_BYTES)
 }
@@ -523,6 +549,60 @@ pub fn write_system_account(svm: &mut LiteSVM, account: anchor_lang::prelude::Pu
     .expect("system account write failed");
 }
 
+pub fn write_mock_encrypt_ciphertext(
+    svm: &mut LiteSVM,
+    account: anchor_lang::prelude::Pubkey,
+    digest: [u8; 32],
+    fhe_type: u8,
+) {
+    let mut data = vec![0u8; 100];
+    data[2..34].copy_from_slice(&digest);
+    data[98] = fhe_type;
+    data[99] = 1;
+    svm.set_account(
+        account,
+        Account {
+            lamports: 1_000_000_000,
+            data,
+            owner: contract::id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .expect("mock Encrypt ciphertext write failed");
+}
+
+pub fn write_mock_encrypt_bool_decryption_request(
+    svm: &mut LiteSVM,
+    account: anchor_lang::prelude::Pubkey,
+    ciphertext: anchor_lang::prelude::Pubkey,
+    digest: [u8; 32],
+    requester: anchor_lang::prelude::Pubkey,
+    value: Option<bool>,
+) {
+    let mut data = vec![0u8; 108];
+    data[2..34].copy_from_slice(ciphertext.as_ref());
+    data[34..66].copy_from_slice(&digest);
+    data[66..98].copy_from_slice(requester.as_ref());
+    data[98] = 0;
+    data[99..103].copy_from_slice(&1u32.to_le_bytes());
+    if let Some(value) = value {
+        data[103..107].copy_from_slice(&1u32.to_le_bytes());
+        data[107] = u8::from(value);
+    }
+    svm.set_account(
+        account,
+        Account {
+            lamports: 1_000_000_000,
+            data,
+            owner: contract::id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .expect("mock Encrypt decryption request write failed");
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn approve_ika_message_as_session(
     svm: &mut LiteSVM,
@@ -588,6 +668,68 @@ pub fn approve_ika_message_as_session_with_coapprovers(
     let ix_accounts = contract::accounts::ApproveIkaMessageAsSession {
         wallet: wallet_pda,
         session_key: session_key.pubkey(),
+        coordinator,
+        dwallet,
+        message_approval,
+        cpi_authority,
+        program: contract::id(),
+        ika_program: mock_ika_id(),
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let mut ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    for coapprover in coapprovers {
+        ix.accounts.push(
+            anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
+                coapprover.pubkey(),
+                true,
+            ),
+        );
+    }
+
+    let mut signers = vec![session_key];
+    signers.extend_from_slice(coapprovers);
+    send_ix(svm, payer, &signers, ix)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    session_key: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    allowed_output_ciphertext: anchor_lang::prelude::Pubkey,
+    daily_spent_output_ciphertext: anchor_lang::prelude::Pubkey,
+    allowed_decryption_request: anchor_lang::prelude::Pubkey,
+    dwallet: anchor_lang::prelude::Pubkey,
+    message_approval: anchor_lang::prelude::Pubkey,
+    ika_message_hash: [u8; 32],
+    order_expires_at: i64,
+    attestation_slot: u64,
+    attestation_policy_seq: u64,
+    coapprovers: &[&Keypair],
+) -> Result<(), String> {
+    let (cpi_authority, _cpi_bump) = ika_cpi_authority();
+    let coordinator = ika_coordinator();
+    write_system_account(svm, coordinator);
+    let ix_data = contract::instruction::ApproveIkaMessageWithVerifiedEncryptAsSession {
+        ika_message_hash,
+        order_expires_at,
+        attestation_slot,
+        attestation_policy_seq,
+        user_pubkey: [0xedu8; 32],
+        signature_scheme: 5,
+        message_approval_bump: 9,
+    };
+    let ix_accounts = contract::accounts::ApproveIkaMessageWithVerifiedEncryptAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        allowed_output_ciphertext,
+        daily_spent_output_ciphertext,
+        allowed_decryption_request,
         coordinator,
         dwallet,
         message_approval,
