@@ -110,7 +110,7 @@ The runner prints JSON with:
 
 ## Boundary
 
-The runner does not sign or broadcast transactions. It creates agent intents and submits them to the Polet proxy. The proxy returns the policy result and, for allowed Jupiter runs, an unsigned smart-wallet transaction payload for the session signer flow. For Ika, the proxy returns a bridgeless request envelope, technical proof fields, and an unsigned Polet approval transaction for the session signer. Real Ika MessageApproval devnet verification, settlement, and production MPC signing remain outside this repo until issue 031 is complete.
+The runner does not sign or broadcast transactions. It creates agent intents and submits them to the Polet proxy. The proxy returns the policy result and, for allowed Jupiter runs, an unsigned smart-wallet transaction payload for the session signer flow. For Ika, the proxy returns a bridgeless request envelope, technical proof fields, and an unsigned Polet approval transaction for the session signer. Live Ika MessageApproval inspection is documented in `docs/ika-devnet-smoke-runbook.md`; production MPC signing and real settlement remain out of scope.
 
 ## High-Level Trade API
 
@@ -136,3 +136,55 @@ const ika = await polet.trade({
 ```
 
 Allowed Jupiter trades normalize to `status: "preview-ready"` and `settlement: "not-executed"`. Allowed Ika Sui trades can progress through `status: "request-prepared"`, `"message-approved"`, `"signature-produced-prealpha"`, or `"devnet-smoke-proof"` while keeping `settlement: "not-executed"`. SDK results expose `details.proof` with dWallet, canonical order hash, message hash, MessageApproval, signature scheme, destination, optional Polet approval transaction, and optional devnet smoke proof. Returned high-level results redact the confidential witness from `execution.intent`. Ika Pre-Alpha uses Solana devnet/mock-signer constraints; production MPC security and final settlement are not executed by this MVP slice.
+
+## OpenClaw/Hermes-Style Usage
+
+OpenClaw, Hermes, or another agent runtime should treat Polet as a policy oracle plus unsigned-transaction/proof builder. The runtime decides the strategy, but it does not build Solana or Ika transactions directly.
+
+Minimal adapter shape:
+
+```ts
+import { createPoletAgent } from '@polet-ai/sdk';
+
+export function createPoletTool(env: {
+  owner: string;
+  sessionKey: string;
+  proxyUrl: string;
+  encryptionWitness: number[];
+}) {
+  const polet = createPoletAgent({
+    owner: env.owner,
+    sessionKey: env.sessionKey,
+    baseUrl: env.proxyUrl,
+    encryptionWitness: env.encryptionWitness,
+  });
+
+  return {
+    async runSolanaDca(amount: string) {
+      return polet.trade({
+        from: 'USDC',
+        to: 'SOL',
+        amount,
+      });
+    },
+
+    async requestSuiSignedIntent(amount: string) {
+      return polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'sui', asset: 'SUI' },
+        amount,
+        strategy: 'dca',
+      });
+    },
+  };
+}
+```
+
+Runtime handling rules:
+
+- If `status` is `blocked`, tell the user Polet blocked the action without exposing private thresholds.
+- If Jupiter returns `preview-ready`, show the route/build preview and require a session-signer flow before any transaction can be sent.
+- If Ika returns `message-approved`, show the dWallet, MessageApproval, message hash, signature scheme, and unsigned Polet approval transaction; do not claim settlement.
+- If a live `devnet-smoke-proof` is attached, show it as Pre-Alpha evidence only.
+- Never ask the model or user to paste private keys, seed phrases, or keypair files into the agent context.

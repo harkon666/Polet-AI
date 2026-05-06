@@ -1,30 +1,31 @@
 # Polet AI
 
-Polet AI is a confidential DCA smart wallet for AI agents on Solana.
+Polet AI is a confidential Solana control layer for AI agents.
 
-Users deposit USDC/SOL into a Polet smart wallet PDA, save confidential numeric guardrails, grant an AI agent a temporary session key, and let the agent request USDC -> SOL DCA runs. Polet blocks over-limit agent actions without revealing the user's private thresholds, and allows in-limit actions through a Jupiter route/build preview plus a policy-gated smart-wallet execution payload.
+Users deposit USDC/SOL into a Polet smart wallet PDA, save confidential numeric guardrails, grant an AI agent a temporary session key, and let the agent request guarded strategy actions. Polet blocks over-limit agent actions without revealing the user's private thresholds, allows in-limit USDC -> SOL DCA through a Jupiter route/build preview, and prepares Sui-primary Ika dWallet approvals only after the same policy gate passes.
 
 ## Target Users
 
 - Indonesian DeFi users who want safer automation without giving an AI agent unlimited wallet authority.
 - AI agent developers who need a structured way to submit strategy intents and receive allow/block results.
-- Hackathon reviewers evaluating confidential policy enforcement, smart-wallet custody, and Jupiter API composition.
+- Hackathon reviewers evaluating confidential policy enforcement, smart-wallet custody, Jupiter API composition, and Ika dWallet Pre-Alpha integration.
 
 ## Problem
 
-AI agents can automate DeFi workflows, but delegation is risky when spending rules are public, easy to infer, or enforced only by an off-chain service. Users should not have to reveal exact per-run limits, daily caps, remaining allowance, or risk thresholds to let an agent run a routine strategy.
+AI agents can automate DeFi workflows, but delegation is risky when spending rules are public, easy to infer, or enforced only by an off-chain service. Users need a confidential Solana control layer for AI agents so private spending guardrails stay hidden, agents never receive unlimited wallet authority, and cross-chain signing requests cannot bypass on-chain policy.
 
 ## Solution
 
-Polet uses one Solana contract as the smart-wallet policy boundary:
+Polet uses one Solana contract as the smart-wallet policy boundary for both local Solana strategies and Ika dWallet approval requests:
 
 - The owner initializes a wallet PDA.
 - The owner registers PDA-owned demo custody accounts for USDC and SOL/wSOL.
 - The owner saves a confidential numeric policy for max-per-run and daily cap.
 - The owner grants a temporary session key to an AI agent.
-- The agent submits a DCA intent to the proxy.
-- The proxy runs Jupiter token/price/swap-build prechecks and builds an unsigned policy-gated transaction.
-- The contract enforces the confidential policy path before the smart wallet can execute.
+- The agent submits a DCA or multichain intent to the proxy.
+- For Jupiter, the proxy runs token/price/swap-build prechecks and builds an unsigned policy-gated transaction.
+- For Ika, the proxy prepares a Sui-primary bridgeless order and an unsigned Polet `approve_ika_message_as_session` transaction.
+- The contract enforces the confidential policy path before smart-wallet execution or Ika `approve_message` approval.
 
 Demo constants:
 
@@ -32,12 +33,18 @@ Demo constants:
 - Normal run: 5 USDC
 - Confidential max per run: 10 USDC
 - Confidential daily cap: 20 USDC
-- Block scenario: 25 USDC
-- Allow scenario: 5 USDC
+- Block scenario: 25 USDC DCA and 25 USDC-equivalent Ika request
+- Allow scenario: 5 USDC Jupiter DCA and 5 USDC-equivalent Sui Ika request
 
-## Confidentiality Boundary
+## How Polet Uses Encrypt
 
 Polet is built against an Encrypt pre-alpha style confidential policy flow. The current implementation stores masked numeric policy values and a witness hash instead of plaintext max-per-run, daily-cap, or daily-spent fields in the final confidential execution path.
+
+The same confidential numeric guardrail is used before both supported agent rails:
+
+- Jupiter DCA: over-limit 25 USDC requests are blocked before the proxy returns an executable payload.
+- Ika dWallet: over-limit 25 USDC-equivalent requests are blocked before any dWallet approval data is returned.
+- In-limit 5 USDC requests update the masked daily-spend path and produce only the allowed rail's unsigned transaction/proof metadata.
 
 This is not a production privacy claim. The current path demonstrates enforcement and product shape while Encrypt is pre-alpha. Production-grade confidentiality depends on replacing the masked witness simulation with verified Encrypt primitives and their later alpha/mainnet guarantees.
 
@@ -45,7 +52,7 @@ Polet does not currently implement encrypted allowlist/blocklist membership. Non
 
 ## Legacy Compatibility
 
-The current product path is confidential DCA: `/wallet/set-confidential-policy`, `/intent/dca/run`, and `/intent/multichain/run`.
+The current product path is the confidential control-layer flow: `/wallet/set-confidential-policy`, `/intent/dca/run`, and `/intent/multichain/run`.
 
 Plaintext allowlist/blocklist templates, public max-amount checks, and transfer-style evaluation remain only as prior foundation under `/legacy/*` routes and `legacy-*` modules. They are not part of the final confidential execution path.
 
@@ -60,18 +67,26 @@ Jupiter is the strategy execution and market intelligence layer:
 
 The demo does not claim mainnet Jupiter swap execution. It proves that Polet can build a Jupiter route/build preview and wrap the execution payload behind the smart-wallet policy gate.
 
-## Ika Boundary
+## How Polet Uses Ika
 
-Ika is the target rail for future bridgeless native-asset trading requests using the same agent intent and confidential guardrail model. The official Solana Pre-Alpha surface is pinned in `docs/ika-dwallet-prealpha-alignment.md`: devnet program id `87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY`, mock-signer Pre-Alpha constraints, Polet CPI authority PDA, and MessageApproval read path.
+Ika is the dWallet rail for future bridgeless native-asset trading requests using the same agent intent and confidential guardrail model. The official Solana Pre-Alpha surface is pinned in `docs/ika-dwallet-prealpha-alignment.md`: devnet program id `87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY`, mock-signer Pre-Alpha constraints, Polet CPI authority PDA, and MessageApproval read path.
 
-The proxy now builds the unsigned Polet `approve_ika_message_as_session` transaction for Sui-primary Ika intents after confidential policy approval. It still does not sign, broadcast, claim production MPC, claim verified Ika settlement, or move bridgeless assets.
+Polet uses Ika as follows:
+
+- A Curve25519/Ed25519-compatible dWallet is created or imported through the official Ika Pre-Alpha flow.
+- The dWallet authority is transferred to Polet's CPI authority PDA derived from seed `__ika_cpi_authority` under the Polet program id.
+- The agent submits a Solana USDC -> Sui SUI intent; Sui/SUI is the primary destination shape and Ethereum/ETH remains an optional future destination.
+- Polet verifies session freshness, order expiry, policy sequence, and confidential numeric policy before CPI-calling Ika `approve_message`.
+- The resulting MessageApproval account can be fetched on devnet; when the Pre-Alpha mock signer writes a signature, the signature proof can be inspected.
+
+The proxy builds the unsigned Polet `approve_ika_message_as_session` transaction for Sui-primary Ika intents after confidential policy approval. It still does not sign, broadcast, claim production MPC, claim verified Ika settlement, or move bridgeless assets.
 
 ## Repository Layout
 
 - `contract/`: Anchor program for the single Polet smart wallet contract.
 - `proxy/`: Bun/Hono proxy for wallet setup, confidential policy transactions, Jupiter gateway calls, agent intent execution, and explicitly namespaced legacy compatibility routes.
 - `sdk/`: TypeScript SDK for AI agent intent builders and proxy helpers.
-- `frontend/`: TanStack/Vite consumer demo for the confidential DCA flow.
+- `frontend/`: TanStack/Vite consumer demo for the confidential control-layer DCA and Ika flow.
 - `docs/`: PRD, issue specs, progress tracker, Jupiter DX report, and demo script.
 
 ## Program And URLs
@@ -173,7 +188,7 @@ cd frontend
 bun run dev
 ```
 
-Then open `http://localhost:3000`, connect a devnet wallet, initialize the Polet wallet, set up demo custody, save the confidential policy, grant an agent session key, and use the Demo tab to run the 25 USDC blocked path and the 5 USDC allowed path.
+Then open `http://localhost:3000`, connect a devnet wallet, initialize the Polet wallet, set up demo custody, save the confidential policy, grant an agent session key, and use the Demo tab to run the three core outcomes: 25 USDC blocked with no Ika approval, 5 USDC Jupiter DCA approved as a route/build preview, and 5 USDC-equivalent Sui Ika approval prepared as an unsigned Polet dWallet approval transaction.
 
 ## Documentation
 
