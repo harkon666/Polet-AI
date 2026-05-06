@@ -49,7 +49,7 @@ Track alignment:
 
 ### Critical Path
 
-- None.
+- `040-official-encrypt-policy-graph-execution` — Replace the masked-witness confidential numeric policy simulation with the official Encrypt pre-alpha policy graph execution lifecycle. This should wire the existing `#[encrypt_fn]` graph through `encrypt_anchor::EncryptContext`, track ciphertext accounts and pending/verified outputs, update DCA and Ika response states, and test with `EncryptTestContext/process_pending()`.
 
 ### Stretch
 
@@ -90,6 +90,7 @@ Track alignment:
 013-smart-wallet-identity-module
 └── 014-confidential-numeric-policy-module
     ├── 015-legacy-policy-path-quarantine
+    ├── 040-official-encrypt-policy-graph-execution
     └── 016-proxy-execution-module
         └── 017-execution-payload-module
 
