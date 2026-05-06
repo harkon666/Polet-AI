@@ -907,18 +907,18 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
     });
 
-    test('normalizes Ika Pre-Alpha message approval status from proxy responses', async () => {
+    test('normalizes Ika Pre-Alpha approval transaction status from proxy responses', async () => {
       const fetchMock = async () => Response.json({
         success: true,
         data: {
           allowed: true,
-          code: 'IKA_PREALPHA_MESSAGE_APPROVED',
-          status: 'message-approved',
+          code: 'IKA_APPROVAL_TRANSACTION_PREPARED',
+          status: 'approval-transaction-prepared',
           ikaRequest: {
             executionRail: 'ika-bridgeless',
             settlement: 'not-executed',
             requestId: 'ika-request-1',
-            executionBoundary: { status: 'message-approved' },
+            executionBoundary: { status: 'approval-transaction-prepared' },
             canonicalOrderHash: 'canonical-order-hash-1',
             suiTransactionDigest: {
               chain: 'sui',
@@ -930,9 +930,14 @@ describe('Polet AI SDK - Intent Builder', () => {
               productionSettlement: false,
             },
             preAlphaSigning: {
-              status: 'message-approved',
+              status: 'approval-transaction-prepared',
               dwalletAccount: 'dwallet-1',
-              messageDigest: 'ab'.repeat(32),
+              ikaMessageHash: 'aa'.repeat(32),
+              messageDigest: 'aa'.repeat(32),
+              destinationSigningDigest: {
+                digestHex: 'ab'.repeat(32),
+                source: 'sui-devnet-transaction-digest',
+              },
               messageApprovalPda: 'message-approval-pda',
               cpiAuthorityPda: 'cpi-authority-pda',
               signatureScheme: 'ed25519-prealpha',
@@ -961,16 +966,21 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
 
       expect(result.allowed).toBe(true);
-      expect(result.status).toBe('message-approved');
-      expect(result.policy.code).toBe('IKA_PREALPHA_MESSAGE_APPROVED');
+      expect(result.status).toBe('approval-transaction-prepared');
+      expect(result.policy.code).toBe('IKA_APPROVAL_TRANSACTION_PREPARED');
       expect(result.details?.preAlphaSigning).toMatchObject({
-        status: 'message-approved',
+        status: 'approval-transaction-prepared',
         messageApprovalPda: 'message-approval-pda',
       });
       expect(result.details?.proof).toMatchObject({
         dWallet: 'dwallet-1',
-        messageHash: 'ab'.repeat(32),
+        messageHash: 'aa'.repeat(32),
+        ikaMessageHash: 'aa'.repeat(32),
         canonicalOrderHash: 'canonical-order-hash-1',
+        destinationSigningDigest: {
+          digestHex: 'ab'.repeat(32),
+          source: 'sui-devnet-transaction-digest',
+        },
         messageApprovalAccount: 'message-approval-pda',
         cpiAuthority: 'cpi-authority-pda',
         signatureScheme: 'ed25519-prealpha',
@@ -1001,13 +1011,13 @@ describe('Polet AI SDK - Intent Builder', () => {
           success: true,
           data: {
             allowed: true,
-            code: 'IKA_PREALPHA_MESSAGE_APPROVED',
-            status: 'message-approved',
+            code: 'IKA_APPROVAL_TRANSACTION_PREPARED',
+            status: 'approval-transaction-prepared',
             ikaRequest: {
               executionRail: 'ika-bridgeless',
               settlement: 'not-executed',
               requestId: 'ika-eth-request-1',
-              executionBoundary: { status: 'message-approved' },
+              executionBoundary: { status: 'approval-transaction-prepared' },
               canonicalOrderHash: 'canonical-order-hash-eth',
               ethereumMessageDigest: {
                 chain: 'ethereum',
@@ -1019,9 +1029,14 @@ describe('Polet AI SDK - Intent Builder', () => {
                 productionSettlement: false,
               },
               preAlphaSigning: {
-                status: 'message-approved',
+                status: 'approval-transaction-prepared',
                 dwalletAccount: 'dwallet-eth-1',
-                messageDigest: 'cd'.repeat(32),
+                ikaMessageHash: 'cc'.repeat(32),
+                messageDigest: 'cc'.repeat(32),
+                destinationSigningDigest: {
+                  digestHex: 'cd'.repeat(32),
+                  source: 'ethereum-sepolia-message-digest',
+                },
                 messageApprovalPda: 'message-approval-eth-pda',
                 cpiAuthorityPda: 'cpi-authority-pda',
                 signatureScheme: 'ecdsa-secp256k1-sha256',
@@ -1048,7 +1063,7 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
 
       expect(result.allowed).toBe(true);
-      expect(result.status).toBe('message-approved');
+      expect(result.status).toBe('approval-transaction-prepared');
       expect(requests[0].url).toBe('https://proxy.polet.ai/intent/multichain/run');
       expect(requests[0].body).toMatchObject({
         action: 'multichain-strategy',
@@ -1063,7 +1078,8 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
       expect(result.details?.proof).toMatchObject({
         dWallet: 'dwallet-eth-1',
-        messageHash: 'cd'.repeat(32),
+        messageHash: 'cc'.repeat(32),
+        ikaMessageHash: 'cc'.repeat(32),
         canonicalOrderHash: 'canonical-order-hash-eth',
         messageApprovalAccount: 'message-approval-eth-pda',
         signatureScheme: 'ecdsa-secp256k1-sha256',

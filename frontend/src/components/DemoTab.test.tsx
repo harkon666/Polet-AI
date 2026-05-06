@@ -94,7 +94,7 @@ const api = {
 
     return {
       allowed: true,
-      code: 'IKA_PREALPHA_MESSAGE_APPROVED',
+      code: 'IKA_APPROVAL_TRANSACTION_PREPARED',
       ikaRequest: {
         executionRail: 'ika-bridgeless' as const,
         settlement: 'not-executed' as const,
@@ -122,12 +122,13 @@ const api = {
           attestationHash: 'safe-attestation-hash',
         },
         executionBoundary: {
-          status: 'message-approved' as const,
+          status: 'approval-transaction-prepared' as const,
           note: 'Ika Pre-Alpha approval transaction prepared; settlement is not executed.',
         },
         preAlphaSigning: {
-          status: 'message-approved' as const,
+          status: 'approval-transaction-prepared' as const,
           dwalletAccount: 'DwalleT111111111111111111111111111111111111',
+          ikaMessageHash: '8d'.repeat(32),
           messageDigest: '8d'.repeat(32),
           messageApprovalPda: 'MsgApprove1111111111111111111111111111111',
           cpiAuthorityPda: 'CpiAuth1111111111111111111111111111111111',
@@ -245,7 +246,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(logText).not.toContain('MessageApproval');
 
     fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
-    await waitFor(() => expect(view.getAllByText(/ika dwallet message approved/i).length).toBeGreaterThan(0));
+    await waitFor(() => expect(view.getAllByText(/ika approval transaction prepared/i).length).toBeGreaterThan(0));
 
     expect(view.getByText('Ika dWallet approval')).toBeTruthy();
     expect(view.getAllByText(/solana usdc/i).length).toBeGreaterThan(0);

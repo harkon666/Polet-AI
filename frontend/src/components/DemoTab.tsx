@@ -139,7 +139,7 @@ const COPY = {
     approvedMessage: 'Guardrail mengizinkan request dan proxy mengembalikan unsigned smart-wallet transaction untuk ditandatangani wallet agent.',
     blockedMessage: 'Guardrail policy menolak run tanpa membuka batas privat pengguna.',
     jupiterRouteReady: 'Jupiter route siap',
-    ikaRouteRequested: 'Ika dWallet message approved',
+    ikaRouteRequested: 'Ika approval transaction prepared',
     ikaRouteBlocked: 'Ika request blocked',
     ikaRouteUnsupported: 'Rute Ika tidak diizinkan',
     expectedOutput: 'Estimasi output',
@@ -148,7 +148,7 @@ const COPY = {
     policyTxReady: 'Tx policy-gated siap',
     signer: 'Signer',
     executionBoundary: 'Preview: route/build Jupiter ditampilkan sebagai estimasi dari proxy; swap nyata tidak dikirim dari frontend ini.',
-    ikaExecutionBoundary: 'Ika dWallet message approved: Polet membangun unsigned approval transaction setelah policy lulus; settlement bridgeless nyata belum dieksekusi.',
+    ikaExecutionBoundary: 'Ika approval transaction prepared: Polet membangun unsigned approval transaction setelah policy lulus; settlement bridgeless nyata belum dieksekusi.',
     ikaBlockedBoundary: 'Guardrail menolak request Ika tanpa membuat data approval dWallet.',
     ikaUnsupportedBoundary: 'Rute chain atau asset berada di luar policy allowlist. Data approval dWallet tidak dibuat.',
     ikaTechnicalDetails: 'Technical proof',
@@ -236,7 +236,7 @@ const COPY = {
     approvedMessage: 'The guardrail allowed the request and the proxy returned an unsigned smart-wallet transaction for the agent wallet to sign.',
     blockedMessage: 'The guardrail policy rejected the run without revealing the user private limits.',
     jupiterRouteReady: 'Jupiter route ready',
-    ikaRouteRequested: 'Ika dWallet message approved',
+    ikaRouteRequested: 'Ika approval transaction prepared',
     ikaRouteBlocked: 'Ika request blocked',
     ikaRouteUnsupported: 'Ika route not allowed',
     expectedOutput: 'Expected output',
@@ -245,7 +245,7 @@ const COPY = {
     policyTxReady: 'Policy-gated payload',
     signer: 'Authorized signer',
     executionBoundary: 'Preview: Jupiter route is built; real mainnet swap is not executed in this demo.',
-    ikaExecutionBoundary: 'Ika dWallet message approved: Polet built an unsigned approval transaction after policy approval; bridgeless settlement is not executed.',
+    ikaExecutionBoundary: 'Ika approval transaction prepared: Polet built an unsigned approval transaction after policy approval; bridgeless settlement is not executed.',
     ikaBlockedBoundary: 'The guardrail rejected this Ika request without creating dWallet approval data.',
     ikaUnsupportedBoundary: 'The chain or asset route is outside the allowed route policy. No dWallet approval data was created.',
     ikaTechnicalDetails: 'Technical proof',
@@ -970,7 +970,7 @@ function IkaRequestPreviewCard({ request, labels }: { request: IkaRequestPreview
       <InfoPill label={labels.ikaTechnicalDetails} value={request.executionBoundary.note} wide />
       <InfoPill label={labels.dwallet} value={signing?.dwalletAccount ? short(signing.dwalletAccount) : 'Pre-Alpha dWallet'} />
       <InfoPill label={labels.messageApproval} value={signing?.messageApprovalPda ? short(signing.messageApprovalPda) : 'Pending account'} />
-      <InfoPill label={labels.messageHash} value={signing?.messageDigest ? short(signing.messageDigest) : request.canonicalOrderHash ? short(request.canonicalOrderHash) : 'Canonical order hash'} />
+      <InfoPill label={labels.messageHash} value={signing?.ikaMessageHash ? short(signing.ikaMessageHash) : signing?.messageDigest ? short(signing.messageDigest) : request.canonicalOrderHash ? short(request.canonicalOrderHash) : 'Ika message hash'} />
       <InfoPill label={labels.signatureScheme} value={signing?.signatureScheme ?? 'Pre-Alpha'} />
     </div>
   );

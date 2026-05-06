@@ -181,7 +181,7 @@ const ikaEth = await polet.trade({
 });
 ```
 
-Allowed Jupiter trades normalize to `status: "preview-ready"` and `settlement: "not-executed"`. Allowed Ika Sui and optional Ethereum trades can progress through `status: "request-prepared"`, `"message-approved"`, `"signature-produced-prealpha"`, or `"devnet-smoke-proof"` while keeping `settlement: "not-executed"`. SDK results expose `details.proof` with dWallet, canonical order hash, Sui devnet digest or Ethereum Sepolia EIP-191 digest, MessageApproval, signature scheme, destination, optional Polet approval transaction, and optional devnet smoke proof. Returned high-level results redact the confidential witness from `execution.intent`. Ika Pre-Alpha uses Solana devnet/mock-signer constraints; production MPC security and final settlement are not executed by this MVP slice.
+Allowed Jupiter trades normalize to `status: "preview-ready"` and `settlement: "not-executed"`. Allowed Ika Sui and optional Ethereum trades can progress through `status: "request-prepared"`, `"approval-transaction-prepared"`, `"approval-submitted"`, `"signature-pending"`, `"signature-produced-prealpha"`, or `"devnet-smoke-proof"` while keeping `settlement: "not-executed"`. SDK results expose `details.proof` with dWallet, canonical order hash, Keccak-256 Ika message hash, Sui devnet digest or Ethereum Sepolia EIP-191 digest, MessageApproval, signature scheme, destination, optional Polet approval transaction, and optional devnet smoke proof. Returned high-level results redact the confidential witness from `execution.intent`. Ika Pre-Alpha uses Solana devnet/mock-signer constraints; production MPC security and final settlement are not executed by this MVP slice.
 
 ## OpenClaw/Hermes-Style Usage
 
@@ -243,6 +243,6 @@ Runtime handling rules:
 - If `status` is `blocked`, tell the user Polet blocked the action without exposing private thresholds.
 - If Ika returns `needs-approval`, show shared approval progress such as `1/2 ready`, collect co-approver signatures over the returned challenge outside the model context, and resubmit without showing confidential numeric thresholds.
 - If Jupiter returns `preview-ready`, show the route/build preview and require a session-signer flow before any transaction can be sent.
-- If Ika returns `message-approved`, show the dWallet, MessageApproval, Sui or Ethereum message digest, signature scheme, and unsigned Polet approval transaction; do not claim settlement.
+- If Ika returns `approval-transaction-prepared`, show the dWallet, MessageApproval, Ika message hash, Sui or Ethereum destination signing digest, signature scheme, and unsigned Polet approval transaction; do not claim settlement.
 - If a live `devnet-smoke-proof` is attached, show it as Pre-Alpha evidence only.
 - Never ask the model or user to paste private keys, seed phrases, or keypair files into the agent context.

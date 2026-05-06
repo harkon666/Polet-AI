@@ -77,7 +77,7 @@ test.describe('consumer confidential DCA demo', () => {
     await expect(activityLog).not.toContainText(/dwallet|messageapproval|message hash/i);
 
     await ikaAllow.click();
-    await expect(page.getByText('Ika dWallet message approved', { exact: true })).toBeVisible();
+    await expect(page.getByText('Ika approval transaction prepared', { exact: true })).toBeVisible();
     await expect(page.getByText('Ika dWallet approval')).toBeVisible();
     await expect(page.getByText(/technical proof/i)).toBeVisible();
     await expect(page.getByText(/messageapproval/i)).toBeVisible();

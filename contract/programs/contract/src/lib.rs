@@ -805,7 +805,7 @@ pub mod contract {
 
     pub fn approve_ika_message_as_session(
         ctx: Context<ApproveIkaMessageAsSession>,
-        canonical_order_hash: [u8; 32],
+        ika_message_hash: [u8; 32],
         source_amount: u64,
         order_expires_at: i64,
         attestation_slot: u64,
@@ -849,7 +849,7 @@ pub mod contract {
                 signature_scheme,
                 _marker: core::marker::PhantomData,
             },
-            canonical_order_hash,
+            ika_message_hash,
         )?;
 
         msg!("Ika approve_message CPI submitted after Polet policy approval");

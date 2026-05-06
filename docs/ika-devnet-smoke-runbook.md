@@ -288,11 +288,13 @@ Expected proxy result before signing:
 ```text
 success: true
 data.allowed: true
-data.code: IKA_PREALPHA_MESSAGE_APPROVED
-data.status: message-approved
+data.code: IKA_APPROVAL_TRANSACTION_PREPARED
+data.status: approval-transaction-prepared
 data.ikaRequest.preAlphaSigning.dwalletAccount == IKA_DWALLET_ACCOUNT
 data.ikaRequest.preAlphaSigning.approveMessage.programId == IKA_DWALLET_PROGRAM_ID
-data.ikaRequest.suiTransactionDigest.digestHex == data.ikaRequest.preAlphaSigning.messageDigest
+data.ikaRequest.preAlphaSigning.ikaMessageHash == data.ikaRequest.ikaMessageHash
+data.ikaRequest.preAlphaSigning.ikaMessageHash != data.ikaRequest.suiTransactionDigest.digestHex
+data.ikaRequest.preAlphaSigning.destinationSigningDigest.digestHex == data.ikaRequest.suiTransactionDigest.digestHex
 data.ikaRequest.suiTransactionDigest.broadcastable == false
 data.ikaRequest.suiTransactionDigest.productionSettlement == false
 data.ikaRequest.preAlphaSigning.messageApprovalPda is present
@@ -305,7 +307,7 @@ Record:
 
 ```text
 IKA_MESSAGE_APPROVAL=<data.ikaRequest.preAlphaSigning.messageApprovalPda>
-IKA_MESSAGE_HASH=<data.ikaRequest.preAlphaSigning.messageDigest>
+IKA_MESSAGE_HASH=<data.ikaRequest.preAlphaSigning.ikaMessageHash>
 IKA_SUI_DIGEST=<data.ikaRequest.suiTransactionDigest.digestBase58>
 IKA_CANONICAL_ORDER_HASH=<data.ikaRequest.canonicalOrderHash>
 POLET_APPROVAL_TRANSACTION=<base64 transaction from data.ikaRequest.poletApprovalTransaction.transaction>
@@ -382,7 +384,7 @@ Record the final proof:
 POLET_IKA_APPROVAL_SIGNATURE=<devnet tx signature>
 IKA_DWALLET_ACCOUNT=<dWallet account>
 IKA_MESSAGE_APPROVAL=<MessageApproval account>
-IKA_MESSAGE_HASH=<message digest>
+IKA_MESSAGE_HASH=<Keccak-256 Ika MessageApproval hash>
 IKA_SUI_DIGEST=<Sui devnet digest base58>
 IKA_CANONICAL_ORDER_HASH=<canonical order hash>
 IKA_SIGNATURE_SCHEME=EddsaSha512 / 5

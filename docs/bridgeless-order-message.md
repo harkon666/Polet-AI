@@ -68,7 +68,7 @@ For approved Solana USDC -> Sui SUI orders, the proxy builds a sign-only Sui dev
 - Ika signature scheme: `ed25519-prealpha` / EddsaSha512 for the Sui rail unless an explicit Pre-Alpha override is supplied.
 - `broadcastable: false` and `productionSettlement: false`.
 
-The Ika `messageDigest` and Polet `approve_ika_message_as_session` message hash use `suiTransactionDigest.digestHex` on this rail, not the canonical order hash. The response still includes `canonicalOrderHash` so operators can verify which Polet order was mapped into the Sui digest. This artifact is devnet/sign-only proof metadata; it is not a production Sui transaction, not production MPC evidence, and not bridgeless settlement.
+The Sui `suiTransactionDigest.digestHex` remains destination sign-only proof metadata. Polet separately derives `ikaMessageHash` as Keccak-256 over the stable `polet.ika.message-approval.v1` preimage and passes only that hash into `approve_ika_message_as_session` / Ika `approve_message`. The response still includes `canonicalOrderHash` so operators can verify which Polet order was mapped into the Sui digest. This artifact is devnet/sign-only proof metadata; it is not a production Sui transaction, not production MPC evidence, and not bridgeless settlement.
 
 ## Ethereum Sepolia Message Digest Adapter
 
@@ -86,8 +86,8 @@ For optional approved Solana USDC -> Ethereum ETH orders, the proxy builds a sig
 - Ika signature scheme: `ecdsa-secp256k1-sha256` unless an explicit Pre-Alpha override is supplied.
 - `broadcastable: false` and `productionSettlement: false`.
 
-The Ika `messageDigest` and Polet `approve_ika_message_as_session` message hash use `ethereumMessageDigest.digestHex` on this optional rail, not the canonical order hash. The response still includes `canonicalOrderHash` for order verification. This artifact is Sepolia/sign-only proof metadata; it is not a production Ethereum transaction, not production MPC evidence, and not bridgeless settlement.
+The Ethereum `ethereumMessageDigest.digestHex` remains destination sign-only proof metadata. Polet separately derives `ikaMessageHash` as Keccak-256 over the stable `polet.ika.message-approval.v1` preimage and passes only that hash into `approve_ika_message_as_session` / Ika `approve_message`. The response still includes `canonicalOrderHash` for order verification. This artifact is Sepolia/sign-only proof metadata; it is not a production Ethereum transaction, not production MPC evidence, and not bridgeless settlement.
 
 ## Agent Integration
 
-OpenClaw/Hermes-style agents submit the normal Polet multichain intent. The proxy constructs this canonical order only after the confidential policy/session checks pass, then returns `canonicalOrder`, `canonicalOrderHash`, and the chain-specific digest field in the allowed Ika request envelope. Blocked responses suppress all Ika, Sui, and Ethereum digest proof fields.
+OpenClaw/Hermes-style agents submit the normal Polet multichain intent. The proxy constructs this canonical order only after the confidential policy/session checks pass, then returns `canonicalOrder`, `canonicalOrderHash`, `ikaMessageHash`, `destinationSigningDigest`, and the chain-specific digest field in the allowed Ika request envelope. Blocked responses suppress all Ika, Sui, and Ethereum digest proof fields.

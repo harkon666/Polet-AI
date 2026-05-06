@@ -698,7 +698,8 @@ export interface SubmitIntentOptions extends ProxyClientOptions {
 export type PoletTradeStatus =
   | 'preview-ready'
   | 'request-prepared'
-  | 'message-approved'
+  | 'approval-transaction-prepared'
+  | 'approval-submitted'
   | 'signature-pending'
   | 'signature-produced-prealpha'
   | 'devnet-smoke-proof'
@@ -785,7 +786,9 @@ export type RedactedPoletIntent = Omit<PoletIntent, 'params'> & {
 export interface IkaAgentProof {
   dWallet?: string;
   messageHash?: string;
+  ikaMessageHash?: string;
   canonicalOrderHash?: string;
+  destinationSigningDigest?: unknown;
   messageApprovalAccount?: string;
   cpiAuthority?: string;
   signatureScheme?: string;
@@ -1067,7 +1070,9 @@ interface ProxyTradeDataLike {
     preAlphaSigning?: {
       status?: PoletTradeStatus;
       dwalletAccount?: string;
+      ikaMessageHash?: string;
       messageDigest?: string;
+      destinationSigningDigest?: unknown;
       messageApprovalPda?: string;
       cpiAuthorityPda?: string;
       signatureScheme?: string;
@@ -1097,6 +1102,8 @@ interface ProxyTradeDataLike {
     };
     poletApprovalTransaction?: unknown;
     canonicalOrderHash?: string;
+    ikaMessageHash?: string;
+    destinationSigningDigest?: unknown;
     target?: {
       chain?: string;
       asset?: string;
@@ -1169,7 +1176,8 @@ function normalizeIkaStatus(value: unknown): PoletTradeStatus {
   if (value && typeof value === 'object') return 'devnet-smoke-proof';
   if (
     value === 'request-prepared'
-    || value === 'message-approved'
+    || value === 'approval-transaction-prepared'
+    || value === 'approval-submitted'
     || value === 'signature-pending'
     || value === 'signature-produced-prealpha'
     || value === 'devnet-smoke-proof'
@@ -1327,9 +1335,11 @@ function buildIkaAgentProof(data: ProxyTradeDataLike): IkaAgentProof {
 
   return {
     dWallet: signing?.dwalletAccount,
-    messageHash: signing?.messageDigest,
+    messageHash: signing?.ikaMessageHash ?? signing?.messageDigest,
+    ikaMessageHash: signing?.ikaMessageHash ?? request?.ikaMessageHash,
     messageApprovalAccount: signing?.messageApprovalPda,
     canonicalOrderHash: request?.canonicalOrderHash,
+    destinationSigningDigest: signing?.destinationSigningDigest ?? request?.destinationSigningDigest,
     cpiAuthority: signing?.cpiAuthorityPda,
     signatureScheme: signing?.signatureScheme,
     suiTransactionDigest: request?.suiTransactionDigest,

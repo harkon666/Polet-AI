@@ -108,7 +108,7 @@
       ],
       "args": [
         {
-          "name": "canonical_order_hash",
+          "name": "ika_message_hash",
           "type": {
             "array": [
               "u8",

@@ -20,13 +20,21 @@ The current implementation is likely wrong for official Ika semantics because `p
 
 ## Acceptance criteria
 
-- [ ] Proxy types and docs expose distinct fields for `canonicalOrderHash`, `ikaMessageHash`, destination signing digest, and any future Ika gRPC `hash_scheme`/sign payload metadata.
-- [ ] `ikaMessageHash` is derived as Keccak-256 over a stable Polet/Ika approval preimage and is the only value passed to `approve_ika_message_as_session` / Ika `approve_message`.
-- [ ] Sui and Ethereum digest adapters remain available as sign-only destination artifacts, but they are not reused as Ika MessageApproval PDA lookup hashes unless the official Ika docs explicitly require that for the selected flow.
-- [ ] The contract instruction/data naming is updated away from `canonical_order_hash` where it actually means Ika `message_hash`, and tests assert the value forwarded into mock Ika is the Keccak-256 Ika message hash.
-- [ ] MessageApproval PDA derivation uses the official dWallet seed hierarchy with curve and public key chunks for real devnet mode. Compatibility fallback derivation is either removed from the official path or explicitly quarantined as local-only test metadata.
-- [ ] Response statuses distinguish `approval-transaction-prepared`, `approval-submitted`, `signature-pending`, and `signature-produced-prealpha`; the proxy/SDK/frontend do not label an unsigned transaction as `message-approved`.
-- [ ] Devnet smoke/runbook steps verify the full official lifecycle: dWallet authority is Polet's `__ika_cpi_authority` PDA, the approval transaction is simulated/reviewed before signing, MessageApproval is polled by official PDA, and signed status/signature bytes are recorded only after Ika writes them.
+- [x] Proxy types and docs expose distinct fields for `canonicalOrderHash`, `ikaMessageHash`, destination signing digest, and any future Ika gRPC `hash_scheme`/sign payload metadata.
+- [x] `ikaMessageHash` is derived as Keccak-256 over a stable Polet/Ika approval preimage and is the only value passed to `approve_ika_message_as_session` / Ika `approve_message`.
+- [x] Sui and Ethereum digest adapters remain available as sign-only destination artifacts, but they are not reused as Ika MessageApproval PDA lookup hashes unless the official Ika docs explicitly require that for the selected flow.
+- [x] The contract instruction/data naming is updated away from `canonical_order_hash` where it actually means Ika `message_hash`, and tests assert the value forwarded into mock Ika is the Keccak-256 Ika message hash.
+- [x] MessageApproval PDA derivation uses the official dWallet seed hierarchy with curve and public key chunks for real devnet mode. Compatibility fallback derivation remains local-only for tests and when real dWallet curve/public-key metadata is not supplied.
+- [x] Response statuses distinguish `approval-transaction-prepared`, `approval-submitted`, `signature-pending`, and `signature-produced-prealpha`; the proxy/SDK/frontend do not label an unsigned transaction as `message-approved`.
+- [x] Devnet smoke/runbook steps verify the full official lifecycle: dWallet authority is Polet's `__ika_cpi_authority` PDA, the approval transaction is simulated/reviewed before signing, MessageApproval is polled by official PDA, and signed status/signature bytes are recorded only after Ika writes them.
+
+## Implementation notes
+
+- Added `ikaMessageHash` as Keccak-256 over `polet.ika.message-approval.v1`, keeping `canonicalOrderHash` as the Polet order reference and Sui/Ethereum digests as destination sign-only artifacts.
+- Updated the proxy transaction builder and contract argument naming to `ika_message_hash`; `approve_message` receives that hash, not the canonical order hash or destination digest.
+- Updated proxy, SDK, frontend, and docs to use `approval-transaction-prepared` for unsigned Polet approval transactions. Later lifecycle states remain `approval-submitted`, `signature-pending`, and `signature-produced-prealpha`.
+- Verification: `bun test ./tests/ika-bridgeless-request.test.ts ./tests/transaction-builder.test.ts` and `bun run build` pass in `proxy/`; `bun test ./tests/intent-builder.test.ts ./tests/local-agent-runtime.test.ts` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`; `NO_DNA=1 cargo test ika_approval` passes in `contract/`.
+- Note: `NO_DNA=1 anchor build` compiled both programs but exited with `IDL doesn't exist` during Anchor's IDL step. The checked-in proxy IDL name was updated manually.
 
 ## Blocked by
 

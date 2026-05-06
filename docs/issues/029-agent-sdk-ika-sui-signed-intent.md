@@ -15,7 +15,7 @@ Make OpenClaw/Hermes-style agents feel the new Ika rail through the Polet SDK. T
 ## Acceptance criteria
 
 - [x] `createPoletAgent().trade({ rail: "ika", to: { chain: "sui", asset: "SUI" } })` uses the canonical order and proxy transaction builder.
-- [x] The SDK exposes structured statuses for `blocked`, `message-approved`, `signature-produced-prealpha`, and devnet smoke proof when available.
+- [x] The SDK exposes structured statuses for `blocked`, `approval-transaction-prepared`, `approval-submitted`, `signature-pending`, `signature-produced-prealpha`, and devnet smoke proof when available.
 - [x] The result includes technical proof fields for agent runtimes without leaking policy thresholds or witness bytes.
 - [x] The local CLI runtime has `ika-sui` and `hybrid` scenarios that show block, Jupiter allow, and Ika signed-intent allow.
 - [x] Example docs show how OpenClaw/Hermes-style agents call the SDK and interpret results.

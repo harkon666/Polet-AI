@@ -499,7 +499,7 @@ pub fn approve_ika_message_as_session(
     wallet_pda: anchor_lang::prelude::Pubkey,
     dwallet: anchor_lang::prelude::Pubkey,
     message_approval: anchor_lang::prelude::Pubkey,
-    canonical_order_hash: [u8; 32],
+    ika_message_hash: [u8; 32],
     source_amount: u64,
     order_expires_at: i64,
     attestation_slot: u64,
@@ -513,7 +513,7 @@ pub fn approve_ika_message_as_session(
         wallet_pda,
         dwallet,
         message_approval,
-        canonical_order_hash,
+        ika_message_hash,
         source_amount,
         order_expires_at,
         attestation_slot,
@@ -531,7 +531,7 @@ pub fn approve_ika_message_as_session_with_coapprovers(
     wallet_pda: anchor_lang::prelude::Pubkey,
     dwallet: anchor_lang::prelude::Pubkey,
     message_approval: anchor_lang::prelude::Pubkey,
-    canonical_order_hash: [u8; 32],
+    ika_message_hash: [u8; 32],
     source_amount: u64,
     order_expires_at: i64,
     attestation_slot: u64,
@@ -543,7 +543,7 @@ pub fn approve_ika_message_as_session_with_coapprovers(
     let coordinator = ika_coordinator();
     write_system_account(svm, coordinator);
     let ix_data = contract::instruction::ApproveIkaMessageAsSession {
-        canonical_order_hash,
+        ika_message_hash,
         source_amount,
         order_expires_at,
         attestation_slot,

@@ -28,7 +28,7 @@ Add an optional Ethereum destination adapter for Ika dWallet signing so Polet ca
 
 - Selected action: Ethereum Sepolia sign-only EIP-191 `zero-wei-transfer-proof` message digest.
 - The proxy builds `ethereumMessageDigest` with schema `polet.ethereum.sepolia.message-digest.v1`, chain id `11155111`, Keccak-256 EIP-191 digest, `0` wei, a validated `nativeDestinationAccount` recipient or Polet's fixed Sepolia verifier address, and explicit `broadcastable: false` / `productionSettlement: false` flags.
-- Allowed Ethereum Ika responses keep `canonicalOrderHash` as the Polet order reference, but `preAlphaSigning.messageDigest` and the Polet approval transaction message hash use `ethereumMessageDigest.digestHex`.
+- Issue 040 superseded the original hash mapping. Allowed Ethereum Ika responses keep `canonicalOrderHash` as the Polet order reference; `ethereumMessageDigest.digestHex` is destination sign-only metadata, while `preAlphaSigning.ikaMessageHash` and the Polet approval transaction use a separate Keccak-256 Ika MessageApproval hash.
 - Ethereum defaults to `ecdsa-secp256k1-sha256`; Sui remains the primary demo path and still defaults to `ed25519-prealpha`.
 - Blocked policy responses suppress Ika approval plus Sui/Ethereum digest artifacts.
 

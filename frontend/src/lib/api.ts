@@ -282,6 +282,8 @@ export interface IkaRequestPreview {
   settlement: 'not-executed';
   requestId: string;
   canonicalOrderHash?: string;
+  ikaMessageHash?: string;
+  destinationSigningDigest?: unknown;
   routeRisk?: {
     priceImpactBps?: number;
     liquidityScore?: 'low' | 'medium' | 'high';
@@ -327,13 +329,15 @@ export interface IkaRequestPreview {
     attestationHash: string;
   };
   executionBoundary: {
-    status: 'request-prepared' | 'message-approved' | 'signature-pending' | 'signature-produced-prealpha';
+    status: 'request-prepared' | 'approval-transaction-prepared' | 'approval-submitted' | 'signature-pending' | 'signature-produced-prealpha';
     note: string;
   };
   preAlphaSigning?: {
-    status?: 'request-prepared' | 'message-approved' | 'signature-pending' | 'signature-produced-prealpha';
+    status?: 'request-prepared' | 'approval-transaction-prepared' | 'approval-submitted' | 'signature-pending' | 'signature-produced-prealpha';
     dwalletAccount?: string;
+    ikaMessageHash?: string;
     messageDigest?: string;
+    destinationSigningDigest?: unknown;
     messageApprovalPda?: string;
     cpiAuthorityPda?: string;
     signatureScheme?: string;

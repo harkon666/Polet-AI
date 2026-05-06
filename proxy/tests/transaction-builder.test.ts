@@ -315,7 +315,7 @@ function createApproveIkaRequest(overrides: Partial<Parameters<typeof buildAppro
     cpiAuthority: Keypair.generate().publicKey.toString(),
     callerProgram: PROGRAM_ID_STRING,
     ikaProgram: IKA_PREALPHA_PROGRAM_ID_STRING,
-    canonicalOrderHash: '11'.repeat(32),
+    ikaMessageHash: '11'.repeat(32),
     sourceAmount: 5_000_000n,
     orderExpiresAt: 1_700_000_600n,
     attestationSlot: 9n,

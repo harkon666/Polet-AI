@@ -94,9 +94,10 @@ describe('local scripted agent runtime', () => {
             settlement: 'not-executed',
             requestId: 'ika-demo-request',
             preAlphaSigning: {
-              status: 'message-approved',
+              status: 'approval-transaction-prepared',
               dwalletAccount: 'dwallet-1',
-              messageDigest: 'message-hash-1',
+              ikaMessageHash: 'ika-message-hash-1',
+              messageDigest: 'ika-message-hash-1',
               messageApprovalPda: 'message-approval-pda',
               cpiAuthorityPda: 'cpi-authority-pda',
               signatureScheme: 'ed25519-prealpha',
@@ -144,7 +145,8 @@ describe('local scripted agent runtime', () => {
     });
     expect(result.proxyResponse.data?.ikaRequest?.preAlphaSigning).toMatchObject({
       dwalletAccount: 'dwallet-1',
-      messageDigest: 'message-hash-1',
+      ikaMessageHash: 'ika-message-hash-1',
+      messageDigest: 'ika-message-hash-1',
       messageApprovalPda: 'message-approval-pda',
       cpiAuthorityPda: 'cpi-authority-pda',
       signatureScheme: 'ed25519-prealpha',

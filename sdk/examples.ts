@@ -297,7 +297,7 @@ export async function example_polet_agent_trade() {
   if (ikaRequest.status === 'blocked') {
     console.log('[Polet AI] Ika blocked without exposing private thresholds.');
   }
-  if (ikaRequest.status === 'message-approved') {
+  if (ikaRequest.status === 'approval-transaction-prepared') {
     console.log('[Polet AI] Session signer can inspect/sign the Polet approval transaction.');
   }
 }

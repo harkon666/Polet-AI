@@ -20,7 +20,7 @@ fn ika_approval_allows_in_limit_order_and_cpi_calls_mock_ika() {
     let witness = [0x61u8; 32];
     let dwallet = Keypair::new().pubkey();
     let message_approval = Keypair::new().pubkey();
-    let order_hash = [0xabu8; 32];
+    let ika_message_hash = [0xabu8; 32];
 
     svm.airdrop(&session_key.pubkey(), 1_000_000_000).unwrap();
     initialize(&mut svm, &owner, wallet_pda);
@@ -44,7 +44,7 @@ fn ika_approval_allows_in_limit_order_and_cpi_calls_mock_ika() {
         wallet_pda,
         dwallet,
         message_approval,
-        order_hash,
+        ika_message_hash,
         5,
         FUTURE_EXPIRY,
         10_000,
@@ -58,7 +58,11 @@ fn ika_approval_allows_in_limit_order_and_cpi_calls_mock_ika() {
         approval_data[0], 1,
         "mock Ika approve_message was not called"
     );
-    assert_eq!(&approval_data[1..33], &order_hash);
+    assert_eq!(
+        &approval_data[1..33],
+        &ika_message_hash,
+        "mock Ika must receive the Ika Keccak-256 MessageApproval hash"
+    );
     assert_eq!(&approval_data[33..65], &[0xedu8; 32]);
     assert_eq!(
         u16::from_le_bytes(approval_data[65..67].try_into().unwrap()),

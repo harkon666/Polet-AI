@@ -65,7 +65,9 @@ export interface IkaRunData {
     preAlphaSigning?: {
       status?: string;
       dwalletAccount?: string;
+      ikaMessageHash?: string;
       messageDigest?: string;
+      destinationSigningDigest?: unknown;
       messageApprovalPda?: string;
       cpiAuthorityPda?: string;
       signatureScheme?: string;

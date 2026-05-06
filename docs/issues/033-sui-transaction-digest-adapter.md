@@ -28,7 +28,7 @@ Extend the Sui Ika rail from signing a canonical order hash to signing a Sui-spe
 
 - Selected action: Sui devnet sign-only `zero-mist-transfer-proof`.
 - The proxy builds `suiTransactionDigest` with schema `polet.sui.devnet.transaction-digest.v1`, Sui `TransactionData` intent prefix `0x000000`, BLAKE2b-256 digest, `0` MIST, a validated `nativeDestinationAccount` recipient or Polet's fixed devnet verifier address, and explicit `broadcastable: false` / `productionSettlement: false` flags.
-- Allowed Ika responses keep `canonicalOrderHash` as the Polet order reference, but `preAlphaSigning.messageDigest` and the Polet approval transaction message hash now use `suiTransactionDigest.digestHex`.
+- Issue 040 superseded the original hash mapping. Allowed Ika responses keep `canonicalOrderHash` as the Polet order reference; `suiTransactionDigest.digestHex` is destination sign-only metadata, while `preAlphaSigning.ikaMessageHash` and the Polet approval transaction use a separate Keccak-256 Ika MessageApproval hash.
 - Sui defaults to the `ed25519-prealpha` / EddsaSha512 scheme unless an explicit Ika Pre-Alpha override is supplied.
 - Blocked policy responses still suppress Ika approval and Sui digest artifacts.
 

@@ -73,6 +73,8 @@ export interface IkaBridgelessExecutionRequest {
   };
   canonicalOrder: CanonicalBridgelessOrder;
   canonicalOrderHash: string;
+  ikaMessageHash?: string;
+  destinationSigningDigest?: IkaPreAlphaSigningRequest['destinationSigningDigest'];
   routeRisk?: CanonicalBridgelessOrder['routeRisk'];
   suiTransactionDigest?: SuiTransactionDigestArtifact;
   ethereumMessageDigest?: EthereumMessageDigestArtifact;
@@ -86,7 +88,7 @@ export interface IkaBridgelessExecutionRequest {
 
 export interface IkaBridgelessAllowed {
   allowed: true;
-  code: 'IKA_BRIDGELESS_REQUEST_READY' | 'IKA_PREALPHA_MESSAGE_APPROVED';
+  code: 'IKA_BRIDGELESS_REQUEST_READY' | 'IKA_APPROVAL_TRANSACTION_PREPARED';
   status: IkaPreAlphaSigningStatus;
   ikaRequest: IkaBridgelessExecutionRequest;
 }
@@ -325,7 +327,7 @@ async function buildIkaAllowedResult(
     cpiAuthority: preAlphaSigning.cpiAuthorityPda,
     callerProgram: preAlphaSigning.approveMessage.callerProgram,
     ikaProgram: preAlphaSigning.approveMessage.programId,
-    canonicalOrderHash: preAlphaSigning.messageDigest,
+    ikaMessageHash: preAlphaSigning.ikaMessageHash,
     sourceAmount: amountBaseUnits,
     orderExpiresAt: canonicalOrder.expiresAtUnix,
     attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
@@ -339,15 +341,19 @@ async function buildIkaAllowedResult(
 
   return {
     allowed: true,
-    code: 'IKA_PREALPHA_MESSAGE_APPROVED',
-    status: 'message-approved',
+    code: 'IKA_APPROVAL_TRANSACTION_PREPARED',
+    status: 'approval-transaction-prepared',
     ikaRequest: {
       ...ikaRequestBase,
+      ikaMessageHash: preAlphaSigning.ikaMessageHash,
+      ...(preAlphaSigning.destinationSigningDigest && {
+        destinationSigningDigest: preAlphaSigning.destinationSigningDigest,
+      }),
       preAlphaSigning,
       poletApprovalTransaction,
       executionBoundary: {
-        status: 'message-approved',
-        note: `Unsigned Polet approve_ika_message transaction is prepared for the session signer in Ika Pre-Alpha using the ${destinationDigest.label} digest. Devnet mock signer only; production MPC and settlement are not executed.`,
+        status: 'approval-transaction-prepared',
+        note: `Unsigned Polet approve_ika_message transaction is prepared for the session signer in Ika Pre-Alpha. The MessageApproval lookup hash is Keccak-256 over Polet's approval preimage; the ${destinationDigest.label} digest remains destination sign-only metadata. Devnet mock signer only; production MPC and settlement are not executed.`,
       },
     },
   };

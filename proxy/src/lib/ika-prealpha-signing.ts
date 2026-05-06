@@ -1,11 +1,12 @@
-import { createHash } from 'crypto';
+import { keccak_256 } from '@noble/hashes/sha3.js';
 import { PublicKey } from '@solana/web3.js';
 import { PROGRAM_ID, PROGRAM_ID_STRING } from './program-identity';
 import type { IkaBridgelessExecutionRequest } from './ika-bridgeless-request';
 
 export type IkaPreAlphaSigningStatus =
   | 'request-prepared'
-  | 'message-approved'
+  | 'approval-transaction-prepared'
+  | 'approval-submitted'
   | 'signature-pending'
   | 'signature-produced-prealpha';
 
@@ -31,14 +32,24 @@ export interface IkaPreAlphaPdaDerivation {
   cpiAuthorityBump: number;
   messageApprovalPda: string;
   messageApprovalBump: number;
+  messageApprovalDerivation: 'official-dwallet-public-key' | 'local-compatibility-fallback';
 }
 
 export interface IkaPreAlphaSigningRequest {
   status: IkaPreAlphaSigningStatus;
   settlement: 'not-executed';
   dwalletAccount: string;
+  ikaMessageHash: string;
+  ikaMessageHashPreimage: IkaMessageHashPreimage;
+  ikaMessageHashSource: 'polet-ika-approval-preimage-keccak256';
   messageDigest: string;
-  messageDigestSource: 'polet-request-envelope' | 'sui-devnet-transaction-digest' | 'ethereum-sepolia-message-digest';
+  messageDigestSource: 'ika-message-hash';
+  destinationSigningDigest?: {
+    digestHex: string;
+    source: 'sui-devnet-transaction-digest' | 'ethereum-sepolia-message-digest';
+    hashScheme: 'sui-blake2b-256' | 'ethereum-eip191-keccak256';
+    signPayload: 'destination-chain-sign-only-artifact';
+  };
   userPublicKey: string;
   signatureScheme: IkaPreAlphaSignatureScheme;
   cpiAuthorityPda: string;
@@ -68,6 +79,20 @@ export interface IkaPreAlphaSigningRequest {
   };
 }
 
+export interface IkaMessageHashPreimage {
+  schema: 'polet.ika.message-approval.v1';
+  canonicalOrderHash: string;
+  requestId: string;
+  dwalletAccount: string;
+  destinationChain: string;
+  destinationAsset: string;
+  destinationSigningDigest?: string;
+  signatureScheme: IkaPreAlphaSignatureScheme;
+  userPublicKey: string;
+  policySequence: number;
+  expiresAtUnix: number;
+}
+
 export function createIkaPreAlphaSigningRequest(input: IkaPreAlphaSigningInput): IkaPreAlphaSigningRequest {
   const dwalletAccount = normalizePublicKey(
     input.dwalletAccount ?? deriveIkaDwalletAccount(input.request),
@@ -78,23 +103,34 @@ export function createIkaPreAlphaSigningRequest(input: IkaPreAlphaSigningInput):
     'userPublicKey'
   );
   const signatureScheme = input.signatureScheme ?? defaultSignatureScheme(input.request);
-  const messageDigest = deriveIkaMessageDigest(input.request);
-  const messageDigestSource = deriveIkaMessageDigestSource(input.request);
+  const destinationSigningDigest = deriveDestinationSigningDigest(input.request);
+  const ikaMessageHashPreimage = buildIkaMessageHashPreimage({
+    request: input.request,
+    dwalletAccount,
+    userPublicKey,
+    signatureScheme,
+    destinationSigningDigest: destinationSigningDigest?.digestHex,
+  });
+  const ikaMessageHash = deriveIkaMessageHash(ikaMessageHashPreimage);
   const derivation = deriveIkaPreAlphaApprovalAccounts({
     dwalletAccount,
     dwalletCurve: input.dwalletCurve,
     dwalletPublicKey: input.dwalletPublicKey,
     smartWalletAuthority: input.request.sessionContext.smartWalletAuthority,
-    messageDigest,
+    ikaMessageHash,
     signatureScheme,
   });
 
   return {
-    status: 'message-approved',
+    status: 'approval-transaction-prepared',
     settlement: 'not-executed',
     dwalletAccount,
-    messageDigest,
-    messageDigestSource,
+    ikaMessageHash,
+    ikaMessageHashPreimage,
+    ikaMessageHashSource: 'polet-ika-approval-preimage-keccak256',
+    messageDigest: ikaMessageHash,
+    messageDigestSource: 'ika-message-hash',
+    ...(destinationSigningDigest && { destinationSigningDigest }),
     userPublicKey,
     signatureScheme,
     ...derivation,
@@ -127,11 +163,11 @@ export function deriveIkaPreAlphaApprovalAccounts(input: {
   dwalletCurve?: number;
   dwalletPublicKey?: number[] | string;
   smartWalletAuthority: string;
-  messageDigest: string;
+  ikaMessageHash: string;
   signatureScheme?: IkaPreAlphaSignatureScheme;
 }): IkaPreAlphaPdaDerivation {
   const dwallet = normalizePublicKey(input.dwalletAccount, 'dwalletAccount');
-  const digestBytes = parseMessageDigest(input.messageDigest);
+  const digestBytes = parseMessageDigest(input.ikaMessageHash);
   const signatureSchemeCode = input.signatureScheme === 'ecdsa-secp256k1-sha256' ? 0 : 5;
 
   const [cpiAuthorityPda, cpiAuthorityBump] = PublicKey.findProgramAddressSync(
@@ -153,6 +189,9 @@ export function deriveIkaPreAlphaApprovalAccounts(input: {
       new PublicKey(dwallet).toBuffer(),
       digestBytes,
     ];
+  const messageApprovalDerivation = input.dwalletPublicKey !== undefined && input.dwalletCurve !== undefined
+    ? 'official-dwallet-public-key'
+    : 'local-compatibility-fallback';
   const [messageApprovalPda, messageApprovalBump] = PublicKey.findProgramAddressSync(
     messageApprovalSeeds,
     IKA_PREALPHA_PROGRAM_ID
@@ -164,6 +203,7 @@ export function deriveIkaPreAlphaApprovalAccounts(input: {
     cpiAuthorityBump,
     messageApprovalPda: messageApprovalPda.toString(),
     messageApprovalBump,
+    messageApprovalDerivation,
   };
 }
 
@@ -204,34 +244,59 @@ function parseBytes(value: number[] | string, field: string): Buffer {
 }
 
 export function deriveIkaMessageDigest(request: IkaBridgelessExecutionRequest): string {
-  if (request.suiTransactionDigest?.digestHex) {
-    return parseMessageDigest(request.suiTransactionDigest.digestHex).toString('hex');
-  }
-  if (request.ethereumMessageDigest?.digestHex) {
-    return parseMessageDigest(request.ethereumMessageDigest.digestHex).toString('hex');
-  }
-
-  return createHash('sha256')
-    .update(JSON.stringify({
-      requestId: request.requestId,
-      source: request.source,
-      target: request.target,
-      amountBaseUnits: request.amountBaseUnits,
-      routeIntent: request.routeIntent,
-      sessionContext: request.sessionContext,
-      policyAttestation: {
-        status: request.policyAttestation.status,
-        policySequence: request.policyAttestation.policySequence,
-        attestationHash: request.policyAttestation.attestationHash,
-      },
-    }))
-    .digest('hex');
+  return deriveIkaMessageHash(buildIkaMessageHashPreimage({
+    request,
+    dwalletAccount: deriveIkaDwalletAccount(request),
+    userPublicKey: request.sessionContext.owner,
+    signatureScheme: defaultSignatureScheme(request),
+    destinationSigningDigest: deriveDestinationSigningDigest(request)?.digestHex,
+  }));
 }
 
-function deriveIkaMessageDigestSource(request: IkaBridgelessExecutionRequest): IkaPreAlphaSigningRequest['messageDigestSource'] {
-  if (request.suiTransactionDigest) return 'sui-devnet-transaction-digest';
-  if (request.ethereumMessageDigest) return 'ethereum-sepolia-message-digest';
-  return 'polet-request-envelope';
+export function deriveIkaMessageHash(preimage: IkaMessageHashPreimage): string {
+  return Buffer.from(keccak_256(Buffer.from(JSON.stringify(preimage), 'utf8'))).toString('hex');
+}
+
+function buildIkaMessageHashPreimage(input: {
+  request: IkaBridgelessExecutionRequest;
+  dwalletAccount: string;
+  userPublicKey: string;
+  signatureScheme: IkaPreAlphaSignatureScheme;
+  destinationSigningDigest?: string;
+}): IkaMessageHashPreimage {
+  return {
+    schema: 'polet.ika.message-approval.v1',
+    canonicalOrderHash: input.request.canonicalOrderHash,
+    requestId: input.request.requestId,
+    dwalletAccount: input.dwalletAccount,
+    destinationChain: input.request.target.chain,
+    destinationAsset: input.request.target.asset,
+    ...(input.destinationSigningDigest && { destinationSigningDigest: input.destinationSigningDigest }),
+    signatureScheme: input.signatureScheme,
+    userPublicKey: input.userPublicKey,
+    policySequence: input.request.sessionContext.policySequence,
+    expiresAtUnix: input.request.canonicalOrder.expiresAtUnix,
+  };
+}
+
+function deriveDestinationSigningDigest(request: IkaBridgelessExecutionRequest): IkaPreAlphaSigningRequest['destinationSigningDigest'] {
+  if (request.suiTransactionDigest?.digestHex) {
+    return {
+      digestHex: parseMessageDigest(request.suiTransactionDigest.digestHex).toString('hex'),
+      source: 'sui-devnet-transaction-digest',
+      hashScheme: 'sui-blake2b-256',
+      signPayload: 'destination-chain-sign-only-artifact',
+    };
+  }
+  if (request.ethereumMessageDigest?.digestHex) {
+    return {
+      digestHex: parseMessageDigest(request.ethereumMessageDigest.digestHex).toString('hex'),
+      source: 'ethereum-sepolia-message-digest',
+      hashScheme: 'ethereum-eip191-keccak256',
+      signPayload: 'destination-chain-sign-only-artifact',
+    };
+  }
+  return undefined;
 }
 
 export function deriveIkaDwalletAccount(request: IkaBridgelessExecutionRequest): string {

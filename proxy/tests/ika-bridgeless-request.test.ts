@@ -11,6 +11,7 @@ import { hashCanonicalBridgelessOrder } from '../src/lib/bridgeless-order';
 import {
   IKA_PREALPHA_CLUSTER,
   deriveIkaMessageDigest,
+  deriveIkaMessageHash,
   deriveIkaPreAlphaApprovalAccounts,
 } from '../src/lib/ika-prealpha-signing';
 import { POLET_ETHEREUM_SEPOLIA_VERIFIER_ADDRESS } from '../src/lib/ethereum-transaction-digest';
@@ -32,8 +33,8 @@ describe('Ika bridgeless execution request', () => {
 
     expect(result.allowed).toBe(true);
     if (result.allowed) {
-      expect(result.code).toBe('IKA_PREALPHA_MESSAGE_APPROVED');
-      expect(result.status).toBe('message-approved');
+      expect(result.code).toBe('IKA_APPROVAL_TRANSACTION_PREPARED');
+      expect(result.status).toBe('approval-transaction-prepared');
       expect(result.ikaRequest.executionRail).toBe('ika-bridgeless');
       expect(result.ikaRequest.settlement).toBe('not-executed');
       expect(result.ikaRequest.source).toEqual({ chain: 'solana', asset: 'USDC' });
@@ -72,13 +73,26 @@ describe('Ika bridgeless execution request', () => {
       expect(result.ikaRequest.suiTransactionDigest?.digestHex).toMatch(/^[0-9a-f]{64}$/);
       expect(typeof result.ikaRequest.suiTransactionDigest?.digestBase58).toBe('string');
       expect(result.ikaRequest.suiTransactionDigest?.digestBase58.length).toBeGreaterThan(0);
-      expect(result.ikaRequest.executionBoundary.status).toBe('message-approved');
+      expect(result.ikaRequest.executionBoundary.status).toBe('approval-transaction-prepared');
       expect(result.ikaRequest.executionBoundary.note).toMatch(/pre-alpha/i);
-      expect(result.ikaRequest.preAlphaSigning?.status).toBe('message-approved');
+      expect(result.ikaRequest.executionBoundary.note).toMatch(/Keccak-256/);
+      expect(result.ikaRequest.preAlphaSigning?.status).toBe('approval-transaction-prepared');
       expect(result.ikaRequest.preAlphaSigning?.settlement).toBe('not-executed');
-      expect(result.ikaRequest.preAlphaSigning?.messageDigest).toBe(result.ikaRequest.suiTransactionDigest?.digestHex);
-      expect(result.ikaRequest.preAlphaSigning?.messageDigest).not.toBe(result.ikaRequest.canonicalOrderHash);
-      expect(result.ikaRequest.preAlphaSigning?.messageDigestSource).toBe('sui-devnet-transaction-digest');
+      expect(result.ikaRequest.ikaMessageHash).toBe(result.ikaRequest.preAlphaSigning?.ikaMessageHash);
+      expect(result.ikaRequest.preAlphaSigning?.ikaMessageHash).toBe(
+        deriveIkaMessageHash(result.ikaRequest.preAlphaSigning!.ikaMessageHashPreimage)
+      );
+      expect(result.ikaRequest.preAlphaSigning?.ikaMessageHash).not.toBe(result.ikaRequest.suiTransactionDigest?.digestHex);
+      expect(result.ikaRequest.preAlphaSigning?.ikaMessageHash).not.toBe(result.ikaRequest.canonicalOrderHash);
+      expect(result.ikaRequest.preAlphaSigning?.ikaMessageHashSource).toBe('polet-ika-approval-preimage-keccak256');
+      expect(result.ikaRequest.preAlphaSigning?.messageDigest).toBe(result.ikaRequest.preAlphaSigning?.ikaMessageHash);
+      expect(result.ikaRequest.preAlphaSigning?.messageDigestSource).toBe('ika-message-hash');
+      expect(result.ikaRequest.preAlphaSigning?.destinationSigningDigest).toEqual({
+        digestHex: result.ikaRequest.suiTransactionDigest?.digestHex,
+        source: 'sui-devnet-transaction-digest',
+        hashScheme: 'sui-blake2b-256',
+        signPayload: 'destination-chain-sign-only-artifact',
+      });
       expect(result.ikaRequest.preAlphaSigning?.signatureScheme).toBe('ed25519-prealpha');
       expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.cluster).toBe(IKA_PREALPHA_CLUSTER);
       expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.mockSigner).toBe(true);
@@ -265,13 +279,14 @@ describe('Ika bridgeless execution request', () => {
       const expected = deriveIkaPreAlphaApprovalAccounts({
         dwalletAccount: signing!.dwalletAccount,
         smartWalletAuthority: fixture.wallet.walletPda,
-        messageDigest: deriveIkaMessageDigest(result.ikaRequest),
+        ikaMessageHash: deriveIkaMessageDigest(result.ikaRequest),
         signatureScheme: signing!.signatureScheme,
       });
 
-      expect(signing!.messageDigest).toBe(deriveIkaMessageDigest(result.ikaRequest));
+      expect(signing!.ikaMessageHash).toBe(deriveIkaMessageDigest(result.ikaRequest));
       expect(signing!.messageApprovalPda).toBe(expected.messageApprovalPda);
       expect(signing!.messageApprovalBump).toBe(expected.messageApprovalBump);
+      expect(signing!.messageApprovalDerivation).toBe('local-compatibility-fallback');
       expect(signing!.coordinatorPda).toBe(expected.coordinatorPda);
       expect(signing!.cpiAuthorityPda).toBe(expected.cpiAuthorityPda);
       expect(signing!.cpiAuthorityBump).toBe(expected.cpiAuthorityBump);
@@ -307,7 +322,7 @@ describe('Ika bridgeless execution request', () => {
     expect(result.allowed).toBe(true);
     if (result.allowed) {
       const signing = result.ikaRequest.preAlphaSigning!;
-      const messageDigest = Buffer.from(signing.messageDigest, 'hex');
+      const messageDigest = Buffer.from(signing.ikaMessageHash, 'hex');
       const payload = Buffer.alloc(34);
       payload.writeUInt16LE(2, 0);
       Buffer.alloc(32, 0x42).copy(payload, 2);
@@ -326,6 +341,7 @@ describe('Ika bridgeless execution request', () => {
       );
 
       expect(signing.messageApprovalPda).toBe(expectedMessageApproval.toString());
+      expect(signing.messageApprovalDerivation).toBe('official-dwallet-public-key');
     }
   });
 
@@ -393,12 +409,17 @@ describe('Ika bridgeless execution request', () => {
       });
       expect(result.ikaRequest.ethereumMessageDigest?.digestHex).toMatch(/^[0-9a-f]{64}$/);
       expect(result.ikaRequest.suiTransactionDigest).toBeUndefined();
-      expect(result.ikaRequest.preAlphaSigning?.messageDigest).toBe(result.ikaRequest.ethereumMessageDigest?.digestHex);
-      expect(result.ikaRequest.preAlphaSigning?.messageDigest).not.toBe(result.ikaRequest.canonicalOrderHash);
-      expect(result.ikaRequest.preAlphaSigning?.messageDigestSource).toBe('ethereum-sepolia-message-digest');
+      expect(result.ikaRequest.preAlphaSigning?.ikaMessageHash).not.toBe(result.ikaRequest.ethereumMessageDigest?.digestHex);
+      expect(result.ikaRequest.preAlphaSigning?.ikaMessageHash).not.toBe(result.ikaRequest.canonicalOrderHash);
+      expect(result.ikaRequest.preAlphaSigning?.destinationSigningDigest).toEqual({
+        digestHex: result.ikaRequest.ethereumMessageDigest?.digestHex,
+        source: 'ethereum-sepolia-message-digest',
+        hashScheme: 'ethereum-eip191-keccak256',
+        signPayload: 'destination-chain-sign-only-artifact',
+      });
       expect(result.ikaRequest.preAlphaSigning?.signatureScheme).toBe('ecdsa-secp256k1-sha256');
       expect(transactionRequests[0]).toMatchObject({
-        canonicalOrderHash: result.ikaRequest.ethereumMessageDigest?.digestHex,
+        ikaMessageHash: result.ikaRequest.preAlphaSigning?.ikaMessageHash,
         signatureScheme: 0,
       });
     }
@@ -503,7 +524,7 @@ describe('Ika bridgeless execution request', () => {
       sharedApprovers: [approverA.publicKey.toString(), approverB.publicKey.toString()],
     });
     if (approved.allowed) {
-      expect(approved.ikaRequest.preAlphaSigning?.status).toBe('message-approved');
+      expect(approved.ikaRequest.preAlphaSigning?.status).toBe('approval-transaction-prepared');
       expect(approved.ikaRequest.poletApprovalTransaction).toEqual(fixture.approvalTransaction);
     }
   });
@@ -689,7 +710,7 @@ describe('Ika bridgeless execution request', () => {
     expect(serialized).not.toContain(fixture.witness.join(','));
   });
 
-  test('passes official Ika accounts and canonical order hash into the Polet transaction builder', async () => {
+  test('passes official Ika accounts and Keccak message hash into the Polet transaction builder', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5');
     const transactionRequests: unknown[] = [];
@@ -710,7 +731,7 @@ describe('Ika bridgeless execution request', () => {
         sessionKey: fixture.sessionKey,
         coordinator: result.ikaRequest.preAlphaSigning?.coordinatorPda,
         callerProgram: 'J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus',
-        canonicalOrderHash: result.ikaRequest.suiTransactionDigest?.digestHex,
+        ikaMessageHash: result.ikaRequest.preAlphaSigning?.ikaMessageHash,
         sourceAmount: 5_000_000n,
         orderExpiresAt: result.ikaRequest.canonicalOrder.expiresAtUnix,
         attestationSlot: BigInt(fixture.wallet.lastRevokedSlot) + 1n,
@@ -719,7 +740,8 @@ describe('Ika bridgeless execution request', () => {
         userPubkey: fixture.owner,
         signatureScheme: 5,
       });
-      expect((transactionRequests[0] as { canonicalOrderHash: string }).canonicalOrderHash).not.toBe(result.ikaRequest.canonicalOrderHash);
+      expect((transactionRequests[0] as { ikaMessageHash: string }).ikaMessageHash).not.toBe(result.ikaRequest.canonicalOrderHash);
+      expect((transactionRequests[0] as { ikaMessageHash: string }).ikaMessageHash).not.toBe(result.ikaRequest.suiTransactionDigest?.digestHex);
       expect((transactionRequests[0] as { ikaProgram: string }).ikaProgram).toBe('87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY');
     }
   });

@@ -75,7 +75,7 @@ const e2eApi = {
 
     return {
       allowed: true,
-      code: 'IKA_PREALPHA_MESSAGE_APPROVED',
+      code: 'IKA_APPROVAL_TRANSACTION_PREPARED',
       ikaRequest: {
         executionRail: 'ika-bridgeless' as const,
         settlement: 'not-executed' as const,
@@ -102,12 +102,13 @@ const e2eApi = {
           attestationHash: 'safe-attestation-hash',
         },
         executionBoundary: {
-          status: 'message-approved' as const,
+          status: 'approval-transaction-prepared' as const,
           note: 'Ika Pre-Alpha approval transaction prepared; settlement is not executed.',
         },
         preAlphaSigning: {
-          status: 'message-approved' as const,
+          status: 'approval-transaction-prepared' as const,
           dwalletAccount: 'DwalleT111111111111111111111111111111111111',
+          ikaMessageHash: '8d'.repeat(32),
           messageDigest: '8d'.repeat(32),
           messageApprovalPda: 'MsgApprove1111111111111111111111111111111',
           cpiAuthorityPda: 'CpiAuth1111111111111111111111111111111111',

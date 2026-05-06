@@ -59,7 +59,7 @@ export interface ApproveIkaMessageTransactionRequest {
   cpiAuthority: string;
   callerProgram: string;
   ikaProgram: string;
-  canonicalOrderHash: string | Uint8Array | number[];
+  ikaMessageHash: string | Uint8Array | number[];
   sourceAmount: number | bigint;
   orderExpiresAt: number | bigint;
   attestationSlot: number | bigint;
@@ -105,7 +105,7 @@ export function buildApproveIkaMessageAsSessionInstructionData(
 
   APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR.copy(data, offset);
   offset += 8;
-  Buffer.from(normalizeBytes32(request.canonicalOrderHash, 'canonicalOrderHash')).copy(data, offset);
+  Buffer.from(normalizeBytes32(request.ikaMessageHash, 'ikaMessageHash')).copy(data, offset);
   offset += 32;
   data.writeBigUInt64LE(toU64(request.sourceAmount), offset);
   offset += 8;

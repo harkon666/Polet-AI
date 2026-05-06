@@ -18,9 +18,9 @@ This slice should move beyond an Ika-shaped JSON envelope, but it must still be 
 
 - [x] Polet defines an Ika Pre-Alpha signing request model that includes dWallet account, message digest, user public key, signature scheme, message approval PDA, and pre-alpha environment metadata.
 - [x] Contract or proxy integration derives/accepts the Ika CPI authority/message approval accounts needed for the Ika Pre-Alpha `approve_message` flow.
-- [x] A policy-allowed Ika trade intent can produce a normalized SDK/proxy status of `message-approved` or `signature-pending` after the Polet guardrail passes.
+- [x] A policy-allowed Ika trade intent can produce a normalized SDK/proxy status of `approval-transaction-prepared`, `approval-submitted`, `signature-pending`, or `signature-produced-prealpha` after the Polet guardrail passes.
 - [x] A policy-blocked Ika trade intent never prepares or submits an Ika message approval.
-- [x] The response shape distinguishes `request-prepared`, `message-approved`, `signature-pending`, and `signature-produced-prealpha` where applicable.
+- [x] The response shape distinguishes `request-prepared`, `approval-transaction-prepared`, `approval-submitted`, `signature-pending`, and `signature-produced-prealpha` where applicable.
 - [x] Tests cover allowed approval preparation, blocked suppression, account/PDA derivation, and non-leaking blocked responses.
 - [x] Docs clearly state that Ika Pre-Alpha uses a mock signer and does not provide production MPC security or final settlement guarantees.
 
@@ -54,8 +54,8 @@ Non-goals:
 
 - Added `proxy/src/lib/ika-prealpha-signing.ts` with a deterministic Ika Solana Pre-Alpha signing request model.
 - The proxy now derives a mock Pre-Alpha Ika dWallet account, CPI authority PDA, message approval PDA, and message digest after Polet confidential guardrails approve the Ika intent.
-- Allowed Ika proxy responses now include `status: "message-approved"` plus `ikaRequest.preAlphaSigning`; blocked policy/session responses still omit all Ika approval data.
-- The SDK trade API now recognizes Ika rail progression statuses: `request-prepared`, `message-approved`, `signature-pending`, and `signature-produced-prealpha`.
+- Issue 040 superseded the original unsigned status wording. Allowed Ika proxy responses now include `status: "approval-transaction-prepared"` plus `ikaRequest.preAlphaSigning`; blocked policy/session responses still omit all Ika approval data.
+- The SDK trade API now recognizes Ika rail progression statuses: `request-prepared`, `approval-transaction-prepared`, `approval-submitted`, `signature-pending`, and `signature-produced-prealpha`.
 - Docs and runner output state that this is Solana devnet/mock-signer Pre-Alpha metadata only, not production MPC or final settlement.
 
 ## Verification

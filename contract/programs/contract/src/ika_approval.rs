@@ -23,12 +23,9 @@ pub struct IkaApproveMessageAccounts<'a, 'info> {
 
 pub fn approve_ika_message(
     accounts: IkaApproveMessageAccounts<'_, '_>,
-    canonical_order_hash: [u8; 32],
+    ika_message_hash: [u8; 32],
 ) -> Result<()> {
-    require!(
-        canonical_order_hash != [0u8; 32],
-        ErrorCode::InvalidIkaApproval
-    );
+    require!(ika_message_hash != [0u8; 32], ErrorCode::InvalidIkaApproval);
     require!(
         accounts.caller_program.key() == crate::ID,
         ErrorCode::InvalidIkaApproval
@@ -48,7 +45,7 @@ pub fn approve_ika_message(
         &accounts.dwallet,
         &accounts.payer,
         &accounts.system_program,
-        canonical_order_hash,
+        ika_message_hash,
         message_metadata_digest,
         accounts.user_pubkey,
         accounts.signature_scheme,

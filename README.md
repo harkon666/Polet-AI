@@ -76,7 +76,7 @@ Polet uses Ika as follows:
 - A Curve25519/Ed25519-compatible dWallet is created or imported through the official Ika Pre-Alpha flow.
 - The dWallet authority is transferred to Polet's CPI authority PDA derived from seed `__ika_cpi_authority` under the Polet program id.
 - The agent submits a Solana USDC -> Sui SUI intent; Sui/SUI is the primary destination shape and Ethereum/ETH remains optional.
-- For Sui, the proxy maps the approved canonical order into a devnet sign-only `zero-mist-transfer-proof` digest; for optional Ethereum, it maps into a Sepolia EIP-191 `zero-wei-transfer-proof` digest. The selected digest becomes the Ika message hash.
+- For Sui, the proxy maps the approved canonical order into a devnet sign-only `zero-mist-transfer-proof` digest; for optional Ethereum, it maps into a Sepolia EIP-191 `zero-wei-transfer-proof` digest. These stay destination signing artifacts. The Ika MessageApproval lookup hash is a separate Keccak-256 hash over Polet's approval preimage.
 - Optional multisig-lite shared access can require M-of-N co-approver approval before Ika approval data is prepared and before the contract CPI-calls Ika; missing quorum returns `needs-approval` progress such as `1/2` without exposing confidential numeric thresholds.
 - Polet verifies session freshness, order expiry, policy sequence, and confidential numeric policy before CPI-calling Ika `approve_message`.
 - The resulting MessageApproval account can be fetched on devnet; when the Pre-Alpha mock signer writes a signature, the signature proof can be inspected.

@@ -63,7 +63,9 @@ async function main() {
         reason: result.proxyResponse.data?.reason ?? result.proxyResponse.error?.message,
         ikaRequestId: result.proxyResponse.data?.ikaRequest?.requestId,
         dWallet: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.dwalletAccount,
-        messageHash: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.messageDigest,
+        messageHash: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.ikaMessageHash
+          ?? result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.messageDigest,
+        destinationSigningDigest: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.destinationSigningDigest,
         suiDigest: result.proxyResponse.data?.ikaRequest?.suiTransactionDigest?.digestBase58,
         ethereumDigest: result.proxyResponse.data?.ikaRequest?.ethereumMessageDigest?.digestHex,
         messageApprovalPda: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.messageApprovalPda,
