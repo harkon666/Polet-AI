@@ -112,6 +112,43 @@ The runner prints JSON with:
 
 The runner does not sign or broadcast transactions. It creates agent intents and submits them to the Polet proxy. The proxy returns the policy result and, for allowed Jupiter runs, an unsigned smart-wallet transaction payload for the session signer flow. For Ika, the proxy returns a bridgeless request envelope, technical proof fields, and an unsigned Polet approval transaction for the session signer. Live Ika MessageApproval inspection is documented in `docs/ika-devnet-smoke-runbook.md`; production MPC signing and real settlement remain out of scope.
 
+## Transaction Simulation Helper
+
+The SDK exposes `simulatePoletTransaction()` for agent runtimes that need to verify a returned unsigned Polet transaction before asking a session signer or human operator to approve it.
+
+```ts
+import { createPoletAgent, simulatePoletTransaction } from '@polet-ai/sdk';
+
+const polet = createPoletAgent({
+  owner: process.env.POLET_OWNER!,
+  sessionKey: process.env.POLET_SESSION_KEY!,
+  baseUrl: process.env.POLET_PROXY_URL!,
+  encryptionWitness: [1, 2, 3 /* ...32 bytes total */],
+});
+
+const trade = await polet.trade({ from: 'USDC', to: 'SOL', amount: '5' });
+
+if (trade.allowed && trade.execution?.payload) {
+  const simulation = await simulatePoletTransaction({
+    transaction: trade.execution.payload as { transaction?: string; unsignedTransaction?: string },
+    rpcUrl: process.env.SOLANA_RPC_URL!,
+    sigVerify: false,
+    replaceRecentBlockhash: true,
+  });
+
+  if (!simulation.ok) {
+    throw new Error(`Polet transaction simulation failed: ${JSON.stringify(simulation.err)}`);
+  }
+}
+```
+
+Simulation safety rules:
+
+- Use an explicit devnet/localnet RPC URL. Do not silently simulate against mainnet.
+- Default `sigVerify: false` is intended for unsigned transaction preview. If the runtime has a wallet-standard/session signer, it can pass `signers` and set `sigVerify: true`.
+- Simulation is not signing or broadcasting. A separate user/session-signer approval step is still required before any transaction can be sent.
+- Never pass private keys, seed phrases, or keypair files through the agent model context.
+
 ## High-Level Trade API
 
 Issue 018 adds `createPoletAgent()` for integrations that want one control-layer method instead of selecting lower-level intent builders directly:

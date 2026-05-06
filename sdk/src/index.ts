@@ -29,6 +29,15 @@ import type {
   BridgelessRouteRisk,
   BridgelessRouteRiskLevel,
 } from './bridgeless-order.js';
+import {
+  Connection,
+  Transaction,
+  VersionedTransaction,
+  type Commitment,
+  type RpcResponseAndContext,
+  type Signer,
+  type SimulatedTransactionResponse,
+} from '@solana/web3.js';
 
 export const JUPITER_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 export const JUPITER_SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -233,6 +242,45 @@ export interface IkaDestinationBroadcastResult {
     productionSettlement: false;
   };
   transaction?: unknown;
+}
+
+export interface PoletUnsignedTransactionLike {
+  transaction?: string;
+  unsignedTransaction?: string;
+  base64?: string;
+  signers?: string[];
+}
+
+export interface PoletSimulationConnection {
+  simulateTransaction(
+    transaction: Transaction | VersionedTransaction,
+    config?: {
+      sigVerify?: boolean;
+      replaceRecentBlockhash?: boolean;
+      commitment?: Commitment;
+    }
+  ): Promise<RpcResponseAndContext<SimulatedTransactionResponse>>;
+}
+
+export interface SimulatePoletTransactionInput {
+  transaction: string | PoletUnsignedTransactionLike;
+  rpcUrl?: string;
+  connection?: PoletSimulationConnection;
+  signers?: Signer[];
+  sigVerify?: boolean;
+  replaceRecentBlockhash?: boolean;
+  commitment?: Commitment;
+}
+
+export interface SimulatePoletTransactionResult {
+  ok: boolean;
+  transactionType: 'legacy' | 'versioned';
+  signerPubkeys: string[];
+  err: SimulatedTransactionResponse['err'];
+  logs: string[];
+  unitsConsumed?: number;
+  returnData?: SimulatedTransactionResponse['returnData'];
+  raw: RpcResponseAndContext<SimulatedTransactionResponse>;
 }
 
 // Stake params
@@ -800,6 +848,46 @@ export async function broadcastIkaDestinationDemo(
   return response.data ?? response as IkaDestinationBroadcastResult;
 }
 
+export async function simulatePoletTransaction(
+  input: SimulatePoletTransactionInput
+): Promise<SimulatePoletTransactionResult> {
+  const connection = input.connection ?? (
+    input.rpcUrl ? new Connection(input.rpcUrl, input.commitment ?? 'confirmed') : undefined
+  );
+  if (!connection) {
+    throw new Error('simulatePoletTransaction requires an explicit rpcUrl or connection');
+  }
+
+  const base64 = extractPoletTransactionBase64(input.transaction);
+  const decoded = Buffer.from(base64, 'base64');
+  const { transaction, transactionType } = deserializePoletTransaction(decoded);
+
+  if (input.signers && input.signers.length > 0) {
+    if (transaction instanceof VersionedTransaction) {
+      transaction.sign(input.signers);
+    } else {
+      transaction.partialSign(...input.signers);
+    }
+  }
+
+  const raw = await connection.simulateTransaction(transaction, {
+    sigVerify: input.sigVerify ?? false,
+    replaceRecentBlockhash: input.replaceRecentBlockhash ?? true,
+    ...(input.commitment && { commitment: input.commitment }),
+  });
+
+  return {
+    ok: raw.value.err === null,
+    transactionType,
+    signerPubkeys: extractPoletSignerPubkeys(transaction),
+    err: raw.value.err,
+    logs: raw.value.logs ?? [],
+    ...(raw.value.unitsConsumed !== undefined && { unitsConsumed: raw.value.unitsConsumed }),
+    ...(raw.value.returnData !== null && raw.value.returnData !== undefined && { returnData: raw.value.returnData }),
+    raw,
+  };
+}
+
 export function createPoletAgent(options: PoletAgentOptions): PoletAgent {
   return {
     trade(input: PoletTradeInput): Promise<PoletTradeResult> {
@@ -823,6 +911,45 @@ function toDcaRunRequest(intent: DcaIntent): Record<string, unknown> {
     ...(intent.params.destinationTokenAccount && { destinationTokenAccount: intent.params.destinationTokenAccount }),
     ...(intent.params.nativeDestinationAccount && { nativeDestinationAccount: intent.params.nativeDestinationAccount }),
   };
+}
+
+function extractPoletTransactionBase64(value: string | PoletUnsignedTransactionLike): string {
+  const base64 = typeof value === 'string'
+    ? value
+    : value.transaction ?? value.unsignedTransaction ?? value.base64;
+
+  if (typeof base64 !== 'string' || base64.trim() === '') {
+    throw new Error('Polet unsigned transaction must include a base64 transaction');
+  }
+
+  return base64;
+}
+
+function deserializePoletTransaction(bytes: Uint8Array): {
+  transaction: Transaction | VersionedTransaction;
+  transactionType: 'legacy' | 'versioned';
+} {
+  try {
+    return {
+      transaction: Transaction.from(bytes),
+      transactionType: 'legacy',
+    };
+  } catch {
+    return {
+      transaction: VersionedTransaction.deserialize(bytes),
+      transactionType: 'versioned',
+    };
+  }
+}
+
+function extractPoletSignerPubkeys(transaction: Transaction | VersionedTransaction): string[] {
+  if (transaction instanceof VersionedTransaction) {
+    return transaction.message.staticAccountKeys
+      .filter((_, index) => transaction.message.isAccountSigner(index))
+      .map((key) => key.toBase58());
+  }
+
+  return transaction.signatures.map((signature) => signature.publicKey.toBase58());
 }
 
 async function tradeWithJupiter(input: PoletTradeInput, options: PoletAgentOptions): Promise<PoletTradeResult> {

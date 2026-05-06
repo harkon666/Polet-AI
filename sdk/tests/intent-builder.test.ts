@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { Keypair, SystemProgram, Transaction } from '@solana/web3.js';
 import {
   createTransferIntent,
   createSwapIntent,
@@ -19,6 +20,7 @@ import {
   isValidIntent,
   serializeCanonicalBridgelessOrder,
   submitIntent,
+  simulatePoletTransaction,
   verifyCanonicalBridgelessOrderHash,
   generateIntentId,
   ProxyRequestError,
@@ -29,6 +31,7 @@ import {
   type SwapParams,
   type StakeParams,
   type CustomParams,
+  type PoletSimulationConnection,
 } from '../src/index.js';
 
 /**
@@ -711,6 +714,64 @@ describe('Polet AI SDK - Intent Builder', () => {
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
       })).rejects.toThrow(ProxyRequestError);
+    });
+
+    test('simulatePoletTransaction simulates an unsigned Polet transaction without broadcasting', async () => {
+      const session = Keypair.generate();
+      const destination = Keypair.generate().publicKey;
+      const transaction = new Transaction();
+      transaction.recentBlockhash = '11111111111111111111111111111111';
+      transaction.feePayer = session.publicKey;
+      transaction.add(SystemProgram.transfer({
+        fromPubkey: session.publicKey,
+        toPubkey: destination,
+        lamports: 1,
+      }));
+      const base64 = transaction.serialize({
+        requireAllSignatures: false,
+        verifySignatures: false,
+      }).toString('base64');
+
+      const simulations: unknown[] = [];
+      const connection: PoletSimulationConnection = {
+        async simulateTransaction(simulatedTransaction, config) {
+          simulations.push({ simulatedTransaction, config });
+          return {
+            context: { slot: 123 },
+            value: {
+              err: null,
+              logs: ['Program 11111111111111111111111111111111 success'],
+              accounts: null,
+              unitsConsumed: 500,
+              returnData: null,
+            },
+          };
+        },
+      };
+
+      const result = await simulatePoletTransaction({
+        transaction: { transaction: base64 },
+        connection,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.transactionType).toBe('legacy');
+      expect(result.signerPubkeys).toEqual([session.publicKey.toBase58()]);
+      expect(result.logs).toEqual(['Program 11111111111111111111111111111111 success']);
+      expect(result.unitsConsumed).toBe(500);
+      expect(simulations).toHaveLength(1);
+      expect(simulations[0]).toMatchObject({
+        config: {
+          sigVerify: false,
+          replaceRecentBlockhash: true,
+        },
+      });
+    });
+
+    test('simulatePoletTransaction requires an explicit RPC boundary', async () => {
+      await expect(simulatePoletTransaction({
+        transaction: 'not-empty-base64',
+      })).rejects.toThrow(/rpcUrl or connection/);
     });
   });
 
