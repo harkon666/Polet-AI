@@ -49,7 +49,6 @@ Track alignment:
 
 ### Critical Path
 
-- `031-ika-devnet-smoke-and-messageapproval-verification`
 - `032-control-layer-readme-video-narrative`
 
 ### Stretch
@@ -217,6 +216,9 @@ Track alignment:
 - [x] `030-control-layer-frontend-ika-dwallet-demo` — Reframed the consumer demo as a confidential Solana control layer for AI agents instead of a DCA-only wallet. The primary panel now shows Jupiter as the Solana USDC -> SOL strategy rail and Ika as the Sui/SUI dWallet rail, with Ethereum/ETH marked optional future. Added separate 25 USDC-equivalent blocked and 5 USDC-equivalent approved Ika actions; blocked Ika logs suppress dWallet approval data and private thresholds, while approved logs show an Ika dWallet message-approved proof with dWallet, MessageApproval, message hash, signature scheme, and pre-alpha non-settlement boundary.
   - Verification: `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`; `bunx playwright test` passes in `frontend/` against an escalated local dev server.
   - Note: the frontend still does not sign, simulate, or broadcast the Polet/Ika approval transaction. Issue 031 owns live devnet smoke verification.
+- [x] `031-ika-devnet-smoke-and-messageapproval-verification` — Added the manual Ika Solana Pre-Alpha devnet smoke runbook. It documents required devnet accounts, faucet/funding needs, proxy/frontend/agent/Ika environment variables, dWallet DKG/import boundary, authority transfer to Polet's `__ika_cpi_authority` PDA, the 25 USDC-equivalent block path before Ika approval, the 5 USDC-equivalent Sui approval path with the real dWallet override, session-signer simulation/signing requirements, MessageApproval polling/inspection, evidence capture, failure states, and the CI/manual boundary.
+  - Verification: documentation/HITL runbook change; no live devnet transaction was signed or broadcast during implementation. Deterministic local Ika coverage remains under `mock_ika`, `proxy/tests/ika-bridgeless-request.test.ts`, and `proxy/tests/transaction-builder.test.ts`.
+  - Note: the devnet smoke remains optional/manual because it depends on external Ika Pre-Alpha devnet, gRPC availability, faucets, and mock signer timing. Operators must simulate and review the returned unsigned Polet approval transaction before signing with the session signer.
 
 ### Planning
 

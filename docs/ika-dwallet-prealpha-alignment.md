@@ -99,6 +99,8 @@ Polet product statuses should map official status to user-facing states:
 
 ## Devnet Smoke Plan
 
+Operational runbook: `docs/ika-devnet-smoke-runbook.md`.
+
 Sui-primary path:
 
 1. Create a fresh Curve25519/Ed25519-compatible dWallet on Ika Solana Pre-Alpha devnet.
