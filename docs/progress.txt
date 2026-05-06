@@ -52,10 +52,22 @@ Track alignment:
 ### Critical Path
 
 - Continue `041-official-encrypt-policy-graph-execution` — migrate the DCA/Ika proxy and response lifecycle onto the new pending/verified Encrypt contract surface and add `EncryptTestContext/process_pending()` graph executor coverage.
+- `042-frontend-shared-ika-approval-ui` — Add frontend configure/revoke shared Ika approvers and needs-approval/ready quorum states for the Ika demo.
+- `046-frontend-ethereum-ika-optional-route-ui` — Add the optional Ethereum/ETH Ika approved route as a first-class frontend demo path instead of using it as an unsupported route.
+- `048-frontend-official-encrypt-status-surface` — Add frontend pending/verified Encrypt lifecycle states once the official Encrypt issue 041 proxy lifecycle is available.
 
 ### Stretch
 
-- None.
+- `043-frontend-recovery-authority-ui` — Add recovery authority and recover-access UI for compromised sessions and staged dWallet controller migration.
+- `044-frontend-passkey-coapproval-demo-ui` — Add passkey co-approval prototype UI as UX helper for shared Ika approvals.
+- `045-frontend-ika-destination-broadcast-ui` — Add disabled-by-default destination memo broadcast demo UI for eligible Ika pre-alpha signatures.
+- `047-frontend-route-risk-guardrail-controls` — Add frontend route-risk controls for slippage, price impact, liquidity, and verified route policy.
+- `049-frontend-demo-command-center-polish` — Consolidate all frontend demo features into one command center after the prerequisite slices land.
+
+### Frontend Demo Scope
+
+- Do not expose legacy public policy routes in the primary frontend demo. Legacy routes remain prior-foundation code only.
+- Frontend demo features should use safe transaction summaries, explicit user signing, devnet/localnet boundaries, and honest pre-alpha disclaimers.
 
 ## Dependency Graph
 
@@ -101,6 +113,14 @@ Track alignment:
     ├── 022-linear-confidential-dca-demo-checklist
     ├── 023-quiet-fintech-frontend-visual-refresh
     └── 024-consumer-frontend-e2e-demo-coverage
+        ├── 042-frontend-shared-ika-approval-ui
+        │   ├── 043-frontend-recovery-authority-ui
+        │   └── 044-frontend-passkey-coapproval-demo-ui
+        ├── 046-frontend-ethereum-ika-optional-route-ui
+        │   ├── 045-frontend-ika-destination-broadcast-ui
+        │   └── 047-frontend-route-risk-guardrail-controls
+        ├── 048-frontend-official-encrypt-status-surface
+        └── 049-frontend-demo-command-center-polish
 
 025-official-ika-dwallet-prealpha-alignment
 ├── 026-canonical-bridgeless-order-message
