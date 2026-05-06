@@ -15,6 +15,10 @@ import {
   buildApproveIkaMessageSessionTransaction,
   type BuiltTransaction,
 } from './transaction-builder';
+import {
+  buildSuiDevnetTransactionDigest,
+  type SuiTransactionDigestArtifact,
+} from './sui-transaction-digest';
 import type { WalletData } from './wallet-store';
 import {
   executeGuardedStrategy,
@@ -58,6 +62,7 @@ export interface IkaBridgelessExecutionRequest {
   };
   canonicalOrder: CanonicalBridgelessOrder;
   canonicalOrderHash: string;
+  suiTransactionDigest?: SuiTransactionDigestArtifact;
   executionBoundary: {
     status: IkaPreAlphaSigningStatus;
     note: string;
@@ -184,6 +189,7 @@ async function buildIkaAllowedResult(
     expiresAtUnix: intent.timestamp + 600,
   });
   const canonicalOrderHash = await hashCanonicalBridgelessOrder(canonicalOrder);
+  const suiTransactionDigest = buildSuiTransactionDigest(canonicalOrder, canonicalOrderHash, params);
   const attestationHash = hashIkaAttestation({
     intentId: intent.id,
     owner: intent.owner,
@@ -230,9 +236,10 @@ async function buildIkaAllowedResult(
     },
     canonicalOrder,
     canonicalOrderHash,
+    suiTransactionDigest,
     executionBoundary: {
       status: 'request-prepared',
-      note: 'Ika request envelope is prepared; the Pre-Alpha message approval proof is attached when available.',
+      note: 'Ika request envelope is prepared with a Sui devnet sign-only transaction digest; the Pre-Alpha message approval proof is attached when available.',
     },
   };
   const preAlphaSigning = createIkaPreAlphaSigningRequest({
@@ -246,7 +253,7 @@ async function buildIkaAllowedResult(
     messageApproval: preAlphaSigning.messageApprovalPda,
     cpiAuthority: preAlphaSigning.cpiAuthorityPda,
     ikaProgram: preAlphaSigning.approveMessage.programId,
-    canonicalOrderHash,
+    canonicalOrderHash: preAlphaSigning.messageDigest,
     sourceAmount: amountBaseUnits,
     orderExpiresAt: canonicalOrder.expiresAtUnix,
     attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
@@ -267,10 +274,29 @@ async function buildIkaAllowedResult(
       poletApprovalTransaction,
       executionBoundary: {
         status: 'message-approved',
-        note: 'Unsigned Polet approve_ika_message transaction is prepared for the session signer in Ika Pre-Alpha. Devnet mock signer only; production MPC and settlement are not executed.',
+        note: 'Unsigned Polet approve_ika_message transaction is prepared for the session signer in Ika Pre-Alpha using the Sui devnet transaction digest. Devnet mock signer only; production MPC and settlement are not executed.',
       },
     },
   };
+}
+
+function buildSuiTransactionDigest(
+  canonicalOrder: CanonicalBridgelessOrder,
+  canonicalOrderHash: string,
+  params: MultichainStrategyParams
+): SuiTransactionDigestArtifact {
+  try {
+    return buildSuiDevnetTransactionDigest({
+      order: canonicalOrder,
+      canonicalOrderHash,
+      recipient: params.nativeDestinationAccount,
+    });
+  } catch (error) {
+    throw new IkaBridgelessRequestError(
+      error instanceof Error ? error.message : 'Invalid Sui destination data',
+      'INVALID_SUI_DESTINATION'
+    );
+  }
 }
 
 function validateSupportedIkaRoute(params: MultichainStrategyParams): void {

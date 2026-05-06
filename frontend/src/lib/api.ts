@@ -262,6 +262,15 @@ export interface IkaRequestPreview {
   settlement: 'not-executed';
   requestId: string;
   canonicalOrderHash?: string;
+  suiTransactionDigest?: {
+    digestHex?: string;
+    digestBase58?: string;
+    action?: string;
+    chain?: string;
+    network?: string;
+    broadcastable?: boolean;
+    productionSettlement?: boolean;
+  };
   source: {
     chain: string;
     asset: string;

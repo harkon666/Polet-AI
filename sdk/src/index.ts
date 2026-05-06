@@ -669,6 +669,7 @@ export interface IkaAgentProof {
   messageApprovalAccount?: string;
   cpiAuthority?: string;
   signatureScheme?: string;
+  suiTransactionDigest?: unknown;
   destination?: {
     chain?: string;
     asset?: string;
@@ -865,6 +866,17 @@ interface ProxyTradeDataLike {
       messageApprovalPda?: string;
       cpiAuthorityPda?: string;
       signatureScheme?: string;
+      [key: string]: unknown;
+    };
+    suiTransactionDigest?: {
+      digestHex?: string;
+      digestBase58?: string;
+      action?: string;
+      chain?: string;
+      network?: string;
+      transaction?: unknown;
+      broadcastable?: boolean;
+      productionSettlement?: boolean;
       [key: string]: unknown;
     };
     poletApprovalTransaction?: unknown;
@@ -1076,6 +1088,7 @@ function buildIkaAgentProof(data: ProxyTradeDataLike): IkaAgentProof {
     canonicalOrderHash: request?.canonicalOrderHash,
     cpiAuthority: signing?.cpiAuthorityPda,
     signatureScheme: signing?.signatureScheme,
+    suiTransactionDigest: request?.suiTransactionDigest,
     destination: request?.target,
     poletApprovalTransaction: request?.poletApprovalTransaction,
     devnetSmokeProof: request?.devnetSmokeProof ?? data.devnetSmokeProof,

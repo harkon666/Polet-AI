@@ -70,6 +70,14 @@ export interface IkaRunData {
       cpiAuthorityPda?: string;
       signatureScheme?: string;
     };
+    suiTransactionDigest?: {
+      digestHex?: string;
+      digestBase58?: string;
+      action?: string;
+      network?: string;
+      broadcastable?: boolean;
+      productionSettlement?: boolean;
+    };
     poletApprovalTransaction?: {
       signers?: string[];
     };

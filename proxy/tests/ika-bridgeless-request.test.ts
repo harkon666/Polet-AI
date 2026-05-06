@@ -12,6 +12,7 @@ import {
   deriveIkaMessageDigest,
   deriveIkaPreAlphaApprovalAccounts,
 } from '../src/lib/ika-prealpha-signing';
+import { POLET_SUI_DEVNET_VERIFIER_ADDRESS } from '../src/lib/sui-transaction-digest';
 import type { WalletData } from '../src/lib/wallet-store';
 import type { Intent } from '../src/types/intent';
 
@@ -52,10 +53,31 @@ describe('Ika bridgeless execution request', () => {
       expect(result.ikaRequest.canonicalOrderHash).toBe(
         await hashCanonicalBridgelessOrder(result.ikaRequest.canonicalOrder)
       );
+      expect(result.ikaRequest.suiTransactionDigest).toMatchObject({
+        schema: 'polet.sui.devnet.transaction-digest.v1',
+        chain: 'sui',
+        network: 'devnet',
+        action: 'zero-mist-transfer-proof',
+        transactionKind: 'programmable-transaction-block',
+        broadcastable: false,
+        productionSettlement: false,
+        transaction: {
+          recipient: POLET_SUI_DEVNET_VERIFIER_ADDRESS,
+          amountMist: '0',
+          canonicalOrderHash: result.ikaRequest.canonicalOrderHash,
+        },
+      });
+      expect(result.ikaRequest.suiTransactionDigest?.digestHex).toMatch(/^[0-9a-f]{64}$/);
+      expect(typeof result.ikaRequest.suiTransactionDigest?.digestBase58).toBe('string');
+      expect(result.ikaRequest.suiTransactionDigest?.digestBase58.length).toBeGreaterThan(0);
       expect(result.ikaRequest.executionBoundary.status).toBe('message-approved');
       expect(result.ikaRequest.executionBoundary.note).toMatch(/pre-alpha/i);
       expect(result.ikaRequest.preAlphaSigning?.status).toBe('message-approved');
       expect(result.ikaRequest.preAlphaSigning?.settlement).toBe('not-executed');
+      expect(result.ikaRequest.preAlphaSigning?.messageDigest).toBe(result.ikaRequest.suiTransactionDigest?.digestHex);
+      expect(result.ikaRequest.preAlphaSigning?.messageDigest).not.toBe(result.ikaRequest.canonicalOrderHash);
+      expect(result.ikaRequest.preAlphaSigning?.messageDigestSource).toBe('sui-devnet-transaction-digest');
+      expect(result.ikaRequest.preAlphaSigning?.signatureScheme).toBe('ed25519-prealpha');
       expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.cluster).toBe(IKA_PREALPHA_CLUSTER);
       expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.mockSigner).toBe(true);
       expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.productionMpc).toBe(false);
@@ -118,6 +140,26 @@ describe('Ika bridgeless execution request', () => {
       expect(result.reason).not.toContain('20');
       expect(JSON.stringify(result)).not.toContain('10000000');
       expect(JSON.stringify(result)).not.toContain('20000000');
+      expect(JSON.stringify(result)).not.toContain('suiTransactionDigest');
+      expect(JSON.stringify(result)).not.toContain('polet.sui.devnet.transaction-digest.v1');
+    }
+  });
+
+  test('rejects invalid Sui destination data before Ika approval construction', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+    (intent.params as { nativeDestinationAccount?: string }).nativeDestinationAccount = '0xnot-a-sui-address';
+
+    try {
+      await createIkaBridgelessExecutionRequest(intent, {
+        getWalletData: async () => fixture.wallet,
+        buildApprovalTransaction: async () => fixture.approvalTransaction,
+      });
+      throw new Error('expected invalid Sui destination to be rejected');
+    } catch (error) {
+      expect(error).toHaveProperty('code', 'INVALID_SUI_DESTINATION');
+      expect(error).toHaveProperty('status', 400);
+      expect(error instanceof Error ? error.message : '').toMatch(/Sui address/);
     }
   });
 
@@ -178,14 +220,16 @@ describe('Ika bridgeless execution request', () => {
       expect(transactionRequests[0]).toMatchObject({
         wallet: fixture.wallet.walletPda,
         sessionKey: fixture.sessionKey,
-        canonicalOrderHash: result.ikaRequest.canonicalOrderHash,
+        canonicalOrderHash: result.ikaRequest.suiTransactionDigest?.digestHex,
         sourceAmount: 5_000_000n,
         orderExpiresAt: result.ikaRequest.canonicalOrder.expiresAtUnix,
         attestationSlot: BigInt(fixture.wallet.lastRevokedSlot) + 1n,
         attestationPolicySeq: fixture.wallet.policySeq,
         encryptionWitness: Array.from(fixture.witness),
         userPubkey: fixture.owner,
+        signatureScheme: 5,
       });
+      expect((transactionRequests[0] as { canonicalOrderHash: string }).canonicalOrderHash).not.toBe(result.ikaRequest.canonicalOrderHash);
       expect((transactionRequests[0] as { ikaProgram: string }).ikaProgram).toBe('87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY');
     }
   });

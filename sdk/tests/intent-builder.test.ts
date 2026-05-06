@@ -738,10 +738,19 @@ describe('Polet AI SDK - Intent Builder', () => {
             requestId: 'ika-request-1',
             executionBoundary: { status: 'message-approved' },
             canonicalOrderHash: 'canonical-order-hash-1',
+            suiTransactionDigest: {
+              chain: 'sui',
+              network: 'devnet',
+              action: 'zero-mist-transfer-proof',
+              digestHex: 'ab'.repeat(32),
+              digestBase58: 'sui-digest-base58',
+              broadcastable: false,
+              productionSettlement: false,
+            },
             preAlphaSigning: {
               status: 'message-approved',
               dwalletAccount: 'dwallet-1',
-              messageDigest: 'message-hash-1',
+              messageDigest: 'ab'.repeat(32),
               messageApprovalPda: 'message-approval-pda',
               cpiAuthorityPda: 'cpi-authority-pda',
               signatureScheme: 'ed25519-prealpha',
@@ -778,11 +787,17 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
       expect(result.details?.proof).toMatchObject({
         dWallet: 'dwallet-1',
-        messageHash: 'message-hash-1',
+        messageHash: 'ab'.repeat(32),
         canonicalOrderHash: 'canonical-order-hash-1',
         messageApprovalAccount: 'message-approval-pda',
         cpiAuthority: 'cpi-authority-pda',
         signatureScheme: 'ed25519-prealpha',
+        suiTransactionDigest: {
+          chain: 'sui',
+          digestHex: 'ab'.repeat(32),
+          broadcastable: false,
+          productionSettlement: false,
+        },
         destination: { chain: 'sui', asset: 'SUI' },
         poletApprovalTransaction: {
           transaction: 'base64-polet-approval',

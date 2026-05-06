@@ -35,6 +35,7 @@ export interface IkaPreAlphaSigningRequest {
   settlement: 'not-executed';
   dwalletAccount: string;
   messageDigest: string;
+  messageDigestSource: 'polet-request-envelope' | 'sui-devnet-transaction-digest';
   userPublicKey: string;
   signatureScheme: IkaPreAlphaSignatureScheme;
   cpiAuthorityPda: string;
@@ -71,8 +72,11 @@ export function createIkaPreAlphaSigningRequest(input: IkaPreAlphaSigningInput):
     input.userPublicKey ?? input.request.sessionContext.owner,
     'userPublicKey'
   );
-  const signatureScheme = input.signatureScheme ?? 'ecdsa-secp256k1-sha256';
+  const signatureScheme = input.signatureScheme ?? defaultSignatureScheme(input.request);
   const messageDigest = deriveIkaMessageDigest(input.request);
+  const messageDigestSource = input.request.suiTransactionDigest
+    ? 'sui-devnet-transaction-digest'
+    : 'polet-request-envelope';
   const derivation = deriveIkaPreAlphaApprovalAccounts({
     dwalletAccount,
     smartWalletAuthority: input.request.sessionContext.smartWalletAuthority,
@@ -84,6 +88,7 @@ export function createIkaPreAlphaSigningRequest(input: IkaPreAlphaSigningInput):
     settlement: 'not-executed',
     dwalletAccount,
     messageDigest,
+    messageDigestSource,
     userPublicKey,
     signatureScheme,
     ...derivation,
@@ -141,6 +146,10 @@ export function deriveIkaPreAlphaApprovalAccounts(input: {
 }
 
 export function deriveIkaMessageDigest(request: IkaBridgelessExecutionRequest): string {
+  if (request.suiTransactionDigest?.digestHex) {
+    return parseMessageDigest(request.suiTransactionDigest.digestHex).toString('hex');
+  }
+
   return createHash('sha256')
     .update(JSON.stringify({
       requestId: request.requestId,
@@ -171,6 +180,10 @@ export function deriveIkaDwalletAccount(request: IkaBridgelessExecutionRequest):
   );
 
   return dwalletAccount.toString();
+}
+
+function defaultSignatureScheme(request: IkaBridgelessExecutionRequest): IkaPreAlphaSignatureScheme {
+  return request.target.chain === 'sui' ? 'ed25519-prealpha' : 'ecdsa-secp256k1-sha256';
 }
 
 function normalizePublicKey(value: string, label: string): string {

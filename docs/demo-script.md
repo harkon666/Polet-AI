@@ -8,7 +8,7 @@ Target length: under 5 minutes.
 
 1. `25` USDC-equivalent agent request is blocked by Polet confidential policy, and no Ika dWallet approval data is created.
 2. `5` USDC Jupiter DCA is approved and returns a Jupiter route/build preview plus an unsigned policy-gated smart-wallet payload.
-3. `5` USDC-equivalent Sui Ika signed intent is approved after Polet policy gating and returns an unsigned Polet `approve_ika_message_as_session` transaction plus MessageApproval proof metadata.
+3. `5` USDC-equivalent Sui Ika signed intent is approved after Polet policy gating and returns a Sui devnet sign-only digest, an unsigned Polet `approve_ika_message_as_session` transaction, and MessageApproval proof metadata.
 
 ## Setup
 
@@ -44,7 +44,7 @@ Use this timing if recording a judge-facing video:
 4. `2:15-3:05` Required outcome 2: approved Jupiter DCA.
    Run `5` USDC Jupiter DCA. Show route/build preview and unsigned smart-wallet transaction. Say no mainnet swap is executed.
 5. `3:05-4:15` Required outcome 3: approved Sui Ika signed intent.
-   Run `5` USDC-equivalent Sui Ika. Show dWallet, MessageApproval, message hash, signature scheme, CPI authority, and unsigned Polet approval transaction for the session signer. If live smoke was run, show MessageApproval signature evidence. Say no bridgeless asset settlement is executed.
+   Run `5` USDC-equivalent Sui Ika. Show dWallet, MessageApproval, Sui devnet message digest, signature scheme, CPI authority, and unsigned Polet approval transaction for the session signer. If live smoke was run, show MessageApproval signature evidence. Say no bridgeless asset settlement is executed.
 6. `4:15-4:50` Close.
    Emphasize that the same Polet policy gate controls Jupiter and Ika rails; blocked requests create no Ika approval data, approved requests remain bounded by pre-alpha and unsigned-transaction review.
 
@@ -109,7 +109,7 @@ Use this timing if recording a judge-facing video:
    - Unsigned Polet `approve_ika_message_as_session` transaction appears for the session signer.
    - Settlement boundary says real bridgeless settlement is not executed.
 
-   Say: "The same confidential guardrail model extends to Ika. Polet approves only the in-limit Sui signed-intent request, then prepares an unsigned Polet approval transaction that can CPI-call Ika `approve_message`. The frontend does not sign, broadcast, or settle bridgeless assets."
+   Say: "The same confidential guardrail model extends to Ika. Polet approves only the in-limit Sui signed-intent request, maps it into a Sui devnet sign-only digest, then prepares an unsigned Polet approval transaction that can CPI-call Ika `approve_message`. The frontend does not sign, broadcast, or settle bridgeless assets."
 
 9. Optional live Ika devnet smoke proof.
 

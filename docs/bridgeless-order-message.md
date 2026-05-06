@@ -2,7 +2,7 @@
 
 Schema: `polet.bridgeless.order.v1`
 
-This is the deterministic message Polet prepares for Ika dWallet signing. The MVP signs this canonical order hash rather than a Sui or Ethereum transaction digest. Chain-specific transaction digest adapters remain follow-up issues.
+This is the deterministic Polet order reference for Ika dWallet signing. For the Sui-primary rail, Polet now keeps this canonical order hash as the audit/reference hash, then maps the approved order into a narrow Sui devnet transaction-digest artifact before building the Ika approval. Ethereum remains a follow-up adapter.
 
 ## Payload
 
@@ -53,6 +53,23 @@ e33cfb1071118e2303819a7cd1eb30dd1438b41ccb35a344f120ca813d734b26
 - Expired orders are rejected before Ika approval.
 - Private policy witness bytes are not included in the canonical order.
 
+## Sui Devnet Digest Adapter
+
+Schema: `polet.sui.devnet.transaction-digest.v1`
+
+Selected narrow action: `zero-mist-transfer-proof`.
+
+For approved Solana USDC -> Sui SUI orders, the proxy builds a sign-only Sui devnet verification artifact with:
+
+- Sui `TransactionData` intent prefix: `0x000000`.
+- Digest hash: BLAKE2b-256 over the intent prefix plus a stable JSON devnet payload.
+- Recipient: `nativeDestinationAccount` when supplied and valid, otherwise Polet's fixed devnet verifier address `0x0000000000000000000000000000000000000000000000000000000000000001`.
+- Amount: `0` MIST.
+- Ika signature scheme: `ed25519-prealpha` / EddsaSha512 for the Sui rail unless an explicit Pre-Alpha override is supplied.
+- `broadcastable: false` and `productionSettlement: false`.
+
+The Ika `messageDigest` and Polet `approve_ika_message_as_session` message hash use `suiTransactionDigest.digestHex` on this rail, not the canonical order hash. The response still includes `canonicalOrderHash` so operators can verify which Polet order was mapped into the Sui digest. This artifact is devnet/sign-only proof metadata; it is not a production Sui transaction, not production MPC evidence, and not bridgeless settlement.
+
 ## Agent Integration
 
-OpenClaw/Hermes-style agents submit the normal Polet multichain intent. The proxy constructs this canonical order only after the confidential policy/session checks pass, then returns `canonicalOrder` and `canonicalOrderHash` in the allowed Ika request envelope.
+OpenClaw/Hermes-style agents submit the normal Polet multichain intent. The proxy constructs this canonical order only after the confidential policy/session checks pass, then returns `canonicalOrder`, `canonicalOrderHash`, and, for Sui, `suiTransactionDigest` in the allowed Ika request envelope. Blocked responses suppress all Ika and Sui digest proof fields.

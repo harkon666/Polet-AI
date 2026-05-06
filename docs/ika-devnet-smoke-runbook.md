@@ -292,6 +292,9 @@ data.code: IKA_PREALPHA_MESSAGE_APPROVED
 data.status: message-approved
 data.ikaRequest.preAlphaSigning.dwalletAccount == IKA_DWALLET_ACCOUNT
 data.ikaRequest.preAlphaSigning.approveMessage.programId == IKA_DWALLET_PROGRAM_ID
+data.ikaRequest.suiTransactionDigest.digestHex == data.ikaRequest.preAlphaSigning.messageDigest
+data.ikaRequest.suiTransactionDigest.broadcastable == false
+data.ikaRequest.suiTransactionDigest.productionSettlement == false
 data.ikaRequest.preAlphaSigning.messageApprovalPda is present
 data.ikaRequest.poletApprovalTransaction.transaction is present
 data.ikaRequest.poletApprovalTransaction.signers == [POLET_SESSION_KEY]
@@ -303,6 +306,7 @@ Record:
 ```text
 IKA_MESSAGE_APPROVAL=<data.ikaRequest.preAlphaSigning.messageApprovalPda>
 IKA_MESSAGE_HASH=<data.ikaRequest.preAlphaSigning.messageDigest>
+IKA_SUI_DIGEST=<data.ikaRequest.suiTransactionDigest.digestBase58>
 IKA_CANONICAL_ORDER_HASH=<data.ikaRequest.canonicalOrderHash>
 POLET_APPROVAL_TRANSACTION=<base64 transaction from data.ikaRequest.poletApprovalTransaction.transaction>
 ```
@@ -322,6 +326,7 @@ Polet wallet: POLET_WALLET_PDA
 dWallet account: IKA_DWALLET_ACCOUNT
 MessageApproval: IKA_MESSAGE_APPROVAL
 Ika program: IKA_DWALLET_PROGRAM_ID
+Message hash: data.ikaRequest.suiTransactionDigest.digestHex
 Source amount: 5,000,000 USDC base units
 Order expiry: data.ikaRequest.canonicalOrder.expiresAtUnix
 ```
@@ -378,6 +383,7 @@ POLET_IKA_APPROVAL_SIGNATURE=<devnet tx signature>
 IKA_DWALLET_ACCOUNT=<dWallet account>
 IKA_MESSAGE_APPROVAL=<MessageApproval account>
 IKA_MESSAGE_HASH=<message digest>
+IKA_SUI_DIGEST=<Sui devnet digest base58>
 IKA_CANONICAL_ORDER_HASH=<canonical order hash>
 IKA_SIGNATURE_SCHEME=EddsaSha512 / 5
 IKA_MESSAGE_APPROVAL_STATUS=Signed or Pending at timeout
