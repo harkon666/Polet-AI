@@ -30,13 +30,15 @@ pub fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
     let payer = Keypair::new();
     let mut svm = LiteSVM::new();
 
-    let bytes =
-        std::fs::read("/home/harkon666/Dev/hackathon/Polet-AI/contract/target/deploy/contract.so")
-            .expect("Build program first with: NO_DNA=1 anchor build");
+    let deploy_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("target")
+        .join("deploy");
+    let bytes = std::fs::read(deploy_dir.join("contract.so"))
+        .expect("Build program first with: NO_DNA=1 anchor build");
     svm.add_program(program_id, &bytes).unwrap();
-    let mock_ika_bytes =
-        std::fs::read("/home/harkon666/Dev/hackathon/Polet-AI/contract/target/deploy/mock_ika.so")
-            .expect("Build mock Ika program first with: NO_DNA=1 anchor build");
+    let mock_ika_bytes = std::fs::read(deploy_dir.join("mock_ika.so"))
+        .expect("Build mock Ika program first with: NO_DNA=1 anchor build");
     svm.add_program(mock_ika::id(), &mock_ika_bytes).unwrap();
     svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
 
@@ -156,6 +158,48 @@ pub fn revoke_all_sessions(
 ) -> Result<(), String> {
     let ix_data = contract::instruction::RevokeAllSessions {};
     let ix_accounts = contract::accounts::RevokeAllSessions {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[], ix)
+}
+
+pub fn configure_shared_ika_approvers(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    threshold: u8,
+    approvers: Vec<anchor_lang::prelude::Pubkey>,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::ConfigureSharedIkaApprovers {
+        threshold,
+        approvers,
+    };
+    let ix_accounts = contract::accounts::ConfigureSharedIkaApprovers {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[], ix)
+}
+
+pub fn revoke_shared_ika_approver(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    approver: anchor_lang::prelude::Pubkey,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::RevokeSharedIkaApprover { approver };
+    let ix_accounts = contract::accounts::RevokeSharedIkaApprover {
         wallet: wallet_pda,
         owner: owner.pubkey(),
     };
@@ -408,6 +452,39 @@ pub fn approve_ika_message_as_session(
     attestation_policy_seq: u64,
     witness: [u8; 32],
 ) -> Result<(), String> {
+    approve_ika_message_as_session_with_coapprovers(
+        svm,
+        payer,
+        session_key,
+        wallet_pda,
+        dwallet,
+        message_approval,
+        canonical_order_hash,
+        source_amount,
+        order_expires_at,
+        attestation_slot,
+        attestation_policy_seq,
+        witness,
+        &[],
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn approve_ika_message_as_session_with_coapprovers(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    session_key: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    dwallet: anchor_lang::prelude::Pubkey,
+    message_approval: anchor_lang::prelude::Pubkey,
+    canonical_order_hash: [u8; 32],
+    source_amount: u64,
+    order_expires_at: i64,
+    attestation_slot: u64,
+    attestation_policy_seq: u64,
+    witness: [u8; 32],
+    coapprovers: &[&Keypair],
+) -> Result<(), String> {
     let (cpi_authority, _cpi_bump) = ika_cpi_authority();
     let ix_data = contract::instruction::ApproveIkaMessageAsSession {
         canonical_order_hash,
@@ -429,12 +506,23 @@ pub fn approve_ika_message_as_session(
         ika_program: mock_ika::id(),
         system_program: anchor_lang::solana_program::system_program::ID,
     };
-    let ix = anchor_lang::solana_program::instruction::Instruction {
+    let mut ix = anchor_lang::solana_program::instruction::Instruction {
         program_id: contract::id(),
         data: ix_data.data(),
         accounts: ix_accounts.to_account_metas(None),
     };
-    send_ix(svm, payer, &[session_key], ix)
+    for coapprover in coapprovers {
+        ix.accounts.push(
+            anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
+                coapprover.pubkey(),
+                true,
+            ),
+        );
+    }
+
+    let mut signers = vec![session_key];
+    signers.extend_from_slice(coapprovers);
+    send_ix(svm, payer, &signers, ix)
 }
 
 pub fn read_mock_message_approval(

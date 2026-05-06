@@ -29,6 +29,19 @@ pub struct DemoTokenCustody {
     pub configured: bool,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
+pub struct SharedIkaApprover {
+    pub key: Pubkey,
+    pub authorized: bool,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
+pub struct SharedIkaApprovalConfig {
+    pub threshold: u8,
+    pub enabled: bool,
+    pub approvers: Vec<SharedIkaApprover>,
+}
+
 #[account]
 pub struct Wallet {
     pub owner: Pubkey,
@@ -39,11 +52,13 @@ pub struct Wallet {
     pub last_revoked_slot: u64,
     pub confidential_policy: ConfidentialNumericPolicy,
     pub demo_custody: DemoTokenCustody,
+    pub shared_ika_approvals: SharedIkaApprovalConfig,
     pub sessions: Vec<SessionKey>,
 }
 
 impl Wallet {
     pub const MAX_SESSIONS: usize = 8;
+    pub const MAX_SHARED_IKA_APPROVERS: usize = 5;
     pub const INIT_SPACE: usize = 32
         + 32
         + 32
@@ -52,6 +67,7 @@ impl Wallet {
         + 8
         + ConfidentialNumericPolicy::SPACE
         + DemoTokenCustody::SPACE
+        + SharedIkaApprovalConfig::SPACE
         + 4
         + (SessionKey::SPACE * Self::MAX_SESSIONS);
 }
@@ -66,4 +82,12 @@ impl ConfidentialNumericPolicy {
 
 impl DemoTokenCustody {
     pub const SPACE: usize = 32 + 32 + 32 + 32 + 32 + 1;
+}
+
+impl SharedIkaApprover {
+    pub const SPACE: usize = 32 + 1;
+}
+
+impl SharedIkaApprovalConfig {
+    pub const SPACE: usize = 1 + 1 + 4 + (SharedIkaApprover::SPACE * Wallet::MAX_SHARED_IKA_APPROVERS);
 }

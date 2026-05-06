@@ -339,6 +339,89 @@ walletRouter.post('/set-confidential-policy', async (c) => {
 });
 
 /**
+ * POST /wallet/shared-ika-approvers
+ * Builds an owner-signed transaction that registers shared Ika co-approvers on-chain.
+ */
+walletRouter.post('/shared-ika-approvers', async (c) => {
+  try {
+    const { owner, threshold, approvers } = await c.req.json();
+    if (!owner || threshold === undefined || !Array.isArray(approvers)) {
+      return c.json({ success: false, error: 'owner, threshold, and approvers are required' }, 400);
+    }
+    if (!Number.isInteger(threshold) || threshold < 1 || threshold > approvers.length) {
+      return c.json({ success: false, error: 'threshold must be a positive integer no greater than approver count' }, 400);
+    }
+
+    const ownerPubkey = new PublicKey(owner);
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const approverPubkeys = Array.from(new Set(approvers.map((approver) => new PublicKey(approver).toString())))
+      .map((approver) => new PublicKey(approver));
+    if (approverPubkeys.length !== approvers.length) {
+      return c.json({ success: false, error: 'approvers must be unique' }, 400);
+    }
+
+    const program = getProgram();
+    const ix = await program.methods.configureSharedIkaApprovers(threshold, approverPubkeys)
+      .accounts({
+        wallet: walletPda,
+        owner: ownerPubkey,
+      })
+      .instruction();
+
+    const tx = new Transaction().add(ix);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(ownerPubkey, tx),
+        wallet: walletPda.toString(),
+        threshold,
+        approvers: approverPubkeys.map((approver) => approver.toString()),
+      },
+    });
+  } catch (error) {
+    console.error('Configure shared Ika approvers error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build shared Ika approver transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/shared-ika-approvers/revoke
+ * Builds an owner-signed transaction that revokes a shared Ika co-approver on-chain.
+ */
+walletRouter.post('/shared-ika-approvers/revoke', async (c) => {
+  try {
+    const { owner, approver } = await c.req.json();
+    if (!owner || !approver) {
+      return c.json({ success: false, error: 'owner and approver are required' }, 400);
+    }
+
+    const ownerPubkey = new PublicKey(owner);
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const approverPubkey = new PublicKey(approver);
+    const program = getProgram();
+    const ix = await program.methods.revokeSharedIkaApprover(approverPubkey)
+      .accounts({
+        wallet: walletPda,
+        owner: ownerPubkey,
+      })
+      .instruction();
+
+    const tx = new Transaction().add(ix);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(ownerPubkey, tx),
+        wallet: walletPda.toString(),
+        approver: approverPubkey.toString(),
+      },
+    });
+  } catch (error) {
+    console.error('Revoke shared Ika approver error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build shared Ika approver revocation transaction' }, 500);
+  }
+});
+
+/**
  * POST /wallet/setup-demo-custody
  * Creates PDA-owned ATAs for USDC and wrapped SOL when needed, then registers them on-chain.
  */

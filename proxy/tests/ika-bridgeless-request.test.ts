@@ -289,6 +289,9 @@ describe('Ika bridgeless execution request', () => {
 
     expect(approved.allowed).toBe(true);
     expect(transactionRequests).toHaveLength(1);
+    expect(transactionRequests[0]).toMatchObject({
+      sharedApprovers: [approverA.publicKey.toString(), approverB.publicKey.toString()],
+    });
     if (approved.allowed) {
       expect(approved.ikaRequest.preAlphaSigning?.status).toBe('message-approved');
       expect(approved.ikaRequest.poletApprovalTransaction).toEqual(fixture.approvalTransaction);

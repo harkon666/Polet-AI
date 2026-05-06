@@ -297,6 +297,7 @@ async function buildIkaAllowedResult(
     userPubkey: preAlphaSigning.userPublicKey,
     signatureScheme: signatureSchemeCode(preAlphaSigning.signatureScheme),
     messageApprovalBump: preAlphaSigning.messageApprovalBump,
+    sharedApprovers: sharedApproval.progress.approvedApprovers,
   });
 
   return {

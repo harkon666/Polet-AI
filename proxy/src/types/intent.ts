@@ -189,6 +189,17 @@ export interface DemoTokenCustodyAccount {
   configured: boolean;
 }
 
+export interface SharedIkaApproverAccount {
+  key: PublicKey;
+  authorized: boolean;
+}
+
+export interface SharedIkaApprovalConfigAccount {
+  threshold: number;
+  enabled: boolean;
+  approvers: SharedIkaApproverAccount[];
+}
+
 export interface WalletAccount {
   owner: PublicKey;
   proxyPk: PublicKey;
@@ -198,5 +209,6 @@ export interface WalletAccount {
   lastRevokedSlot: BN;
   confidentialPolicy: ConfidentialNumericPolicyAccount;
   demoCustody: DemoTokenCustodyAccount;
+  sharedIkaApprovals: SharedIkaApprovalConfigAccount;
   sessions: TemporalKeyAccount[];
 }

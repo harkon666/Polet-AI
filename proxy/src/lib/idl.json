@@ -756,6 +756,76 @@
       ]
     },
     {
+      "name": "configure_shared_ika_approvers",
+      "discriminator": [
+        153,
+        245,
+        11,
+        0,
+        139,
+        247,
+        112,
+        15
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "threshold",
+          "type": "u8"
+        },
+        {
+          "name": "approvers",
+          "type": {
+            "vec": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "revoke_shared_ika_approver",
+      "discriminator": [
+        228,
+        124,
+        183,
+        42,
+        111,
+        181,
+        124,
+        97
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "approver",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "set_proxy_key",
       "discriminator": [
         202,
@@ -918,6 +988,21 @@
       "code": 6022,
       "name": "InvalidIkaApproval",
       "msg": "Invalid Ika approval request"
+    },
+    {
+      "code": 6023,
+      "name": "TooManySharedIkaApprovers",
+      "msg": "Too many shared Ika approvers"
+    },
+    {
+      "code": 6024,
+      "name": "InvalidSharedIkaApprovalConfig",
+      "msg": "Invalid shared Ika approval configuration"
+    },
+    {
+      "code": 6025,
+      "name": "SharedIkaApprovalQuorumMissing",
+      "msg": "Shared Ika approval quorum is missing"
     }
   ],
   "types": [
@@ -1000,6 +1085,48 @@
       }
     },
     {
+      "name": "SharedIkaApprover",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "key",
+            "type": "pubkey"
+          },
+          {
+            "name": "authorized",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SharedIkaApprovalConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "threshold",
+            "type": "u8"
+          },
+          {
+            "name": "enabled",
+            "type": "bool"
+          },
+          {
+            "name": "approvers",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "SharedIkaApprover"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
       "name": "SessionKey",
       "type": {
         "kind": "struct",
@@ -1075,6 +1202,14 @@
             "type": {
               "defined": {
                 "name": "DemoTokenCustody"
+              }
+            }
+          },
+          {
+            "name": "shared_ika_approvals",
+            "type": {
+              "defined": {
+                "name": "SharedIkaApprovalConfig"
               }
             }
           },

@@ -217,20 +217,32 @@ describe('Transaction Builder', () => {
       ]);
     });
 
+    test('adds shared Ika co-approvers as remaining signer accounts', () => {
+      const approverA = Keypair.generate().publicKey.toString();
+      const approverB = Keypair.generate().publicKey.toString();
+      const request = createApproveIkaRequest({ sharedApprovers: [approverA, approverB] });
+
+      expect(buildApproveIkaMessageAsSessionAccounts(request).slice(-2)).toEqual([
+        { pubkey: new PublicKey(approverA), isSigner: true, isWritable: false },
+        { pubkey: new PublicKey(approverB), isSigner: true, isWritable: false },
+      ]);
+    });
+
     test('builds an unsigned session-signer transaction for Polet Ika approval', async () => {
       const blockhash = Keypair.generate().publicKey.toString();
+      const sharedApprover = Keypair.generate().publicKey.toString();
       setConnection({
         getLatestBlockhash: async () => ({ blockhash, lastValidBlockHeight: 99 }),
         getSlot: async () => 123456,
       } as never);
 
-      const request = createApproveIkaRequest();
+      const request = createApproveIkaRequest({ sharedApprovers: [sharedApprover] });
       const built = await buildApproveIkaMessageSessionTransaction(request);
       const transaction = Transaction.from(Buffer.from(built.transaction, 'base64'));
 
       expect(built.blockHash).toBe(blockhash);
       expect(built.slot).toBe(123456);
-      expect(built.signers).toEqual([request.sessionKey]);
+      expect(built.signers).toEqual([request.sessionKey, sharedApprover]);
       expect(transaction.feePayer?.toString()).toBe(request.sessionKey);
       expect(transaction.recentBlockhash).toBe(blockhash);
       expect(transaction.instructions).toHaveLength(1);

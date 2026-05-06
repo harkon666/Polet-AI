@@ -38,8 +38,7 @@ Track alignment:
 
 ## In Progress
 
-- `035-shared-access-and-multisig-lite-ika-approvals` — First vertical slice implemented in proxy/SDK/frontend types: Ika intents can carry a `sharedAccess` M-of-N policy, proxy verifies Ed25519 co-approver signatures over a deterministic `polet.ika.shared-approval.v1` challenge, missing quorum returns structured `needs-approval` progress without Ika proof data, and frontend activity cards can render `received/required` approval progress. Remaining work: persist co-approvers on-chain and enforce quorum inside the Polet contract before `approve_ika_message_as_session` CPI.
-  - Verification: `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with a Vitest/Vite shutdown warning after tests complete; `bun run build` passes in `frontend/`.
+- None.
 
 ## Blocked
 
@@ -226,6 +225,9 @@ Track alignment:
 - [x] `034-ethereum-transaction-digest-adapter` — Added the optional Ethereum Ika digest adapter without changing the Sui-primary demo path. Approved Solana USDC -> Ethereum ETH requests now map the canonical Polet order into a Sepolia sign-only EIP-191 `zero-wei-transfer-proof` digest, use `ethereumMessageDigest.digestHex` as the Ika/Polet approval message hash, and expose SDK proof metadata without claiming broadcast or settlement.
   - Verification: `bun test ./tests/ethereum-transaction-digest.test.ts ./tests/sui-transaction-digest.test.ts ./tests/ika-bridgeless-request.test.ts` and `bun run build` pass in `proxy/`; `bun test ./tests/intent-builder.test.ts ./tests/local-agent-runtime.test.ts` and `bun run build` pass in `sdk/`; `bun run build` passes in `frontend/`.
   - Note: the Ethereum artifact is `broadcastable: false`, `productionSettlement: false`, and uses either a validated `nativeDestinationAccount` recipient or Polet's fixed Sepolia verifier address. Policy-blocked responses still suppress all Ika/Sui/Ethereum digest proof fields.
+- [x] `035-shared-access-and-multisig-lite-ika-approvals` — Added shared-access M-of-N approval for Ika requests across proxy, SDK, frontend activity state, and contract enforcement. Ika intents can carry `sharedAccess`, proxy verifies deterministic co-approver challenge signatures and returns non-leaking `needs-approval` progress when quorum is missing, owner-signed proxy routes can configure/revoke shared Ika approvers on-chain, and `approve_ika_message_as_session` now requires enough authorized co-approver signer remaining accounts before confidential spend mutation or Ika CPI.
+  - Verification: `NO_DNA=1 cargo build-sbf` and `NO_DNA=1 cargo test` pass in `contract/`; `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with a Vitest/Vite shutdown warning after tests complete; `bun run build` passes in `frontend/`.
+  - Note: contract enforcement uses Solana signer co-approver accounts for the on-chain boundary. The off-chain challenge signature flow remains the agent-runtime collection UX; no production MPC or settlement is claimed.
 
 ### Planning
 

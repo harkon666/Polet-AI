@@ -14,7 +14,10 @@ pub use constants::WALLET_SEED;
 pub use error::ErrorCode;
 use execution_payload::parse_transfer_intent;
 use ika_approval::{approve_ika_message, IkaApproveMessageAccounts, IKA_CPI_AUTHORITY_SEED};
-pub use state::{ConfidentialNumericPolicy, DemoTokenCustody, SessionKey, Wallet};
+pub use state::{
+    ConfidentialNumericPolicy, DemoTokenCustody, SessionKey, SharedIkaApprovalConfig,
+    SharedIkaApprover, Wallet,
+};
 
 const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
     6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133, 237,
@@ -102,6 +105,20 @@ pub struct RevokeSession<'info> {
 
 #[derive(Accounts)]
 pub struct RevokeAllSessions<'info> {
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct ConfigureSharedIkaApprovers<'info> {
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct RevokeSharedIkaApprover<'info> {
     #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
@@ -231,6 +248,104 @@ fn require_not_expired(expires_at: i64) -> Result<()> {
     Ok(())
 }
 
+fn configure_shared_ika_approval_config(
+    wallet: &mut Wallet,
+    threshold: u8,
+    approvers: Vec<Pubkey>,
+) -> Result<()> {
+    require!(threshold > 0, ErrorCode::InvalidSharedIkaApprovalConfig);
+    require!(
+        approvers.len() <= Wallet::MAX_SHARED_IKA_APPROVERS,
+        ErrorCode::TooManySharedIkaApprovers
+    );
+    require!(
+        usize::from(threshold) <= approvers.len(),
+        ErrorCode::InvalidSharedIkaApprovalConfig
+    );
+
+    let mut shared_approvers = Vec::with_capacity(approvers.len());
+    for (index, approver) in approvers.iter().enumerate() {
+        require!(
+            *approver != Pubkey::default(),
+            ErrorCode::InvalidSharedIkaApprovalConfig
+        );
+        require!(
+            !approvers[index + 1..].iter().any(|candidate| candidate == approver),
+            ErrorCode::InvalidSharedIkaApprovalConfig
+        );
+        shared_approvers.push(SharedIkaApprover {
+            key: *approver,
+            authorized: true,
+        });
+    }
+
+    wallet.shared_ika_approvals = SharedIkaApprovalConfig {
+        threshold,
+        enabled: true,
+        approvers: shared_approvers,
+    };
+    wallet.policy_seq = wallet
+        .policy_seq
+        .checked_add(1)
+        .ok_or(ErrorCode::ArithmeticOverflow)?;
+
+    Ok(())
+}
+
+fn revoke_shared_ika_approver_config(wallet: &mut Wallet, approver: Pubkey) -> Result<()> {
+    let shared_approver = wallet
+        .shared_ika_approvals
+        .approvers
+        .iter_mut()
+        .find(|candidate| candidate.key == approver)
+        .ok_or(ErrorCode::InvalidSharedIkaApprovalConfig)?;
+    shared_approver.authorized = false;
+    wallet.policy_seq = wallet
+        .policy_seq
+        .checked_add(1)
+        .ok_or(ErrorCode::ArithmeticOverflow)?;
+    Ok(())
+}
+
+fn enforce_shared_ika_quorum(
+    config: &SharedIkaApprovalConfig,
+    remaining_accounts: &[AccountInfo],
+) -> Result<()> {
+    if !config.enabled || config.threshold == 0 {
+        return Ok(());
+    }
+
+    let mut approvals = 0u8;
+    let mut counted = [Pubkey::default(); Wallet::MAX_SHARED_IKA_APPROVERS];
+    for account in remaining_accounts {
+        if !account.is_signer {
+            continue;
+        }
+        let account_key = account.key();
+        if counted[..usize::from(approvals)]
+            .iter()
+            .any(|counted_key| *counted_key == account_key)
+        {
+            continue;
+        }
+        if config
+            .approvers
+            .iter()
+            .any(|approver| approver.authorized && approver.key == account_key)
+        {
+            counted[usize::from(approvals)] = account_key;
+            approvals = approvals
+                .checked_add(1)
+                .ok_or(ErrorCode::ArithmeticOverflow)?;
+            if approvals >= config.threshold {
+                return Ok(());
+            }
+        }
+    }
+
+    err!(ErrorCode::SharedIkaApprovalQuorumMissing)
+}
+
 fn transfer_lamports<'info>(
     wallet_info: AccountInfo<'info>,
     destination_info: AccountInfo<'info>,
@@ -302,6 +417,7 @@ pub mod contract {
             last_revoked_slot: 0,
             confidential_policy: ConfidentialNumericPolicy::default(),
             demo_custody: DemoTokenCustody::default(),
+            shared_ika_approvals: SharedIkaApprovalConfig::default(),
             sessions: Vec::new(),
         });
         msg!("Polet wallet created for: {:?}", ctx.accounts.owner.key());
@@ -470,6 +586,31 @@ pub mod contract {
         Ok(())
     }
 
+    pub fn configure_shared_ika_approvers(
+        ctx: Context<ConfigureSharedIkaApprovers>,
+        threshold: u8,
+        approvers: Vec<Pubkey>,
+    ) -> Result<()> {
+        configure_shared_ika_approval_config(&mut ctx.accounts.wallet, threshold, approvers)?;
+        msg!(
+            "Configured shared Ika approvals, policy_seq={}",
+            ctx.accounts.wallet.policy_seq
+        );
+        Ok(())
+    }
+
+    pub fn revoke_shared_ika_approver(
+        ctx: Context<RevokeSharedIkaApprover>,
+        approver: Pubkey,
+    ) -> Result<()> {
+        revoke_shared_ika_approver_config(&mut ctx.accounts.wallet, approver)?;
+        msg!(
+            "Revoked shared Ika approver, policy_seq={}",
+            ctx.accounts.wallet.policy_seq
+        );
+        Ok(())
+    }
+
     pub fn execute_intent(ctx: Context<ExecuteIntent>, intent_data: Vec<u8>) -> Result<()> {
         require_policy_commitment(&ctx.accounts.wallet)?;
         let payload = parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
@@ -584,6 +725,10 @@ pub mod contract {
             attestation_policy_seq,
         )?;
         require_not_expired(order_expires_at)?;
+        enforce_shared_ika_quorum(
+            &ctx.accounts.wallet.shared_ika_approvals,
+            ctx.remaining_accounts,
+        )?;
 
         enforce_confidential_numeric_policy(
             &mut ctx.accounts.wallet,

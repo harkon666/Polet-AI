@@ -1,6 +1,6 @@
 # Shared Access and Multisig-Lite Ika Approvals
 
-Labels: `in-progress`
+Labels: `done`
 
 Type: `AFK`
 
@@ -14,9 +14,9 @@ Add demo-visible shared access and multisig-lite controls for Ika signing approv
 
 ## Acceptance criteria
 
-- [ ] Wallet owners can register co-approvers or shared access keys for the Polet wallet.
+- [x] Wallet owners can register co-approvers or shared access keys for the Polet wallet.
 - [x] The policy model supports a threshold that requires multiple approvals for selected Ika intents.
-- [ ] The contract blocks Ika `approve_message` until quorum is met.
+- [x] The contract blocks Ika `approve_message` until quorum is met.
 - [x] UI shows approval progress such as `1/2` and `2/2 ready` without leaking private policy thresholds.
 - [x] SDK/proxy expose a structured `needs-approval` or equivalent state for agent runtimes.
 - [x] Tests cover below-threshold solo approvals, above-threshold quorum, missing approval block, revocation, and non-leaking responses.
@@ -33,12 +33,13 @@ Add demo-visible shared access and multisig-lite controls for Ika signing approv
 - Missing quorum returns `allowed: false`, `status: "needs-approval"`, `code: "IKA_APPROVAL_QUORUM_REQUIRED"`, and progress fields such as `1/2` without exposing confidential numeric thresholds or Ika approval proof data.
 - SDK high-level Ika trades pass `sharedAccess` through and normalize `needs-approval` into agent-readable results.
 - Frontend activity cards can render shared approval progress when the proxy returns a needs-approval response.
+- The contract wallet state now persists shared Ika approvers plus a threshold, owner instructions can configure or revoke approvers, and `approve_ika_message_as_session` requires enough authorized co-approver signer remaining accounts before confidential spend mutation or Ika CPI.
+- The proxy IDL/wallet store are synced to the shared Ika approval state, `/wallet/shared-ika-approvers` and `/wallet/shared-ika-approvers/revoke` build owner-signed setup transactions, and approved Ika transactions include verified co-approvers as required transaction signers.
 
-## Remaining work
+## Notes
 
-- Persist co-approvers/shared access metadata on the Polet wallet instead of requiring the policy in each intent.
-- Add a contract instruction/account path that verifies or consumes quorum state before `approve_ika_message_as_session` can CPI-call Ika.
-- Add owner-signed co-approver registration/revocation transactions and frontend setup controls.
+- Contract quorum enforcement uses Solana signer remaining accounts for the on-chain approval boundary. The off-chain proxy/SDK challenge signatures remain the agent-runtime collection flow and are mapped into required transaction signers when the approval transaction is prepared.
+- Dedicated frontend setup controls can still be polished later, but the current demo can show approval progress and the proxy exposes owner-signed registration/revocation transactions.
 
 ## Verification
 
@@ -48,3 +49,5 @@ Add demo-visible shared access and multisig-lite controls for Ika signing approv
 - `bun run build` passes in `sdk/`.
 - `bun run test src/components/DemoTab.test.tsx` passes in `frontend/`, with a Vitest/Vite shutdown warning after tests complete.
 - `bun run build` passes in `frontend/`.
+- `NO_DNA=1 cargo build-sbf` passes in `contract/`.
+- `NO_DNA=1 cargo test` passes in `contract/`.

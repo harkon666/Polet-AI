@@ -66,6 +66,7 @@ export interface ApproveIkaMessageTransactionRequest {
   userPubkey: string | Uint8Array | number[];
   signatureScheme: number;
   messageApprovalBump: number;
+  sharedApprovers?: string[];
 }
 
 export const APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR = Buffer.from([
@@ -194,14 +195,14 @@ export async function buildApproveIkaMessageSessionTransaction(
     transaction: serialized.toString('base64'),
     blockHash: blockhash,
     slot: recentSlot,
-    signers: [request.sessionKey],
+    signers: [request.sessionKey, ...(request.sharedApprovers ?? [])],
   };
 }
 
 export function buildApproveIkaMessageAsSessionAccounts(
   request: Pick<
     ApproveIkaMessageTransactionRequest,
-    'wallet' | 'sessionKey' | 'dwallet' | 'messageApproval' | 'cpiAuthority' | 'ikaProgram'
+    'wallet' | 'sessionKey' | 'dwallet' | 'messageApproval' | 'cpiAuthority' | 'ikaProgram' | 'sharedApprovers'
   >
 ) {
   return [
@@ -212,6 +213,11 @@ export function buildApproveIkaMessageAsSessionAccounts(
     { pubkey: new PublicKey(request.cpiAuthority), isSigner: false, isWritable: false },
     { pubkey: new PublicKey(request.ikaProgram), isSigner: false, isWritable: false },
     { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ...(request.sharedApprovers ?? []).map((approver) => ({
+      pubkey: new PublicKey(approver),
+      isSigner: true,
+      isWritable: false,
+    })),
   ];
 }
 

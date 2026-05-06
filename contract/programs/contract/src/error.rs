@@ -48,4 +48,10 @@ pub enum ErrorCode {
     OrderExpired,
     #[msg("Invalid Ika approval request")]
     InvalidIkaApproval,
+    #[msg("Too many shared Ika approvers")]
+    TooManySharedIkaApprovers,
+    #[msg("Invalid shared Ika approval configuration")]
+    InvalidSharedIkaApprovalConfig,
+    #[msg("Shared Ika approval quorum is missing")]
+    SharedIkaApprovalQuorumMissing,
 }

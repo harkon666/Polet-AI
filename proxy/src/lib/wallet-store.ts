@@ -58,6 +58,14 @@ export interface WalletData {
     tokenProgram: string;
     configured: boolean;
   };
+  sharedIkaApprovals: {
+    threshold: number;
+    enabled: boolean;
+    approvers: Array<{
+      key: string;
+      authorized: boolean;
+    }>;
+  };
   sessions: Array<{
     key: string;
     expiresAt: number;
@@ -122,6 +130,14 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
         solTokenAccount: accountData.demoCustody.solTokenAccount.toString(),
         tokenProgram: accountData.demoCustody.tokenProgram.toString(),
         configured: accountData.demoCustody.configured,
+      },
+      sharedIkaApprovals: {
+        threshold: accountData.sharedIkaApprovals?.threshold ?? 0,
+        enabled: accountData.sharedIkaApprovals?.enabled ?? false,
+        approvers: (accountData.sharedIkaApprovals?.approvers ?? []).map((approver) => ({
+          key: approver.key.toString(),
+          authorized: approver.authorized,
+        })),
       },
       sessions,
       temporalKeys: sessions,
