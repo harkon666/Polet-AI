@@ -38,7 +38,9 @@ Track alignment:
 
 ## In Progress
 
-- None.
+- `041-official-encrypt-policy-graph-execution` — Partial vertical slice landed in the contract. Wallet policy state now has official Encrypt ciphertext identifiers and pending output slots, `set_encrypt_ciphertext_policy` records max-per-run/daily-cap/daily-spent ciphertext accounts, and `execute_encrypt_policy_graph_as_session` submits `polet_policy_guardrail_graph` through `encrypt_anchor::EncryptContext` while recording pending allow/block and updated daily-spend output ciphertexts.
+  - Verification: `NO_DNA=1 anchor build` now passes in `contract/`; `NO_DNA=1 cargo test` passes in `contract/`.
+  - Remaining: migrate the primary DCA/Ika response lifecycle from masked-witness immediate allow/block into pending/verified Encrypt states and add deterministic `EncryptTestContext/process_pending()` coverage for the full graph executor lifecycle.
 
 ## Blocked
 
@@ -49,7 +51,7 @@ Track alignment:
 
 ### Critical Path
 
-- `041-official-encrypt-policy-graph-execution` — Replace the masked-witness confidential numeric policy simulation with the official Encrypt pre-alpha policy graph execution lifecycle. This should wire the existing `#[encrypt_fn]` graph through `encrypt_anchor::EncryptContext`, track ciphertext accounts and pending/verified outputs, update DCA and Ika response states, and test with `EncryptTestContext/process_pending()`.
+- Continue `041-official-encrypt-policy-graph-execution` — migrate the DCA/Ika proxy and response lifecycle onto the new pending/verified Encrypt contract surface and add `EncryptTestContext/process_pending()` graph executor coverage.
 
 ### Stretch
 

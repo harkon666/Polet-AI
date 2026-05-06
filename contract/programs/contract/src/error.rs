@@ -60,4 +60,6 @@ pub enum ErrorCode {
     NotRecoveryAuthority,
     #[msg("Invalid recovery rotation request")]
     InvalidRecoveryRequest,
+    #[msg("Invalid Encrypt pre-alpha policy ciphertext account")]
+    InvalidEncryptPolicy,
 }

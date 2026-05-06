@@ -5,6 +5,14 @@ package_manager = "yarn"
 resolution = true
 skip-lint = false
 
+[workspace]
+members = [
+    "programs/contract"
+]
+exclude = [
+    "programs/mock_ika"
+]
+
 [programs.devnet]
 contract = "3bJjtLutfxy1oG6dREi32BnvousDcBYug7AsWcdBbkeN"
 mock_ika = "CXHt5JcKMshPiW7HJUqyRnyUugQTnoWN3mbWm92sGLMw"
@@ -17,3 +25,4 @@ wallet = "~/.config/solana/id.json"
 test = "cargo test"
 
 [hooks]
+pre-build = "NO_DNA=1 CARGO_NET_OFFLINE=true cargo build-sbf --manifest-path programs/mock_ika/Cargo.toml"

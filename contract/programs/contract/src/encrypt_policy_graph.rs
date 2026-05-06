@@ -21,6 +21,10 @@ pub fn polet_policy_guardrail_graph(
     (allowed, updated_daily_spent)
 }
 
+pub fn polet_policy_guardrail_graph_bytes() -> Vec<u8> {
+    polet_policy_guardrail_graph()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

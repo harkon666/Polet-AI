@@ -16,7 +16,22 @@ pub struct ConfidentialNumericPolicy {
     pub encrypted_daily_cap: u64,
     pub encrypted_daily_spent: u64,
     pub spent_day_index: i64,
+    pub encrypt_ciphertexts: EncryptPolicyCiphertexts,
     pub enabled: bool,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
+pub struct EncryptPolicyCiphertexts {
+    pub max_per_run: Pubkey,
+    pub daily_cap: Pubkey,
+    pub daily_spent: Pubkey,
+    pub pending_allowed_output: Pubkey,
+    pub pending_daily_spent_output: Pubkey,
+    pub pending_source_amount: Pubkey,
+    pub pending_slot: u64,
+    pub pending_policy_seq: u64,
+    pub pending: bool,
+    pub configured: bool,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Default)]
@@ -90,7 +105,11 @@ impl SessionKey {
 }
 
 impl ConfidentialNumericPolicy {
-    pub const SPACE: usize = 32 + 32 + 8 + 8 + 8 + 8 + 1;
+    pub const SPACE: usize = 32 + 32 + 8 + 8 + 8 + 8 + EncryptPolicyCiphertexts::SPACE + 1;
+}
+
+impl EncryptPolicyCiphertexts {
+    pub const SPACE: usize = 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 1 + 1;
 }
 
 impl DemoTokenCustody {

@@ -1,5 +1,5 @@
 {
-  "address": "J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus",
+  "address": "3bJjtLutfxy1oG6dREi32BnvousDcBYug7AsWcdBbkeN",
   "metadata": {
     "name": "contract",
     "version": "0.1.0",
@@ -275,6 +275,157 @@
               32
             ]
           }
+        }
+      ]
+    },
+    {
+      "name": "execute_encrypt_policy_graph_as_session",
+      "discriminator": [
+        37,
+        34,
+        20,
+        39,
+        19,
+        43,
+        189,
+        171
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  101,
+                  116,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet.owner",
+                "account": "Wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "session_key",
+          "signer": true
+        },
+        {
+          "name": "source_amount_ciphertext",
+          "writable": true
+        },
+        {
+          "name": "max_per_run_ciphertext",
+          "writable": true
+        },
+        {
+          "name": "daily_spent_ciphertext",
+          "writable": true
+        },
+        {
+          "name": "daily_cap_ciphertext",
+          "writable": true
+        },
+        {
+          "name": "allowed_output_ciphertext",
+          "writable": true
+        },
+        {
+          "name": "daily_spent_output_ciphertext",
+          "writable": true
+        },
+        {
+          "name": "encrypt_program"
+        },
+        {
+          "name": "config",
+          "writable": true
+        },
+        {
+          "name": "deposit",
+          "writable": true
+        },
+        {
+          "name": "cpi_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  110,
+                  99,
+                  114,
+                  121,
+                  112,
+                  116,
+                  95,
+                  99,
+                  112,
+                  105,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        },
+        {
+          "name": "network_encryption_key"
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "event_authority"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "attestation_slot",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_policy_seq",
+          "type": "u64"
+        },
+        {
+          "name": "cpi_authority_bump",
+          "type": "u8"
         }
       ]
     },
@@ -803,6 +954,55 @@
       ]
     },
     {
+      "name": "set_encrypt_ciphertext_policy",
+      "discriminator": [
+        170,
+        123,
+        120,
+        65,
+        244,
+        35,
+        198,
+        12
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "policy_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "max_per_run_ciphertext",
+          "type": "pubkey"
+        },
+        {
+          "name": "daily_cap_ciphertext",
+          "type": "pubkey"
+        },
+        {
+          "name": "daily_spent_ciphertext",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
       "name": "set_merkle_root",
       "discriminator": [
         43,
@@ -1096,6 +1296,11 @@
       "code": 6027,
       "name": "InvalidRecoveryRequest",
       "msg": "Invalid recovery rotation request"
+    },
+    {
+      "code": 6028,
+      "name": "InvalidEncryptPolicy",
+      "msg": "Invalid Encrypt pre-alpha policy ciphertext account"
     }
   ],
   "types": [
@@ -1137,6 +1342,14 @@
           {
             "name": "spent_day_index",
             "type": "i64"
+          },
+          {
+            "name": "encrypt_ciphertexts",
+            "type": {
+              "defined": {
+                "name": "EncryptPolicyCiphertexts"
+              }
+            }
           },
           {
             "name": "enabled",
@@ -1200,6 +1413,54 @@
           },
           {
             "name": "migration_pending",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EncryptPolicyCiphertexts",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "max_per_run",
+            "type": "pubkey"
+          },
+          {
+            "name": "daily_cap",
+            "type": "pubkey"
+          },
+          {
+            "name": "daily_spent",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_allowed_output",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_daily_spent_output",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_source_amount",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_slot",
+            "type": "u64"
+          },
+          {
+            "name": "pending_policy_seq",
+            "type": "u64"
+          },
+          {
+            "name": "pending",
+            "type": "bool"
+          },
+          {
+            "name": "configured",
             "type": "bool"
           }
         ]

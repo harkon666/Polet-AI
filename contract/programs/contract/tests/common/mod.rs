@@ -12,6 +12,7 @@ use {
     solana_sha256_hasher::hashv,
     solana_signer::Signer,
     solana_transaction::versioned::VersionedTransaction,
+    std::str::FromStr,
 };
 
 pub const WALLET_SEED: &[u8] = b"polet_wallet";
@@ -24,6 +25,11 @@ pub const WSOL_MINT_BYTES: [u8; 32] = [
     235, 59, 85, 152, 160, 240, 0, 0, 0, 0, 1,
 ];
 pub const IKA_CPI_AUTHORITY_SEED: &[u8] = b"__ika_cpi_authority";
+
+pub fn mock_ika_id() -> anchor_lang::prelude::Pubkey {
+    anchor_lang::prelude::Pubkey::from_str("CXHt5JcKMshPiW7HJUqyRnyUugQTnoWN3mbWm92sGLMw")
+        .expect("valid mock Ika program id")
+}
 
 pub fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
     let program_id = contract::id();
@@ -39,7 +45,7 @@ pub fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
     svm.add_program(program_id, &bytes).unwrap();
     let mock_ika_bytes = std::fs::read(deploy_dir.join("mock_ika.so"))
         .expect("Build mock Ika program first with: NO_DNA=1 anchor build");
-    svm.add_program(mock_ika::id(), &mock_ika_bytes).unwrap();
+    svm.add_program(mock_ika_id(), &mock_ika_bytes).unwrap();
     svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
 
     let (wallet_pda, _bump) = anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
@@ -381,6 +387,32 @@ pub fn set_confidential_numeric_policy(
     send_ix(svm, owner, &[], ix)
 }
 
+pub fn set_encrypt_ciphertext_policy(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    max_per_run_ciphertext: anchor_lang::prelude::Pubkey,
+    daily_cap_ciphertext: anchor_lang::prelude::Pubkey,
+    daily_spent_ciphertext: anchor_lang::prelude::Pubkey,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::SetEncryptCiphertextPolicy {
+        policy_commitment: [0xacu8; 32],
+        max_per_run_ciphertext,
+        daily_cap_ciphertext,
+        daily_spent_ciphertext,
+    };
+    let ix_accounts = contract::accounts::SetEncryptCiphertextPolicy {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[], ix)
+}
+
 pub fn execute_as_session(
     svm: &mut LiteSVM,
     payer: &Keypair,
@@ -454,7 +486,7 @@ pub fn ika_cpi_authority() -> (anchor_lang::prelude::Pubkey, u8) {
 pub fn ika_coordinator() -> anchor_lang::prelude::Pubkey {
     anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
         &[b"dwallet_coordinator"],
-        &mock_ika::id(),
+        &mock_ika_id(),
     )
     .0
 }
@@ -469,7 +501,7 @@ pub fn write_mock_ika_account(
         Account {
             lamports: 1_000_000_000,
             data: vec![0u8; data_len],
-            owner: mock_ika::id(),
+            owner: mock_ika_id(),
             executable: false,
             rent_epoch: 0,
         },
@@ -561,7 +593,7 @@ pub fn approve_ika_message_as_session_with_coapprovers(
         message_approval,
         cpi_authority,
         program: contract::id(),
-        ika_program: mock_ika::id(),
+        ika_program: mock_ika_id(),
         system_program: anchor_lang::solana_program::system_program::ID,
     };
     let mut ix = anchor_lang::solana_program::instruction::Instruction {

@@ -1,13 +1,50 @@
 use {
     common::{
         encrypt_amount, execute_confidential_as_session, grant_session, initialize, read_wallet,
-        set_confidential_numeric_policy, setup_svm,
+        set_confidential_numeric_policy, set_encrypt_ciphertext_policy, setup_svm,
     },
     solana_keypair::Keypair,
     solana_signer::Signer,
 };
 
 mod common;
+
+#[test]
+fn owner_can_record_official_encrypt_ciphertext_policy_identifiers() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let max_per_run_ciphertext = Keypair::new().pubkey();
+    let daily_cap_ciphertext = Keypair::new().pubkey();
+    let daily_spent_ciphertext = Keypair::new().pubkey();
+
+    initialize(&mut svm, &owner, wallet_pda);
+    set_encrypt_ciphertext_policy(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        max_per_run_ciphertext,
+        daily_cap_ciphertext,
+        daily_spent_ciphertext,
+    )
+    .expect("set Encrypt ciphertext policy failed");
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert!(wallet.confidential_policy.enabled);
+    assert!(wallet.confidential_policy.encrypt_ciphertexts.configured);
+    assert_eq!(
+        wallet.confidential_policy.encrypt_ciphertexts.max_per_run,
+        max_per_run_ciphertext
+    );
+    assert_eq!(
+        wallet.confidential_policy.encrypt_ciphertexts.daily_cap,
+        daily_cap_ciphertext
+    );
+    assert_eq!(
+        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        daily_spent_ciphertext
+    );
+    assert!(!wallet.confidential_policy.encrypt_ciphertexts.pending);
+    assert_eq!(wallet.policy_seq, 1);
+}
 
 #[test]
 fn confidential_policy_allows_in_limit_action_and_updates_daily_spent() {
