@@ -47,21 +47,25 @@ Verified fields:
 - `clientDataJSON.challenge` matches the Polet passkey challenge
 - `clientDataJSON.origin` matches the expected origin
 - authenticator data rpId hash matches expected `rpId`
+- challenge `expiresAtUnix` has not passed
 - user presence is set
 - user verification is set when required
 - P-256 WebAuthn signature verifies over `authenticatorData || sha256(clientDataJSON)`
 
 Successful verification returns a `passkey-verified` receipt with an explicit warning that Solana signatures and on-chain checks are still required.
 
+For route-level verification, set `PASSKEY_EXPECTED_ORIGIN` and `PASSKEY_RP_ID` on the proxy so expected WebAuthn values come from server configuration. Request-body expected values remain only a local prototype fallback.
+
 ## Recovery And Failure Checks
 
 - If the passkey is unavailable, the request stays in `needs-approval`; the user can fall back to the configured Solana co-approver signer flow.
 - If origin or rpId mismatch, verification fails and no co-approval receipt is produced.
+- If the challenge is expired, verification fails and no co-approval receipt is produced.
 - If the challenge is replayed against a different shared Ika approval challenge, verification fails.
 - If user verification is required but not available, verification fails.
 - If the passkey receipt exists but Solana co-approver signers are missing, the contract still blocks Ika `approve_message` before CPI.
 
 ## Verification
 
-- `bun test ./tests/passkey-coapproval.test.ts` in `proxy/` covers valid assertion verification, replay rejection, and unavailable user-verification failure.
+- `bun test ./tests/passkey-coapproval.test.ts` in `proxy/` covers valid assertion verification, replay rejection, expired challenge rejection, and unavailable user-verification failure.
 - `bun run build` in `proxy/` verifies the route and prototype module compile.

@@ -94,6 +94,28 @@ describe('Passkey co-approval prototype', () => {
       requireUserVerification: true,
     })).toThrow('passkey user verification is required');
   });
+
+  test('rejects expired passkey co-approval challenges', () => {
+    const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+    const challenge = buildPasskeyCoapprovalChallenge({
+      owner: 'owner-1',
+      sessionKey: 'session-1',
+      sharedApprovalChallenge: 'challenge-a',
+      credentialId: 'credential-1',
+      rpId: RP_ID,
+      expiresAtUnix: 100,
+    });
+    const assertion = createAssertion(privateKey, challenge, { userVerified: true });
+
+    expect(() => verifyPasskeyCoapproval({
+      expectedChallenge: challenge,
+      expectedOrigin: ORIGIN,
+      expectedRpId: RP_ID,
+      credentialPublicKeyJwk: publicKey.export({ format: 'jwk' }),
+      assertion: { credentialId: 'credential-1', ...assertion },
+      nowUnix: 101,
+    })).toThrow('passkey challenge expired');
+  });
 });
 
 function createAssertion(privateKey: ReturnType<typeof generateKeyPairSync>['privateKey'], challenge: string, options: { userVerified: boolean }) {

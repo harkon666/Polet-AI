@@ -46,10 +46,12 @@ passkeyRouter.post('/coapproval/challenge', async (c) => {
 passkeyRouter.post('/coapproval/verify', async (c) => {
   try {
     const body = await c.req.json();
+    const expectedOrigin = process.env.PASSKEY_EXPECTED_ORIGIN ?? body.expectedOrigin;
+    const expectedRpId = process.env.PASSKEY_RP_ID ?? body.expectedRpId;
     const receipt = verifyPasskeyCoapproval({
       expectedChallenge: body.expectedChallenge,
-      expectedOrigin: body.expectedOrigin,
-      expectedRpId: body.expectedRpId,
+      expectedOrigin,
+      expectedRpId,
       expectedCredentialId: body.expectedCredentialId,
       credentialPublicKeyJwk: body.credentialPublicKeyJwk,
       assertion: body.assertion,

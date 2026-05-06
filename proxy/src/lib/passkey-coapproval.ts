@@ -26,6 +26,7 @@ export interface PasskeyCoapprovalVerificationInput {
   credentialPublicKeyJwk: JsonWebKey;
   assertion: PasskeyAssertionInput;
   requireUserVerification?: boolean;
+  nowUnix?: number;
 }
 
 export interface PasskeyCoapprovalReceipt {
@@ -53,6 +54,11 @@ export function buildPasskeyCoapprovalChallenge(input: PasskeyCoapprovalChalleng
 export function verifyPasskeyCoapproval(input: PasskeyCoapprovalVerificationInput): PasskeyCoapprovalReceipt {
   if (input.expectedCredentialId && input.assertion.credentialId !== input.expectedCredentialId) {
     throw new Error('passkey credential id mismatch');
+  }
+  const challengePayload = parsePasskeyCoapprovalChallenge(input.expectedChallenge);
+  const nowUnix = input.nowUnix ?? Math.floor(Date.now() / 1000);
+  if (challengePayload.expiresAtUnix <= nowUnix) {
+    throw new Error('passkey challenge expired');
   }
 
   const clientData = JSON.parse(base64urlDecode(input.assertion.clientDataJSON).toString('utf8')) as {
@@ -108,6 +114,17 @@ export function verifyPasskeyCoapproval(input: PasskeyCoapprovalVerificationInpu
     userVerified,
     warning: 'Passkey co-approval is a UX proof only; Polet still requires Solana session/co-approver signatures and on-chain policy checks.',
   };
+}
+
+function parsePasskeyCoapprovalChallenge(challenge: string): PasskeyCoapprovalChallengeInput & { schema: string } {
+  const payload = JSON.parse(base64urlDecode(challenge).toString('utf8')) as Partial<PasskeyCoapprovalChallengeInput> & { schema?: string };
+  if (payload.schema !== PASSKEY_COAPPROVAL_CHALLENGE_SCHEMA) {
+    throw new Error('passkey challenge schema mismatch');
+  }
+  if (!Number.isFinite(payload.expiresAtUnix)) {
+    throw new Error('passkey challenge expiry is invalid');
+  }
+  return payload as PasskeyCoapprovalChallengeInput & { schema: string };
 }
 
 export function base64url(data: Buffer): string {
