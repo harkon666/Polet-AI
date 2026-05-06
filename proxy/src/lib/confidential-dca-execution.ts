@@ -22,6 +22,7 @@ import {
   StrategyExecutionError,
   type StrategyExecutionDeps,
 } from './strategy-execution';
+import type { OfficialEncryptPolicyExecution } from './official-encrypt-policy';
 
 const USDC_DECIMALS = 6;
 
@@ -47,6 +48,7 @@ export interface ConfidentialDcaRunAllowed {
   smartWalletAuthority: string;
   jupiterPlan: JupiterDcaStrategyPlan;
   transaction: BuiltTransaction;
+  encryptPolicy?: Extract<OfficialEncryptPolicyExecution, { status: 'encrypt-verified-allowed' }>;
 }
 
 export interface ConfidentialDcaRunBlocked {
@@ -58,8 +60,15 @@ export interface ConfidentialDcaRunBlocked {
     | 'POLICY_NOT_CONFIGURED'
     | 'INVALID_POLICY_WITNESS'
     | 'CONFIDENTIAL_POLICY_BLOCKED'
+    | 'ENCRYPT_POLICY_PENDING'
+    | 'ENCRYPT_POLICY_VERIFIED_BLOCKED'
     | 'TOKEN_CUSTODY_NOT_CONFIGURED';
   reason: string;
+  status?: 'pending-encrypt-execution' | 'encrypt-verified-blocked';
+  encryptPolicy?: Extract<
+    OfficialEncryptPolicyExecution,
+    { status: 'pending-encrypt-execution' | 'encrypt-verified-blocked' }
+  >;
   jupiterPlan?: JupiterDcaStrategyPlan;
 }
 
@@ -123,7 +132,7 @@ export async function runConfidentialDcaExecution(
             throw new ConfidentialDcaExecutionError('Jupiter precheck failed', 'JUPITER_PRECHECK_FAILED', 502);
           }
         },
-        buildAllowed: async ({ wallet, prepared }) => {
+        buildAllowed: async ({ wallet, prepared, encryptPolicy }) => {
           const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
           const transaction = await (deps.buildTransaction ?? buildConfidentialTransferSessionTransaction)(
             {
@@ -147,6 +156,9 @@ export async function runConfidentialDcaExecution(
             smartWalletAuthority,
             jupiterPlan: prepared,
             transaction,
+            ...(encryptPolicy?.status === 'encrypt-verified-allowed' && {
+              encryptPolicy,
+            }),
           };
         },
       },
@@ -157,6 +169,7 @@ export async function runConfidentialDcaExecution(
       const { prepared, ...blocked } = decision;
       return {
         ...blocked,
+        ...(blocked.encryptPolicy && { status: blocked.encryptPolicy.status }),
         ...(prepared && { jupiterPlan: prepared }),
       } as ConfidentialDcaRunBlocked;
     }

@@ -5,6 +5,7 @@ import type { Policy, WalletAccount } from '../types/intent';
 import idl from './idl.json' with { type: "json" };
 import { getConnection } from './transaction-builder';
 import { PROGRAM_ID, deriveWalletPda } from './program-identity';
+import type { EncryptPolicyCiphertextState } from './official-encrypt-policy';
 
 // Borsh schema for Policy (must match Rust contract)
 const POLICY_SCHEMA = new Map([[Object, {
@@ -49,6 +50,7 @@ export interface WalletData {
     encryptedDailyCap: bigint;
     encryptedDailySpent: bigint;
     spentDayIndex: number;
+    encryptCiphertexts?: EncryptPolicyCiphertextState;
     enabled: boolean;
   };
   demoCustody: {
@@ -130,6 +132,18 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
         encryptedDailyCap: accountData.confidentialPolicy.encryptedDailyCap.toString(),
         encryptedDailySpent: accountData.confidentialPolicy.encryptedDailySpent.toString(),
         spentDayIndex: accountData.confidentialPolicy.spentDayIndex.toNumber(),
+        encryptCiphertexts: accountData.confidentialPolicy.encryptCiphertexts && {
+          maxPerRun: accountData.confidentialPolicy.encryptCiphertexts.maxPerRun.toString(),
+          dailyCap: accountData.confidentialPolicy.encryptCiphertexts.dailyCap.toString(),
+          dailySpent: accountData.confidentialPolicy.encryptCiphertexts.dailySpent.toString(),
+          pendingAllowedOutput: accountData.confidentialPolicy.encryptCiphertexts.pendingAllowedOutput.toString(),
+          pendingDailySpentOutput: accountData.confidentialPolicy.encryptCiphertexts.pendingDailySpentOutput.toString(),
+          pendingSourceAmount: accountData.confidentialPolicy.encryptCiphertexts.pendingSourceAmount.toString(),
+          pendingSlot: accountData.confidentialPolicy.encryptCiphertexts.pendingSlot.toNumber(),
+          pendingPolicySeq: accountData.confidentialPolicy.encryptCiphertexts.pendingPolicySeq.toNumber(),
+          pending: accountData.confidentialPolicy.encryptCiphertexts.pending,
+          configured: accountData.confidentialPolicy.encryptCiphertexts.configured,
+        },
         enabled: accountData.confidentialPolicy.enabled,
       },
       demoCustody: {

@@ -375,6 +375,54 @@ describe('Ika bridgeless execution request', () => {
     }
   });
 
+  test('suppresses Ika approval data while official Encrypt graph execution is pending', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+    const intent = createIkaIntent(fixture, '5');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => {
+        throw new Error('pending Encrypt requests must not build Ika approval transactions');
+      },
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('ENCRYPT_POLICY_PENDING');
+      expect(result.status).toBe('pending-encrypt-execution');
+      expect(result.encryptPolicy?.graph).toBe('polet_policy_guardrail_graph');
+      expect('ikaRequest' in result).toBe(false);
+      expect(JSON.stringify(result)).not.toContain('messageApprovalPda');
+      expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
+    }
+  });
+
+  test('prepares Ika approval only after official Encrypt verification allows the graph output', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+    const intent = createIkaIntent(fixture, '5');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      resolveEncryptPolicyExecution: async () => ({
+        status: 'encrypt-verified-allowed',
+        policySequence: fixture.wallet.policySeq,
+        sourceAmountCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingSourceAmount,
+        allowedOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput,
+        dailySpentOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput,
+        verifiedSlot: 1001,
+        graph: 'polet_policy_guardrail_graph',
+      }),
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      expect(result.ikaRequest.policyAttestation.status).toBe('encrypt-verified-allowed');
+      expect(result.ikaRequest.policyAttestation.encryptPolicy?.status).toBe('encrypt-verified-allowed');
+      expect(result.ikaRequest.poletApprovalTransaction).toEqual(fixture.approvalTransaction);
+    }
+  });
+
   test('creates an optional Ethereum Ika request with a Sepolia EIP-191 digest after policy approval', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5', 'ethereum', 'ETH');
@@ -777,6 +825,7 @@ function createFixture(options: {
   sessionAuthorized?: boolean;
   sessionGrantedSlot?: number;
   lastRevokedSlot?: number;
+  officialEncrypt?: 'pending';
 } = {}) {
   const owner = Keypair.generate().publicKey.toString();
   const sessionKey = Keypair.generate().publicKey.toString();
@@ -802,6 +851,20 @@ function createFixture(options: {
       encryptedDailyCap: policySetup.encryptedDailyCap,
       encryptedDailySpent: policySetup.encryptedDailySpent,
       spentDayIndex: currentDayIndex(),
+      ...(options.officialEncrypt === 'pending' && {
+        encryptCiphertexts: {
+          maxPerRun: Keypair.generate().publicKey.toString(),
+          dailyCap: Keypair.generate().publicKey.toString(),
+          dailySpent: Keypair.generate().publicKey.toString(),
+          pendingAllowedOutput: Keypair.generate().publicKey.toString(),
+          pendingDailySpentOutput: Keypair.generate().publicKey.toString(),
+          pendingSourceAmount: Keypair.generate().publicKey.toString(),
+          pendingSlot: 98,
+          pendingPolicySeq: 7,
+          pending: true,
+          configured: true,
+        },
+      }),
       enabled: true,
     },
     demoCustody: {

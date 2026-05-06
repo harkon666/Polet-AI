@@ -35,6 +35,7 @@ import {
   StrategyExecutionError,
   type StrategyExecutionDeps,
 } from './strategy-execution';
+import type { OfficialEncryptPolicyExecution } from './official-encrypt-policy';
 import type { Intent, MultichainStrategyParams, PoletChain } from '../types/intent';
 
 export interface IkaBridgelessExecutionRequest {
@@ -66,10 +67,11 @@ export interface IkaBridgelessExecutionRequest {
     policySequence: number;
   };
   policyAttestation: {
-    status: 'approved';
+    status: 'approved' | 'encrypt-verified-allowed';
     policySequence: number;
     policyCommitment: number[];
     attestationHash: string;
+    encryptPolicy?: Extract<OfficialEncryptPolicyExecution, { status: 'encrypt-verified-allowed' }>;
   };
   canonicalOrder: CanonicalBridgelessOrder;
   canonicalOrderHash: string;
@@ -110,9 +112,16 @@ export interface IkaBridgelessBlocked {
     | 'POLICY_NOT_CONFIGURED'
     | 'INVALID_POLICY_WITNESS'
     | 'CONFIDENTIAL_POLICY_BLOCKED'
+    | 'ENCRYPT_POLICY_PENDING'
+    | 'ENCRYPT_POLICY_VERIFIED_BLOCKED'
     | 'IKA_ROUTE_NOT_ALLOWED'
     | 'IKA_RISK_GUARDRAIL_BLOCKED';
   reason: string;
+  status?: 'pending-encrypt-execution' | 'encrypt-verified-blocked';
+  encryptPolicy?: Extract<
+    OfficialEncryptPolicyExecution,
+    { status: 'pending-encrypt-execution' | 'encrypt-verified-blocked' }
+  >;
 }
 
 export type IkaBridgelessResult = IkaBridgelessAllowed | IkaBridgelessNeedsApproval | IkaBridgelessBlocked;
@@ -182,12 +191,25 @@ export async function createIkaBridgelessExecutionRequest(
         amountBaseUnits,
         encryptionWitness: params.encryptionWitness,
         blockedReason: 'Confidential policy blocked this bridgeless request.',
-        buildAllowed: async ({ wallet }) => buildIkaAllowedResult(intent, params, wallet, amountBaseUnits, riskDecision, deps),
+        buildAllowed: async ({ wallet, encryptPolicy }) => buildIkaAllowedResult(
+          intent,
+          params,
+          wallet,
+          amountBaseUnits,
+          riskDecision,
+          deps,
+          encryptPolicy
+        ),
       },
       deps
     );
 
-    if (!decision.allowed) return decision;
+    if (!decision.allowed) {
+      return {
+        ...decision,
+        ...(decision.encryptPolicy && { status: decision.encryptPolicy.status }),
+      };
+    }
     return decision.payload;
   } catch (error) {
     if (error instanceof StrategyExecutionError) {
@@ -211,7 +233,8 @@ async function buildIkaAllowedResult(
   wallet: WalletData,
   amountBaseUnits: bigint,
   riskDecision: ReturnType<typeof evaluateBridgelessRiskGuardrails>,
-  deps: IkaBridgelessDeps
+  deps: IkaBridgelessDeps,
+  encryptPolicy?: OfficialEncryptPolicyExecution
 ): Promise<IkaBridgelessAllowed> {
   const amount = params.amount.toString();
   const smartWalletAuthority = wallet.walletPda || deriveWalletPda(intent.owner);
@@ -281,10 +304,11 @@ async function buildIkaAllowedResult(
       policySequence: wallet.policySeq,
     },
     policyAttestation: {
-      status: 'approved',
+      status: encryptPolicy?.status === 'encrypt-verified-allowed' ? 'encrypt-verified-allowed' : 'approved',
       policySequence: wallet.policySeq,
       policyCommitment: wallet.confidentialPolicy.policyCommitment,
       attestationHash,
+      ...(encryptPolicy?.status === 'encrypt-verified-allowed' && { encryptPolicy }),
     },
     canonicalOrder,
     canonicalOrderHash,

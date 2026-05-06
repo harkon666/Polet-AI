@@ -3,6 +3,12 @@ import {
   evaluateConfidentialNumericPolicy,
 } from './confidential-numeric-policy';
 import {
+  evaluateOfficialEncryptPolicyLifecycle,
+  hasOfficialEncryptPolicy,
+  type OfficialEncryptPolicyExecution,
+  type OfficialEncryptPolicyResolver,
+} from './official-encrypt-policy';
+import {
   getWalletData,
   type WalletData,
 } from './wallet-store';
@@ -14,6 +20,8 @@ export type GuardedStrategyBlockedCode =
   | 'POLICY_NOT_CONFIGURED'
   | 'INVALID_POLICY_WITNESS'
   | 'CONFIDENTIAL_POLICY_BLOCKED'
+  | 'ENCRYPT_POLICY_PENDING'
+  | 'ENCRYPT_POLICY_VERIFIED_BLOCKED'
   | 'TOKEN_CUSTODY_NOT_CONFIGURED';
 
 export interface GuardedStrategyBlocked<TPrepared = unknown> {
@@ -21,6 +29,7 @@ export interface GuardedStrategyBlocked<TPrepared = unknown> {
   code: GuardedStrategyBlockedCode;
   reason: string;
   prepared?: TPrepared;
+  encryptPolicy?: OfficialEncryptPolicyExecution;
 }
 
 export interface GuardedStrategyAllowed<TPayload> {
@@ -38,6 +47,7 @@ export interface GuardedStrategyContext<TPrepared = undefined> {
   sessionKey: string;
   amountBaseUnits: bigint;
   encryptionWitness: number[];
+  encryptPolicy?: OfficialEncryptPolicyExecution;
   prepared: TPrepared;
 }
 
@@ -56,6 +66,7 @@ export interface StrategyExecutionDeps {
   getWalletData?: (owner: string) => Promise<WalletData | null>;
   nowSeconds?: () => number;
   todayIndex?: () => number;
+  resolveEncryptPolicyExecution?: OfficialEncryptPolicyResolver;
 }
 
 export class StrategyExecutionError extends Error {
@@ -99,9 +110,52 @@ export async function executeGuardedStrategy<TPrepared, TPayload>(
     sessionKey: request.sessionKey,
     amountBaseUnits: request.amountBaseUnits,
     encryptionWitness: request.encryptionWitness,
+    encryptPolicy: undefined,
     prepared: undefined,
   };
   const prepared = request.prepare ? await request.prepare(baseContext) : undefined;
+
+  if (hasOfficialEncryptPolicy(wallet)) {
+    const encryptPolicy = await evaluateOfficialEncryptPolicyLifecycle(
+      {
+        wallet,
+        owner: request.owner,
+        sessionKey: request.sessionKey,
+        amountBaseUnits: request.amountBaseUnits,
+      },
+      deps.resolveEncryptPolicyExecution
+    );
+
+    if (encryptPolicy.status === 'pending-encrypt-execution') {
+      return {
+        allowed: false,
+        code: 'ENCRYPT_POLICY_PENDING',
+        reason: 'Encrypt policy graph execution is pending verification.',
+        encryptPolicy,
+        ...(prepared !== undefined && { prepared }),
+      };
+    }
+
+    if (encryptPolicy.status === 'encrypt-verified-blocked') {
+      return {
+        allowed: false,
+        code: 'ENCRYPT_POLICY_VERIFIED_BLOCKED',
+        reason: request.blockedReason,
+        encryptPolicy,
+        ...(prepared !== undefined && { prepared }),
+      };
+    }
+
+    return {
+      allowed: true,
+      payload: await request.buildAllowed({
+        ...baseContext,
+        encryptPolicy,
+        prepared: prepared as TPrepared,
+      }),
+    };
+  }
+
   const context: GuardedStrategyContext<TPrepared> = {
     ...baseContext,
     prepared: prepared as TPrepared,

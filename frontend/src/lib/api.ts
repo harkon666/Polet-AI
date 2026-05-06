@@ -214,6 +214,7 @@ export interface JupiterPlanPreview {
 export type RunConfidentialDcaResult = {
   allowed: boolean;
   code: string;
+  status?: 'pending-encrypt-execution' | 'encrypt-verified-allowed' | 'encrypt-verified-blocked' | string;
   reason?: string;
   amount?: string;
   amountBaseUnits?: string;
@@ -225,6 +226,16 @@ export type RunConfidentialDcaResult = {
     blockHash: string;
     slot: number;
     signers: string[];
+  };
+  encryptPolicy?: {
+    status: 'pending-encrypt-execution' | 'encrypt-verified-allowed' | 'encrypt-verified-blocked';
+    policySequence: number;
+    sourceAmountCiphertext: string;
+    allowedOutputCiphertext: string;
+    dailySpentOutputCiphertext: string;
+    pendingSlot?: number;
+    verifiedSlot?: number;
+    graph: 'polet_policy_guardrail_graph';
   };
 };
 
@@ -324,9 +335,18 @@ export interface IkaRequestPreview {
     policySequence: number;
   };
   policyAttestation: {
-    status: 'approved';
+    status: 'approved' | 'encrypt-verified-allowed';
     policySequence: number;
     attestationHash: string;
+    encryptPolicy?: {
+      status: 'encrypt-verified-allowed';
+      policySequence: number;
+      sourceAmountCiphertext: string;
+      allowedOutputCiphertext: string;
+      dailySpentOutputCiphertext: string;
+      verifiedSlot?: number;
+      graph: 'polet_policy_guardrail_graph';
+    };
   };
   executionBoundary: {
     status: 'request-prepared' | 'approval-transaction-prepared' | 'approval-submitted' | 'signature-pending' | 'signature-produced-prealpha';
@@ -353,8 +373,18 @@ export interface IkaRequestPreview {
 export type RunMultichainIntentResult = {
   allowed: boolean;
   code: string;
-  status?: 'needs-approval' | string;
+  status?: 'needs-approval' | 'pending-encrypt-execution' | 'encrypt-verified-blocked' | string;
   reason?: string;
+  encryptPolicy?: {
+    status: 'pending-encrypt-execution' | 'encrypt-verified-blocked';
+    policySequence: number;
+    sourceAmountCiphertext: string;
+    allowedOutputCiphertext: string;
+    dailySpentOutputCiphertext: string;
+    pendingSlot?: number;
+    verifiedSlot?: number;
+    graph: 'polet_policy_guardrail_graph';
+  };
   approval?: {
     status: 'not-required' | 'needs-approval' | 'ready';
     required: number;

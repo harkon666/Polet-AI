@@ -705,6 +705,9 @@ export type PoletTradeStatus =
   | 'devnet-smoke-proof'
   | 'broadcast-submitted'
   | 'broadcast-confirmed'
+  | 'pending-encrypt-execution'
+  | 'encrypt-verified-allowed'
+  | 'encrypt-verified-blocked'
   | 'needs-approval'
   | 'blocked'
   | 'not-supported';
@@ -1054,6 +1057,7 @@ interface ProxyTradeDataLike {
   reason?: string;
   approval?: SharedIkaApprovalProgress;
   status?: PoletTradeStatus;
+  encryptPolicy?: unknown;
   devnetSmokeProof?: unknown;
   executionPath?: string;
   transaction?: unknown;
@@ -1136,6 +1140,7 @@ function normalizeJupiterTradeResponse(response: ProxyEnvelopeLike, intent: DcaI
       route: data.route,
       build: data.build,
       multichain: data.multichain,
+      encryptPolicy: data.encryptPolicy,
     },
     raw: response,
   };
@@ -1212,16 +1217,21 @@ function blockedTradeResult(
   reason?: string,
   raw?: unknown
 ): PoletTradeResult {
+  const data = (raw as ProxyEnvelopeLike | undefined)?.data;
+  const encryptStatus = data?.status === 'pending-encrypt-execution' || data?.status === 'encrypt-verified-blocked'
+    ? data.status
+    : 'blocked';
   return {
     allowed: false,
     rail,
-    status: 'blocked',
+    status: encryptStatus,
     settlement: 'not-executed',
     policy: {
       allowed: false,
       code,
       reason: reason ?? 'Polet confidential policy blocked this trade without revealing private thresholds.',
     },
+    ...(data?.encryptPolicy !== undefined ? { details: { encryptPolicy: data.encryptPolicy } } : {}),
     raw,
   };
 }
@@ -1306,6 +1316,8 @@ function isBlockingProxyCode(code: string | undefined): boolean {
     || code === 'ORDER_EXPIRED'
     || code === 'POLICY_NOT_CONFIGURED'
     || code === 'INVALID_POLICY_WITNESS'
+    || code === 'ENCRYPT_POLICY_PENDING'
+    || code === 'ENCRYPT_POLICY_VERIFIED_BLOCKED'
     || code === 'IKA_ROUTE_NOT_ALLOWED'
     || code === 'IKA_RISK_GUARDRAIL_BLOCKED';
 }

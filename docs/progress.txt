@@ -39,8 +39,9 @@ Track alignment:
 ## In Progress
 
 - `041-official-encrypt-policy-graph-execution` — Partial vertical slice landed in the contract. Wallet policy state now has official Encrypt ciphertext identifiers and pending output slots, `set_encrypt_ciphertext_policy` records max-per-run/daily-cap/daily-spent ciphertext accounts, and `execute_encrypt_policy_graph_as_session` submits `polet_policy_guardrail_graph` through `encrypt_anchor::EncryptContext` while recording pending allow/block and updated daily-spend output ciphertexts.
-  - Verification: `NO_DNA=1 anchor build` now passes in `contract/`; `NO_DNA=1 cargo test` passes in `contract/`.
-  - Remaining: migrate the primary DCA/Ika response lifecycle from masked-witness immediate allow/block into pending/verified Encrypt states and add deterministic `EncryptTestContext/process_pending()` coverage for the full graph executor lifecycle.
+  - Update: proxy guarded execution now detects official Encrypt ciphertext policy state and returns safe `pending-encrypt-execution`, `encrypt-verified-allowed`, and `encrypt-verified-blocked` lifecycle results. DCA and Ika flows do not build unsigned execution/Ika approval payloads while Encrypt graph output is pending or verified blocked; verified-allowed output is carried in the policy attestation without witness bytes or private thresholds. SDK/frontend response types now include the lifecycle surface.
+  - Verification: `NO_DNA=1 anchor build` now passes in `contract/`; `NO_DNA=1 cargo test` passes in `contract/`; `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run build` passes in `frontend/`.
+  - Remaining: wire owner policy setup to create Encrypt ciphertext accounts through the official client/accounts and add deterministic `EncryptTestContext/process_pending()` coverage for the full graph executor lifecycle. The on-chain Ika CPI lifecycle has been split into `050-contract-official-encrypt-verified-ika-cpi-lifecycle`.
 
 ## Blocked
 
@@ -51,7 +52,8 @@ Track alignment:
 
 ### Critical Path
 
-- Continue `041-official-encrypt-policy-graph-execution` — migrate the DCA/Ika proxy and response lifecycle onto the new pending/verified Encrypt contract surface and add `EncryptTestContext/process_pending()` graph executor coverage.
+- `050-contract-official-encrypt-verified-ika-cpi-lifecycle` — Contract-only issue for migrating the on-chain Ika CPI path from masked-witness approval to pending/verified official Encrypt graph output before `approve_message`.
+- Continue `041-official-encrypt-policy-graph-execution` — wire official Encrypt ciphertext account creation and add `EncryptTestContext/process_pending()` graph executor coverage.
 - `042-frontend-shared-ika-approval-ui` — Add frontend configure/revoke shared Ika approvers and needs-approval/ready quorum states for the Ika demo.
 - `046-frontend-ethereum-ika-optional-route-ui` — Add the optional Ethereum/ETH Ika approved route as a first-class frontend demo path instead of using it as an unsupported route.
 - `048-frontend-official-encrypt-status-surface` — Add frontend pending/verified Encrypt lifecycle states once the official Encrypt issue 041 proxy lifecycle is available.
@@ -105,6 +107,7 @@ Track alignment:
 └── 014-confidential-numeric-policy-module
     ├── 015-legacy-policy-path-quarantine
     ├── 041-official-encrypt-policy-graph-execution
+    │   └── 050-contract-official-encrypt-verified-ika-cpi-lifecycle
     └── 016-proxy-execution-module
         └── 017-execution-payload-module
 
