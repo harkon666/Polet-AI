@@ -60,6 +60,13 @@ export interface MultichainStrategyParams {
       encoding?: 'base64';
     }>;
   };
+  routeGuardrails?: {
+    mode: 'chain-asset-allowlist';
+    allowedSourceChains: PoletChain[];
+    allowedTargetChains: PoletChain[];
+    allowedSourceAssets: string[];
+    allowedTargetAssets: string[];
+  };
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }

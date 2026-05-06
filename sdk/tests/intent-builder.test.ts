@@ -189,6 +189,35 @@ describe('Polet AI SDK - Intent Builder', () => {
         signatureScheme: 'ecdsa-secp256k1-sha256',
       });
     });
+
+    test('keeps public chain and asset route guardrails on Ika intents', () => {
+      const intent = createMultichainStrategyIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        sourceChain: 'solana',
+        sourceAsset: 'USDC',
+        targetChain: 'sui',
+        targetAsset: 'SUI',
+        amount: '5',
+        executionRail: 'ika',
+        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        routeGuardrails: {
+          mode: 'chain-asset-allowlist',
+          allowedSourceChains: ['solana'],
+          allowedTargetChains: ['sui'],
+          allowedSourceAssets: ['USDC'],
+          allowedTargetAssets: ['SUI'],
+        },
+      });
+
+      expect(intent.params.routeGuardrails).toEqual({
+        mode: 'chain-asset-allowlist',
+        allowedSourceChains: ['solana'],
+        allowedTargetChains: ['sui'],
+        allowedSourceAssets: ['USDC'],
+        allowedTargetAssets: ['SUI'],
+      });
+    });
   });
 
   describe('canonical bridgeless order message', () => {
@@ -973,6 +1002,47 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
       expect(JSON.stringify(result)).not.toContain('8,8,8');
       expect(JSON.stringify(result)).not.toContain('messageApprovalPda');
+    });
+
+    test('normalizes Ika route guardrail blocks with a safe explanation', async () => {
+      const witness = Array.from({ length: 32 }, () => 8);
+      const fetchMock = async () => Response.json({
+        success: true,
+        data: {
+          allowed: false,
+          code: 'IKA_ROUTE_NOT_ALLOWED',
+          reason: 'This chain or asset route is outside the wallet allowed route policy. No Ika approval data was prepared.',
+        },
+      });
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: witness,
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'ethereum', asset: 'ETH' },
+        amount: '5',
+        routeGuardrails: {
+          mode: 'chain-asset-allowlist',
+          allowedSourceChains: ['solana'],
+          allowedTargetChains: ['sui'],
+          allowedSourceAssets: ['USDC'],
+          allowedTargetAssets: ['SUI'],
+        },
+      });
+
+      expect(result.allowed).toBe(false);
+      expect(result.status).toBe('blocked');
+      expect(result.policy.code).toBe('IKA_ROUTE_NOT_ALLOWED');
+      expect(result.policy.reason).toMatch(/allowed route policy/i);
+      expect(result.execution).toBeUndefined();
+      expect(JSON.stringify(result)).not.toContain(witness.join(','));
+      expect(JSON.stringify(result)).not.toContain('messageApproval');
     });
 
     test('normalizes Ika signature and devnet smoke proof statuses', async () => {

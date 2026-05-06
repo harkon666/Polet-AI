@@ -129,6 +129,7 @@ const COPY = {
     runBlocked: 'Try 25 USDC via proxy',
     runIka: 'Approve 5 USDC-equivalent Ika',
     runIkaBlocked: 'Try 25 Ika request',
+    runIkaUnsupported: 'Try unsupported Ika route',
     activityTitle: 'Activity log',
     emptyLog: 'Belum ada aktivitas agen.',
     approved: 'DISETUJUI',
@@ -140,6 +141,7 @@ const COPY = {
     jupiterRouteReady: 'Jupiter route siap',
     ikaRouteRequested: 'Ika dWallet message approved',
     ikaRouteBlocked: 'Ika request blocked',
+    ikaRouteUnsupported: 'Rute Ika tidak diizinkan',
     expectedOutput: 'Estimasi output',
     minOutput: 'Min setelah slippage',
     routeEngine: 'Route',
@@ -148,6 +150,7 @@ const COPY = {
     executionBoundary: 'Preview: route/build Jupiter ditampilkan sebagai estimasi dari proxy; swap nyata tidak dikirim dari frontend ini.',
     ikaExecutionBoundary: 'Ika dWallet message approved: Polet membangun unsigned approval transaction setelah policy lulus; settlement bridgeless nyata belum dieksekusi.',
     ikaBlockedBoundary: 'Guardrail menolak request Ika tanpa membuat data approval dWallet.',
+    ikaUnsupportedBoundary: 'Rute chain atau asset berada di luar policy allowlist. Data approval dWallet tidak dibuat.',
     ikaTechnicalDetails: 'Technical proof',
     dwallet: 'dWallet',
     messageApproval: 'MessageApproval',
@@ -221,6 +224,7 @@ const COPY = {
     runBlocked: 'Try 25 USDC through proxy',
     runIka: 'Approve 5 USDC-equivalent Ika',
     runIkaBlocked: 'Try 25 Ika request',
+    runIkaUnsupported: 'Try unsupported Ika route',
     activityTitle: 'Activity log',
     emptyLog: 'No agent activity yet.',
     approved: 'APPROVED',
@@ -232,6 +236,7 @@ const COPY = {
     jupiterRouteReady: 'Jupiter route ready',
     ikaRouteRequested: 'Ika dWallet message approved',
     ikaRouteBlocked: 'Ika request blocked',
+    ikaRouteUnsupported: 'Ika route not allowed',
     expectedOutput: 'Expected output',
     minOutput: 'Min after slippage',
     routeEngine: 'Route engine',
@@ -240,6 +245,7 @@ const COPY = {
     executionBoundary: 'Preview: Jupiter route is built; real mainnet swap is not executed in this demo.',
     ikaExecutionBoundary: 'Ika dWallet message approved: Polet built an unsigned approval transaction after policy approval; bridgeless settlement is not executed.',
     ikaBlockedBoundary: 'The guardrail rejected this Ika request without creating dWallet approval data.',
+    ikaUnsupportedBoundary: 'The chain or asset route is outside the allowed route policy. No dWallet approval data was created.',
     ikaTechnicalDetails: 'Technical proof',
     dwallet: 'dWallet',
     messageApproval: 'MessageApproval',
@@ -490,7 +496,10 @@ export function DemoTabContent({
     }
   };
 
-  const requestIkaRoute = async (amount: string) => {
+  const requestIkaRoute = async (
+    amount: string,
+    target: { chain: 'sui' | 'ethereum' | 'base'; asset: string } = { chain: 'sui', asset: 'SUI' }
+  ) => {
     if (!owner) {
       recordError(t.missingOwner);
       return;
@@ -500,7 +509,8 @@ export function DemoTabContent({
       return;
     }
 
-    setBusy(`ika-${amount}`);
+    const unsupportedRoute = target.chain !== 'sui' || target.asset !== 'SUI';
+    setBusy(unsupportedRoute ? 'ika-unsupported' : `ika-${amount}`);
     setError(null);
     try {
       const result: RunMultichainIntentResult = await api.runMultichainIntent({
@@ -508,19 +518,34 @@ export function DemoTabContent({
         sessionKey: agentAddress.trim(),
         sourceChain: 'solana',
         sourceAsset: 'USDC',
-        targetChain: 'sui',
-        targetAsset: 'SUI',
+        targetChain: target.chain,
+        targetAsset: target.asset,
         amount,
         executionRail: 'ika',
         strategy: 'dca',
         slippageBps: 100,
         encryptionWitness: witness,
+        routeGuardrails: {
+          mode: 'chain-asset-allowlist',
+          allowedSourceChains: ['solana'],
+          allowedTargetChains: ['sui'],
+          allowedSourceAssets: ['USDC'],
+          allowedTargetAssets: ['SUI'],
+        },
       });
       addActivity({
         status: result.allowed ? 'approved' : result.status === 'needs-approval' ? 'needs-approval' : 'blocked',
         amountUsdc: amount,
-        message: result.allowed ? t.ikaExecutionBoundary : result.reason ?? t.ikaBlockedBoundary,
-        route: result.allowed ? 'Ika dWallet approval' : `Ika ${result.code}`,
+        message: result.allowed
+          ? t.ikaExecutionBoundary
+          : result.code === 'IKA_ROUTE_NOT_ALLOWED'
+            ? result.reason ?? t.ikaUnsupportedBoundary
+            : result.reason ?? t.ikaBlockedBoundary,
+        route: result.allowed
+          ? 'Ika dWallet approval'
+          : result.code === 'IKA_ROUTE_NOT_ALLOWED'
+            ? `${t.ikaRouteUnsupported}: ${target.chain.toUpperCase()} ${target.asset}`
+            : `Ika ${result.code}`,
         ikaRequest: result.allowed ? result.ikaRequest : undefined,
         approval: result.allowed ? undefined : result.approval,
         smartWalletAuthority: result.allowed ? result.ikaRequest?.sessionContext.smartWalletAuthority : undefined,
@@ -772,6 +797,14 @@ export function DemoTabContent({
             >
               <Landmark className="h-3.5 w-3.5" />
               {busy === 'ika-5' ? '...' : t.runIka}
+            </button>
+            <button
+              onClick={() => requestIkaRoute('5', { chain: 'base', asset: 'ETH' })}
+              disabled={!canRequestIka}
+              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-amber-600 transition-all hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {busy === 'ika-unsupported' ? '...' : t.runIkaUnsupported}
             </button>
           </div>
           <p className="mt-3 text-[10px] uppercase tracking-wider text-[var(--sea-ink-soft)] font-bold">{t.runNow}: Jupiter and Ika each show block/allow policy behavior.</p>

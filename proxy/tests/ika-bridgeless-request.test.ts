@@ -88,6 +88,85 @@ describe('Ika bridgeless execution request', () => {
     }
   });
 
+  test('allows the primary Sui route with an explicit chain and asset allowlist', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+    (intent.params as { routeGuardrails?: unknown }).routeGuardrails = {
+      mode: 'chain-asset-allowlist',
+      allowedSourceChains: ['solana'],
+      allowedTargetChains: ['sui'],
+      allowedSourceAssets: ['USDC'],
+      allowedTargetAssets: ['SUI'],
+    };
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      expect(result.ikaRequest.target).toEqual({ chain: 'sui', asset: 'SUI' });
+      expect(result.ikaRequest.poletApprovalTransaction).toEqual(fixture.approvalTransaction);
+    }
+  });
+
+  test('blocks unsupported target chains before Ika approval data is prepared', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5', 'base', 'ETH');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => {
+        throw new Error('approval builder should not run for blocked route');
+      },
+    });
+
+    expect(result).toEqual({
+      allowed: false,
+      code: 'IKA_ROUTE_NOT_ALLOWED',
+      reason: 'This chain or asset route is outside the wallet allowed route policy. No Ika approval data was prepared.',
+    });
+  });
+
+  test('blocks unsupported target assets without leaking witness or private limits', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5', 'sui', 'BTC');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => {
+        throw new Error('approval builder should not run for blocked asset');
+      },
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('IKA_ROUTE_NOT_ALLOWED');
+      expect(result.reason).not.toMatch(/10|20|max|daily|witness/i);
+    }
+    expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
+    expect('ikaRequest' in result).toBe(false);
+  });
+
+  test('route allowlist blocks unsupported route before numeric limit evaluation', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '25', 'base', 'ETH');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => {
+        throw new Error('approval builder should not run for route block');
+      },
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('IKA_ROUTE_NOT_ALLOWED');
+      expect(result.reason).not.toMatch(/threshold|max|daily|cap|witness/i);
+    }
+  });
+
   test('derives deterministic Ika Pre-Alpha approval accounts after policy approval', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5');
@@ -516,7 +595,7 @@ describe('Ika bridgeless execution request', () => {
 function createIkaIntent(
   fixture: ReturnType<typeof createFixture>,
   amount: string,
-  targetChain: 'sui' | 'ethereum' = 'sui',
+  targetChain: 'sui' | 'ethereum' | 'base' = 'sui',
   targetAsset = 'SUI'
 ): Intent {
   return {

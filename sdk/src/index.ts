@@ -135,8 +135,17 @@ export interface MultichainStrategyParams {
   encryptionWitness: number[];
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
+  routeGuardrails?: ChainAssetAllowlistPolicy;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
+}
+
+export interface ChainAssetAllowlistPolicy {
+  mode: 'chain-asset-allowlist';
+  allowedSourceChains: PoletChain[];
+  allowedTargetChains: PoletChain[];
+  allowedSourceAssets: string[];
+  allowedTargetAssets: string[];
 }
 
 export type IkaPreAlphaSignatureScheme = 'ecdsa-secp256k1-sha256' | 'ed25519-prealpha';
@@ -292,6 +301,7 @@ export interface MultichainStrategyIntentInput {
   slippageBps?: number;
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
+  routeGuardrails?: ChainAssetAllowlistPolicy;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
   policyHash?: string;
@@ -450,6 +460,7 @@ export function createMultichainStrategyIntent(input: MultichainStrategyIntentIn
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
       ...(input.ikaPreAlpha && { ikaPreAlpha: input.ikaPreAlpha }),
       ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
+      ...(input.routeGuardrails && { routeGuardrails: input.routeGuardrails }),
       ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
       ...(input.nativeDestinationAccount && { nativeDestinationAccount: input.nativeDestinationAccount }),
     },
@@ -644,6 +655,7 @@ export interface SimplePoletTradeInput {
   slippageBps?: number;
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
+  routeGuardrails?: ChainAssetAllowlistPolicy;
   encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
@@ -660,6 +672,7 @@ export interface ExplicitPoletTradeInput {
   slippageBps?: number;
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
+  routeGuardrails?: ChainAssetAllowlistPolicy;
   encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
@@ -852,6 +865,7 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
     slippageBps: input.slippageBps,
     ikaPreAlpha: input.ikaPreAlpha,
     sharedAccess: input.sharedAccess,
+    routeGuardrails: input.routeGuardrails,
     destinationTokenAccount: input.destinationTokenAccount,
     nativeDestinationAccount: input.nativeDestinationAccount,
     policyHash: input.policyHash,
@@ -1127,7 +1141,8 @@ function isBlockingProxyCode(code: string | undefined): boolean {
     || code === 'SESSION_STALE'
     || code === 'ORDER_EXPIRED'
     || code === 'POLICY_NOT_CONFIGURED'
-    || code === 'INVALID_POLICY_WITNESS';
+    || code === 'INVALID_POLICY_WITNESS'
+    || code === 'IKA_ROUTE_NOT_ALLOWED';
 }
 
 function isSupportedIkaDestination(from: ChainAsset, to: ChainAsset): boolean {

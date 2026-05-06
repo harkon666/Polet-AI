@@ -27,6 +27,7 @@ import {
   evaluateSharedIkaApproval,
   type SharedIkaApprovalProgress,
 } from './shared-ika-approval';
+import { evaluateIkaChainAssetGuardrails } from './chain-asset-guardrails';
 import type { WalletData } from './wallet-store';
 import {
   executeGuardedStrategy,
@@ -103,7 +104,8 @@ export interface IkaBridgelessBlocked {
     | 'SESSION_STALE'
     | 'POLICY_NOT_CONFIGURED'
     | 'INVALID_POLICY_WITNESS'
-    | 'CONFIDENTIAL_POLICY_BLOCKED';
+    | 'CONFIDENTIAL_POLICY_BLOCKED'
+    | 'IKA_ROUTE_NOT_ALLOWED';
   reason: string;
 }
 
@@ -140,6 +142,14 @@ export async function createIkaBridgelessExecutionRequest(
   }
 
   const amountBaseUnits = parseIkaPolicyAmount(params.amount);
+  const routeDecision = evaluateIkaChainAssetGuardrails(params);
+  if (!routeDecision.allowed) {
+    return {
+      allowed: false,
+      code: routeDecision.code ?? 'IKA_ROUTE_NOT_ALLOWED',
+      reason: routeDecision.reason ?? 'This Ika route is outside the wallet allowed route policy.',
+    };
+  }
 
   try {
     const decision = await executeGuardedStrategy<undefined, IkaBridgelessAllowed | IkaBridgelessNeedsApproval>(
@@ -179,7 +189,6 @@ async function buildIkaAllowedResult(
   amountBaseUnits: bigint,
   deps: IkaBridgelessDeps
 ): Promise<IkaBridgelessAllowed> {
-  validateSupportedIkaRoute(params);
   const amount = params.amount.toString();
   const smartWalletAuthority = wallet.walletPda || deriveWalletPda(intent.owner);
   const preAlphaOverrides = getIkaPreAlphaOverrides(params);
@@ -365,24 +374,6 @@ function buildDestinationDigest(
       code
     );
   }
-}
-
-function validateSupportedIkaRoute(params: MultichainStrategyParams): void {
-  if (
-    params.sourceChain !== 'solana'
-    || params.sourceAsset.toUpperCase() !== 'USDC'
-    || !isSupportedIkaTarget(params)
-  ) {
-    throw new IkaBridgelessRequestError(
-      'Unsupported Ika route: this slice only builds Solana USDC -> Sui SUI or Ethereum ETH approvals',
-      'UNSUPPORTED_IKA_ROUTE'
-    );
-  }
-}
-
-function isSupportedIkaTarget(params: MultichainStrategyParams): boolean {
-  return (params.targetChain === 'sui' && params.targetAsset.toUpperCase() === 'SUI')
-    || (params.targetChain === 'ethereum' && params.targetAsset.toUpperCase() === 'ETH');
 }
 
 function signatureSchemeCode(value: IkaPreAlphaSigningRequest['signatureScheme']): number {

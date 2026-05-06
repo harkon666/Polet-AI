@@ -255,6 +255,13 @@ export interface RunMultichainIntentInput {
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
   encryptionWitness: number[];
+  routeGuardrails?: {
+    mode: 'chain-asset-allowlist';
+    allowedSourceChains: Array<'solana' | 'sui' | 'ethereum' | 'base'>;
+    allowedTargetChains: Array<'solana' | 'sui' | 'ethereum' | 'base'>;
+    allowedSourceAssets: string[];
+    allowedTargetAssets: string[];
+  };
 }
 
 export interface IkaRequestPreview {
@@ -360,6 +367,7 @@ export async function runMultichainIntent(input: RunMultichainIntentInput): Prom
           strategy: input.strategy ?? 'dca',
           ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
           encryptionWitness: input.encryptionWitness,
+          ...(input.routeGuardrails && { routeGuardrails: input.routeGuardrails }),
         },
         timestamp: Math.floor(Date.now() / 1000),
       }),

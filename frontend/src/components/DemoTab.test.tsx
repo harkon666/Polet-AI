@@ -77,6 +77,13 @@ const api = {
     };
   },
   runMultichainIntent: async (input: RunMultichainIntentInput) => {
+    if (input.targetChain !== 'sui' || input.targetAsset !== 'SUI') {
+      return {
+        allowed: false,
+        code: 'IKA_ROUTE_NOT_ALLOWED',
+        reason: 'This chain or asset route is outside the wallet allowed route policy. No Ika approval data was prepared.',
+      };
+    }
     if (input.amount === '25') {
       return {
         allowed: false,
@@ -247,6 +254,21 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/message hash/i)).toBeTruthy();
     expect(view.getByText(/ed25519-prealpha/i)).toBeTruthy();
     logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).not.toContain('10 USDC');
+    expect(logText).not.toContain('20 USDC');
+  });
+
+  test('shows safe unsupported Ika route explanation without approval proof', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+
+    fireEvent.click(view.getByRole('button', { name: /try unsupported ika route/i }));
+    await waitFor(() => expect(view.getByText(/rute ika tidak diizinkan/i)).toBeTruthy());
+
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('No Ika approval data was prepared');
+    expect(logText).not.toContain('MessageApproval');
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');
   });
