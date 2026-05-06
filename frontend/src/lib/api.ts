@@ -254,6 +254,19 @@ export interface RunMultichainIntentInput {
   executionRail: 'jupiter' | 'ika';
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
+  routeRisk?: {
+    priceImpactBps?: number;
+    liquidityScore?: 'low' | 'medium' | 'high';
+    verifiedRoute?: boolean;
+    provider?: string;
+  };
+  riskGuardrails?: {
+    mode: 'bridgeless-route-risk';
+    maxSlippageBps: number;
+    maxPriceImpactBps?: number;
+    minLiquidityScore?: 'low' | 'medium' | 'high';
+    requireVerifiedRoute?: boolean;
+  };
   encryptionWitness: number[];
   routeGuardrails?: {
     mode: 'chain-asset-allowlist';
@@ -269,6 +282,12 @@ export interface IkaRequestPreview {
   settlement: 'not-executed';
   requestId: string;
   canonicalOrderHash?: string;
+  routeRisk?: {
+    priceImpactBps?: number;
+    liquidityScore?: 'low' | 'medium' | 'high';
+    verifiedRoute?: boolean;
+    provider?: string;
+  };
   suiTransactionDigest?: {
     digestHex?: string;
     digestBase58?: string;
@@ -366,6 +385,8 @@ export async function runMultichainIntent(input: RunMultichainIntentInput): Prom
           executionRail: input.executionRail,
           strategy: input.strategy ?? 'dca',
           ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
+          ...(input.routeRisk && { routeRisk: input.routeRisk }),
+          ...(input.riskGuardrails && { riskGuardrails: input.riskGuardrails }),
           encryptionWitness: input.encryptionWitness,
           ...(input.routeGuardrails && { routeGuardrails: input.routeGuardrails }),
         },

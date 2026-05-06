@@ -69,6 +69,26 @@ describe('canonical bridgeless order message', () => {
     expect(await hashCanonicalBridgelessOrder(order)).toHaveLength(64);
   });
 
+  test('includes optional route-risk metadata in deterministic order messages', () => {
+    const order = buildCanonicalBridgelessOrder({
+      ...BASE_ORDER,
+      routeRisk: {
+        priceImpactBps: 120,
+        liquidityScore: 'high',
+        verifiedRoute: true,
+        provider: 'polet-demo-precheck',
+      },
+    });
+
+    expect(order.routeRisk).toEqual({
+      priceImpactBps: 120,
+      liquidityScore: 'high',
+      verifiedRoute: true,
+      provider: 'polet-demo-precheck',
+    });
+    expect(serializeCanonicalBridgelessOrder(order)).toContain('"routeRisk"');
+  });
+
   test('rejects unsupported destination chains and assets', () => {
     expect(() => buildCanonicalBridgelessOrder({
       ...BASE_ORDER,

@@ -111,6 +111,88 @@ describe('Ika bridgeless execution request', () => {
     }
   });
 
+  test('keeps safe slippage and route-risk metadata in the canonical bridgeless order', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+    (intent.params as Record<string, unknown>).slippageBps = 125;
+    (intent.params as Record<string, unknown>).routeRisk = {
+      priceImpactBps: 120,
+      liquidityScore: 'high',
+      verifiedRoute: true,
+      provider: 'polet-demo-precheck',
+    };
+    (intent.params as Record<string, unknown>).riskGuardrails = {
+      mode: 'bridgeless-route-risk',
+      maxSlippageBps: 150,
+      maxPriceImpactBps: 300,
+      minLiquidityScore: 'medium',
+      requireVerifiedRoute: true,
+    };
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      expect(result.ikaRequest.routeIntent).toMatchObject({
+        slippageBps: 125,
+        riskStatus: 'passed',
+      });
+      expect(result.ikaRequest.routeRisk).toEqual({
+        priceImpactBps: 120,
+        liquidityScore: 'high',
+        verifiedRoute: true,
+        provider: 'polet-demo-precheck',
+      });
+      expect(result.ikaRequest.canonicalOrder.routeRisk).toEqual(result.ikaRequest.routeRisk);
+      expect(result.ikaRequest.poletApprovalTransaction).toEqual(fixture.approvalTransaction);
+    }
+  });
+
+  test('blocks unsafe bridgeless slippage before Ika approval construction', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+    (intent.params as Record<string, unknown>).slippageBps = 500;
+    (intent.params as Record<string, unknown>).riskGuardrails = {
+      mode: 'bridgeless-route-risk',
+      maxSlippageBps: 150,
+    };
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => {
+        throw new Error('approval builder should not run for unsafe slippage');
+      },
+    });
+
+    expect(result).toEqual({
+      allowed: false,
+      code: 'IKA_RISK_GUARDRAIL_BLOCKED',
+      reason: 'Requested bridgeless slippage is outside the wallet route-risk policy. No Ika approval data was prepared.',
+    });
+  });
+
+  test('rejects malformed route-risk metadata before transaction construction', async () => {
+    const fixture = createFixture();
+    const intent = createIkaIntent(fixture, '5');
+    (intent.params as Record<string, unknown>).routeRisk = {
+      liquidityScore: 'thin',
+    };
+
+    try {
+      await createIkaBridgelessExecutionRequest(intent, {
+        getWalletData: async () => fixture.wallet,
+        buildApprovalTransaction: async () => fixture.approvalTransaction,
+      });
+      throw new Error('expected malformed route-risk metadata to be rejected');
+    } catch (error) {
+      expect(error).toHaveProperty('code', 'INVALID_IKA_RISK_METADATA');
+      expect(error instanceof Error ? error.message : '').toMatch(/liquidityScore/);
+    }
+  });
+
   test('blocks unsupported target chains before Ika approval data is prepared', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5', 'base', 'ETH');
@@ -203,9 +285,14 @@ describe('Ika bridgeless execution request', () => {
     }
   });
 
-  test('suppresses the Ika request when confidential policy blocks the amount', async () => {
+  test('suppresses the Ika request when daily cap blocks after route risk passes', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '25');
+    (intent.params as Record<string, unknown>).routeRisk = {
+      priceImpactBps: 100,
+      liquidityScore: 'high',
+      verifiedRoute: true,
+    };
 
     const result = await createIkaBridgelessExecutionRequest(intent, {
       getWalletData: async () => fixture.wallet,

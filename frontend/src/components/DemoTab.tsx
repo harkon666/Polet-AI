@@ -156,6 +156,8 @@ const COPY = {
     messageApproval: 'MessageApproval',
     messageHash: 'Message hash',
     signatureScheme: 'Signature scheme',
+    routeRiskStatus: 'Route risk',
+    routeRiskPassed: 'Slippage and risk guardrails passed',
     privacyNote: 'Log aman: threshold, sisa cap, dan witness tidak ditampilkan.',
     preAlpha: 'Encrypt pre-alpha demo: ini membuktikan alur enforcement, bukan klaim privasi produksi.',
     demoTruth: 'Yang real di demo: setup wallet/policy on-chain, authorization agent, dan guardrail allow/block. Yang masih preview: price/route Jupiter dan transaksi swap.',
@@ -251,6 +253,8 @@ const COPY = {
     messageApproval: 'MessageApproval',
     messageHash: 'Message hash',
     signatureScheme: 'Signature scheme',
+    routeRiskStatus: 'Route risk',
+    routeRiskPassed: 'Slippage and risk guardrails passed',
     privacyNote: 'Safe log: thresholds, remaining cap, and witness values are not displayed.',
     preAlpha: 'Encrypt pre-alpha demo: this proves the enforcement flow, not production privacy.',
     demoTruth: 'Real in this demo: on-chain wallet/policy setup, agent authorization, and guardrail allow/block. Still preview: Jupiter price/route and swap transaction execution.',
@@ -524,6 +528,19 @@ export function DemoTabContent({
         executionRail: 'ika',
         strategy: 'dca',
         slippageBps: 100,
+        routeRisk: {
+          priceImpactBps: 120,
+          liquidityScore: 'high',
+          verifiedRoute: true,
+          provider: 'polet-demo-precheck',
+        },
+        riskGuardrails: {
+          mode: 'bridgeless-route-risk',
+          maxSlippageBps: 150,
+          maxPriceImpactBps: 300,
+          minLiquidityScore: 'medium',
+          requireVerifiedRoute: true,
+        },
         encryptionWitness: witness,
         routeGuardrails: {
           mode: 'chain-asset-allowlist',
@@ -946,6 +963,10 @@ function IkaRequestPreviewCard({ request, labels }: { request: IkaRequestPreview
       <InfoPill label="Target" value={`${request.target.chain.toUpperCase()} ${request.target.asset}`} />
       <InfoPill label="Request" value={request.requestId} />
       <InfoPill label="Policy seq" value={request.policyAttestation.policySequence.toString()} />
+      <InfoPill
+        label={labels.routeRiskStatus}
+        value={request.routeRisk ? `${labels.routeRiskPassed}: ${request.routeRisk.priceImpactBps ?? 'n/a'} bps` : labels.routeRiskPassed}
+      />
       <InfoPill label={labels.ikaTechnicalDetails} value={request.executionBoundary.note} wide />
       <InfoPill label={labels.dwallet} value={signing?.dwalletAccount ? short(signing.dwalletAccount) : 'Pre-Alpha dWallet'} />
       <InfoPill label={labels.messageApproval} value={signing?.messageApprovalPda ? short(signing.messageApprovalPda) : 'Pending account'} />

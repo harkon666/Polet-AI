@@ -21,11 +21,21 @@ export interface CanonicalBridgelessOrder {
     policyBaseUnits: string;
   };
   slippageBps: number;
+  routeRisk?: BridgelessRouteRisk;
   owner: string;
   sessionKey: string;
   policySequence: number;
   nonce: string;
   expiresAtUnix: number;
+}
+
+export type BridgelessRouteRiskLevel = 'low' | 'medium' | 'high';
+
+export interface BridgelessRouteRisk {
+  priceImpactBps?: number;
+  liquidityScore?: BridgelessRouteRiskLevel;
+  verifiedRoute?: boolean;
+  provider?: string;
 }
 
 export interface BuildCanonicalBridgelessOrderInput {
@@ -36,6 +46,7 @@ export interface BuildCanonicalBridgelessOrderInput {
   amountBaseUnits: string;
   policyBaseUnits?: string;
   slippageBps?: number;
+  routeRisk?: BridgelessRouteRisk;
   owner: string;
   sessionKey: string;
   policySequence: number;
@@ -56,6 +67,7 @@ export function buildCanonicalBridgelessOrder(input: BuildCanonicalBridgelessOrd
       policyBaseUnits: requireBaseUnits(input.policyBaseUnits ?? input.amountBaseUnits, 'policyBaseUnits'),
     },
     slippageBps: normalizeSlippage(input.slippageBps ?? 100),
+    ...normalizeRouteRiskField(input.routeRisk),
     owner: requireNonEmpty(input.owner, 'owner'),
     sessionKey: requireNonEmpty(input.sessionKey, 'sessionKey'),
     policySequence: requireNonNegativeInteger(input.policySequence, 'policySequence'),
@@ -108,6 +120,7 @@ export function validateCanonicalBridgelessOrder(order: CanonicalBridgelessOrder
   }
   requireBaseUnits(order.amount.policyBaseUnits, 'amount.policyBaseUnits');
   normalizeSlippage(order.slippageBps);
+  normalizeRouteRiskField(order.routeRisk);
   requireNonEmpty(order.owner, 'owner');
   requireNonEmpty(order.sessionKey, 'sessionKey');
   requireNonNegativeInteger(order.policySequence, 'policySequence');
@@ -155,6 +168,52 @@ function normalizeTarget(target: CanonicalBridgelessOrder['target']): CanonicalB
 
 function normalizeSlippage(value: number): number {
   return requireIntegerInRange(value, 'slippageBps', 0, 10_000);
+}
+
+function normalizeRouteRiskField(value: BridgelessRouteRisk | undefined): { routeRisk?: BridgelessRouteRisk } {
+  if (value === undefined) return {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('routeRisk must be an object');
+  }
+
+  const routeRisk: BridgelessRouteRisk = {
+    ...(value.priceImpactBps !== undefined && {
+      priceImpactBps: requireIntegerInRange(value.priceImpactBps, 'routeRisk.priceImpactBps', 0, 10_000),
+    }),
+    ...(value.liquidityScore !== undefined && {
+      liquidityScore: normalizeLiquidityScore(value.liquidityScore),
+    }),
+    ...(value.verifiedRoute !== undefined && {
+      verifiedRoute: requireBoolean(value.verifiedRoute, 'routeRisk.verifiedRoute'),
+    }),
+    ...(value.provider !== undefined && {
+      provider: requireShortString(value.provider, 'routeRisk.provider'),
+    }),
+  };
+
+  return Object.keys(routeRisk).length > 0 ? { routeRisk } : {};
+}
+
+function normalizeLiquidityScore(value: string): BridgelessRouteRiskLevel {
+  if (value !== 'low' && value !== 'medium' && value !== 'high') {
+    throw new Error('routeRisk.liquidityScore must be low, medium, or high');
+  }
+  return value;
+}
+
+function requireBoolean(value: boolean, label: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new Error(`${label} must be a boolean`);
+  }
+  return value;
+}
+
+function requireShortString(value: string, label: string): string {
+  requireNonEmpty(value, label);
+  if (value.length > 64) {
+    throw new Error(`${label} must be 64 characters or fewer`);
+  }
+  return value;
 }
 
 function requireNonEmpty(value: string, label: string): string {

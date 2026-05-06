@@ -28,6 +28,7 @@ import {
   type SharedIkaApprovalProgress,
 } from './shared-ika-approval';
 import { evaluateIkaChainAssetGuardrails } from './chain-asset-guardrails';
+import { evaluateBridgelessRiskGuardrails } from './bridgeless-risk-guardrails';
 import type { WalletData } from './wallet-store';
 import {
   executeGuardedStrategy,
@@ -56,6 +57,7 @@ export interface IkaBridgelessExecutionRequest {
     strategy: 'dca' | 'swap';
     slippageBps?: number;
     bridgeMode: 'bridgeless';
+    riskStatus?: 'passed';
   };
   sessionContext: {
     owner: string;
@@ -71,6 +73,7 @@ export interface IkaBridgelessExecutionRequest {
   };
   canonicalOrder: CanonicalBridgelessOrder;
   canonicalOrderHash: string;
+  routeRisk?: CanonicalBridgelessOrder['routeRisk'];
   suiTransactionDigest?: SuiTransactionDigestArtifact;
   ethereumMessageDigest?: EthereumMessageDigestArtifact;
   executionBoundary: {
@@ -105,7 +108,8 @@ export interface IkaBridgelessBlocked {
     | 'POLICY_NOT_CONFIGURED'
     | 'INVALID_POLICY_WITNESS'
     | 'CONFIDENTIAL_POLICY_BLOCKED'
-    | 'IKA_ROUTE_NOT_ALLOWED';
+    | 'IKA_ROUTE_NOT_ALLOWED'
+    | 'IKA_RISK_GUARDRAIL_BLOCKED';
   reason: string;
 }
 
@@ -142,12 +146,29 @@ export async function createIkaBridgelessExecutionRequest(
   }
 
   const amountBaseUnits = parseIkaPolicyAmount(params.amount);
-  const routeDecision = evaluateIkaChainAssetGuardrails(params);
+  let routeDecision: ReturnType<typeof evaluateIkaChainAssetGuardrails>;
+  let riskDecision: ReturnType<typeof evaluateBridgelessRiskGuardrails>;
+  try {
+    routeDecision = evaluateIkaChainAssetGuardrails(params);
+    riskDecision = evaluateBridgelessRiskGuardrails(params);
+  } catch (error) {
+    throw new IkaBridgelessRequestError(
+      error instanceof Error ? error.message : 'Invalid Ika route-risk metadata',
+      'INVALID_IKA_RISK_METADATA'
+    );
+  }
   if (!routeDecision.allowed) {
     return {
       allowed: false,
       code: routeDecision.code ?? 'IKA_ROUTE_NOT_ALLOWED',
       reason: routeDecision.reason ?? 'This Ika route is outside the wallet allowed route policy.',
+    };
+  }
+  if (!riskDecision.allowed) {
+    return {
+      allowed: false,
+      code: riskDecision.code ?? 'IKA_RISK_GUARDRAIL_BLOCKED',
+      reason: riskDecision.reason ?? 'This bridgeless route is outside the wallet route-risk policy.',
     };
   }
 
@@ -159,7 +180,7 @@ export async function createIkaBridgelessExecutionRequest(
         amountBaseUnits,
         encryptionWitness: params.encryptionWitness,
         blockedReason: 'Confidential policy blocked this bridgeless request.',
-        buildAllowed: async ({ wallet }) => buildIkaAllowedResult(intent, params, wallet, amountBaseUnits, deps),
+        buildAllowed: async ({ wallet }) => buildIkaAllowedResult(intent, params, wallet, amountBaseUnits, riskDecision, deps),
       },
       deps
     );
@@ -187,6 +208,7 @@ async function buildIkaAllowedResult(
   params: MultichainStrategyParams,
   wallet: WalletData,
   amountBaseUnits: bigint,
+  riskDecision: ReturnType<typeof evaluateBridgelessRiskGuardrails>,
   deps: IkaBridgelessDeps
 ): Promise<IkaBridgelessAllowed> {
   const amount = params.amount.toString();
@@ -208,6 +230,7 @@ async function buildIkaAllowedResult(
     amountBaseUnits: amountBaseUnits.toString(),
     policyBaseUnits: amountBaseUnits.toString(),
     slippageBps: params.slippageBps,
+    routeRisk: riskDecision.routeRisk,
     owner: intent.owner,
     sessionKey: intent.sessionKey,
     policySequence: wallet.policySeq,
@@ -247,6 +270,7 @@ async function buildIkaAllowedResult(
       strategy: params.strategy ?? 'dca',
       ...(params.slippageBps !== undefined && { slippageBps: params.slippageBps }),
       bridgeMode: 'bridgeless',
+      riskStatus: 'passed',
     },
     sessionContext: {
       owner: intent.owner,
@@ -262,6 +286,7 @@ async function buildIkaAllowedResult(
     },
     canonicalOrder,
     canonicalOrderHash,
+    ...(riskDecision.routeRisk && { routeRisk: riskDecision.routeRisk }),
     ...destinationDigest.requestFields,
     executionBoundary: {
       status: 'request-prepared',

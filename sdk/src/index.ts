@@ -25,6 +25,11 @@
  * ```
  */
 
+import type {
+  BridgelessRouteRisk,
+  BridgelessRouteRiskLevel,
+} from './bridgeless-order.js';
+
 export const JUPITER_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 export const JUPITER_SOL_MINT = 'So11111111111111111111111111111111111111112';
 
@@ -37,6 +42,8 @@ export {
   validateCanonicalBridgelessOrder,
   verifyCanonicalBridgelessOrderHash,
   type BuildCanonicalBridgelessOrderInput,
+  type BridgelessRouteRisk,
+  type BridgelessRouteRiskLevel,
   type CanonicalBridgelessOrder,
   type CanonicalBridgelessOrderAsset,
   type CanonicalBridgelessSourceChain,
@@ -136,6 +143,8 @@ export interface MultichainStrategyParams {
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
   routeGuardrails?: ChainAssetAllowlistPolicy;
+  routeRisk?: BridgelessRouteRisk;
+  riskGuardrails?: BridgelessRiskGuardrailPolicy;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }
@@ -146,6 +155,14 @@ export interface ChainAssetAllowlistPolicy {
   allowedTargetChains: PoletChain[];
   allowedSourceAssets: string[];
   allowedTargetAssets: string[];
+}
+
+export interface BridgelessRiskGuardrailPolicy {
+  mode: 'bridgeless-route-risk';
+  maxSlippageBps: number;
+  maxPriceImpactBps?: number;
+  minLiquidityScore?: BridgelessRouteRiskLevel;
+  requireVerifiedRoute?: boolean;
 }
 
 export type IkaPreAlphaSignatureScheme = 'ecdsa-secp256k1-sha256' | 'ed25519-prealpha';
@@ -302,6 +319,8 @@ export interface MultichainStrategyIntentInput {
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
   routeGuardrails?: ChainAssetAllowlistPolicy;
+  routeRisk?: BridgelessRouteRisk;
+  riskGuardrails?: BridgelessRiskGuardrailPolicy;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
   policyHash?: string;
@@ -461,6 +480,8 @@ export function createMultichainStrategyIntent(input: MultichainStrategyIntentIn
       ...(input.ikaPreAlpha && { ikaPreAlpha: input.ikaPreAlpha }),
       ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
       ...(input.routeGuardrails && { routeGuardrails: input.routeGuardrails }),
+      ...(input.routeRisk && { routeRisk: input.routeRisk }),
+      ...(input.riskGuardrails && { riskGuardrails: input.riskGuardrails }),
       ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
       ...(input.nativeDestinationAccount && { nativeDestinationAccount: input.nativeDestinationAccount }),
     },
@@ -656,6 +677,8 @@ export interface SimplePoletTradeInput {
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
   routeGuardrails?: ChainAssetAllowlistPolicy;
+  routeRisk?: BridgelessRouteRisk;
+  riskGuardrails?: BridgelessRiskGuardrailPolicy;
   encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
@@ -673,6 +696,8 @@ export interface ExplicitPoletTradeInput {
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
   routeGuardrails?: ChainAssetAllowlistPolicy;
+  routeRisk?: BridgelessRouteRisk;
+  riskGuardrails?: BridgelessRiskGuardrailPolicy;
   encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
@@ -866,6 +891,8 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
     ikaPreAlpha: input.ikaPreAlpha,
     sharedAccess: input.sharedAccess,
     routeGuardrails: input.routeGuardrails,
+    routeRisk: input.routeRisk,
+    riskGuardrails: input.riskGuardrails,
     destinationTokenAccount: input.destinationTokenAccount,
     nativeDestinationAccount: input.nativeDestinationAccount,
     policyHash: input.policyHash,
@@ -1142,7 +1169,8 @@ function isBlockingProxyCode(code: string | undefined): boolean {
     || code === 'ORDER_EXPIRED'
     || code === 'POLICY_NOT_CONFIGURED'
     || code === 'INVALID_POLICY_WITNESS'
-    || code === 'IKA_ROUTE_NOT_ALLOWED';
+    || code === 'IKA_ROUTE_NOT_ALLOWED'
+    || code === 'IKA_RISK_GUARDRAIL_BLOCKED';
 }
 
 function isSupportedIkaDestination(from: ChainAsset, to: ChainAsset): boolean {

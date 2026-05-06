@@ -53,7 +53,7 @@ Track alignment:
 
 ### Stretch
 
-- `039-bridgeless-slippage-and-risk-guardrails`
+- None.
 
 ## Dependency Graph
 
@@ -234,6 +234,9 @@ Track alignment:
 - [x] `038-chain-and-asset-allowlist-guardrails` — Added explicit public route guardrails for Ika multichain intents. The proxy now evaluates allowed source chains, target chains, source assets, and target assets before confidential numeric policy execution or Ika approval construction. Sui/SUI remains allowed for the primary demo path, optional Ethereum/ETH remains supported by the default route policy, and unsupported routes return safe `IKA_ROUTE_NOT_ALLOWED` blocks with no policy thresholds, witness bytes, dWallet data, or MessageApproval data. SDK and frontend now pass/display route guardrails and safe unsupported-route explanations.
   - Verification: `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`.
   - Note: this is an explicit public allowlist model, not encrypted allowlist membership. Confidential numeric limits remain enforced separately after route guardrails pass.
+- [x] `039-bridgeless-slippage-and-risk-guardrails` — Added route-risk guardrails for Ika bridgeless orders. Canonical orders now bind optional route-risk metadata, the proxy validates slippage/price-impact/liquidity/verified-route constraints before confidential policy mutation or Ika approval construction, the SDK preserves the fields through builders and the agent trade adapter, and the frontend displays a safe route-risk status without private policy limits.
+  - Verification: `bun test` and `bun run build` pass in `proxy/`; `bun test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` and `bun run build` pass in `frontend/`.
+  - Note: risk metadata is an agent/proxy precheck signal in this slice. It is bound into the canonical signed order when present, but it does not prove real destination-chain settlement or production market execution.
 
 ### Planning
 

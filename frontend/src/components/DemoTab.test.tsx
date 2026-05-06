@@ -100,6 +100,7 @@ const api = {
         settlement: 'not-executed' as const,
         requestId: 'ika-test-request',
         canonicalOrderHash: 'canonical-order-hash',
+        routeRisk: input.routeRisk,
         source: {
           chain: input.sourceChain,
           asset: input.sourceAsset,
@@ -250,6 +251,8 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getAllByText(/solana usdc/i).length).toBeGreaterThan(0);
     expect(view.getByText(/sui sui/i)).toBeTruthy();
     expect(view.getByText(/technical proof/i)).toBeTruthy();
+    expect(view.getByText(/route risk/i)).toBeTruthy();
+    expect(view.getByText(/slippage and risk guardrails passed/i)).toBeTruthy();
     expect(view.getByText(/messageapproval/i)).toBeTruthy();
     expect(view.getByText(/message hash/i)).toBeTruthy();
     expect(view.getByText(/ed25519-prealpha/i)).toBeTruthy();

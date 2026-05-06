@@ -41,6 +41,19 @@ export interface MultichainStrategyParams {
   executionRail: PoletExecutionRail;
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
+  routeRisk?: {
+    priceImpactBps?: number;
+    liquidityScore?: 'low' | 'medium' | 'high';
+    verifiedRoute?: boolean;
+    provider?: string;
+  };
+  riskGuardrails?: {
+    mode: 'bridgeless-route-risk';
+    maxSlippageBps: number;
+    maxPriceImpactBps?: number;
+    minLiquidityScore?: 'low' | 'medium' | 'high';
+    requireVerifiedRoute?: boolean;
+  };
   encryptionWitness: number[];
   ikaPreAlpha?: {
     dwalletAccount?: string;

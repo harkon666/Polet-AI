@@ -218,6 +218,49 @@ describe('Polet AI SDK - Intent Builder', () => {
         allowedTargetAssets: ['SUI'],
       });
     });
+
+    test('keeps bridgeless slippage and route-risk guardrails on Ika intents', () => {
+      const intent = createMultichainStrategyIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        sourceChain: 'solana',
+        sourceAsset: 'USDC',
+        targetChain: 'sui',
+        targetAsset: 'SUI',
+        amount: '5',
+        executionRail: 'ika',
+        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        slippageBps: 125,
+        routeRisk: {
+          priceImpactBps: 120,
+          liquidityScore: 'high',
+          verifiedRoute: true,
+          provider: 'polet-demo-precheck',
+        },
+        riskGuardrails: {
+          mode: 'bridgeless-route-risk',
+          maxSlippageBps: 150,
+          maxPriceImpactBps: 300,
+          minLiquidityScore: 'medium',
+          requireVerifiedRoute: true,
+        },
+      });
+
+      expect(intent.params.slippageBps).toBe(125);
+      expect(intent.params.routeRisk).toEqual({
+        priceImpactBps: 120,
+        liquidityScore: 'high',
+        verifiedRoute: true,
+        provider: 'polet-demo-precheck',
+      });
+      expect(intent.params.riskGuardrails).toEqual({
+        mode: 'bridgeless-route-risk',
+        maxSlippageBps: 150,
+        maxPriceImpactBps: 300,
+        minLiquidityScore: 'medium',
+        requireVerifiedRoute: true,
+      });
+    });
   });
 
   describe('canonical bridgeless order message', () => {
@@ -277,6 +320,26 @@ describe('Polet AI SDK - Intent Builder', () => {
           asset: 'ETH',
         },
       })).toThrow(/target chain/);
+    });
+
+    test('includes route-risk metadata in canonical bridgeless orders', () => {
+      const order = buildCanonicalBridgelessOrder({
+        ...baseOrder,
+        routeRisk: {
+          priceImpactBps: 120,
+          liquidityScore: 'high',
+          verifiedRoute: true,
+          provider: 'polet-demo-precheck',
+        },
+      });
+
+      expect(order.routeRisk).toEqual({
+        priceImpactBps: 120,
+        liquidityScore: 'high',
+        verifiedRoute: true,
+        provider: 'polet-demo-precheck',
+      });
+      expect(serializeCanonicalBridgelessOrder(order)).toContain('"routeRisk"');
     });
   });
 
@@ -731,7 +794,19 @@ describe('Polet AI SDK - Intent Builder', () => {
         to: { chain: 'sui', asset: 'SUI' },
         amount: '5',
         strategy: 'dca',
-        slippageBps: 100,
+        slippageBps: 125,
+        routeRisk: {
+          priceImpactBps: 120,
+          liquidityScore: 'high',
+          verifiedRoute: true,
+        },
+        riskGuardrails: {
+          mode: 'bridgeless-route-risk',
+          maxSlippageBps: 150,
+          maxPriceImpactBps: 300,
+          minLiquidityScore: 'medium',
+          requireVerifiedRoute: true,
+        },
         encryptionWitness: Array.from({ length: 32 }, () => 3),
       });
 
@@ -750,6 +825,19 @@ describe('Polet AI SDK - Intent Builder', () => {
           targetAsset: 'SUI',
           executionRail: 'ika',
           amount: '5',
+          slippageBps: 125,
+          routeRisk: {
+            priceImpactBps: 120,
+            liquidityScore: 'high',
+            verifiedRoute: true,
+          },
+          riskGuardrails: {
+            mode: 'bridgeless-route-risk',
+            maxSlippageBps: 150,
+            maxPriceImpactBps: 300,
+            minLiquidityScore: 'medium',
+            requireVerifiedRoute: true,
+          },
         },
       });
     });
