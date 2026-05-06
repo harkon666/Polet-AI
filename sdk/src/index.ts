@@ -591,6 +591,7 @@ export type PoletTradeStatus =
   | 'message-approved'
   | 'signature-pending'
   | 'signature-produced-prealpha'
+  | 'devnet-smoke-proof'
   | 'broadcast-submitted'
   | 'broadcast-confirmed'
   | 'blocked'
@@ -648,13 +649,34 @@ export interface PoletTradeResult {
     reason?: string;
   };
   execution?: {
-    intent?: PoletIntent;
+    intent?: RedactedPoletIntent;
     path?: string;
     requestId?: string;
     payload?: unknown;
   };
   details?: Record<string, unknown>;
   raw?: unknown;
+}
+
+export type RedactedPoletIntent = Omit<PoletIntent, 'params'> & {
+  params: Record<string, unknown>;
+};
+
+export interface IkaAgentProof {
+  dWallet?: string;
+  messageHash?: string;
+  canonicalOrderHash?: string;
+  messageApprovalAccount?: string;
+  cpiAuthority?: string;
+  signatureScheme?: string;
+  destination?: {
+    chain?: string;
+    asset?: string;
+    mint?: string;
+  };
+  poletApprovalTransaction?: unknown;
+  devnetSmokeProof?: unknown;
+  settlement: PoletSettlementStatus;
 }
 
 export interface PoletAgent {
@@ -772,6 +794,10 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
   const to = normalizeTradeAsset(input.to, 'sui');
   const witness = input.encryptionWitness ?? options.encryptionWitness;
 
+  if (!isSupportedIkaSui(from, to)) {
+    return notSupportedTradeResult('ika', 'Only Solana USDC -> Sui SUI is supported on the Ika adapter in this MVP slice.');
+  }
+
   if (!isEncryptionWitness(witness)) {
     return notSupportedTradeResult('ika', 'A 32-byte confidential policy witness is required.');
   }
@@ -819,6 +845,7 @@ interface ProxyTradeDataLike {
   code?: string;
   reason?: string;
   status?: PoletTradeStatus;
+  devnetSmokeProof?: unknown;
   executionPath?: string;
   transaction?: unknown;
   smartWalletTransaction?: unknown;
@@ -833,8 +860,21 @@ interface ProxyTradeDataLike {
     };
     preAlphaSigning?: {
       status?: PoletTradeStatus;
+      dwalletAccount?: string;
+      messageDigest?: string;
+      messageApprovalPda?: string;
+      cpiAuthorityPda?: string;
+      signatureScheme?: string;
       [key: string]: unknown;
     };
+    poletApprovalTransaction?: unknown;
+    canonicalOrderHash?: string;
+    target?: {
+      chain?: string;
+      asset?: string;
+      mint?: string;
+    };
+    devnetSmokeProof?: unknown;
     [key: string]: unknown;
   };
 }
@@ -853,7 +893,7 @@ function normalizeJupiterTradeResponse(response: ProxyEnvelopeLike, intent: DcaI
       code: data.code,
     },
     execution: {
-      intent,
+      intent: redactIntent(intent),
       path: data.executionPath ?? '/intent/dca/run',
       payload: data.smartWalletTransaction ?? data.transaction,
     },
@@ -873,14 +913,14 @@ function normalizeIkaTradeResponse(response: ProxyEnvelopeLike, intent: Multicha
   return {
     allowed: true,
     rail: 'ika',
-    status: normalizeIkaStatus(data.status ?? data.ikaRequest?.preAlphaSigning?.status ?? data.ikaRequest?.executionBoundary?.status),
+    status: normalizeIkaStatus(data.devnetSmokeProof ?? data.ikaRequest?.devnetSmokeProof ?? data.status ?? data.ikaRequest?.preAlphaSigning?.status ?? data.ikaRequest?.executionBoundary?.status),
     settlement: 'not-executed',
     policy: {
       allowed: true,
       code: data.code,
     },
     execution: {
-      intent,
+      intent: redactIntent(intent),
       path: '/intent/multichain/run',
       requestId: data.ikaRequest?.requestId,
       payload: data.ikaRequest,
@@ -888,17 +928,22 @@ function normalizeIkaTradeResponse(response: ProxyEnvelopeLike, intent: Multicha
     details: {
       executionBoundary: data.ikaRequest?.executionBoundary,
       preAlphaSigning: data.ikaRequest?.preAlphaSigning,
+      proof: buildIkaAgentProof(data),
     },
     raw: response,
   };
 }
 
 function normalizeIkaStatus(value: unknown): PoletTradeStatus {
+  if (value && typeof value === 'object') return 'devnet-smoke-proof';
   if (
     value === 'request-prepared'
     || value === 'message-approved'
     || value === 'signature-pending'
     || value === 'signature-produced-prealpha'
+    || value === 'devnet-smoke-proof'
+    || value === 'broadcast-submitted'
+    || value === 'broadcast-confirmed'
   ) {
     return value;
   }
@@ -998,8 +1043,44 @@ function isBlockingProxyCode(code: string | undefined): boolean {
     || code === 'SESSION_NOT_AUTHORIZED'
     || code === 'SESSION_EXPIRED'
     || code === 'SESSION_STALE'
+    || code === 'ORDER_EXPIRED'
     || code === 'POLICY_NOT_CONFIGURED'
     || code === 'INVALID_POLICY_WITNESS';
+}
+
+function isSupportedIkaSui(from: ChainAsset, to: ChainAsset): boolean {
+  return from.chain === 'solana'
+    && from.asset === 'USDC'
+    && to.chain === 'sui'
+    && to.asset === 'SUI';
+}
+
+function redactIntent<TIntent extends PoletIntent>(intent: TIntent): RedactedPoletIntent {
+  const params = { ...(intent.params as unknown as Record<string, unknown>) };
+  delete params.encryptionWitness;
+
+  return {
+    ...intent,
+    params,
+  };
+}
+
+function buildIkaAgentProof(data: ProxyTradeDataLike): IkaAgentProof {
+  const request = data.ikaRequest;
+  const signing = request?.preAlphaSigning;
+
+  return {
+    dWallet: signing?.dwalletAccount,
+    messageHash: signing?.messageDigest,
+    messageApprovalAccount: signing?.messageApprovalPda,
+    canonicalOrderHash: request?.canonicalOrderHash,
+    cpiAuthority: signing?.cpiAuthorityPda,
+    signatureScheme: signing?.signatureScheme,
+    destination: request?.target,
+    poletApprovalTransaction: request?.poletApprovalTransaction,
+    devnetSmokeProof: request?.devnetSmokeProof ?? data.devnetSmokeProof,
+    settlement: 'not-executed',
+  };
 }
 
 async function requestProxy<TResponse>(

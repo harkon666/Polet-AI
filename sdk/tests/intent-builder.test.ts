@@ -737,10 +737,20 @@ describe('Polet AI SDK - Intent Builder', () => {
             settlement: 'not-executed',
             requestId: 'ika-request-1',
             executionBoundary: { status: 'message-approved' },
+            canonicalOrderHash: 'canonical-order-hash-1',
             preAlphaSigning: {
               status: 'message-approved',
+              dwalletAccount: 'dwallet-1',
+              messageDigest: 'message-hash-1',
               messageApprovalPda: 'message-approval-pda',
+              cpiAuthorityPda: 'cpi-authority-pda',
+              signatureScheme: 'ed25519-prealpha',
             },
+            poletApprovalTransaction: {
+              transaction: 'base64-polet-approval',
+              signers: ['session-1'],
+            },
+            target: { chain: 'sui', asset: 'SUI' },
           },
         },
       });
@@ -765,6 +775,67 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(result.details?.preAlphaSigning).toMatchObject({
         status: 'message-approved',
         messageApprovalPda: 'message-approval-pda',
+      });
+      expect(result.details?.proof).toMatchObject({
+        dWallet: 'dwallet-1',
+        messageHash: 'message-hash-1',
+        canonicalOrderHash: 'canonical-order-hash-1',
+        messageApprovalAccount: 'message-approval-pda',
+        cpiAuthority: 'cpi-authority-pda',
+        signatureScheme: 'ed25519-prealpha',
+        destination: { chain: 'sui', asset: 'SUI' },
+        poletApprovalTransaction: {
+          transaction: 'base64-polet-approval',
+          signers: ['session-1'],
+        },
+        settlement: 'not-executed',
+      });
+      expect(JSON.stringify(result)).not.toContain('2,2,2');
+    });
+
+    test('normalizes Ika signature and devnet smoke proof statuses', async () => {
+      const fetchMock = async () => Response.json({
+        success: true,
+        data: {
+          allowed: true,
+          code: 'IKA_SIGNATURE_PRODUCED_PREALPHA',
+          ikaRequest: {
+            executionRail: 'ika-bridgeless',
+            settlement: 'not-executed',
+            requestId: 'ika-request-2',
+            preAlphaSigning: {
+              status: 'signature-produced-prealpha',
+              messageApprovalPda: 'message-approval-pda',
+            },
+            devnetSmokeProof: {
+              transactionId: 'devnet-tx-1',
+              explorerUrl: 'https://explorer.solana.com/tx/devnet-tx-1?cluster=devnet',
+            },
+          },
+        },
+      });
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: Array.from({ length: 32 }, () => 4),
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'sui', asset: 'SUI' },
+        amount: '5',
+      });
+
+      expect(result.allowed).toBe(true);
+      expect(result.status).toBe('devnet-smoke-proof');
+      expect(result.details?.proof).toMatchObject({
+        messageApprovalAccount: 'message-approval-pda',
+        devnetSmokeProof: {
+          transactionId: 'devnet-tx-1',
+        },
       });
     });
 
@@ -820,6 +891,61 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(result.status).toBe('not-supported');
       expect(result.settlement).toBe('not-executed');
       expect(requestCount).toBe(0);
+    });
+
+    test('rejects unsupported Ika destinations before calling the proxy', async () => {
+      let requestCount = 0;
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: async () => {
+          requestCount += 1;
+          return Response.json({ success: true });
+        },
+        encryptionWitness: Array.from({ length: 32 }, () => 1),
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'ethereum', asset: 'ETH' },
+        amount: '5',
+      });
+
+      expect(result.allowed).toBe(false);
+      expect(result.rail).toBe('ika');
+      expect(result.status).toBe('not-supported');
+      expect(requestCount).toBe(0);
+    });
+
+    test('normalizes expired Ika orders as blocked without proof data', async () => {
+      const fetchMock = async () => Response.json({
+        success: false,
+        error: {
+          code: 'ORDER_EXPIRED',
+          message: 'Canonical order expired.',
+        },
+      }, { status: 400 });
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: Array.from({ length: 32 }, () => 9),
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'sui', asset: 'SUI' },
+        amount: '5',
+      });
+
+      expect(result.allowed).toBe(false);
+      expect(result.status).toBe('blocked');
+      expect(result.policy.code).toBe('ORDER_EXPIRED');
+      expect(JSON.stringify(result)).not.toContain('messageApproval');
     });
   });
 });

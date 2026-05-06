@@ -93,6 +93,17 @@ describe('local scripted agent runtime', () => {
             executionRail: 'ika-bridgeless',
             settlement: 'not-executed',
             requestId: 'ika-demo-request',
+            preAlphaSigning: {
+              status: 'message-approved',
+              dwalletAccount: 'dwallet-1',
+              messageDigest: 'message-hash-1',
+              messageApprovalPda: 'message-approval-pda',
+              cpiAuthorityPda: 'cpi-authority-pda',
+              signatureScheme: 'ed25519-prealpha',
+            },
+            poletApprovalTransaction: {
+              signers: ['session-1'],
+            },
             source: { chain: 'solana', asset: 'USDC' },
             target: { chain: 'sui', asset: 'SUI' },
             amount: '5',
@@ -109,7 +120,7 @@ describe('local scripted agent runtime', () => {
 
     const result = await runtime.runIkaScenario({ intentId: 'ika-allow-1' });
 
-    expect(result.scenario).toBe('ika');
+    expect(result.scenario).toBe('ika-sui');
     expect(result.decision).toBe('allowed');
     expect(result.intent.id).toBe('ika-allow-1');
     expect(result.intent.action).toBe('multichain-strategy');
@@ -131,6 +142,14 @@ describe('local scripted agent runtime', () => {
         executionRail: 'ika',
       },
     });
+    expect(result.proxyResponse.data?.ikaRequest?.preAlphaSigning).toMatchObject({
+      dwalletAccount: 'dwallet-1',
+      messageDigest: 'message-hash-1',
+      messageApprovalPda: 'message-approval-pda',
+      cpiAuthorityPda: 'cpi-authority-pda',
+      signatureScheme: 'ed25519-prealpha',
+    });
+    expect(result.proxyResponse.data?.ikaRequest?.poletApprovalTransaction?.signers).toEqual(['session-1']);
   });
 
   test('runs the final hybrid demo sequence across Encrypt, Jupiter, and Ika', async () => {

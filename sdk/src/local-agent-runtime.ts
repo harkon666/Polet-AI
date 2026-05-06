@@ -9,7 +9,7 @@ import {
 
 export const DEFAULT_AGENT_RUNTIME_WITNESS = Array.from({ length: 32 }, (_, index) => index + 1);
 
-export type AgentRuntimeScenario = 'allow' | 'block' | 'ika' | 'hybrid';
+export type AgentRuntimeScenario = 'allow' | 'block' | 'ika' | 'ika-sui' | 'hybrid';
 
 export interface LocalAgentRuntimeConfig {
   owner: string;
@@ -64,9 +64,14 @@ export interface IkaRunData {
     requestId?: string;
     preAlphaSigning?: {
       status?: string;
+      dwalletAccount?: string;
+      messageDigest?: string;
       messageApprovalPda?: string;
       cpiAuthorityPda?: string;
       signatureScheme?: string;
+    };
+    poletApprovalTransaction?: {
+      signers?: string[];
     };
     source?: {
       chain?: string;
@@ -90,7 +95,7 @@ export interface AgentRuntimeResult {
 
 export interface IkaAgentRuntimeResult {
   runtime: 'local-scripted-agent';
-  scenario: 'ika';
+  scenario: 'ika' | 'ika-sui';
   intent: MultichainStrategyIntent;
   proxyResponse: ProxyEnvelope<IkaRunData>;
   decision: 'allowed' | 'blocked' | 'unknown';
@@ -171,7 +176,7 @@ export class LocalAgentRuntime {
 
     return {
       runtime: 'local-scripted-agent',
-      scenario: 'ika',
+      scenario: input.targetChain === undefined || input.targetChain === 'sui' ? 'ika-sui' : 'ika',
       intent,
       proxyResponse,
       decision: toDecision(proxyResponse),

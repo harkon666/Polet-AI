@@ -42,7 +42,7 @@ async function main() {
     return;
   }
 
-  if (scenario === 'ika') {
+  if (scenario === 'ika' || scenario === 'ika-sui') {
     const result = await runtime.runIkaScenario({
       ...(amountUsdc && { amountUsdc }),
     });
@@ -62,8 +62,12 @@ async function main() {
         status: result.proxyResponse.data?.status ?? result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.status,
         reason: result.proxyResponse.data?.reason ?? result.proxyResponse.error?.message,
         ikaRequestId: result.proxyResponse.data?.ikaRequest?.requestId,
+        dWallet: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.dwalletAccount,
+        messageHash: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.messageDigest,
         messageApprovalPda: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.messageApprovalPda,
         cpiAuthorityPda: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.cpiAuthorityPda,
+        signatureScheme: result.proxyResponse.data?.ikaRequest?.preAlphaSigning?.signatureScheme,
+        poletApprovalSigners: result.proxyResponse.data?.ikaRequest?.poletApprovalTransaction?.signers,
         settlement: result.proxyResponse.data?.ikaRequest?.settlement,
       },
     }, null, 2));
@@ -105,8 +109,8 @@ function requiredEnv(name: string): string {
 
 function parseScenario(value: string | undefined): AgentRuntimeScenario {
   if (!value) return 'allow';
-  if (value === 'allow' || value === 'block' || value === 'ika' || value === 'hybrid') return value;
-  throw new Error('POLET_AGENT_SCENARIO must be "allow", "block", "ika", or "hybrid"');
+  if (value === 'allow' || value === 'block' || value === 'ika' || value === 'ika-sui' || value === 'hybrid') return value;
+  throw new Error('POLET_AGENT_SCENARIO must be "allow", "block", "ika", "ika-sui", or "hybrid"');
 }
 
 function parseWitness(value: string | undefined): number[] | undefined {

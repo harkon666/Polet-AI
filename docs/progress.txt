@@ -49,7 +49,6 @@ Track alignment:
 
 ### Critical Path
 
-- `029-agent-sdk-ika-sui-signed-intent`
 - `030-control-layer-frontend-ika-dwallet-demo`
 - `031-ika-devnet-smoke-and-messageapproval-verification`
 - `032-control-layer-readme-video-narrative`
@@ -213,6 +212,9 @@ Track alignment:
 - [x] `028-proxy-ika-dwallet-transaction-builder` — Updated the proxy Ika rail to build the unsigned Polet `approve_ika_message_as_session` transaction for allowed Solana USDC -> Sui SUI intents. Allowed responses now include canonical order hash, dWallet, MessageApproval, signature scheme, destination metadata, Pre-Alpha boundary, and `poletApprovalTransaction` for the session signer. Blocked/stale paths still suppress Ika approval data and private thresholds. The proxy uses the pinned official Ika devnet program id and Polet `__ika_cpi_authority` PDA seed, but does not sign, simulate, send, or claim settlement.
   - Verification: `bun test` and `bun run build` pass in `proxy/`.
   - Note: issue 031 still owns live devnet smoke verification and reading produced MessageApproval signatures from Ika Pre-Alpha.
+- [x] `029-agent-sdk-ika-sui-signed-intent` — Updated the SDK high-level agent API for Sui-primary Ika signed-intent approvals. `createPoletAgent().trade({ rail: "ika", to: { chain: "sui", asset: "SUI" } })` now normalizes proxy-built Polet approval transactions into `details.proof` with dWallet, canonical order hash, message hash, MessageApproval, CPI authority, signature scheme, destination, optional devnet smoke proof, and non-settlement boundary. Unsupported Ika destinations are rejected before proxy submission, expired orders normalize to blocked, and returned high-level intents redact confidential witness bytes. The local runner now supports `ika-sui` plus the existing hybrid flow.
+  - Verification: `bun test` and `bun run build` pass in `sdk/`.
+  - Note: the SDK still does not sign or broadcast transactions; issue 031 owns live devnet smoke verification.
 
 ### Planning
 

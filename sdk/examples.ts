@@ -264,8 +264,9 @@ export async function example_agent_risk_gated_swap() {
  * Example 9: High-Level Agent Trade API
  *
  * AI agents can use one Polet control-layer interface for guarded trades.
- * Jupiter returns a route/build preview and Ika returns a prepared request
- * envelope; this MVP slice does not execute Ika settlement.
+ * Jupiter returns a route/build preview. Ika returns a policy-approved signed
+ * intent proof shape plus an unsigned Polet approval transaction for the
+ * session signer; this MVP slice does not execute Ika settlement.
  */
 export async function example_polet_agent_trade() {
   const polet = createPoletAgent({
@@ -291,4 +292,12 @@ export async function example_polet_agent_trade() {
 
   console.log('[Polet AI] Jupiter status:', jupiterPreview.status, jupiterPreview.settlement);
   console.log('[Polet AI] Ika status:', ikaRequest.status, ikaRequest.settlement);
+  console.log('[Polet AI] Ika proof:', ikaRequest.details?.proof);
+
+  if (ikaRequest.status === 'blocked') {
+    console.log('[Polet AI] Ika blocked without exposing private thresholds.');
+  }
+  if (ikaRequest.status === 'message-approved') {
+    console.log('[Polet AI] Session signer can inspect/sign the Polet approval transaction.');
+  }
 }
