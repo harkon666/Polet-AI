@@ -62,7 +62,9 @@ The demo does not claim mainnet Jupiter swap execution. It proves that Polet can
 
 ## Ika Boundary
 
-Ika is the target rail for future bridgeless native-asset trading requests using the same agent intent and confidential guardrail model. This repo currently documents Ika as the multichain direction only. It does not claim verified Ika settlement or production bridgeless execution until the Ika request/execution path is implemented and tested.
+Ika is the target rail for future bridgeless native-asset trading requests using the same agent intent and confidential guardrail model. The official Solana Pre-Alpha surface is pinned in `docs/ika-dwallet-prealpha-alignment.md`: devnet program id `87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY`, mock-signer Pre-Alpha constraints, Polet CPI authority PDA, and MessageApproval read path.
+
+The current repo still treats Ika execution as a request/proof model until the on-chain CPI path is implemented. It does not claim production MPC, verified Ika settlement, or bridgeless asset movement.
 
 ## Repository Layout
 

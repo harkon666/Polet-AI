@@ -40,7 +40,7 @@ Scenario defaults:
 
 - `allow`: submits a 5 USDC DCA intent.
 - `block`: submits a 25 USDC DCA intent.
-- `ika`: submits a 5 USDC-denominated Solana USDC -> Sui SUI bridgeless request intent on the Ika rail and reports the Ika Pre-Alpha message approval proof when returned.
+- `ika`: submits a 5 USDC-denominated Solana USDC -> Sui SUI bridgeless request intent on the Ika rail and reports the local Ika Pre-Alpha compatibility metadata when returned.
 - `hybrid`: runs the final three-step script: blocked 25 USDC DCA, approved 5 USDC Jupiter DCA, and approved 5 USDC Ika bridgeless request.
 
 ## Run
@@ -103,12 +103,12 @@ The runner prints JSON with:
 - intent id/action/amount/rail metadata.
 - proxy success/code/reason.
 - Jupiter execution path or Ika request id when returned.
-- Ika Pre-Alpha message approval PDA/status when returned.
+- Ika Pre-Alpha compatibility PDA/status metadata when returned.
 - final decision: `allowed`, `blocked`, or `unknown`.
 
 ## Boundary
 
-The runner does not sign or broadcast transactions. It creates agent intents and submits them to the Polet proxy. The proxy returns the policy result and, for allowed Jupiter runs, an unsigned smart-wallet transaction payload for the session signer flow. For Ika, the proxy returns a bridgeless request envelope plus a deterministic Ika Solana Pre-Alpha `approve_message` proof model with devnet/mock-signer metadata. Real Ika settlement and production MPC signing remain outside this repo until a verified backend path exists.
+The runner does not sign or broadcast transactions. It creates agent intents and submits them to the Polet proxy. The proxy returns the policy result and, for allowed Jupiter runs, an unsigned smart-wallet transaction payload for the session signer flow. For Ika, the proxy returns a bridgeless request envelope plus local Pre-Alpha compatibility metadata. The official Solana Pre-Alpha CPI surface is pinned in `docs/ika-dwallet-prealpha-alignment.md`; real Ika MessageApproval verification, settlement, and production MPC signing remain outside this repo until issues 027 and 031 are complete.
 
 ## High-Level Trade API
 
@@ -133,4 +133,4 @@ const ika = await polet.trade({
 });
 ```
 
-Allowed Jupiter trades normalize to `status: "preview-ready"` and `settlement: "not-executed"`. Allowed Ika trades can progress from `status: "request-prepared"` to `status: "message-approved"` while keeping `settlement: "not-executed"`. Ika Pre-Alpha uses Solana devnet/mock-signer metadata in this repo; production MPC security and final settlement are not executed by this MVP slice.
+Allowed Jupiter trades normalize to `status: "preview-ready"` and `settlement: "not-executed"`. Allowed Ika trades can progress from `status: "request-prepared"` to the current compatibility `status: "message-approved"` while keeping `settlement: "not-executed"`. In the official Pre-Alpha path, Polet should expose pending MessageApproval separately from a produced signature. Ika Pre-Alpha uses Solana devnet/mock-signer constraints; production MPC security and final settlement are not executed by this MVP slice.

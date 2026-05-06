@@ -82,7 +82,7 @@ Do not reveal the exact saved thresholds from the normal product UI after setup.
    - Source/target chains are shown.
    - Settlement boundary says real bridgeless settlement is not executed.
 
-   Say: "The same model extends to multichain requests through Ika: the agent submits an intent, Polet checks confidential guardrails, and only approved requests receive an execution request envelope. This repo does not claim verified Ika settlement yet."
+   Say: "The same model extends to multichain requests through Ika: the agent submits an intent, Polet checks confidential guardrails, and only approved requests receive an execution request envelope. The official Ika Solana Pre-Alpha CPI surface is pinned in the repo docs, but this screen does not claim verified Ika settlement yet."
 
 9. Optional Pre-Alpha destination broadcast proof.
 
@@ -107,7 +107,7 @@ Do not reveal the exact saved thresholds from the normal product UI after setup.
    - Receipt: Solana devnet transaction id and explorer URL.
    - Action: Solana Memo proof only.
 
-   Say: "This optional final leg broadcasts a narrow devnet memo proof that a policy-approved Ika Pre-Alpha signature result existed. It does not transfer assets and is not production bridgeless settlement."
+   Say: "This optional final leg broadcasts a narrow devnet memo proof for the local Ika compatibility result. It does not transfer assets and is not production bridgeless settlement."
 
 10. Optional CLI agent proof.
 
@@ -131,6 +131,6 @@ Do not reveal the exact saved thresholds from the normal product UI after setup.
 
 - Encrypt: confidential numeric policy enforcement is core to the allow/block path, but current privacy is pre-alpha and non-production.
 - Jupiter: Tokens, Price, Recurring compatibility analysis, and Swap V2 `/build` fallback are documented and implemented.
-- Ika: approved request envelope only; no real settlement claim yet.
+- Ika: official Solana Pre-Alpha surface is documented; current demo shows an approved request envelope/local compatibility result only, with no real settlement claim yet.
 - Ika broadcast proof: optional Solana devnet memo receipt only; no asset movement, no production MPC, no arbitrary destination-chain support.
 - Mainnet: no mainnet swap execution claim from the devnet demo.
