@@ -228,7 +228,7 @@ async function main() {
   }
 
   console.log('Executing policy graph as session...');
-  const walletState = await program.account.wallet.fetch(walletPda);
+  const walletState = await (program.account as any).Wallet.fetch(walletPda);
   const currentSlot = await connection.getSlot('confirmed');
 
   const sessionProvider = new anchor.AnchorProvider(connection, new anchor.Wallet(session), { commitment: 'confirmed' });
@@ -263,7 +263,7 @@ async function main() {
   console.log('Graph execution successful!');
 
   // 9. Verify State
-  const finalState = await program.account.wallet.fetch(walletPda);
+  const finalState = await (program.account as any).Wallet.fetch(walletPda);
   console.log('Final Wallet State:');
   console.log(`  Pending: ${finalState.confidentialPolicy.encryptCiphertexts.pending}`);
   console.log(`  Pending Slot: ${finalState.confidentialPolicy.encryptCiphertexts.pendingSlot.toString()}`);
