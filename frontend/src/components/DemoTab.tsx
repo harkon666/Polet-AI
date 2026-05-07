@@ -61,6 +61,7 @@ interface ActivityEntry {
   message: string;
   route?: string;
   amountUsdc?: string;
+  routePair?: string;
   jupiterPlan?: JupiterPlanPreview;
   ikaRequest?: IkaRequestPreview;
   approval?: RunMultichainIntentResult['approval'];
@@ -129,7 +130,7 @@ const COPY = {
     jupiterRailTitle: 'Jupiter strategy rail',
     ikaRailTitle: 'Ika dWallet rail',
     suiPrimary: 'Sui/SUI primary destination',
-    ethereumFuture: 'Ethereum/ETH optional future',
+    ethereumFuture: 'Ethereum/ETH optional allowed route',
     multichainBoundary: 'Intent multichain',
     executionRail: 'Execution rail',
     settlementBoundary: 'Settlement Ika belum dijalankan di slice ini',
@@ -144,6 +145,8 @@ const COPY = {
     runBlocked: 'Try 25 USDC via proxy',
     runIka: 'Approve 5 USDC-equivalent Ika',
     runIkaBlocked: 'Try 25 Ika request',
+    runIkaEth: 'Approve 5 Ethereum/ETH Ika',
+    runIkaEthBlocked: 'Try 25 Ethereum/ETH Ika',
     runIkaUnsupported: 'Try unsupported Ika route',
     sharedTitle: 'Shared Ika approval',
     sharedBody: 'Atur M-of-N co-approver Solana signer untuk Ika. Polet contract tetap enforcement boundary; passkey atau proof UI hanya membantu UX.',
@@ -184,6 +187,7 @@ const COPY = {
     dwallet: 'dWallet',
     messageApproval: 'MessageApproval',
     messageHash: 'Message hash',
+    destinationDigest: 'Destination digest',
     signatureScheme: 'Signature scheme',
     routeRiskStatus: 'Route risk',
     routeRiskPassed: 'Slippage and risk guardrails passed',
@@ -242,7 +246,7 @@ const COPY = {
     jupiterRailTitle: 'Jupiter strategy rail',
     ikaRailTitle: 'Ika dWallet rail',
     suiPrimary: 'Sui/SUI primary destination',
-    ethereumFuture: 'Ethereum/ETH optional future',
+    ethereumFuture: 'Ethereum/ETH optional allowed route',
     multichainBoundary: 'Multichain intent',
     executionRail: 'Execution rail',
     settlementBoundary: 'Ika settlement is not executed in this slice',
@@ -257,6 +261,8 @@ const COPY = {
     runBlocked: 'Try 25 USDC through proxy',
     runIka: 'Approve 5 USDC-equivalent Ika',
     runIkaBlocked: 'Try 25 Ika request',
+    runIkaEth: 'Approve 5 Ethereum/ETH Ika',
+    runIkaEthBlocked: 'Try 25 Ethereum/ETH Ika',
     runIkaUnsupported: 'Try unsupported Ika route',
     sharedTitle: 'Shared Ika approval',
     sharedBody: 'Configure M-of-N Solana signer co-approvers for Ika. The Polet contract remains the enforcement boundary; passkey or proof UI is only a UX helper.',
@@ -297,6 +303,7 @@ const COPY = {
     dwallet: 'dWallet',
     messageApproval: 'MessageApproval',
     messageHash: 'Message hash',
+    destinationDigest: 'Destination digest',
     signatureScheme: 'Signature scheme',
     routeRiskStatus: 'Route risk',
     routeRiskPassed: 'Slippage and risk guardrails passed',
@@ -625,6 +632,7 @@ export function DemoTabContent({
       addActivity({
         status: result.allowed ? 'approved' : 'blocked',
         amountUsdc,
+        routePair: 'USDC -> SOL',
         message: result.allowed ? t.approvedMessage : result.reason ?? t.blockedMessage,
         route: result.allowed
           ? `${result.executionPath ?? 'Jupiter Swap V2'} / route preview`
@@ -653,8 +661,10 @@ export function DemoTabContent({
       return;
     }
 
-    const unsupportedRoute = target.chain !== 'sui' || target.asset !== 'SUI';
-    setBusy(unsupportedRoute ? 'ika-unsupported' : `ika-${amount}`);
+    const isAllowedIkaTarget =
+      (target.chain === 'sui' && target.asset === 'SUI') ||
+      (target.chain === 'ethereum' && target.asset === 'ETH');
+    setBusy(isAllowedIkaTarget ? `ika-${target.chain}-${amount}` : 'ika-unsupported');
     setError(null);
     try {
       const result: RunMultichainIntentResult = await api.runMultichainIntent({
@@ -686,21 +696,22 @@ export function DemoTabContent({
         routeGuardrails: {
           mode: 'chain-asset-allowlist',
           allowedSourceChains: ['solana'],
-          allowedTargetChains: ['sui'],
+          allowedTargetChains: ['sui', 'ethereum'],
           allowedSourceAssets: ['USDC'],
-          allowedTargetAssets: ['SUI'],
+          allowedTargetAssets: ['SUI', 'ETH'],
         },
       });
       addActivity({
         status: result.allowed ? 'approved' : result.status === 'needs-approval' ? 'needs-approval' : 'blocked',
         amountUsdc: amount,
+        routePair: `USDC -> ${target.asset}`,
         message: result.allowed
           ? t.ikaExecutionBoundary
           : result.code === 'IKA_ROUTE_NOT_ALLOWED'
             ? result.reason ?? t.ikaUnsupportedBoundary
             : result.reason ?? t.ikaBlockedBoundary,
         route: result.allowed
-          ? 'Ika dWallet approval'
+          ? `Ika dWallet approval: ${target.chain.toUpperCase()} ${target.asset}`
           : result.code === 'IKA_ROUTE_NOT_ALLOWED'
             ? `${t.ikaRouteUnsupported}: ${target.chain.toUpperCase()} ${target.asset}`
             : `Ika ${result.code}`,
@@ -1001,7 +1012,7 @@ export function DemoTabContent({
             </label>
             <InfoRow label={t.cadence} value={strategy.cadence} />
           </div>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <button
               onClick={() => runAgent('25')}
               disabled={!canRunBlocked}
@@ -1025,7 +1036,7 @@ export function DemoTabContent({
               className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-red-500 transition-all hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <X className="h-3.5 w-3.5" />
-              {busy === 'ika-25' ? '...' : t.runIkaBlocked}
+              {busy === 'ika-sui-25' ? '...' : t.runIkaBlocked}
             </button>
             <button
               onClick={() => requestIkaRoute('5')}
@@ -1033,7 +1044,23 @@ export function DemoTabContent({
               className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-[var(--sea-ink)] transition-all hover:bg-[var(--link-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Landmark className="h-3.5 w-3.5" />
-              {busy === 'ika-5' ? '...' : t.runIka}
+              {busy === 'ika-sui-5' ? '...' : t.runIka}
+            </button>
+            <button
+              onClick={() => requestIkaRoute('25', { chain: 'ethereum', asset: 'ETH' })}
+              disabled={!canRequestIka}
+              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-red-500 transition-all hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <X className="h-3.5 w-3.5" />
+              {busy === 'ika-ethereum-25' ? '...' : t.runIkaEthBlocked}
+            </button>
+            <button
+              onClick={() => requestIkaRoute('5', { chain: 'ethereum', asset: 'ETH' })}
+              disabled={!canRequestIka}
+              className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-3 text-[11px] font-extrabold uppercase tracking-tight text-[var(--sea-ink)] transition-all hover:bg-[var(--link-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Landmark className="h-3.5 w-3.5" />
+              {busy === 'ika-ethereum-5' ? '...' : t.runIkaEth}
             </button>
             <button
               onClick={() => requestIkaRoute('5', { chain: 'base', asset: 'ETH' })}
@@ -1145,7 +1172,7 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
         {entry.amountUsdc && (
           <div className="text-right">
             <p className="text-sm font-black text-[var(--sea-ink)]">{entry.amountUsdc} USDC</p>
-            <p className="text-xs text-[var(--sea-ink-soft)]">USDC {'->'} SOL</p>
+            <p className="text-xs text-[var(--sea-ink-soft)]">{entry.routePair ?? 'USDC -> SOL'}</p>
           </div>
         )}
       </div>
@@ -1179,6 +1206,16 @@ function ApprovalProgressCard({ approval, labels }: { approval: NonNullable<RunM
 
 function IkaRequestPreviewCard({ request, labels, sharedApprovers }: { request: IkaRequestPreview; labels: (typeof COPY)[Locale]; sharedApprovers?: string[] }) {
   const signing = request.preAlphaSigning;
+  const destinationDigest =
+    request.ethereumMessageDigest?.digestHex ??
+    request.suiTransactionDigest?.digestBase58 ??
+    request.suiTransactionDigest?.digestHex ??
+    (typeof signing?.destinationSigningDigest === 'string' ? signing.destinationSigningDigest : undefined);
+  const destinationDigestLabel = request.ethereumMessageDigest
+    ? `${request.ethereumMessageDigest.network ?? 'sepolia'} EIP-191`
+    : request.suiTransactionDigest
+      ? `${request.suiTransactionDigest.network ?? 'sui-devnet'} sign-only`
+      : labels.destinationDigest;
   return (
     <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
       <InfoPill label={labels.ikaRouteRequested} value={labels.ikaExecutionBoundary} wide />
@@ -1194,6 +1231,7 @@ function IkaRequestPreviewCard({ request, labels, sharedApprovers }: { request: 
       <InfoPill label={labels.dwallet} value={signing?.dwalletAccount ? short(signing.dwalletAccount) : 'Pre-Alpha dWallet'} />
       <InfoPill label={labels.messageApproval} value={signing?.messageApprovalPda ? short(signing.messageApprovalPda) : 'Pending account'} />
       <InfoPill label={labels.messageHash} value={signing?.ikaMessageHash ? short(signing.ikaMessageHash) : signing?.messageDigest ? short(signing.messageDigest) : request.canonicalOrderHash ? short(request.canonicalOrderHash) : 'Ika message hash'} />
+      {destinationDigest && <InfoPill label={destinationDigestLabel} value={short(destinationDigest)} />}
       <InfoPill label={labels.signatureScheme} value={signing?.signatureScheme ?? 'Pre-Alpha'} />
       {sharedApprovers?.map((approver) => (
         <InfoPill key={approver} label={labels.countedApprovers} value={short(approver)} />

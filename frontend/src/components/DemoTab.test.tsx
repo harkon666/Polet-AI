@@ -21,10 +21,12 @@ afterEach(() => {
   document.body.innerHTML = '';
   sharedConfig = null;
   sharedIkaAttempts = 0;
+  multichainInputs = [];
 });
 
 let sharedConfig: { threshold: number; approvers: string[] } | null = null;
 let sharedIkaAttempts = 0;
+let multichainInputs: RunMultichainIntentInput[] = [];
 const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 const coApproverB = 'CxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR5';
 
@@ -115,7 +117,17 @@ const api = {
     };
   },
   runMultichainIntent: async (input: RunMultichainIntentInput) => {
-    if (input.targetChain !== 'sui' || input.targetAsset !== 'SUI') {
+    multichainInputs.push(input);
+    const routeAllowed =
+      input.sourceChain === 'solana' &&
+      input.sourceAsset === 'USDC' &&
+      ((input.targetChain === 'sui' && input.targetAsset === 'SUI') ||
+        (input.targetChain === 'ethereum' && input.targetAsset === 'ETH')) &&
+      input.routeGuardrails?.allowedTargetChains.includes(input.targetChain) &&
+      input.routeGuardrails?.allowedTargetAssets.includes(input.targetAsset) &&
+      input.riskGuardrails?.mode === 'bridgeless-route-risk' &&
+      input.riskGuardrails.requireVerifiedRoute === true;
+    if (!routeAllowed) {
       return {
         allowed: false,
         code: 'IKA_ROUTE_NOT_ALLOWED',
@@ -158,7 +170,31 @@ const api = {
         settlement: 'not-executed' as const,
         requestId: 'ika-test-request',
         canonicalOrderHash: 'canonical-order-hash',
+        ikaMessageHash: '8d'.repeat(32),
         routeRisk: input.routeRisk,
+        ...(input.targetChain === 'ethereum'
+          ? {
+              ethereumMessageDigest: {
+                digestHex: `0x${'ab'.repeat(32)}`,
+                action: 'zero-wei-transfer-proof',
+                chain: 'ethereum',
+                network: 'sepolia',
+                chainId: 11155111,
+                broadcastable: false,
+                productionSettlement: false,
+              },
+            }
+          : {
+              suiTransactionDigest: {
+                digestHex: `0x${'cd'.repeat(32)}`,
+                digestBase58: 'SuiDigest1111111111111111111111111111111111',
+                action: 'zero-mist-transfer-proof',
+                chain: 'sui',
+                network: 'sui-devnet',
+                broadcastable: false,
+                productionSettlement: false,
+              },
+            }),
         source: {
           chain: input.sourceChain,
           asset: input.sourceAsset,
@@ -274,7 +310,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getAllByText(/solana sol/i).length).toBeGreaterThan(0);
     expect(view.getByText(/jupiter strategy rail/i)).toBeTruthy();
     expect(view.getByText(/sui\/sui primary destination/i)).toBeTruthy();
-    expect(view.getByText(/ethereum\/eth optional future/i)).toBeTruthy();
+    expect(view.getByText(/ethereum\/eth optional allowed route/i)).toBeTruthy();
     expect(view.getByText('Jupiter')).toBeTruthy();
 
     await setupCustodyAndPolicy(view);
@@ -306,9 +342,9 @@ describe('Consumer DCA demo frontend', () => {
     fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
     await waitFor(() => expect(view.getAllByText(/ika approval transaction prepared/i).length).toBeGreaterThan(0));
 
-    expect(view.getByText('Ika dWallet approval')).toBeTruthy();
+    expect(view.getByText(/Ika dWallet approval/i)).toBeTruthy();
     expect(view.getAllByText(/solana usdc/i).length).toBeGreaterThan(0);
-    expect(view.getByText(/sui sui/i)).toBeTruthy();
+    expect(view.getAllByText(/sui sui/i).length).toBeGreaterThan(0);
     expect(view.getByText(/technical proof/i)).toBeTruthy();
     expect(view.getByText(/route risk/i)).toBeTruthy();
     expect(view.getByText(/slippage and risk guardrails passed/i)).toBeTruthy();
@@ -318,6 +354,41 @@ describe('Consumer DCA demo frontend', () => {
     logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');
+  });
+
+  test('displays approved Ethereum Ika route with Sepolia EIP-191 digest', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+
+    fireEvent.click(view.getByRole('button', { name: /approve 5 ethereum\/eth ika/i }));
+    await waitFor(() => expect(view.getAllByText(/ika approval transaction prepared/i).length).toBeGreaterThan(0));
+
+    expect(view.getAllByText(/ethereum eth/i).length).toBeGreaterThan(0);
+    expect(view.getByText(/sepolia eip-191/i)).toBeTruthy();
+    expect(view.getByText(/0xabab/i)).toBeTruthy();
+    expect(view.getByText(/messageapproval/i)).toBeTruthy();
+    expect(multichainInputs.at(-1)?.targetChain).toBe('ethereum');
+    expect(multichainInputs.at(-1)?.targetAsset).toBe('ETH');
+    expect(multichainInputs.at(-1)?.routeGuardrails?.allowedTargetChains).toContain('ethereum');
+    expect(multichainInputs.at(-1)?.routeGuardrails?.allowedTargetAssets).toContain('ETH');
+    expect(multichainInputs.at(-1)?.riskGuardrails?.requireVerifiedRoute).toBe(true);
+  });
+
+  test('blocks 25 USDC-equivalent Ethereum Ika without approval or digest proof', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+
+    fireEvent.click(view.getByRole('button', { name: /try 25 ethereum\/eth ika/i }));
+    await waitFor(() => expect(view.getByText(/ika request blocked/i)).toBeTruthy());
+
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('Confidential policy blocked this Ika request.');
+    expect(logText).not.toContain('MessageApproval');
+    expect(logText).not.toContain('sepolia');
+    expect(logText).not.toContain('0xabab');
+    expect(multichainInputs.at(-1)?.targetChain).toBe('ethereum');
   });
 
   test('shows safe unsupported Ika route explanation without approval proof', async () => {
