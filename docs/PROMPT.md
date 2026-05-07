@@ -61,6 +61,8 @@ Use `docs/progress.txt` as the final priority list. At the time this prompt was 
 4. `046-frontend-ethereum-ika-optional-route-ui`
 5. `048-frontend-official-encrypt-status-surface`
 
+Current Ralph execution queue is maintained in `docs/progress.txt`. If it differs from the stale list above, follow `docs/progress.txt`; `052-hackathon-ika-encrypt-prealpha-integration` is an umbrella tracker, not the next executable issue.
+
 Stretch work:
 
 - `043-frontend-recovery-authority-ui`

@@ -2,7 +2,7 @@
 
 Labels: `needs-triage`
 
-Type: `AFK`
+Type: `Umbrella`
 
 ## Parent
 
@@ -14,18 +14,26 @@ Make the hackathon demo prove one coherent Ika x Encrypt pre-alpha path: an AI a
 
 This issue does not require claiming production FHE, production MPC, or real bridgeless settlement. The product should present masked-witness policy evaluation as a fallback/dev fixture, while the hackathon evidence path highlights official Encrypt pre-alpha lifecycle semantics for Ika approval preparation.
 
+This is now an umbrella tracking issue, not the next executable task. Ralph-style executable slices are tracked in:
+
+- `docs/issues/054-official-encrypt-policy-inputs-without-static-witness.md`
+- `docs/issues/055-official-encrypt-no-witness-manual-e2e-readiness.md`
+- `docs/issues/056-frontend-ika-encrypt-lifecycle-command-center.md`
+- `docs/issues/057-hackathon-encrypt-ika-local-evidence-pack.md`
+- `docs/issues/058-hackathon-encrypt-ika-final-closeout.md`
+
 ## Acceptance criteria
 
 - [ ] A demo setup path exists for configuring an official Encrypt pre-alpha policy state on the Polet wallet without relying on the masked-witness fallback as the primary Ika approval gate.
-- [ ] The Ika intent path can return `pending-encrypt-execution` for unresolved Encrypt graph output and does not expose dWallet, MessageApproval, unsigned transaction, destination digest, private threshold, remaining cap, or witness material in that state.
-- [ ] The Ika intent path can return `encrypt-verified-blocked` and proves blocked output suppresses Ika approval data and unsigned approval transactions.
-- [ ] The Ika intent path can return `encrypt-verified-allowed` and only then prepares the Ika approval artifacts: canonical order hash, Ika message hash, dWallet account, MessageApproval PDA, CPI authority PDA, and unsigned Polet approval transaction for the session signer.
-- [ ] Shared Ika approval quorum still applies after verified Encrypt allowed output, so a missing co-approver proof returns `IKA_APPROVAL_QUORUM_REQUIRED` before dWallet approval data is prepared.
-- [ ] SDK/Hermes-facing responses clearly label `intentStrategy` separately from `executionRail`, so `strategy: dca` is not misread as “Ika has a DCA strategy.”
+- [x] The Ika intent path can return `pending-encrypt-execution` for unresolved Encrypt graph output and does not expose dWallet, MessageApproval, unsigned transaction, destination digest, private threshold, remaining cap, or witness material in that state.
+- [x] The Ika intent path can return `encrypt-verified-blocked` and proves blocked output suppresses Ika approval data and unsigned approval transactions.
+- [x] The Ika intent path can return `encrypt-verified-allowed` and only then prepares the Ika approval artifacts: canonical order hash, Ika message hash, dWallet account, MessageApproval PDA, CPI authority PDA, and unsigned Polet approval transaction for the session signer.
+- [x] Shared Ika approval quorum still applies after verified Encrypt allowed output, so a missing co-approver proof returns `IKA_APPROVAL_QUORUM_REQUIRED` before dWallet approval data is prepared.
+- [x] SDK/Hermes-facing responses clearly label `intentStrategy` separately from `executionRail`, so `strategy: dca` is not misread as “Ika has a DCA strategy.”
 - [ ] Frontend activity cards and proxy/API responses never display `encryptionWitness`, private max-per-run, daily cap, or decrypted remaining cap in any Encrypt lifecycle state.
-- [ ] A hackathon runbook section documents the exact evidence to capture: pending, verified blocked, verified allowed, quorum required, quorum satisfied, unsigned approval signer, and devnet transaction/explorer links where applicable.
+- [x] A hackathon runbook section documents the exact evidence to capture: pending, verified blocked, verified allowed, quorum required, quorum satisfied, unsigned approval signer, and devnet transaction/explorer links where applicable.
 - [ ] Tests cover the pending, verified blocked, verified allowed, quorum-required, and quorum-satisfied Ika x Encrypt outcomes across proxy, SDK normalization, and frontend rendering.
-- [ ] Documentation states explicitly that Encrypt and Ika are pre-alpha here: no production privacy guarantee, no production MPC claim, and settlement remains `not-executed` unless a separate destination broadcast demo is explicitly enabled.
+- [x] Documentation states explicitly that Encrypt and Ika are pre-alpha here: no production privacy guarantee, no production MPC claim, and settlement remains `not-executed` unless a separate destination broadcast demo is explicitly enabled.
 
 ## Blocked by
 
@@ -41,7 +49,7 @@ None - can start immediately
 
 ## Grill decisions
 
-Recommended scope: keep this as one end-to-end vertical hackathon integration issue. Do not split it into separate contract/proxy/frontend tickets unless implementation proves too large, because the value being judged is the coherent demo boundary: Encrypt verified output gates Ika approval artifacts.
+Recommended scope update: treat this as an umbrella tracker. The value being judged is still one coherent demo boundary, but execution should happen through small child issues so each Ralph pass can finish one externally verifiable slice.
 
 Recommended policy stance: official Encrypt pre-alpha is the primary story for Ika approval readiness; masked-witness remains a compatibility fallback and local fixture. The UI and SDK must not imply that `[1..32]` witness bytes are produced by Encrypt official.
 

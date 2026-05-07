@@ -31,7 +31,11 @@ This issue must follow the local Encrypt docs in `docs/encrypt/SUMMARY.md`, `doc
 
 ## Blocked by
 
-- `052-hackathon-ika-encrypt-prealpha-integration` for the current Ika x Encrypt lifecycle evidence path.
+None - can start immediately
+
+## Ralph slice note
+
+This is the next executable slice after `052` was converted into an umbrella tracker. Complete the smallest no-witness primary path first: proxy/API request shape, SDK/runtime defaults, frontend action payloads, and deterministic tests proving the primary demo no longer serializes static witness arrays. Defer broader manual E2E polish to `055`.
 
 ## Existing related work
 

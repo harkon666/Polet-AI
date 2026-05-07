@@ -44,14 +44,15 @@ Current hackathon integration decision:
 - Ika is the dWallet approval rail, not the DCA strategy engine. DCA is an intent strategy label; Ika approval artifacts are rail-specific outputs after Polet policy approval.
 - Agent SDK UX must support generic Hermes/OpenClaw-style integration without requiring runtimes to write ad hoc JS helper files for status checks, wallet PDA derivation, config validation, transaction simulation, signing, or result normalization.
 
+## Umbrella Tracking
+
+- `052-hackathon-ika-encrypt-prealpha-integration` — Umbrella tracker for the Ika x Encrypt hackathon path, not the next executable issue. Landed: Ika bridgeless proxy responses expose `intentStrategy` separately from `executionRail: "ika-bridgeless"`, SDK/Hermes normalized trade results carry the same separation in `details`, the proxy has deterministic `pending-encrypt-execution`, `encrypt-verified-blocked`, `encrypt-verified-allowed`, and quorum-required-after-verified-allowed coverage, SDK normalization covers pending and verified-blocked official Encrypt Ika responses without proof/witness leaks, and the Ika devnet smoke runbook has a pending/verified-blocked/verified-allowed/quorum/signer evidence checklist. Remaining work is split into Ralph-style executable child issues `054` through `058`.
+  - Verification this pass: `bun test ./tests/ika-bridgeless-request.test.ts` in `proxy/`; `bun test ./tests/intent-builder.test.ts` and `bun run build` in `sdk/`.
+
 ## In Progress
 
-- `052-hackathon-ika-encrypt-prealpha-integration` — In progress vertical hackathon issue to make the Ika x Encrypt pre-alpha path coherent end to end. Landed this pass: Ika bridgeless proxy responses expose `intentStrategy` separately from `executionRail: "ika-bridgeless"`, SDK/Hermes normalized trade results carry the same separation in `details`, the proxy now has deterministic `encrypt-verified-blocked` suppression and quorum-required-after-verified-allowed coverage, SDK normalization covers pending and verified-blocked official Encrypt Ika responses without proof/witness leaks, and the Ika devnet smoke runbook has a pending/verified-blocked/verified-allowed/quorum/signer evidence checklist. Remaining: complete official Encrypt setup/demo path evidence and broaden frontend rendering coverage for the final lifecycle proof.
-  - Verification this pass: `bun test ./tests/ika-bridgeless-request.test.ts` in `proxy/`; `bun test ./tests/intent-builder.test.ts` and `bun run build` in `sdk/`.
 - `053-agent-sdk-integration-kit` — In progress generic SDK integration issue for Hermes, OpenClaw, and other AI agent runtimes. Landed this pass: `createPoletAgentKit()`, config validation, proxy/wallet/session status checks, runtime-safe tool descriptors, normalized trade tool output, simulation passthrough, smart wallet PDA onboarding helper, environment export helper, owner setup guidance, and explicit `signer-required` sign/send behavior unless an injected session signer and RPC sender exist. Remaining: broaden live-proxy status diagnostics and optional onboarding export ergonomics.
   - Verification this pass: `bun test ./tests/intent-builder.test.ts` and `bun run build` in `sdk/`.
-- `054-official-encrypt-policy-inputs-without-static-witness` — Newly created issue to remove static `[1,2,3,...,32]` `encryptionWitness` arrays from the primary demo/SDK/frontend path and replace them with official Encrypt pre-alpha ciphertext policy inputs and lifecycle outputs. Masked witness remains allowed only as an explicit local dev fixture/fallback.
-- `055-official-encrypt-no-witness-manual-e2e-readiness` — Newly created follow-up issue for frontend/proxy/SDK/docs/test readiness after `054` lands, so manual E2E can be repeated against the official Encrypt no-witness path without hand-editing payloads or reintroducing static witness arrays.
 
 ## Blocked
 
@@ -62,10 +63,14 @@ Current hackathon integration decision:
 
 ### Critical Path
 
-- Complete `052-hackathon-ika-encrypt-prealpha-integration` for final hackathon evidence: pending Encrypt, verified blocked, verified allowed, quorum required, quorum satisfied, unsigned approval signer, and devnet/explorer proof where applicable.
-- Complete `053-agent-sdk-integration-kit` so external AI agents can integrate Polet through a stable SDK/tool surface instead of custom scripts for wallet discovery, config validation, and transaction handling.
-- Complete `054-official-encrypt-policy-inputs-without-static-witness` so the primary hackathon path no longer passes static witness arrays and instead uses official Encrypt pre-alpha ciphertext account/lifecycle semantics.
-- Complete `055-official-encrypt-no-witness-manual-e2e-readiness` after `054` so frontend, proxy, SDK, docs, and tests are ready for another manual E2E run.
+Ralph execution queue. Pick the first incomplete unblocked issue:
+
+1. `054-official-encrypt-policy-inputs-without-static-witness` — Remove static `[1,2,3,...,32]` witness arrays from the primary proxy/API, SDK/runtime, and frontend demo path. Masked witness remains only as explicit local dev fixture/fallback.
+2. `055-official-encrypt-no-witness-manual-e2e-readiness` — Make frontend, proxy, SDK, docs, and tests ready for a no-witness manual E2E run after `054`.
+3. `056-frontend-ika-encrypt-lifecycle-command-center` — Render pending, verified blocked, verified allowed, quorum required, and quorum satisfied Ika x Encrypt states in the command-center UI with redaction tests.
+4. `057-hackathon-encrypt-ika-local-evidence-pack` — Produce deterministic local evidence commands/output for the full Ika x Encrypt lifecycle without relying on live devnet availability.
+5. `058-hackathon-encrypt-ika-final-closeout` — Reconcile umbrella `052`, progress notes, demo wording, and final verification after child issues land.
+6. `053-agent-sdk-integration-kit` — Parallel follow-up for broader live-proxy status diagnostics and optional onboarding export ergonomics after the hackathon evidence path is stable.
 
 ### Stretch
 
@@ -118,6 +123,9 @@ Current hackathon integration decision:
     │       └── 052-hackathon-ika-encrypt-prealpha-integration
     │           └── 054-official-encrypt-policy-inputs-without-static-witness
     │               └── 055-official-encrypt-no-witness-manual-e2e-readiness
+    │                   └── 056-frontend-ika-encrypt-lifecycle-command-center
+    │                       └── 057-hackathon-encrypt-ika-local-evidence-pack
+    │                           └── 058-hackathon-encrypt-ika-final-closeout
     └── 016-proxy-execution-module
         └── 017-execution-payload-module
 
