@@ -117,3 +117,27 @@ Avoid this wording:
 - Do not reintroduce static `encryptionWitness: [1,2,3,...,32]` into the primary demo path.
 - Do not claim production FHE, production privacy, production Ika MPC, bridgeless settlement, or mainnet Jupiter execution.
 - Do not sign/send transactions without explicit operator approval. Build unsigned transactions and record signer requirements first.
+
+## Progress - 2026-05-07
+
+Landed a narrow externally verifiable proxy slice for the no-witness official Encrypt path:
+
+- Added unsigned transaction builders for `set_official_encrypt_ciphertext_policy`, `execute_encrypt_policy_graph_as_session`, and `approve_ika_message_with_verified_encrypt_as_session`.
+- Added proxy routes:
+  - `POST /wallet/set-official-encrypt-ciphertext-policy`
+  - `POST /wallet/execute-encrypt-policy-graph`
+  - `POST /wallet/approve-ika-with-verified-encrypt`
+- Builder responses include signer lists, official Encrypt program id, gRPC endpoint, graph name, input ciphertext ids, pending output ciphertext ids, and suppression boundaries for pending graph execution.
+- Verified Ika consume builder omits `encryptionWitness` and `sourceAmount`; it only prepares an unsigned Ika approval transaction after an external verified-allowed Encrypt result is supplied.
+- Updated demo/runbook wording so official Encrypt ciphertext/graph lifecycle is the primary evidence path and masked witness is local fallback only.
+
+Verification:
+
+- `cd proxy && bun test ./tests/transaction-builder.test.ts` passed.
+- `cd proxy && bun run build` passed.
+
+Remaining:
+
+- Create official Encrypt ciphertext accounts through `@encrypt.xyz/pre-alpha-solana-client` or official Rust client.
+- Run the live devnet graph transaction, poll/ingest executor/decryption verification, and capture graph signature/evidence.
+- Record exact live blocker if gRPC, faucet, executor, decryptor, or client package availability prevents the run.

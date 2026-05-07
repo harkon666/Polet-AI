@@ -71,9 +71,76 @@ export interface ApproveIkaMessageTransactionRequest {
   sharedApprovers?: string[];
 }
 
+export interface OfficialEncryptContextAccounts {
+  encryptProgram?: string;
+  config: string;
+  deposit: string;
+  networkEncryptionKey: string;
+  eventAuthority: string;
+  payer: string;
+}
+
+export interface SetOfficialEncryptCiphertextPolicyTransactionRequest {
+  wallet: string;
+  owner: string;
+  maxPerRunCiphertext: string;
+  dailyCapCiphertext: string;
+  dailySpentCiphertext: string;
+  policyCommitment: string | Uint8Array | number[];
+  encrypt: OfficialEncryptContextAccounts;
+}
+
+export interface ExecuteEncryptPolicyGraphTransactionRequest {
+  wallet: string;
+  sessionKey: string;
+  sourceAmountCiphertext: string;
+  maxPerRunCiphertext: string;
+  dailySpentCiphertext: string;
+  dailyCapCiphertext: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
+  attestationSlot: number | bigint;
+  attestationPolicySeq: number | bigint;
+  encrypt: OfficialEncryptContextAccounts;
+}
+
+export interface ApproveIkaMessageWithVerifiedEncryptTransactionRequest {
+  wallet: string;
+  sessionKey: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
+  allowedDecryptionRequest: string;
+  coordinator: string;
+  dwallet: string;
+  messageApproval: string;
+  cpiAuthority: string;
+  callerProgram: string;
+  ikaProgram: string;
+  ikaMessageHash: string | Uint8Array | number[];
+  orderExpiresAt: number | bigint;
+  attestationSlot: number | bigint;
+  attestationPolicySeq: number | bigint;
+  userPubkey: string | Uint8Array | number[];
+  signatureScheme: number;
+  messageApprovalBump: number;
+  sharedApprovers?: string[];
+}
+
 export const APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR = Buffer.from([
   133, 198, 111, 169, 240, 8, 18, 170,
 ]);
+export const SET_OFFICIAL_ENCRYPT_CIPHERTEXT_POLICY_DISCRIMINATOR = Buffer.from([
+  46, 133, 123, 44, 247, 184, 6, 250,
+]);
+export const EXECUTE_ENCRYPT_POLICY_GRAPH_AS_SESSION_DISCRIMINATOR = Buffer.from([
+  37, 34, 20, 39, 19, 43, 189, 171,
+]);
+export const APPROVE_IKA_MESSAGE_WITH_VERIFIED_ENCRYPT_AS_SESSION_DISCRIMINATOR = Buffer.from([
+  90, 155, 234, 78, 137, 233, 226, 101,
+]);
+export const ENCRYPT_PREALPHA_PROGRAM_ID_STRING = '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8';
+export const ENCRYPT_PREALPHA_GRPC_URL = 'https://pre-alpha-dev-1.encrypt.ika-network.net:443';
+export const ENCRYPT_CPI_AUTHORITY_SEED = '__encrypt_cpi_authority';
 
 /**
  * Build instruction data matching the Solana program's execute_intent format
@@ -117,6 +184,53 @@ export function buildApproveIkaMessageAsSessionInstructionData(
   offset += 8;
   Buffer.from(normalizeBytes32(request.encryptionWitness, 'encryptionWitness')).copy(data, offset);
   offset += 32;
+  Buffer.from(normalizeUserPubkey(request.userPubkey)).copy(data, offset);
+  offset += 32;
+  data.writeUInt16LE(toU16(request.signatureScheme), offset);
+  offset += 2;
+  data.writeUInt8(toU8(request.messageApprovalBump, 'messageApprovalBump'), offset);
+
+  return data;
+}
+
+export function buildSetOfficialEncryptCiphertextPolicyInstructionData(
+  request: SetOfficialEncryptCiphertextPolicyTransactionRequest
+): Buffer {
+  const data = Buffer.alloc(8 + 32);
+  SET_OFFICIAL_ENCRYPT_CIPHERTEXT_POLICY_DISCRIMINATOR.copy(data, 0);
+  Buffer.from(normalizeBytes32(request.policyCommitment, 'policyCommitment')).copy(data, 8);
+  return data;
+}
+
+export function buildExecuteEncryptPolicyGraphAsSessionInstructionData(
+  request: ExecuteEncryptPolicyGraphTransactionRequest,
+  programId = PROGRAM_ID_STRING
+): Buffer {
+  const cpiAuthorityBump = deriveEncryptCpiAuthority(programId)[1];
+  const data = Buffer.alloc(8 + 8 + 8 + 1);
+  EXECUTE_ENCRYPT_POLICY_GRAPH_AS_SESSION_DISCRIMINATOR.copy(data, 0);
+  data.writeBigUInt64LE(toU64(request.attestationSlot), 8);
+  data.writeBigUInt64LE(toU64(request.attestationPolicySeq), 16);
+  data.writeUInt8(cpiAuthorityBump, 24);
+  return data;
+}
+
+export function buildApproveIkaMessageWithVerifiedEncryptAsSessionInstructionData(
+  request: ApproveIkaMessageWithVerifiedEncryptTransactionRequest
+): Buffer {
+  const data = Buffer.alloc(8 + 32 + 8 + 8 + 8 + 32 + 2 + 1);
+  let offset = 0;
+
+  APPROVE_IKA_MESSAGE_WITH_VERIFIED_ENCRYPT_AS_SESSION_DISCRIMINATOR.copy(data, offset);
+  offset += 8;
+  Buffer.from(normalizeBytes32(request.ikaMessageHash, 'ikaMessageHash')).copy(data, offset);
+  offset += 32;
+  data.writeBigInt64LE(toI64(request.orderExpiresAt), offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.attestationSlot), offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.attestationPolicySeq), offset);
+  offset += 8;
   Buffer.from(normalizeUserPubkey(request.userPubkey)).copy(data, offset);
   offset += 32;
   data.writeUInt16LE(toU16(request.signatureScheme), offset);
@@ -201,6 +315,51 @@ export async function buildApproveIkaMessageSessionTransaction(
   };
 }
 
+export async function buildSetOfficialEncryptCiphertextPolicyTransaction(
+  request: SetOfficialEncryptCiphertextPolicyTransactionRequest,
+  programId = PROGRAM_ID_STRING
+): Promise<BuiltTransaction> {
+  const ownerPubkey = new PublicKey(request.owner);
+  const transaction = new Transaction().add(new TransactionInstruction({
+    keys: buildSetOfficialEncryptCiphertextPolicyAccounts(request, programId),
+    programId: new PublicKey(programId),
+    data: buildSetOfficialEncryptCiphertextPolicyInstructionData(request),
+  }));
+  const signerSet = new Set([request.owner, request.encrypt.payer]);
+  return serializeBuiltTransaction(transaction, ownerPubkey, Array.from(signerSet));
+}
+
+export async function buildExecuteEncryptPolicyGraphSessionTransaction(
+  request: ExecuteEncryptPolicyGraphTransactionRequest,
+  programId = PROGRAM_ID_STRING
+): Promise<BuiltTransaction> {
+  const sessionKeyPubkey = new PublicKey(request.sessionKey);
+  const transaction = new Transaction().add(new TransactionInstruction({
+    keys: buildExecuteEncryptPolicyGraphAsSessionAccounts(request, programId),
+    programId: new PublicKey(programId),
+    data: buildExecuteEncryptPolicyGraphAsSessionInstructionData(request, programId),
+  }));
+  const signerSet = new Set([request.sessionKey, request.encrypt.payer]);
+  return serializeBuiltTransaction(transaction, sessionKeyPubkey, Array.from(signerSet));
+}
+
+export async function buildApproveIkaMessageWithVerifiedEncryptSessionTransaction(
+  request: ApproveIkaMessageWithVerifiedEncryptTransactionRequest,
+  programId = PROGRAM_ID_STRING
+): Promise<BuiltTransaction> {
+  const sessionKeyPubkey = new PublicKey(request.sessionKey);
+  const transaction = new Transaction().add(new TransactionInstruction({
+    keys: buildApproveIkaMessageWithVerifiedEncryptAsSessionAccounts(request),
+    programId: new PublicKey(programId),
+    data: buildApproveIkaMessageWithVerifiedEncryptAsSessionInstructionData(request),
+  }));
+  return serializeBuiltTransaction(
+    transaction,
+    sessionKeyPubkey,
+    [request.sessionKey, ...(request.sharedApprovers ?? [])]
+  );
+}
+
 export function buildApproveIkaMessageAsSessionAccounts(
   request: Pick<
     ApproveIkaMessageTransactionRequest,
@@ -223,6 +382,114 @@ export function buildApproveIkaMessageAsSessionAccounts(
       isWritable: false,
     })),
   ];
+}
+
+export function buildSetOfficialEncryptCiphertextPolicyAccounts(
+  request: Pick<
+    SetOfficialEncryptCiphertextPolicyTransactionRequest,
+    'wallet' | 'owner' | 'maxPerRunCiphertext' | 'dailyCapCiphertext' | 'dailySpentCiphertext' | 'encrypt'
+  >,
+  programId = PROGRAM_ID_STRING
+) {
+  const [cpiAuthority] = deriveEncryptCpiAuthority(programId);
+  return [
+    { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.owner), isSigner: true, isWritable: false },
+    { pubkey: new PublicKey(request.maxPerRunCiphertext), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.dailyCapCiphertext), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.dailySpentCiphertext), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.encrypt.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.encrypt.config), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.encrypt.deposit), isSigner: false, isWritable: true },
+    { pubkey: cpiAuthority, isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(programId), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.encrypt.networkEncryptionKey), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.encrypt.payer), isSigner: true, isWritable: true },
+    { pubkey: new PublicKey(request.encrypt.eventAuthority), isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  ];
+}
+
+export function buildExecuteEncryptPolicyGraphAsSessionAccounts(
+  request: Pick<
+    ExecuteEncryptPolicyGraphTransactionRequest,
+    | 'wallet'
+    | 'sessionKey'
+    | 'sourceAmountCiphertext'
+    | 'maxPerRunCiphertext'
+    | 'dailySpentCiphertext'
+    | 'dailyCapCiphertext'
+    | 'allowedOutputCiphertext'
+    | 'dailySpentOutputCiphertext'
+    | 'encrypt'
+  >,
+  programId = PROGRAM_ID_STRING
+) {
+  const [cpiAuthority] = deriveEncryptCpiAuthority(programId);
+  return [
+    { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.sessionKey), isSigner: true, isWritable: false },
+    { pubkey: new PublicKey(request.sourceAmountCiphertext), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.maxPerRunCiphertext), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.dailySpentCiphertext), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.dailyCapCiphertext), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.allowedOutputCiphertext), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.dailySpentOutputCiphertext), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.encrypt.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.encrypt.config), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.encrypt.deposit), isSigner: false, isWritable: true },
+    { pubkey: cpiAuthority, isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(programId), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.encrypt.networkEncryptionKey), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.encrypt.payer), isSigner: true, isWritable: true },
+    { pubkey: new PublicKey(request.encrypt.eventAuthority), isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+  ];
+}
+
+export function buildApproveIkaMessageWithVerifiedEncryptAsSessionAccounts(
+  request: Pick<
+    ApproveIkaMessageWithVerifiedEncryptTransactionRequest,
+    | 'wallet'
+    | 'sessionKey'
+    | 'allowedOutputCiphertext'
+    | 'dailySpentOutputCiphertext'
+    | 'allowedDecryptionRequest'
+    | 'coordinator'
+    | 'dwallet'
+    | 'messageApproval'
+    | 'cpiAuthority'
+    | 'callerProgram'
+    | 'ikaProgram'
+    | 'sharedApprovers'
+  >
+) {
+  return [
+    { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.sessionKey), isSigner: true, isWritable: false },
+    { pubkey: new PublicKey(request.allowedOutputCiphertext), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.dailySpentOutputCiphertext), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.allowedDecryptionRequest), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.coordinator), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.dwallet), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.messageApproval), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.cpiAuthority), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.callerProgram), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.ikaProgram), isSigner: false, isWritable: false },
+    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+    ...(request.sharedApprovers ?? []).map((approver) => ({
+      pubkey: new PublicKey(approver),
+      isSigner: true,
+      isWritable: false,
+    })),
+  ];
+}
+
+export function deriveEncryptCpiAuthority(programId = PROGRAM_ID_STRING): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from(ENCRYPT_CPI_AUTHORITY_SEED)],
+    new PublicKey(programId)
+  );
 }
 
 /**
@@ -437,6 +704,29 @@ export async function buildIntentTransaction(
     blockHash: blockhash,
     slot: recentSlot,
     signers: [intent.sessionKey],
+  };
+}
+
+async function serializeBuiltTransaction(
+  transaction: Transaction,
+  feePayer: PublicKey,
+  signers: string[]
+): Promise<BuiltTransaction> {
+  const connection = getConnection();
+  const { blockhash } = await connection.getLatestBlockhash();
+  const recentSlot = await connection.getSlot();
+
+  transaction.recentBlockhash = blockhash;
+  transaction.feePayer = feePayer;
+
+  return {
+    transaction: transaction.serialize({
+      requireAllSignatures: false,
+      verifySignatures: false,
+    }).toString('base64'),
+    blockHash: blockhash,
+    slot: recentSlot,
+    signers,
   };
 }
 

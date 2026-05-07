@@ -1,7 +1,14 @@
 import { Hono } from 'hono';
 import { PublicKey, Transaction } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
-import { getConnection } from '../lib/transaction-builder';
+import {
+  ENCRYPT_PREALPHA_GRPC_URL,
+  ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+  buildApproveIkaMessageWithVerifiedEncryptSessionTransaction,
+  buildExecuteEncryptPolicyGraphSessionTransaction,
+  buildSetOfficialEncryptCiphertextPolicyTransaction,
+  getConnection,
+} from '../lib/transaction-builder';
 import idl from '../lib/idl.json' with { type: "json" };
 import { generateAndSaveKey } from '../lib/kms';
 import { buildPolicyTree } from '../lib/merkle-tree';
@@ -356,6 +363,175 @@ walletRouter.post('/set-confidential-policy', async (c) => {
   } catch (error) {
     console.error('Set confidential policy error:', error);
     return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build confidential policy transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/set-official-encrypt-ciphertext-policy
+ * Builds the owner/payer-signed policy registration tx for official Encrypt ciphertext accounts.
+ */
+walletRouter.post('/set-official-encrypt-ciphertext-policy', async (c) => {
+  try {
+    const {
+      wallet,
+      owner,
+      maxPerRunCiphertext,
+      dailyCapCiphertext,
+      dailySpentCiphertext,
+      policyCommitment,
+      encrypt,
+    } = await c.req.json();
+    const transaction = await buildSetOfficialEncryptCiphertextPolicyTransaction({
+      wallet: wallet || deriveWalletPda(parsePublicKey(owner, 'owner')).toString(),
+      owner,
+      maxPerRunCiphertext,
+      dailyCapCiphertext,
+      dailySpentCiphertext,
+      policyCommitment,
+      encrypt: {
+        encryptProgram: encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+        config: encrypt?.config,
+        deposit: encrypt?.deposit,
+        networkEncryptionKey: encrypt?.networkEncryptionKey,
+        eventAuthority: encrypt?.eventAuthority,
+        payer: encrypt?.payer ?? owner,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...transaction,
+        wallet: wallet || deriveWalletPda(parsePublicKey(owner, 'owner')).toString(),
+        encryptProgram: encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+        grpcEndpoint: ENCRYPT_PREALPHA_GRPC_URL,
+        ciphertexts: {
+          maxPerRun: maxPerRunCiphertext,
+          dailyCap: dailyCapCiphertext,
+          dailySpent: dailySpentCiphertext,
+        },
+        graph: 'polet_policy_guardrail_graph',
+        boundary: 'unsigned-official-encrypt-policy-registration',
+      },
+    });
+  } catch (error) {
+    console.error('Set official Encrypt ciphertext policy error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build official Encrypt policy transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/execute-encrypt-policy-graph
+ * Builds the session/payer-signed tx that submits Polet's official Encrypt graph.
+ */
+walletRouter.post('/execute-encrypt-policy-graph', async (c) => {
+  try {
+    const {
+      wallet,
+      sessionKey,
+      sourceAmountCiphertext,
+      maxPerRunCiphertext,
+      dailySpentCiphertext,
+      dailyCapCiphertext,
+      allowedOutputCiphertext,
+      dailySpentOutputCiphertext,
+      attestationSlot,
+      attestationPolicySeq,
+      encrypt,
+    } = await c.req.json();
+    const transaction = await buildExecuteEncryptPolicyGraphSessionTransaction({
+      wallet,
+      sessionKey,
+      sourceAmountCiphertext,
+      maxPerRunCiphertext,
+      dailySpentCiphertext,
+      dailyCapCiphertext,
+      allowedOutputCiphertext,
+      dailySpentOutputCiphertext,
+      attestationSlot,
+      attestationPolicySeq,
+      encrypt: {
+        encryptProgram: encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+        config: encrypt?.config,
+        deposit: encrypt?.deposit,
+        networkEncryptionKey: encrypt?.networkEncryptionKey,
+        eventAuthority: encrypt?.eventAuthority,
+        payer: encrypt?.payer ?? sessionKey,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...transaction,
+        status: 'pending-encrypt-execution',
+        encryptProgram: encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+        grpcEndpoint: ENCRYPT_PREALPHA_GRPC_URL,
+        graph: 'polet_policy_guardrail_graph',
+        inputCiphertexts: {
+          sourceAmount: sourceAmountCiphertext,
+          maxPerRun: maxPerRunCiphertext,
+          dailySpent: dailySpentCiphertext,
+          dailyCap: dailyCapCiphertext,
+        },
+        pendingOutputCiphertexts: {
+          allowedOutput: allowedOutputCiphertext,
+          dailySpentOutput: dailySpentOutputCiphertext,
+        },
+        suppressedUntilVerified: ['jupiterExecutionPayload', 'dwallet', 'messageApproval', 'destinationDigest', 'poletApprovalTransaction'],
+      },
+    });
+  } catch (error) {
+    console.error('Execute official Encrypt policy graph error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build official Encrypt graph transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/approve-ika-with-verified-encrypt
+ * Builds the no-witness Ika consume tx after an allowed Encrypt output is verified.
+ */
+walletRouter.post('/approve-ika-with-verified-encrypt', async (c) => {
+  try {
+    const body = await c.req.json();
+    const transaction = await buildApproveIkaMessageWithVerifiedEncryptSessionTransaction({
+      wallet: body.wallet,
+      sessionKey: body.sessionKey,
+      allowedOutputCiphertext: body.allowedOutputCiphertext,
+      dailySpentOutputCiphertext: body.dailySpentOutputCiphertext,
+      allowedDecryptionRequest: body.allowedDecryptionRequest,
+      coordinator: body.coordinator,
+      dwallet: body.dwallet,
+      messageApproval: body.messageApproval,
+      cpiAuthority: body.cpiAuthority,
+      callerProgram: body.callerProgram ?? PROGRAM_ID.toString(),
+      ikaProgram: body.ikaProgram,
+      ikaMessageHash: body.ikaMessageHash,
+      orderExpiresAt: body.orderExpiresAt,
+      attestationSlot: body.attestationSlot,
+      attestationPolicySeq: body.attestationPolicySeq,
+      userPubkey: body.userPubkey,
+      signatureScheme: body.signatureScheme,
+      messageApprovalBump: body.messageApprovalBump,
+      sharedApprovers: body.sharedApprovers,
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...transaction,
+        status: 'encrypt-verified-allowed',
+        graph: 'polet_policy_guardrail_graph',
+        allowedOutputCiphertext: body.allowedOutputCiphertext,
+        dailySpentOutputCiphertext: body.dailySpentOutputCiphertext,
+        allowedDecryptionRequest: body.allowedDecryptionRequest,
+        boundary: 'unsigned-ika-approval-after-verified-encrypt',
+        settlement: 'not-executed',
+      },
+    });
+  } catch (error) {
+    console.error('Approve Ika with verified Encrypt error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build verified Encrypt Ika transaction' }, 500);
   }
 });
 

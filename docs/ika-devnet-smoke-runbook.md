@@ -173,6 +173,16 @@ Expected official no-witness states:
 - `IKA_APPROVAL_QUORUM_REQUIRED`: shared approval counts/challenge only; no Ika approval transaction until quorum is satisfied.
 - `approval-transaction-prepared`: unsigned Polet approval transaction includes `POLET_SESSION_KEY` as required signer. Simulate before asking for a signature.
 
+Unsigned proxy builder routes for issue `059`:
+
+```text
+POST /wallet/set-official-encrypt-ciphertext-policy
+POST /wallet/execute-encrypt-policy-graph
+POST /wallet/approve-ika-with-verified-encrypt
+```
+
+These routes build unsigned Polet transactions only. They do not create ciphertext accounts by themselves, sign, simulate, send, decrypt, or claim settlement. Use official Encrypt client output for ciphertext account ids, then feed those ids into these routes. If the official client, gRPC endpoint, faucet, executor, or decryptor is unavailable, record the exact command/error below and keep local harness evidence labeled fallback.
+
 Evidence files:
 
 ```text

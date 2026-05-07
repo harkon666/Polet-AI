@@ -17,11 +17,24 @@ import {
 } from '../src/lib/execution-payload.js';
 import {
   APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR,
+  APPROVE_IKA_MESSAGE_WITH_VERIFIED_ENCRYPT_AS_SESSION_DISCRIMINATOR,
+  EXECUTE_ENCRYPT_POLICY_GRAPH_AS_SESSION_DISCRIMINATOR,
+  SET_OFFICIAL_ENCRYPT_CIPHERTEXT_POLICY_DISCRIMINATOR,
   buildApproveIkaMessageAsSessionAccounts,
   buildApproveIkaMessageAsSessionInstructionData,
   buildApproveIkaMessageSessionTransaction,
+  buildApproveIkaMessageWithVerifiedEncryptAsSessionAccounts,
+  buildApproveIkaMessageWithVerifiedEncryptAsSessionInstructionData,
+  buildApproveIkaMessageWithVerifiedEncryptSessionTransaction,
+  buildExecuteEncryptPolicyGraphAsSessionAccounts,
+  buildExecuteEncryptPolicyGraphAsSessionInstructionData,
+  buildExecuteEncryptPolicyGraphSessionTransaction,
   buildExecuteConfidentialTransferInstructionData,
   buildExecuteIntentData,
+  buildSetOfficialEncryptCiphertextPolicyAccounts,
+  buildSetOfficialEncryptCiphertextPolicyInstructionData,
+  buildSetOfficialEncryptCiphertextPolicyTransaction,
+  deriveEncryptCpiAuthority,
   setConnection,
   to_LE_Bytes,
   type TransactionRequest,
@@ -258,6 +271,150 @@ describe('Transaction Builder', () => {
     });
   });
 
+  describe('Official Encrypt transaction builders', () => {
+    test('encodes set_official_encrypt_ciphertext_policy args without witness bytes', () => {
+      const request = createSetOfficialEncryptRequest();
+      const data = buildSetOfficialEncryptCiphertextPolicyInstructionData(request);
+
+      expect(data.subarray(0, 8)).toEqual(SET_OFFICIAL_ENCRYPT_CIPHERTEXT_POLICY_DISCRIMINATOR);
+      expect(data.subarray(8, 40)).toEqual(Buffer.alloc(32, 0x22));
+      expect(data.length).toBe(40);
+    });
+
+    test('defines set official Encrypt policy account order used by the contract', () => {
+      const request = createSetOfficialEncryptRequest();
+      const [encryptCpiAuthority] = deriveEncryptCpiAuthority();
+
+      expect(buildSetOfficialEncryptCiphertextPolicyAccounts(request)).toEqual([
+        { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(request.owner), isSigner: true, isWritable: false },
+        { pubkey: new PublicKey(request.maxPerRunCiphertext), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.dailyCapCiphertext), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.dailySpentCiphertext), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.encrypt.encryptProgram!), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.encrypt.config), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.encrypt.deposit), isSigner: false, isWritable: true },
+        { pubkey: encryptCpiAuthority, isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(PROGRAM_ID_STRING), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.encrypt.networkEncryptionKey), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.encrypt.payer), isSigner: true, isWritable: true },
+        { pubkey: new PublicKey(request.encrypt.eventAuthority), isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ]);
+    });
+
+    test('encodes execute_encrypt_policy_graph_as_session args and derived bump', () => {
+      const request = createExecuteEncryptGraphRequest();
+      const data = buildExecuteEncryptPolicyGraphAsSessionInstructionData(request);
+      const [, bump] = deriveEncryptCpiAuthority();
+
+      expect(data.subarray(0, 8)).toEqual(EXECUTE_ENCRYPT_POLICY_GRAPH_AS_SESSION_DISCRIMINATOR);
+      expect(data.readBigUInt64LE(8)).toBe(123n);
+      expect(data.readBigUInt64LE(16)).toBe(7n);
+      expect(data.readUInt8(24)).toBe(bump);
+      expect(data.length).toBe(25);
+    });
+
+    test('defines execute graph account order with pending output ciphertexts writable', () => {
+      const request = createExecuteEncryptGraphRequest();
+      const metas = buildExecuteEncryptPolicyGraphAsSessionAccounts(request);
+
+      expect(metas.map((meta) => meta.pubkey.toString())).toEqual([
+        request.wallet,
+        request.sessionKey,
+        request.sourceAmountCiphertext,
+        request.maxPerRunCiphertext,
+        request.dailySpentCiphertext,
+        request.dailyCapCiphertext,
+        request.allowedOutputCiphertext,
+        request.dailySpentOutputCiphertext,
+        request.encrypt.encryptProgram,
+        request.encrypt.config,
+        request.encrypt.deposit,
+        deriveEncryptCpiAuthority()[0].toString(),
+        PROGRAM_ID_STRING,
+        request.encrypt.networkEncryptionKey,
+        request.encrypt.payer,
+        request.encrypt.eventAuthority,
+        SystemProgram.programId.toString(),
+      ]);
+      expect(metas[1].isSigner).toBe(true);
+      expect(metas[2].isWritable).toBe(true);
+      expect(metas[6].isWritable).toBe(true);
+      expect(metas[14].isSigner).toBe(true);
+    });
+
+    test('encodes verified Encrypt Ika consume args without source amount or witness', () => {
+      const user = Keypair.generate().publicKey;
+      const request = createVerifiedEncryptIkaRequest({ userPubkey: user.toString() });
+      const data = buildApproveIkaMessageWithVerifiedEncryptAsSessionInstructionData(request);
+
+      expect(data.subarray(0, 8)).toEqual(APPROVE_IKA_MESSAGE_WITH_VERIFIED_ENCRYPT_AS_SESSION_DISCRIMINATOR);
+      expect(data.subarray(8, 40)).toEqual(Buffer.alloc(32, 0x33));
+      expect(data.readBigInt64LE(40)).toBe(1_700_000_600n);
+      expect(data.readBigUInt64LE(48)).toBe(123n);
+      expect(data.readBigUInt64LE(56)).toBe(7n);
+      expect(data.subarray(64, 96)).toEqual(Buffer.from(user.toBytes()));
+      expect(data.readUInt16LE(96)).toBe(5);
+      expect(data.readUInt8(98)).toBe(201);
+      expect(data.length).toBe(99);
+    });
+
+    test('defines verified Encrypt Ika consume accounts and shared approver signers', () => {
+      const approver = Keypair.generate().publicKey.toString();
+      const request = createVerifiedEncryptIkaRequest({ sharedApprovers: [approver] });
+      const metas = buildApproveIkaMessageWithVerifiedEncryptAsSessionAccounts(request);
+
+      expect(metas.map((meta) => meta.pubkey.toString())).toEqual([
+        request.wallet,
+        request.sessionKey,
+        request.allowedOutputCiphertext,
+        request.dailySpentOutputCiphertext,
+        request.allowedDecryptionRequest,
+        request.coordinator,
+        request.dwallet,
+        request.messageApproval,
+        request.cpiAuthority,
+        request.callerProgram,
+        request.ikaProgram,
+        SystemProgram.programId.toString(),
+        approver,
+      ]);
+      expect(metas[1].isSigner).toBe(true);
+      expect(metas[7].isWritable).toBe(true);
+      expect(metas[12].isSigner).toBe(true);
+    });
+
+    test('builds unsigned official Encrypt setup and execution transactions', async () => {
+      const blockhash = Keypair.generate().publicKey.toString();
+      setConnection({
+        getLatestBlockhash: async () => ({ blockhash, lastValidBlockHeight: 99 }),
+        getSlot: async () => 555,
+      } as never);
+
+      const setRequest = createSetOfficialEncryptRequest();
+      const setBuilt = await buildSetOfficialEncryptCiphertextPolicyTransaction(setRequest);
+      const setTx = Transaction.from(Buffer.from(setBuilt.transaction, 'base64'));
+      expect(setBuilt.signers).toEqual([setRequest.owner, setRequest.encrypt.payer]);
+      expect(setTx.feePayer?.toString()).toBe(setRequest.owner);
+      expect(setTx.instructions[0].data).toEqual(buildSetOfficialEncryptCiphertextPolicyInstructionData(setRequest));
+
+      const executeRequest = createExecuteEncryptGraphRequest();
+      const executeBuilt = await buildExecuteEncryptPolicyGraphSessionTransaction(executeRequest);
+      const executeTx = Transaction.from(Buffer.from(executeBuilt.transaction, 'base64'));
+      expect(executeBuilt.signers).toEqual([executeRequest.sessionKey, executeRequest.encrypt.payer]);
+      expect(executeTx.feePayer?.toString()).toBe(executeRequest.sessionKey);
+      expect(executeTx.instructions[0].data).toEqual(buildExecuteEncryptPolicyGraphAsSessionInstructionData(executeRequest));
+
+      const verifiedRequest = createVerifiedEncryptIkaRequest();
+      const verifiedBuilt = await buildApproveIkaMessageWithVerifiedEncryptSessionTransaction(verifiedRequest);
+      const verifiedTx = Transaction.from(Buffer.from(verifiedBuilt.transaction, 'base64'));
+      expect(verifiedBuilt.signers).toEqual([verifiedRequest.sessionKey]);
+      expect(verifiedTx.feePayer?.toString()).toBe(verifiedRequest.sessionKey);
+      expect(verifiedTx.instructions[0].data).toEqual(buildApproveIkaMessageWithVerifiedEncryptAsSessionInstructionData(verifiedRequest));
+    });
+  });
+
   describe('BuiltTransaction interface', () => {
     test('BuiltTransaction has required fields', () => {
       const mockTx: BuiltTransaction = {
@@ -321,6 +478,77 @@ function createApproveIkaRequest(overrides: Partial<Parameters<typeof buildAppro
     attestationSlot: 9n,
     attestationPolicySeq: 7n,
     encryptionWitness: Array.from({ length: 32 }, (_, index) => index + 1),
+    userPubkey: Keypair.generate().publicKey.toString(),
+    signatureScheme: 5,
+    messageApprovalBump: 201,
+    ...overrides,
+  };
+}
+
+function createEncryptContext() {
+  return {
+    encryptProgram: '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8',
+    config: Keypair.generate().publicKey.toString(),
+    deposit: Keypair.generate().publicKey.toString(),
+    networkEncryptionKey: Keypair.generate().publicKey.toString(),
+    eventAuthority: Keypair.generate().publicKey.toString(),
+    payer: Keypair.generate().publicKey.toString(),
+  };
+}
+
+function createSetOfficialEncryptRequest(
+  overrides: Partial<Parameters<typeof buildSetOfficialEncryptCiphertextPolicyInstructionData>[0]> = {}
+) {
+  return {
+    wallet: Keypair.generate().publicKey.toString(),
+    owner: Keypair.generate().publicKey.toString(),
+    maxPerRunCiphertext: Keypair.generate().publicKey.toString(),
+    dailyCapCiphertext: Keypair.generate().publicKey.toString(),
+    dailySpentCiphertext: Keypair.generate().publicKey.toString(),
+    policyCommitment: '22'.repeat(32),
+    encrypt: createEncryptContext(),
+    ...overrides,
+  };
+}
+
+function createExecuteEncryptGraphRequest(
+  overrides: Partial<Parameters<typeof buildExecuteEncryptPolicyGraphAsSessionInstructionData>[0]> = {}
+) {
+  return {
+    wallet: Keypair.generate().publicKey.toString(),
+    sessionKey: Keypair.generate().publicKey.toString(),
+    sourceAmountCiphertext: Keypair.generate().publicKey.toString(),
+    maxPerRunCiphertext: Keypair.generate().publicKey.toString(),
+    dailySpentCiphertext: Keypair.generate().publicKey.toString(),
+    dailyCapCiphertext: Keypair.generate().publicKey.toString(),
+    allowedOutputCiphertext: Keypair.generate().publicKey.toString(),
+    dailySpentOutputCiphertext: Keypair.generate().publicKey.toString(),
+    attestationSlot: 123n,
+    attestationPolicySeq: 7n,
+    encrypt: createEncryptContext(),
+    ...overrides,
+  };
+}
+
+function createVerifiedEncryptIkaRequest(
+  overrides: Partial<Parameters<typeof buildApproveIkaMessageWithVerifiedEncryptAsSessionInstructionData>[0]> = {}
+) {
+  return {
+    wallet: Keypair.generate().publicKey.toString(),
+    sessionKey: Keypair.generate().publicKey.toString(),
+    allowedOutputCiphertext: Keypair.generate().publicKey.toString(),
+    dailySpentOutputCiphertext: Keypair.generate().publicKey.toString(),
+    allowedDecryptionRequest: Keypair.generate().publicKey.toString(),
+    coordinator: Keypair.generate().publicKey.toString(),
+    dwallet: Keypair.generate().publicKey.toString(),
+    messageApproval: Keypair.generate().publicKey.toString(),
+    cpiAuthority: Keypair.generate().publicKey.toString(),
+    callerProgram: PROGRAM_ID_STRING,
+    ikaProgram: IKA_PREALPHA_PROGRAM_ID_STRING,
+    ikaMessageHash: '33'.repeat(32),
+    orderExpiresAt: 1_700_000_600n,
+    attestationSlot: 123n,
+    attestationPolicySeq: 7n,
     userPubkey: Keypair.generate().publicKey.toString(),
     signatureScheme: 5,
     messageApprovalBump: 201,

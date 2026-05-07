@@ -39,7 +39,7 @@ Use this timing if recording a judge-facing video:
 1. `0:00-0:30` Problem and thesis.
    Say: "Polet AI is a confidential Solana control layer for AI agents. Users delegate strategy requests without revealing private spending guardrails or giving agents unlimited wallet authority."
 2. `0:30-1:25` Owner setup and Encrypt boundary.
-   Show wallet PDA, custody setup, confidential policy save, policy redaction, and session signer authorization. Say this is an Encrypt pre-alpha masked witness flow, not production privacy.
+   Show wallet PDA, custody setup, confidential policy save, policy redaction, and session signer authorization. Use the official Encrypt ciphertext/graph evidence path when available; label masked witness as local fallback only, not official Encrypt or production privacy.
 3. `1:25-2:15` Required outcome 1: blocked Ika request.
    Run `25` USDC-equivalent Ika. Show blocked status, safe explanation, no dWallet, no MessageApproval, and no threshold leak.
 4. `2:15-3:05` Required outcome 2: approved Jupiter DCA.
@@ -67,7 +67,7 @@ Use this timing if recording a judge-facing video:
 
    Enter the demo values, sign the setup transaction, then show that the UI redacts the values after save.
 
-   Say: "For the hackathon MVP, this is an Encrypt pre-alpha style masked witness flow. It proves the confidential enforcement path, not production-grade privacy."
+   Say: "For the hackathon MVP, official Encrypt evidence uses ciphertext accounts, graph execution, pending outputs, and verified allow/block states. If devnet services are unavailable, masked witness is only a local fallback fixture, not official Encrypt or production-grade privacy."
 
 5. Grant or paste the agent session key.
 
