@@ -48,3 +48,7 @@ Recommended policy stance: official Encrypt pre-alpha is the primary story for I
 Recommended Ika stance: Ika is the dWallet approval rail, not the DCA strategy engine. DCA is an intent strategy label; Ika approval artifacts are a rail-specific result after Polet policy approval.
 
 Recommended evidence stance: show transaction success and artifacts, but keep settlement language strict. `approval-transaction-prepared` is acceptable; “asset settlement completed” is not.
+
+## Implementation notes
+
+- 2026-05-07: Added explicit `intentStrategy` labeling to Ika bridgeless proxy responses and SDK/Hermes normalized result details, separate from `executionRail: "ika-bridgeless"`, so `strategy: "dca"` is not presented as an Ika strategy. Updated proxy/SDK tests and the Ika devnet smoke runbook evidence checklist.

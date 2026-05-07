@@ -36,6 +36,7 @@ describe('Ika bridgeless execution request', () => {
       expect(result.code).toBe('IKA_APPROVAL_TRANSACTION_PREPARED');
       expect(result.status).toBe('approval-transaction-prepared');
       expect(result.ikaRequest.executionRail).toBe('ika-bridgeless');
+      expect(result.ikaRequest.intentStrategy).toBe('dca');
       expect(result.ikaRequest.settlement).toBe('not-executed');
       expect(result.ikaRequest.source).toEqual({ chain: 'solana', asset: 'USDC' });
       expect(result.ikaRequest.target).toEqual({ chain: 'sui', asset: 'SUI' });

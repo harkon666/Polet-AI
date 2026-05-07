@@ -290,6 +290,8 @@ success: true
 data.allowed: true
 data.code: IKA_APPROVAL_TRANSACTION_PREPARED
 data.status: approval-transaction-prepared
+data.ikaRequest.intentStrategy == dca
+data.ikaRequest.executionRail == ika-bridgeless
 data.ikaRequest.preAlphaSigning.dwalletAccount == IKA_DWALLET_ACCOUNT
 data.ikaRequest.preAlphaSigning.approveMessage.programId == IKA_DWALLET_PROGRAM_ID
 data.ikaRequest.preAlphaSigning.ikaMessageHash == data.ikaRequest.ikaMessageHash
@@ -312,6 +314,20 @@ IKA_SUI_DIGEST=<data.ikaRequest.suiTransactionDigest.digestBase58>
 IKA_CANONICAL_ORDER_HASH=<data.ikaRequest.canonicalOrderHash>
 POLET_APPROVAL_TRANSACTION=<base64 transaction from data.ikaRequest.poletApprovalTransaction.transaction>
 ```
+
+## Hackathon Ika x Encrypt Evidence Checklist
+
+Capture these artifacts for issue `052` without recording private thresholds, decrypted remaining caps, witness bytes, private keys, or seed phrases:
+
+- `pending-encrypt-execution`: proxy response has `data.status: pending-encrypt-execution`, `data.encryptPolicy.graph: polet_policy_guardrail_graph`, and no `ikaRequest`, dWallet, MessageApproval, destination digest, or unsigned approval transaction.
+- `encrypt-verified-blocked`: proxy response has `data.status: encrypt-verified-blocked`, verified Encrypt ciphertext ids, and no Ika approval data or unsigned transaction.
+- `encrypt-verified-allowed`: proxy response has `data.ikaRequest.policyAttestation.status: encrypt-verified-allowed`, `data.ikaRequest.intentStrategy: dca`, `data.ikaRequest.executionRail: ika-bridgeless`, canonical order hash, Ika message hash, dWallet account, MessageApproval PDA, CPI authority PDA, and unsigned Polet approval transaction.
+- `quorum required`: response has `data.code: IKA_APPROVAL_QUORUM_REQUIRED`, progress counts, and no `ikaRequest`, dWallet, MessageApproval, destination digest, or unsigned approval transaction.
+- `quorum satisfied`: response has the same verified-allowed artifacts plus `poletApprovalTransaction.signers == [POLET_SESSION_KEY]`.
+- `signer review`: record cluster, fee payer, required signer, Polet instruction, dWallet, MessageApproval, Ika program, and simulation result before any signature.
+- `devnet/explorer`: if signed and sent manually, record Polet approval signature, explorer link, MessageApproval account lookup, and state that settlement remains `not-executed`.
+
+Evidence language must say Encrypt and Ika are pre-alpha here. Do not claim production privacy, production MPC, or bridgeless asset settlement.
 
 ## Step 6: Simulate, Sign, And Send The Polet Approval Transaction
 

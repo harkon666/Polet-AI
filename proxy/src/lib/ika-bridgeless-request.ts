@@ -40,6 +40,7 @@ import type { Intent, MultichainStrategyParams, PoletChain } from '../types/inte
 
 export interface IkaBridgelessExecutionRequest {
   executionRail: 'ika-bridgeless';
+  intentStrategy: 'dca' | 'swap';
   settlement: 'not-executed';
   requestId: string;
   source: {
@@ -277,6 +278,7 @@ async function buildIkaAllowedResult(
   });
   const ikaRequestBase: IkaBridgelessExecutionRequest = {
     executionRail: 'ika-bridgeless',
+    intentStrategy: params.strategy ?? 'dca',
     settlement: 'not-executed',
     requestId: `ika-${attestationHash.slice(0, 24)}`,
     source: {

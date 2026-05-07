@@ -1066,6 +1066,8 @@ interface ProxyTradeDataLike {
   build?: unknown;
   multichain?: unknown;
   ikaRequest?: {
+    executionRail?: string;
+    intentStrategy?: 'dca' | 'swap';
     requestId?: string;
     settlement?: PoletSettlementStatus;
     executionBoundary?: {
@@ -1169,6 +1171,8 @@ function normalizeIkaTradeResponse(response: ProxyEnvelopeLike, intent: Multicha
       payload: data.ikaRequest,
     },
     details: {
+      intentStrategy: data.ikaRequest?.intentStrategy ?? intent.params.strategy ?? 'dca',
+      executionRail: data.ikaRequest?.executionRail ?? 'ika-bridgeless',
       executionBoundary: data.ikaRequest?.executionBoundary,
       preAlphaSigning: data.ikaRequest?.preAlphaSigning,
       proof: buildIkaAgentProof(data),

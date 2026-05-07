@@ -838,6 +838,7 @@ describe('Polet AI SDK - Intent Builder', () => {
             code: 'IKA_BRIDGELESS_REQUEST_READY',
             ikaRequest: {
               executionRail: 'ika-bridgeless',
+              intentStrategy: 'dca',
               settlement: 'not-executed',
               requestId: 'ika-request-1',
               executionBoundary: { status: 'request-prepared' },
@@ -880,6 +881,8 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(result.status).toBe('request-prepared');
       expect(result.settlement).toBe('not-executed');
       expect(result.execution?.requestId).toBe('ika-request-1');
+      expect(result.details?.intentStrategy).toBe('dca');
+      expect(result.details?.executionRail).toBe('ika-bridgeless');
       expect(requests[0].url).toBe('https://proxy.polet.ai/intent/multichain/run');
       expect(requests[0].body).toMatchObject({
         action: 'multichain-strategy',
