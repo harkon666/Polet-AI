@@ -4,6 +4,16 @@ Labels: `needs-triage`, `critical-path`
 
 Type: `AFK`
 
+## Current Status
+
+`DONE (Polet-side) / BLOCKED (external Encrypt pre-alpha infra)`
+
+Polet has implemented and evidenced the official Encrypt pre-alpha integration boundary: ciphertext inputs are created through the official client, Encrypt-owned ciphertext accounts are registered on the Polet wallet, session authorization works on devnet, unsigned graph/consume builders exist, and the live runner reaches `execute_encrypt_policy_graph_as_session`.
+
+Full live graph execution, executor verification, decryption result handling, and verified-output Ika consume evidence are not complete yet because the current Encrypt devnet infrastructure rejects the graph CPI before graph processing. The recorded blocker is external to Polet: missing/uninitialized Encrypt infrastructure accounts and fee configuration (`event_authority`, per-payer `encrypt_deposit`, and non-zero `enc_mint`/vault setup).
+
+Use this issue as integration-ready evidence, not as a claim that Polet completed a full live Encrypt executor lifecycle.
+
 ## Parent
 
 `docs/issues/052-hackathon-ika-encrypt-prealpha-integration.md`
@@ -47,23 +57,33 @@ Local fallback:
 
 ## Acceptance criteria
 
-- [ ] A proxy or SDK script can create official Encrypt pre-alpha ciphertext inputs through the official client, not by constructing masked XOR witness values.
-- [ ] A wallet setup flow registers Encrypt-owned ciphertext accounts through `set_official_encrypt_ciphertext_policy`.
-- [ ] A policy execution flow builds/runs `execute_encrypt_policy_graph_as_session` with Encrypt config, deposit, CPI authority, caller program, network encryption key, event authority, input ciphertext accounts, and output ciphertext accounts.
-- [ ] The flow records pending output ciphertext ids and returns `pending-encrypt-execution` while executor verification is unresolved.
-- [ ] The flow can observe or ingest a verified allowed result and prepare the verified-output Ika approval path without `encryptionWitness`.
-- [ ] The flow can observe or ingest a verified blocked result and suppress Jupiter payloads, Ika dWallet data, MessageApproval data, destination digests, unsigned approval transactions, private thresholds, decrypted caps, and witness bytes.
-- [ ] Evidence output includes official Encrypt program id, gRPC endpoint, ciphertext account ids, graph execution transaction/signature when available, pending output ciphertext ids, verified result status, and Ika consume status when allowed.
-- [ ] Evidence output does not include private keys, seed phrases, raw witness bytes, plaintext policy thresholds after setup, decrypted caps, or executable blocked/pending payloads.
-- [ ] README, demo script, and runbook wording are corrected so the project does not imply masked-witness XOR is official Encrypt or FHE.
-- [ ] If live devnet cannot complete, the issue documents the exact blocker, the command attempted, the observed error, and the smallest retry action without claiming live Encrypt success.
-- [ ] Targeted tests/builds pass for changed proxy, SDK, frontend, and contract surfaces.
+- [x] A proxy or SDK script can create official Encrypt pre-alpha ciphertext inputs through the official client, not by constructing masked XOR witness values.
+- [x] A wallet setup flow registers Encrypt-owned ciphertext accounts through `set_official_encrypt_ciphertext_policy`.
+- [ ] A policy execution flow builds/runs `execute_encrypt_policy_graph_as_session` with Encrypt config, deposit, CPI authority, caller program, network encryption key, event authority, input ciphertext accounts, and output ciphertext accounts. Built and attempted; live run is blocked by Encrypt devnet infrastructure.
+- [x] The flow records pending output ciphertext ids and returns `pending-encrypt-execution` while executor verification is unresolved.
+- [x] The flow can observe or ingest a verified allowed result and prepare the verified-output Ika approval path without `encryptionWitness`.
+- [x] The flow can observe or ingest a verified blocked result and suppress Jupiter payloads, Ika dWallet data, MessageApproval data, destination digests, unsigned approval transactions, private thresholds, decrypted caps, and witness bytes.
+- [x] Evidence output includes official Encrypt program id, gRPC endpoint, ciphertext account ids, graph execution transaction/signature when available, pending output ciphertext ids, verified result status, and Ika consume status when allowed.
+- [x] Evidence output does not include private keys, seed phrases, raw witness bytes, plaintext policy thresholds after setup, decrypted caps, or executable blocked/pending payloads.
+- [x] README, demo script, and runbook wording are corrected so the project does not imply masked-witness XOR is official Encrypt or FHE.
+- [x] If live devnet cannot complete, the issue documents the exact blocker, the command attempted, the observed error, and the smallest retry action without claiming live Encrypt success.
+- [x] Targeted tests/builds pass for changed proxy, SDK, frontend, and contract surfaces.
 
 ## Blocked by
 
-None - can start immediately.
+External Encrypt pre-alpha devnet infrastructure for the final live graph/executor leg.
 
-External blockers may occur during execution:
+Already reached/verified on Polet side:
+
+- Official ciphertext creation evidence through `@encrypt.xyz/pre-alpha-solana-client`.
+- Devnet ciphertext account verification against the official Encrypt program id.
+- Polet wallet initialization on devnet.
+- `set_official_encrypt_ciphertext_policy` registration on devnet.
+- Session grant on devnet.
+- Live `execute_encrypt_policy_graph_as_session` attempt.
+- Exact blocker evidence in `docs/evidence/059-official-encrypt-devnet-e2e-result.json`.
+
+External blockers recorded during execution:
 
 - Encrypt pre-alpha gRPC unavailable.
 - Encrypt devnet program/state reset.
@@ -71,8 +91,13 @@ External blockers may occur during execution:
 - Executor/decryptor delayed.
 - `@encrypt.xyz/pre-alpha-solana-client` API mismatch with docs.
 - Existing workspace dependency mismatch for `encrypt-solana-test`.
+- Current observed blocker: Encrypt CPI exits before graph processing because required infra is not initialized/configured.
 
-These are not blockers to starting; they must be recorded as live-evidence blockers if hit.
+Smallest unblock action: once Encrypt devnet has a configured non-zero `enc_mint`, initialized `event_authority`, and initialized/creatable per-payer `encrypt_deposit`, re-run:
+
+```bash
+bun run scripts/059-encrypt-devnet-e2e.ts ~/.config/solana/id.json
+```
 
 ## Existing related work
 
@@ -138,7 +163,7 @@ Verification:
 
 ## Progress - 2026-05-07 (Audit Update)
 
-All acceptance criteria are satisfied by the implementation. Audit confirmation:
+Polet-side implementation is complete, but full live acceptance remains externally blocked. Audit confirmation:
 
 - `official-encrypt-live-e2e-runner.ts` creates ciphertexts via `@encrypt.xyz/pre-alpha-solana-client` gRPC (not static witness).
 - E2E runner completes steps 1–6 on live devnet (wallet init, ciphertext verification, policy registration, session grant).
@@ -205,3 +230,36 @@ Added Encrypt deposit creation infrastructure:
 - event_authority PDA not initialized on devnet
 - These are external Encrypt infrastructure issues, not Polet code bugs
 - Deposit creation code is ready, will work once Encrypt devnet is properly configured
+
+## Progress - 2026-05-08 (Infra Preflight)
+
+Added a reusable preflight for the live retry path:
+
+- `proxy/src/lib/encrypt-ciphertext-poller.ts` now derives and checks Encrypt config, event authority, and per-payer `encrypt_deposit` PDA state.
+- The preflight validates config ownership, config account size, `enc_mint`, `enc_vault`, event authority existence/ownership, and deposit existence/ownership without deserializing untrusted account data as trusted instructions.
+- `scripts/059-encrypt-devnet-e2e.ts` records owner/session Encrypt infrastructure status before expensive graph execution and records a focused `executeGraphInfraAtFailure` snapshot if CPI still fails.
+- Fixed the runner's deposit PDA seed to `encrypt_deposit` to match `docs/encrypt/raw.md` and the proxy transaction builder.
+
+Verification:
+
+- `cd proxy && bun test ./tests/encrypt-ciphertext-poller.test.ts ./tests/transaction-builder.test.ts` ✅
+- `cd proxy && bun run build` ✅
+- `cd sdk && bun run build` ✅
+
+Remaining live blocker:
+
+- Re-run the graph once Encrypt devnet has a configured non-zero `enc_mint`, initialized `event_authority`, and initialized per-payer `encrypt_deposit` PDA. Until then, full live graph execution, executor verification, and verified-output Ika consume evidence remain externally blocked.
+
+## Shipping Boundary - 2026-05-08
+
+For the hackathon demo, present `059` as:
+
+> Polet has completed the official Encrypt pre-alpha integration boundary on the Polet side. The project creates and registers official Encrypt ciphertext accounts, compiles the policy as an Encrypt graph, builds/attempts the devnet graph CPI, and records exact blocker evidence when Encrypt devnet infra rejects the CPI. Full live executor verification and verified-output Ika consume will be rerun after Encrypt infra is initialized.
+
+Do not present `059` as:
+
+> Full live Encrypt graph execution and production privacy are complete.
+
+Primary evidence file:
+
+- `docs/evidence/059-official-encrypt-devnet-e2e-result.json`

@@ -39,6 +39,7 @@ import {
 import * as anchor from '@coral-xyz/anchor';
 import {
   readCiphertextStatus,
+  readEncryptInfraStatus,
   pollCiphertextVerified,
 } from '../proxy/src/lib/encrypt-ciphertext-poller';
 
@@ -92,7 +93,7 @@ function deriveEncryptCpiAuthority(): [PublicKey, number] {
 
 function deriveEncryptDeposit(payer: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from('deposit'), payer.toBuffer()],
+    [Buffer.from('encrypt_deposit'), payer.toBuffer()],
     ENCRYPT_PROGRAM_ID
   )[0];
 }
@@ -315,15 +316,22 @@ async function main() {
     }
     evidence.steps.ciphertextCheck = { status: 'ok', ...ctChecks };
 
-    // ─── Step 3: Check event authority exists ────────────────────
-    log('\n=== Step 3: Checking Encrypt event authority ===');
-    const eventAuthInfo = await connection.getAccountInfo(ENCRYPT_EVENT_AUTHORITY);
-    if (!eventAuthInfo) {
-      log('WARNING: Event authority PDA does not exist on devnet — this may cause tx failure.');
-      evidence.steps.eventAuthority = { status: 'warning', exists: false, note: 'Event authority PDA not found; CPI may fail' };
-    } else {
-      log(`Event authority exists. Owner: ${eventAuthInfo.owner.toString()}`);
-      evidence.steps.eventAuthority = { status: 'ok', exists: true, owner: eventAuthInfo.owner.toString() };
+    // ─── Step 3: Check Encrypt infrastructure accounts ───────────
+    log('\n=== Step 3: Checking Encrypt infrastructure ===');
+    const ownerInfra = await readEncryptInfraStatus(connection, owner.publicKey, ENCRYPT_PROGRAM_ID);
+    const sessionInfra = await readEncryptInfraStatus(connection, session.publicKey, ENCRYPT_PROGRAM_ID);
+    evidence.steps.encryptInfrastructure = {
+      status: ownerInfra.readyForGraphCpi && sessionInfra.readyForGraphCpi ? 'ok' : 'warning',
+      ownerPayer: ownerInfra,
+      sessionPayer: sessionInfra,
+    };
+    for (const [label, infra] of Object.entries({ owner: ownerInfra, session: sessionInfra })) {
+      log(`  ${label} config enc_mint configured: ${infra.config.encMintConfigured}`);
+      log(`  ${label} event_authority exists: ${infra.eventAuthority.exists}`);
+      log(`  ${label} deposit exists: ${infra.deposit.exists} (${infra.deposit.address})`);
+      if (infra.blockers.length > 0) {
+        log(`  ${label} blockers: ${infra.blockers.join(', ')}`);
+      }
     }
 
     // ─── Step 4: Initialize Polet wallet ────────────────────────
@@ -372,7 +380,7 @@ async function main() {
       log(`Set policy failed: ${err.message}`);
       evidence.steps.setPolicy = { status: 'failed', error: err.message };
       evidence.status = 'blocked-set-policy-failed';
-      evidence.retryAction = 'Check Encrypt PDA accounts (config, deposit, event_authority). Re-run after fix.';
+      evidence.retryAction = 'Check Encrypt config, event_authority, and owner deposit PDA. Re-run after Encrypt infra is configured.';
       evidence.completedAt = new Date().toISOString();
       writeEvidence();
       await recoverSol(connection, [owner, session], devWallet);
@@ -439,7 +447,11 @@ async function main() {
         logs: logs.length > 0 ? logs : undefined,
       };
       evidence.status = 'blocked-graph-execution-failed';
-      evidence.retryAction = 'Check Encrypt program CPI requirements (event_authority, deposit, config). Inspect transaction logs for the specific error.';
+      const graphInfra = await readEncryptInfraStatus(connection, session.publicKey, ENCRYPT_PROGRAM_ID);
+      evidence.steps.executeGraphInfraAtFailure = graphInfra;
+      evidence.retryAction = graphInfra.blockers.length > 0
+        ? `Fix Encrypt infra blockers for session payer: ${graphInfra.blockers.join(', ')}. Then re-run this script.`
+        : 'Encrypt infrastructure preflight passed; inspect transaction logs and Encrypt program error mapping before retrying.';
       evidence.completedAt = new Date().toISOString();
       writeEvidence();
       await recoverSol(connection, [owner, session], devWallet);

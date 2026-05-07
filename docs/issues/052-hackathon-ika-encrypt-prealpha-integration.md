@@ -31,8 +31,8 @@ This issue does not require production FHE, production privacy, production Ika M
 
 ## Child Issues
 
-- `docs/issues/059-official-encrypt-devnet-ciphertext-graph-e2e.md` — first executable correction issue. Live official Encrypt devnet ciphertext/graph E2E, with local fallback only when external pre-alpha services block.
-- `docs/issues/054-official-encrypt-policy-inputs-without-static-witness.md` — rewritten as follow-up API/frontend cleanup after `059` proves the real official path.
+- `docs/issues/059-official-encrypt-devnet-ciphertext-graph-e2e.md` — first executable correction issue. Polet-side official Encrypt devnet integration is complete and externally blocked at live graph execution until Encrypt infra is initialized/configured.
+- `docs/issues/054-official-encrypt-policy-inputs-without-static-witness.md` — rewritten as follow-up API/frontend cleanup after `059` defines and evidences the official path boundary.
 - `docs/issues/055-official-encrypt-no-witness-manual-e2e-readiness.md` — rewritten as manual rehearsal and evidence collection after `059`.
 - `docs/issues/056-frontend-ika-encrypt-lifecycle-command-center.md` — rewritten as frontend surface after real `059` states are available.
 - `docs/issues/053-agent-sdk-integration-kit.md` — still relevant, but lower priority until `059` stabilizes the official Encrypt path.
@@ -46,12 +46,12 @@ Those local evidence/closeout issues are no longer source-of-truth for hackathon
 
 ## Acceptance Criteria
 
-- [ ] Live or attempted-live official Encrypt devnet evidence exists for ciphertext creation, policy registration, graph execution, pending output tracking, and verified allowed/blocked handling.
-- [ ] If live devnet is unavailable, blocker evidence records exact command, endpoint, error, and smallest retry action.
+- [x] Live or attempted-live official Encrypt devnet evidence exists for ciphertext creation, policy registration, graph execution attempt, pending output tracking interfaces, and verified allowed/blocked handling through the local compatibility harness.
+- [x] If live devnet is unavailable or incomplete, blocker evidence records exact command, endpoint, error, and smallest retry action.
 - [ ] Masked-witness XOR is quarantined as legacy/dev fixture only and is not used in primary demo copy, runbook, SDK examples, or frontend setup.
 - [ ] Polet prepares Ika approval artifacts only after verified allowed output from the official Encrypt path.
 - [ ] Pending and verified blocked states suppress dWallet, MessageApproval, unsigned approval tx, destination digest, Jupiter execution payload, thresholds, caps, witness bytes, and executable payloads.
-- [ ] README/demo/runbook wording says official Encrypt pre-alpha is not production privacy but is integrated through ciphertext + graph lifecycle.
+- [x] README/demo/runbook wording says official Encrypt pre-alpha is not production privacy but is integrated through ciphertext + graph lifecycle.
 - [ ] Tests/builds cover changed contract/proxy/SDK/frontend surfaces.
 
 ## Existing Related Work
@@ -111,3 +111,13 @@ All tests pass:
 **Remaining blocker**: Encrypt devnet needs enc_mint, event_authority PDA, and vault setup.
 **What's ready**: All Polet code (contract, proxy, SDK, frontend) is implemented and tested.
 **What's waiting**: External Encrypt infrastructure initialization.
+
+## Progress - 2026-05-08 (Shipping Boundary)
+
+`059` is treated as `DONE (Polet-side) / BLOCKED (external Encrypt pre-alpha infra)`.
+
+The hackathon claim is now:
+
+> Polet uses the official Encrypt pre-alpha ciphertext and graph lifecycle at the correct interface. Pre-alpha does not provide production privacy yet, and the current live devnet graph executor path is blocked by Encrypt infra, but Polet has reproducible evidence up to the graph CPI boundary plus local harness coverage for verified allowed/blocked consumption.
+
+Demo should show `docs/evidence/059-official-encrypt-devnet-e2e-result.json` as the official evidence file, then use the app/local harness path for product allow/block behavior without claiming full live Encrypt executor success.

@@ -97,9 +97,9 @@ async function main() {
   Object.entries(cts).forEach(([label, pubkey]) => console.log(`  ${label}: ${pubkey.toString()}`));
 
   // 4. Initialize Anchor
-  const idl = JSON.parse(readFileSync(IDL_PATH, 'utf8'));
+  const idl = JSON.parse(readFileSync(IDL_PATH, 'utf8')) as anchor.Idl;
   const provider = new anchor.AnchorProvider(connection, new anchor.Wallet(owner), { commitment: 'confirmed' });
-  const program = new anchor.Program(idl, provider);
+  const program = new anchor.Program(idl as anchor.Idl & { accounts?: { name: 'Wallet' }[] }, provider);
 
   // Derive PDAs
   const [walletPda] = PublicKey.findProgramAddressSync(

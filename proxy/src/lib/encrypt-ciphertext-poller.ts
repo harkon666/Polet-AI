@@ -14,6 +14,9 @@ export const CIPHERTEXT_ACCOUNT_SIZE = 100;
 export const CIPHERTEXT_STATUS_OFFSET = 99;
 export const CIPHERTEXT_DIGEST_OFFSET = 2;
 export const CIPHERTEXT_FHE_TYPE_OFFSET = 98;
+export const ENCRYPT_CONFIG_ACCOUNT_MIN_SIZE = 132;
+export const ENCRYPT_CONFIG_ENC_MINT_OFFSET = 68;
+export const ENCRYPT_CONFIG_ENC_VAULT_OFFSET = 100;
 
 export const CiphertextStatus = {
   Pending: 0,
@@ -30,6 +33,45 @@ export interface CiphertextAccountInfo {
   fheType: number;
   digest: string;
 }
+
+export interface EncryptInfraPdas {
+  config: PublicKey;
+  eventAuthority: PublicKey;
+  deposit: PublicKey;
+}
+
+export interface EncryptInfraStatus {
+  encryptProgram: string;
+  payer: string;
+  config: {
+    address: string;
+    exists: boolean;
+    owner: string;
+    dataLength: number;
+    ownedByEncryptProgram: boolean;
+    encMint: string;
+    encMintConfigured: boolean;
+    encVault: string;
+    encVaultConfigured: boolean;
+  };
+  eventAuthority: {
+    address: string;
+    exists: boolean;
+    owner: string;
+    ownedByEncryptProgram: boolean;
+  };
+  deposit: {
+    address: string;
+    exists: boolean;
+    owner: string;
+    ownedByEncryptProgram: boolean;
+    dataLength: number;
+  };
+  readyForGraphCpi: boolean;
+  blockers: string[];
+}
+
+const ZERO_PUBKEY = new PublicKey('11111111111111111111111111111111');
 
 /**
  * Read the status of an Encrypt ciphertext account on-chain.
@@ -65,6 +107,89 @@ export async function readCiphertextStatus(
     statusByte,
     fheType,
     digest,
+  };
+}
+
+export function deriveEncryptInfraPdas(
+  payer: PublicKey,
+  encryptProgram: PublicKey
+): EncryptInfraPdas {
+  const [config] = PublicKey.findProgramAddressSync(
+    [Buffer.from('encrypt_config')],
+    encryptProgram
+  );
+  const [eventAuthority] = PublicKey.findProgramAddressSync(
+    [Buffer.from('__event_authority')],
+    encryptProgram
+  );
+  const [deposit] = PublicKey.findProgramAddressSync(
+    [Buffer.from('encrypt_deposit'), payer.toBuffer()],
+    encryptProgram
+  );
+  return { config, eventAuthority, deposit };
+}
+
+export async function readEncryptInfraStatus(
+  connection: Connection,
+  payer: PublicKey,
+  encryptProgram: PublicKey
+): Promise<EncryptInfraStatus> {
+  const pdas = deriveEncryptInfraPdas(payer, encryptProgram);
+  const [configInfo, eventAuthorityInfo, depositInfo] = await Promise.all([
+    connection.getAccountInfo(pdas.config),
+    connection.getAccountInfo(pdas.eventAuthority),
+    connection.getAccountInfo(pdas.deposit),
+  ]);
+
+  const encMint = configInfo && configInfo.data.length >= ENCRYPT_CONFIG_ENC_MINT_OFFSET + 32
+    ? new PublicKey(configInfo.data.slice(ENCRYPT_CONFIG_ENC_MINT_OFFSET, ENCRYPT_CONFIG_ENC_MINT_OFFSET + 32))
+    : ZERO_PUBKEY;
+  const encVault = configInfo && configInfo.data.length >= ENCRYPT_CONFIG_ENC_VAULT_OFFSET + 32
+    ? new PublicKey(configInfo.data.slice(ENCRYPT_CONFIG_ENC_VAULT_OFFSET, ENCRYPT_CONFIG_ENC_VAULT_OFFSET + 32))
+    : ZERO_PUBKEY;
+
+  const blockers: string[] = [];
+  if (!configInfo) blockers.push('encrypt-config-missing');
+  else {
+    if (!configInfo.owner.equals(encryptProgram)) blockers.push('encrypt-config-owner-mismatch');
+    if (configInfo.data.length < ENCRYPT_CONFIG_ACCOUNT_MIN_SIZE) blockers.push('encrypt-config-too-small');
+    if (encMint.equals(ZERO_PUBKEY)) blockers.push('encrypt-config-enc-mint-unconfigured');
+    if (encVault.equals(ZERO_PUBKEY)) blockers.push('encrypt-config-enc-vault-unconfigured');
+  }
+  if (!eventAuthorityInfo) blockers.push('encrypt-event-authority-missing');
+  else if (!eventAuthorityInfo.owner.equals(encryptProgram)) blockers.push('encrypt-event-authority-owner-mismatch');
+  if (!depositInfo) blockers.push('encrypt-deposit-missing');
+  else if (!depositInfo.owner.equals(encryptProgram)) blockers.push('encrypt-deposit-owner-mismatch');
+
+  return {
+    encryptProgram: encryptProgram.toString(),
+    payer: payer.toString(),
+    config: {
+      address: pdas.config.toString(),
+      exists: Boolean(configInfo),
+      owner: configInfo?.owner.toString() ?? '',
+      dataLength: configInfo?.data.length ?? 0,
+      ownedByEncryptProgram: configInfo?.owner.equals(encryptProgram) ?? false,
+      encMint: encMint.toString(),
+      encMintConfigured: !encMint.equals(ZERO_PUBKEY),
+      encVault: encVault.toString(),
+      encVaultConfigured: !encVault.equals(ZERO_PUBKEY),
+    },
+    eventAuthority: {
+      address: pdas.eventAuthority.toString(),
+      exists: Boolean(eventAuthorityInfo),
+      owner: eventAuthorityInfo?.owner.toString() ?? '',
+      ownedByEncryptProgram: eventAuthorityInfo?.owner.equals(encryptProgram) ?? false,
+    },
+    deposit: {
+      address: pdas.deposit.toString(),
+      exists: Boolean(depositInfo),
+      owner: depositInfo?.owner.toString() ?? '',
+      ownedByEncryptProgram: depositInfo?.owner.equals(encryptProgram) ?? false,
+      dataLength: depositInfo?.data.length ?? 0,
+    },
+    readyForGraphCpi: blockers.length === 0,
+    blockers,
   };
 }
 
