@@ -49,7 +49,7 @@ Track alignment:
 
 ### Critical Path
 
-- `048-frontend-official-encrypt-status-surface` — Add frontend pending/verified Encrypt lifecycle states once the official Encrypt issue 041 proxy lifecycle is available.
+- None.
 
 ### Stretch
 
@@ -271,6 +271,9 @@ Track alignment:
 - [x] `046-frontend-ethereum-ika-optional-route-ui` — Added the optional Ethereum/ETH Ika route as a first-class frontend command-center path. The demo now has separate Sui/SUI primary approved/block controls, Ethereum/ETH optional approved/block controls, and a Base/ETH unsupported-route test. Ethereum Ika requests carry route allowlist and risk guardrails that permit the optional route, approved responses show the Sepolia EIP-191 sign-only digest plus Ika approval transaction metadata, and blocked Ethereum responses suppress dWallet, MessageApproval, and digest proof data.
   - Verification: `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with the existing Vitest/Vite `module is not defined` and shutdown-timeout warnings; `bun run build` passes in `frontend/`.
   - Note: Ethereum/ETH remains optional and sign-only. The frontend does not sign, broadcast, execute settlement, or claim production bridgeless movement.
+- [x] `048-frontend-official-encrypt-status-surface` — Added the official Encrypt lifecycle status surface to the command-center activity log. Frontend API types now model `pending-encrypt-execution`, `encrypt-verified-allowed`, and `encrypt-verified-blocked`; DCA and Ika results render distinct status cards with safe graph/ciphertext metadata; pending and verified-blocked states suppress Jupiter execution payloads, Ika dWallet data, MessageApproval data, thresholds, remaining caps, and witness bytes.
+  - Verification: `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with the existing Vitest/Vite `module is not defined` and shutdown-timeout warnings; `bun run build` passes in `frontend/`.
+  - Note: the UI keeps Encrypt pre-alpha wording visible and does not claim production privacy. Existing masked-witness fallback block/allow tests remain covered alongside the new official lifecycle states.
 - [x] `050-contract-official-encrypt-verified-ika-cpi-lifecycle` — Added the contract-side verified Encrypt consume path for Ika approval. `approve_ika_message_with_verified_encrypt_as_session` requires the pending official Encrypt output ciphertexts, verifies the allowed decryption request against the current ciphertext digest, rejects pending or verified-blocked outputs before Ika CPI, updates the official daily-spent ciphertext pointer only on verified allowed output, and preserves session, expiry, policy sequence, canonical Ika hash, dWallet/MessageApproval, and shared approver quorum checks. The masked-witness Ika instruction now rejects when an official Encrypt ciphertext policy is configured. Synced the proxy IDL to expose the new contract instruction and errors.
   - Verification: `NO_DNA=1 anchor build`, `NO_DNA=1 cargo fmt --check`, `NO_DNA=1 cargo test -p contract --test ika_approval`, and `NO_DNA=1 cargo test` pass in `contract/`; `bun run build` passes in `proxy/`.
   - Note: tests cover the consume lifecycle with deterministic mock ciphertext/decryption request accounts. No production privacy, MPC, settlement, or broadcast claims were added.

@@ -22,13 +22,25 @@ afterEach(() => {
   sharedConfig = null;
   sharedIkaAttempts = 0;
   multichainInputs = [];
+  encryptDcaMode = null;
+  encryptIkaMode = null;
 });
 
 let sharedConfig: { threshold: number; approvers: string[] } | null = null;
 let sharedIkaAttempts = 0;
 let multichainInputs: RunMultichainIntentInput[] = [];
+let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
+let encryptIkaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 const coApproverB = 'CxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR5';
+
+const encryptPolicyBase = {
+  policySequence: 7,
+  sourceAmountCiphertext: 'EncryptSourceCiphertext111111111111111111',
+  allowedOutputCiphertext: 'EncryptAllowedOutput1111111111111111111',
+  dailySpentOutputCiphertext: 'EncryptDailySpentOutput1111111111111111',
+  graph: 'polet_policy_guardrail_graph' as const,
+};
 
 const api = {
   setConfidentialPolicy: async () => ({
@@ -76,6 +88,32 @@ const api = {
     },
   }) : null,
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
+    if (encryptDcaMode === 'pending') {
+      return {
+        allowed: false,
+        code: 'ENCRYPT_POLICY_PENDING',
+        status: 'pending-encrypt-execution' as const,
+        reason: 'Encrypt policy graph execution is pending verification.',
+        encryptPolicy: {
+          ...encryptPolicyBase,
+          status: 'pending-encrypt-execution' as const,
+          pendingSlot: 101,
+        },
+      };
+    }
+    if (encryptDcaMode === 'blocked') {
+      return {
+        allowed: false,
+        code: 'ENCRYPT_POLICY_BLOCKED',
+        status: 'encrypt-verified-blocked' as const,
+        reason: 'Encrypt policy verified blocked.',
+        encryptPolicy: {
+          ...encryptPolicyBase,
+          status: 'encrypt-verified-blocked' as const,
+          verifiedSlot: 102,
+        },
+      };
+    }
     if (input.amountUsdc === '25') {
       return {
         allowed: false,
@@ -87,6 +125,14 @@ const api = {
     return {
       allowed: true,
       code: 'DCA_ALLOWED',
+      ...(encryptDcaMode === 'allowed' && {
+        status: 'encrypt-verified-allowed' as const,
+        encryptPolicy: {
+          ...encryptPolicyBase,
+          status: 'encrypt-verified-allowed' as const,
+          verifiedSlot: 103,
+        },
+      }),
       amount: input.amountUsdc,
       amountBaseUnits: '5000000',
       executionPath: 'swap-build-fallback' as const,
@@ -132,6 +178,32 @@ const api = {
         allowed: false,
         code: 'IKA_ROUTE_NOT_ALLOWED',
         reason: 'This chain or asset route is outside the wallet allowed route policy. No Ika approval data was prepared.',
+      };
+    }
+    if (encryptIkaMode === 'pending') {
+      return {
+        allowed: false,
+        code: 'ENCRYPT_POLICY_PENDING',
+        status: 'pending-encrypt-execution' as const,
+        reason: 'Encrypt policy graph execution is pending verification.',
+        encryptPolicy: {
+          ...encryptPolicyBase,
+          status: 'pending-encrypt-execution' as const,
+          pendingSlot: 201,
+        },
+      };
+    }
+    if (encryptIkaMode === 'blocked') {
+      return {
+        allowed: false,
+        code: 'ENCRYPT_POLICY_BLOCKED',
+        status: 'encrypt-verified-blocked' as const,
+        reason: 'Encrypt policy verified blocked.',
+        encryptPolicy: {
+          ...encryptPolicyBase,
+          status: 'encrypt-verified-blocked' as const,
+          verifiedSlot: 202,
+        },
       };
     }
     if (input.amount === '25') {
@@ -211,9 +283,16 @@ const api = {
           policySequence: 3,
         },
         policyAttestation: {
-          status: 'approved' as const,
+          status: encryptIkaMode === 'allowed' ? 'encrypt-verified-allowed' as const : 'approved' as const,
           policySequence: 3,
           attestationHash: 'safe-attestation-hash',
+          ...(encryptIkaMode === 'allowed' && {
+            encryptPolicy: {
+              ...encryptPolicyBase,
+              status: 'encrypt-verified-allowed' as const,
+              verifiedSlot: 203,
+            },
+          }),
         },
         executionBoundary: {
           status: 'approval-transaction-prepared' as const,
@@ -328,6 +407,37 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/preview: route\/build jupiter/i)).toBeTruthy();
   });
 
+  test('renders official Encrypt DCA lifecycle states without executable payload leaks', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+
+    encryptDcaMode = 'pending';
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText(/encrypt pending/i)).toBeTruthy());
+    let logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('polet_policy_guardrail_graph');
+    expect(logText).toContain('pending-encrypt-execution');
+    expect(logText).not.toContain('Jupiter route siap');
+    expect(logText).not.toContain('Policy-gated payload');
+
+    encryptDcaMode = 'blocked';
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText(/encrypt blocked/i)).toBeTruthy());
+    logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('encrypt-verified-blocked');
+    expect(logText).not.toContain('10 USDC');
+    expect(logText).not.toContain('20 USDC');
+    expect(logText).not.toContain('agent-tx');
+
+    encryptDcaMode = 'allowed';
+    fireEvent.click(view.getByRole('button', { name: /run 5 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText(/encrypt verified/i)).toBeTruthy());
+    logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('encrypt-verified-allowed');
+    expect(logText).toContain('Jupiter route siap');
+  });
+
   test('displays blocked and approved Ika dWallet proof without exposing thresholds', async () => {
     const view = renderDemo();
 
@@ -354,6 +464,37 @@ describe('Consumer DCA demo frontend', () => {
     logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');
+  });
+
+  test('renders official Encrypt Ika lifecycle states without approval payload leaks', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+
+    encryptIkaMode = 'pending';
+    fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
+    await waitFor(() => expect(view.getByText(/encrypt pending/i)).toBeTruthy());
+    let logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('pending-encrypt-execution');
+    expect(logText).not.toContain('MessageApproval');
+    expect(logText).not.toContain('dWallet');
+
+    encryptIkaMode = 'blocked';
+    fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
+    await waitFor(() => expect(view.getByText(/encrypt blocked/i)).toBeTruthy());
+    logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('encrypt-verified-blocked');
+    expect(logText).not.toContain('MessageApproval');
+    expect(logText).not.toContain('dWallet');
+    expect(logText).not.toContain('10 USDC');
+
+    encryptIkaMode = 'allowed';
+    fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
+    await waitFor(() => expect(view.getAllByText(/ika approval transaction prepared/i).length).toBeGreaterThan(0));
+    logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('encrypt-verified-allowed');
+    expect(logText).toContain('MessageApproval');
+    expect(logText).toContain('dWallet');
   });
 
   test('displays approved Ethereum Ika route with Sepolia EIP-191 digest', async () => {

@@ -37,7 +37,7 @@ import {
 } from '../lib/api';
 
 type Locale = 'id' | 'en';
-type RunStatus = 'approved' | 'blocked' | 'needs-approval' | 'setup' | 'error';
+type EncryptLifecycleStatus = 'pending-encrypt-execution' | 'encrypt-verified-allowed' | 'encrypt-verified-blocked';
 
 interface ConfidentialPolicyDraft {
   maxPerRunUsdc: string;
@@ -57,11 +57,12 @@ interface DcaStrategy {
 interface ActivityEntry {
   id: string;
   timestamp: number;
-  status: 'setup' | 'approved' | 'blocked' | 'needs-approval' | 'error';
+  status: 'setup' | 'approved' | 'blocked' | 'needs-approval' | 'error' | EncryptLifecycleStatus;
   message: string;
   route?: string;
   amountUsdc?: string;
   routePair?: string;
+  encryptPolicy?: RunConfidentialDcaResult['encryptPolicy'] | RunMultichainIntentResult['encryptPolicy'];
   jupiterPlan?: JupiterPlanPreview;
   ikaRequest?: IkaRequestPreview;
   approval?: RunMultichainIntentResult['approval'];
@@ -166,6 +167,9 @@ const COPY = {
     emptyLog: 'Belum ada aktivitas agen.',
     approved: 'DISETUJUI',
     blocked: 'DIBLOKIR',
+    encryptPending: 'ENCRYPT PENDING',
+    encryptAllowed: 'ENCRYPT VERIFIED',
+    encryptBlocked: 'ENCRYPT BLOCKED',
     setup: 'SETUP',
     error: 'ERROR',
     approvedMessage: 'Guardrail mengizinkan request dan proxy mengembalikan unsigned smart-wallet transaction untuk ditandatangani wallet agent.',
@@ -192,7 +196,16 @@ const COPY = {
     routeRiskStatus: 'Route risk',
     routeRiskPassed: 'Slippage and risk guardrails passed',
     privacyNote: 'Log aman: threshold, sisa cap, dan witness tidak ditampilkan.',
-    preAlpha: 'Encrypt pre-alpha demo: ini membuktikan alur enforcement, bukan klaim privasi produksi.',
+    preAlpha: 'Encrypt pre-alpha: status graph bisa pending, verified allowed, atau verified blocked. Integrasi executor masih pre-alpha; jangan klaim privasi produksi.',
+    encryptPendingMessage: 'Official Encrypt graph masih menunggu verifikasi executor. Payload Jupiter atau approval Ika tidak ditampilkan.',
+    encryptAllowedMessage: 'Official Encrypt output terverifikasi allowed. Payload aman hanya tampil untuk request yang diizinkan proxy.',
+    encryptBlockedMessage: 'Official Encrypt output terverifikasi blocked. Payload eksekusi, threshold, sisa cap, dan witness disembunyikan.',
+    encryptGraph: 'Encrypt graph',
+    encryptPolicySeq: 'Policy seq',
+    encryptPendingSlot: 'Pending slot',
+    encryptVerifiedSlot: 'Verified slot',
+    encryptAllowedOutput: 'Allowed output ciphertext',
+    encryptDailyOutput: 'Daily spent output ciphertext',
     demoTruth: 'Yang real di demo: setup wallet/policy on-chain, authorization agent, dan guardrail allow/block. Yang masih preview: price/route Jupiter dan transaksi swap.',
     missingOwner: 'Connect dan initialize wallet dulu sebelum menjalankan demo real.',
     missingAgent: 'Alamat AI agent wajib diisi dan sudah harus di-authorize di contract.',
@@ -282,6 +295,9 @@ const COPY = {
     emptyLog: 'No agent activity yet.',
     approved: 'APPROVED',
     blocked: 'BLOCKED',
+    encryptPending: 'ENCRYPT PENDING',
+    encryptAllowed: 'ENCRYPT VERIFIED',
+    encryptBlocked: 'ENCRYPT BLOCKED',
     setup: 'SETUP',
     error: 'ERROR',
     approvedMessage: 'The guardrail allowed the request and the proxy returned an unsigned smart-wallet transaction for the agent wallet to sign.',
@@ -308,7 +324,16 @@ const COPY = {
     routeRiskStatus: 'Route risk',
     routeRiskPassed: 'Slippage and risk guardrails passed',
     privacyNote: 'Safe log: thresholds, remaining cap, and witness values are not displayed.',
-    preAlpha: 'Encrypt pre-alpha demo: this proves the enforcement flow, not production privacy.',
+    preAlpha: 'Encrypt pre-alpha: graph status may be pending, verified allowed, or verified blocked. Executor integration is still pre-alpha; this is not production privacy.',
+    encryptPendingMessage: 'Official Encrypt graph is waiting for executor verification. Jupiter payload or Ika approval data is not displayed.',
+    encryptAllowedMessage: 'Official Encrypt output is verified allowed. Safe payloads only appear when the proxy allows the request.',
+    encryptBlockedMessage: 'Official Encrypt output is verified blocked. Execution payloads, thresholds, remaining caps, and witnesses stay hidden.',
+    encryptGraph: 'Encrypt graph',
+    encryptPolicySeq: 'Policy seq',
+    encryptPendingSlot: 'Pending slot',
+    encryptVerifiedSlot: 'Verified slot',
+    encryptAllowedOutput: 'Allowed output ciphertext',
+    encryptDailyOutput: 'Daily spent output ciphertext',
     demoTruth: 'Real in this demo: on-chain wallet/policy setup, agent authorization, and guardrail allow/block. Still preview: Jupiter price/route and swap transaction execution.',
     missingOwner: 'Connect and initialize a wallet before running the real demo.',
     missingAgent: 'The AI agent address is required and must already be authorized on-chain.',
@@ -395,9 +420,9 @@ export function DemoTabContent({
   const t = COPY[locale];
   const witness = useMemo(() => Array.from({ length: 32 }, (_, index) => index + 1), []);
   const hasAgent = Boolean(agentAddress.trim());
-  const hasBlockedRun = activity.some((entry) => entry.status === 'blocked' && entry.amountUsdc === '25');
-  const hasAllowedRun = activity.some((entry) => entry.status === 'approved' && entry.amountUsdc === (strategy.amountUsdc || '5'));
-  const hasBlockedIkaRun = activity.some((entry) => entry.status === 'blocked' && entry.amountUsdc === '25' && entry.route?.includes('Ika'));
+  const hasBlockedRun = activity.some((entry) => isBlockedStatus(entry.status) && entry.amountUsdc === '25');
+  const hasAllowedRun = activity.some((entry) => isAllowedStatus(entry.status) && entry.amountUsdc === (strategy.amountUsdc || '5'));
+  const hasBlockedIkaRun = activity.some((entry) => isBlockedStatus(entry.status) && entry.amountUsdc === '25' && entry.route?.includes('Ika'));
   const hasSafeLog = activity.length > 0 && activity.every((entry) => !entry.message.includes('10 USDC') && !entry.message.includes('20 USDC'));
   const strategyReady = strategy.inputMint === 'USDC' && strategy.outputMint === 'SOL' && Boolean(strategy.amountUsdc);
   const canSavePolicy = Boolean(owner && custody && hasAgent && !busy);
@@ -629,14 +654,18 @@ export function DemoTabContent({
         encryptionWitness: witness,
         slippageBps: 100,
       });
+      const encryptStatus = getEncryptStatus(result.status, result.encryptPolicy);
       addActivity({
-        status: result.allowed ? 'approved' : 'blocked',
+        status: result.allowed
+          ? encryptStatus === 'encrypt-verified-allowed' ? 'encrypt-verified-allowed' : 'approved'
+          : encryptStatus ?? 'blocked',
         amountUsdc,
         routePair: 'USDC -> SOL',
-        message: result.allowed ? t.approvedMessage : result.reason ?? t.blockedMessage,
+        message: encryptStatus ? encryptMessage(encryptStatus, t, result.reason) : result.allowed ? t.approvedMessage : result.reason ?? t.blockedMessage,
         route: result.allowed
           ? `${result.executionPath ?? 'Jupiter Swap V2'} / route preview`
-          : result.code,
+          : result.code ?? encryptStatus,
+        encryptPolicy: result.encryptPolicy,
         jupiterPlan: result.allowed ? result.jupiterPlan : undefined,
         transactionSigners: result.allowed ? result.transaction?.signers : undefined,
         smartWalletAuthority: result.allowed ? result.smartWalletAuthority : undefined,
@@ -701,11 +730,14 @@ export function DemoTabContent({
           allowedTargetAssets: ['SUI', 'ETH'],
         },
       });
+      const encryptStatus = getEncryptStatus(result.status, result.encryptPolicy);
       addActivity({
-        status: result.allowed ? 'approved' : result.status === 'needs-approval' ? 'needs-approval' : 'blocked',
+        status: result.allowed
+          ? result.ikaRequest?.policyAttestation.status === 'encrypt-verified-allowed' ? 'encrypt-verified-allowed' : 'approved'
+          : encryptStatus ?? (result.status === 'needs-approval' ? 'needs-approval' : 'blocked'),
         amountUsdc: amount,
         routePair: `USDC -> ${target.asset}`,
-        message: result.allowed
+        message: encryptStatus ? encryptMessage(encryptStatus, t, result.reason) : result.allowed
           ? t.ikaExecutionBoundary
           : result.code === 'IKA_ROUTE_NOT_ALLOWED'
             ? result.reason ?? t.ikaUnsupportedBoundary
@@ -715,6 +747,7 @@ export function DemoTabContent({
           : result.code === 'IKA_ROUTE_NOT_ALLOWED'
             ? `${t.ikaRouteUnsupported}: ${target.chain.toUpperCase()} ${target.asset}`
             : `Ika ${result.code}`,
+        encryptPolicy: result.encryptPolicy ?? result.ikaRequest?.policyAttestation.encryptPolicy,
         ikaRequest: result.allowed ? result.ikaRequest : undefined,
         approval: result.approval,
         sharedApprovers: result.allowed ? sharedApproversFromResult(result) : result.approval?.approvedApprovers,
@@ -1147,11 +1180,28 @@ function PrivatePolicyTile({ label }: { label: string }) {
 
 function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof COPY)[Locale] }) {
   const approved = entry.status === 'approved';
+  const encryptPending = entry.status === 'pending-encrypt-execution';
+  const encryptAllowed = entry.status === 'encrypt-verified-allowed';
+  const encryptBlocked = entry.status === 'encrypt-verified-blocked';
   const blocked = entry.status === 'blocked';
   const needsApproval = entry.status === 'needs-approval';
   const setup = entry.status === 'setup';
-  const label = approved ? labels.approved : needsApproval ? 'Needs approval' : blocked ? labels.blocked : setup ? labels.setup : labels.error;
-  const tone = approved || setup ? 'green' : blocked ? 'red' : 'amber';
+  const label = encryptPending
+    ? labels.encryptPending
+    : encryptAllowed
+      ? labels.encryptAllowed
+      : encryptBlocked
+        ? labels.encryptBlocked
+        : approved
+          ? labels.approved
+          : needsApproval
+            ? 'Needs approval'
+            : blocked
+              ? labels.blocked
+              : setup
+                ? labels.setup
+                : labels.error;
+  const tone = approved || setup || encryptAllowed ? 'green' : blocked || encryptBlocked ? 'red' : 'amber';
 
   return (
     <article className={`rise-in rounded-lg border p-4 ${
@@ -1162,7 +1212,7 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
       <div className="mb-2 flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${tone === 'green' ? 'bg-green-600' : tone === 'red' ? 'bg-red-600' : 'bg-amber-600'} text-white`}>
-            {approved || setup ? <Check className="h-5 w-5" /> : needsApproval ? <AlertTriangle className="h-5 w-5" /> : <X className="h-5 w-5" />}
+            {approved || setup || encryptAllowed ? <Check className="h-5 w-5" /> : needsApproval || encryptPending ? <AlertTriangle className="h-5 w-5" /> : <X className="h-5 w-5" />}
           </span>
           <div>
             <p className="text-sm font-black text-[var(--sea-ink)]">{label}</p>
@@ -1184,9 +1234,34 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
         </p>
       </div>
       {entry.jupiterPlan && <JupiterRoutePreview entry={entry} labels={labels} />}
+      {entry.encryptPolicy && <EncryptPolicyStatusCard policy={entry.encryptPolicy} labels={labels} />}
       {entry.approval && <ApprovalProgressCard approval={entry.approval} labels={labels} />}
       {entry.ikaRequest && <IkaRequestPreviewCard request={entry.ikaRequest} labels={labels} sharedApprovers={entry.sharedApprovers} />}
     </article>
+  );
+}
+
+function EncryptPolicyStatusCard({
+  policy,
+  labels,
+}: {
+  policy: NonNullable<ActivityEntry['encryptPolicy']>;
+  labels: (typeof COPY)[Locale];
+}) {
+  return (
+    <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
+      <InfoPill label={labels.encryptGraph} value={policy.graph} wide />
+      <InfoPill label="Status" value={policy.status} />
+      <InfoPill label={labels.encryptPolicySeq} value={policy.policySequence.toString()} />
+      {'pendingSlot' in policy && policy.pendingSlot !== undefined && (
+        <InfoPill label={labels.encryptPendingSlot} value={policy.pendingSlot.toString()} />
+      )}
+      {'verifiedSlot' in policy && policy.verifiedSlot !== undefined && (
+        <InfoPill label={labels.encryptVerifiedSlot} value={policy.verifiedSlot.toString()} />
+      )}
+      <InfoPill label={labels.encryptAllowedOutput} value={short(policy.allowedOutputCiphertext)} />
+      <InfoPill label={labels.encryptDailyOutput} value={short(policy.dailySpentOutputCiphertext)} />
+    </div>
   );
 }
 
@@ -1277,6 +1352,27 @@ function formatTokenAmount(raw: string | undefined, decimals: number) {
   const whole = value / scale;
   const fraction = (value % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
   return fraction ? `${whole}.${fraction.slice(0, 6)}` : whole.toString();
+}
+
+function getEncryptStatus(status: unknown, policy: { status?: string } | undefined): EncryptLifecycleStatus | undefined {
+  const value = typeof policy?.status === 'string' ? policy.status : status;
+  return value === 'pending-encrypt-execution' || value === 'encrypt-verified-allowed' || value === 'encrypt-verified-blocked'
+    ? value
+    : undefined;
+}
+
+function isBlockedStatus(status: ActivityEntry['status']) {
+  return status === 'blocked' || status === 'encrypt-verified-blocked';
+}
+
+function isAllowedStatus(status: ActivityEntry['status']) {
+  return status === 'approved' || status === 'encrypt-verified-allowed';
+}
+
+function encryptMessage(status: EncryptLifecycleStatus, labels: (typeof COPY)[Locale], fallback?: string) {
+  if (status === 'pending-encrypt-execution') return fallback ?? labels.encryptPendingMessage;
+  if (status === 'encrypt-verified-allowed') return labels.encryptAllowedMessage;
+  return fallback ?? labels.encryptBlockedMessage;
 }
 
 function short(value: string) {

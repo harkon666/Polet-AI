@@ -255,10 +255,26 @@ export interface JupiterPlanPreview {
   };
 }
 
+export type OfficialEncryptLifecycleStatus =
+  | 'pending-encrypt-execution'
+  | 'encrypt-verified-allowed'
+  | 'encrypt-verified-blocked';
+
+export interface OfficialEncryptPolicyPreview {
+  status: OfficialEncryptLifecycleStatus;
+  policySequence: number;
+  sourceAmountCiphertext: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
+  pendingSlot?: number;
+  verifiedSlot?: number;
+  graph: 'polet_policy_guardrail_graph';
+}
+
 export type RunConfidentialDcaResult = {
   allowed: boolean;
   code: string;
-  status?: 'pending-encrypt-execution' | 'encrypt-verified-allowed' | 'encrypt-verified-blocked' | string;
+  status?: OfficialEncryptLifecycleStatus | string;
   reason?: string;
   amount?: string;
   amountBaseUnits?: string;
@@ -271,16 +287,7 @@ export type RunConfidentialDcaResult = {
     slot: number;
     signers: string[];
   };
-  encryptPolicy?: {
-    status: 'pending-encrypt-execution' | 'encrypt-verified-allowed' | 'encrypt-verified-blocked';
-    policySequence: number;
-    sourceAmountCiphertext: string;
-    allowedOutputCiphertext: string;
-    dailySpentOutputCiphertext: string;
-    pendingSlot?: number;
-    verifiedSlot?: number;
-    graph: 'polet_policy_guardrail_graph';
-  };
+  encryptPolicy?: OfficialEncryptPolicyPreview;
 };
 
 export async function runConfidentialDca(input: RunConfidentialDcaInput): Promise<RunConfidentialDcaResult> {
@@ -397,13 +404,7 @@ export interface IkaRequestPreview {
     attestationHash: string;
     encryptPolicy?: {
       status: 'encrypt-verified-allowed';
-      policySequence: number;
-      sourceAmountCiphertext: string;
-      allowedOutputCiphertext: string;
-      dailySpentOutputCiphertext: string;
-      verifiedSlot?: number;
-      graph: 'polet_policy_guardrail_graph';
-    };
+    } & Omit<OfficialEncryptPolicyPreview, 'status'>;
   };
   executionBoundary: {
     status: 'request-prepared' | 'approval-transaction-prepared' | 'approval-submitted' | 'signature-pending' | 'signature-produced-prealpha';
@@ -430,18 +431,9 @@ export interface IkaRequestPreview {
 export type RunMultichainIntentResult = {
   allowed: boolean;
   code: string;
-  status?: 'needs-approval' | 'pending-encrypt-execution' | 'encrypt-verified-blocked' | string;
+  status?: 'needs-approval' | OfficialEncryptLifecycleStatus | string;
   reason?: string;
-  encryptPolicy?: {
-    status: 'pending-encrypt-execution' | 'encrypt-verified-blocked';
-    policySequence: number;
-    sourceAmountCiphertext: string;
-    allowedOutputCiphertext: string;
-    dailySpentOutputCiphertext: string;
-    pendingSlot?: number;
-    verifiedSlot?: number;
-    graph: 'polet_policy_guardrail_graph';
-  };
+  encryptPolicy?: OfficialEncryptPolicyPreview;
   approval?: {
     status: 'not-required' | 'needs-approval' | 'ready';
     required: number;
