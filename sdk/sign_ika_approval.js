@@ -8,9 +8,13 @@ import bs58 from 'bs58';
 import nacl from 'tweetnacl';
 
 // Co-signer keypair
-const CO_SIGNER_PRIVKEY = 'FKCYmMfkShj1fghk45toismmvMfLppAEFb6KiYMZia9xcV3ghKPEH83VTMZLuuR1r14n6gdFGsj8FQAf7YVhsgK';
+const CO_SIGNER_PRIVKEY = process.env.POLET_CO_SIGNER_PRIVKEY;
+if (!CO_SIGNER_PRIVKEY) {
+  throw new Error('POLET_CO_SIGNER_PRIVKEY is required to sign the shared approval challenge');
+}
 const coSignerKp = nacl.sign.keyPair.fromSecretKey(bs58.decode(CO_SIGNER_PRIVKEY));
 const CO_SIGNER_PUBKEY = '5v8akfxPx4hTJDVg8Dnh8vFGfhHvHcPngYXYa6Nrk6o9';
+const maskedWitnessDevFixture = parseMaskedWitnessDevFixture(process.env.POLET_MASKED_WITNESS_DEV_FIXTURE);
 
 const p = createPoletAgent({
   owner: 'BZiugeMWHFyL5BLuAo4fH6VgNzFLx2cFsP6tcA5e6HHe',
@@ -26,7 +30,7 @@ const result1 = await p.trade({
   rail: 'ika',
   params: {
     slippageBps: 100,
-    maskedWitnessDevFixture: Array.from({ length: 32 }, (_, i) => i + 1),
+    ...(maskedWitnessDevFixture && { maskedWitnessDevFixture }),
     ikaPreAlpha: {
       dwalletAccount: '3yNnpN8G3w1NGf4Lj7JG7xJpSh6hkwGFAJkWSxcHbP6F',
       userPublicKey: 'BZiugeMWHFyL5BLuAo4fH6VgNzFLx2cFsP6tcA5e6HHe',
@@ -67,7 +71,7 @@ const result2 = await p.trade({
   rail: 'ika',
   params: {
     slippageBps: 100,
-    maskedWitnessDevFixture: Array.from({ length: 32 }, (_, i) => i + 1),
+    ...(maskedWitnessDevFixture && { maskedWitnessDevFixture }),
     ikaPreAlpha: {
       dwalletAccount: '3yNnpN8G3w1NGf4Lj7JG7xJpSh6hkwGFAJkWSxcHbP6F',
       userPublicKey: 'BZiugeMWHFyL5BLuAo4fH6VgNzFLx2cFsP6tcA5e6HHe',
@@ -91,3 +95,12 @@ const result2 = await p.trade({
 
 console.log('\nStep 3 result:');
 console.log(JSON.stringify(result2, null, 2));
+
+function parseMaskedWitnessDevFixture(value) {
+  if (!value) return undefined;
+  const bytes = value.split(',').map((part) => Number(part.trim()));
+  if (bytes.length !== 32 || bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
+    throw new Error('POLET_MASKED_WITNESS_DEV_FIXTURE must be 32 comma-separated bytes when using the legacy dev fallback');
+  }
+  return bytes;
+}

@@ -166,6 +166,23 @@ export interface SetConfidentialPolicyInput {
   maskedWitnessDevFixture: number[];
 }
 
+export interface SetOfficialEncryptCiphertextPolicyInput {
+  owner: string;
+  wallet?: string;
+  maxPerRunCiphertext: string;
+  dailyCapCiphertext: string;
+  dailySpentCiphertext: string;
+  policyCommitment: number[];
+  encrypt: {
+    encryptProgram?: string;
+    config: string;
+    deposit: string;
+    networkEncryptionKey: string;
+    eventAuthority: string;
+    payer?: string;
+  };
+}
+
 export interface SetupDemoCustodyInput {
   owner: string;
   usdcMint?: string;
@@ -182,6 +199,18 @@ export interface WalletTransactionResult {
   solTokenAccount?: string;
   policyCommitment?: number[];
   encryptionWitnessHash?: number[];
+}
+
+export interface SetOfficialEncryptCiphertextPolicyResult extends WalletTransactionResult {
+  encryptProgram: string;
+  grpcEndpoint: string;
+  ciphertexts: {
+    maxPerRun: string;
+    dailyCap: string;
+    dailySpent: string;
+  };
+  graph: 'polet_policy_guardrail_graph';
+  boundary: 'unsigned-official-encrypt-policy-registration';
 }
 
 export interface SharedIkaApproverConfigInput {
@@ -245,6 +274,20 @@ export interface RecoverAccessResult extends WalletTransactionResult {
 export async function setConfidentialPolicy(input: SetConfidentialPolicyInput): Promise<WalletTransactionResult> {
   const data = await fetchJson<{ success: boolean; data: WalletTransactionResult }>(
     `${PROXY_URL}/wallet/set-confidential-policy`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function setOfficialEncryptCiphertextPolicy(
+  input: SetOfficialEncryptCiphertextPolicyInput
+): Promise<SetOfficialEncryptCiphertextPolicyResult> {
+  const data = await fetchJson<{ success: boolean; data: SetOfficialEncryptCiphertextPolicyResult }>(
+    `${PROXY_URL}/wallet/set-official-encrypt-ciphertext-policy`,
     {
       method: 'POST',
       body: JSON.stringify(input),

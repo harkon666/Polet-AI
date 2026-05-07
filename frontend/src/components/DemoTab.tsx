@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import {
   Activity,
@@ -20,6 +20,7 @@ import {
 import {
   runConfidentialDca,
   setConfidentialPolicy,
+  setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
   configureSharedIkaApprovers,
   getWalletData,
@@ -35,6 +36,8 @@ import {
   type RunMultichainIntentResult,
   type SharedIkaApproverConfigInput,
   type SetConfidentialPolicyInput,
+  type SetOfficialEncryptCiphertextPolicyInput,
+  type SetOfficialEncryptCiphertextPolicyResult,
   type SetupDemoCustodyInput,
   type WalletTransactionResult,
   type CreateEncryptDepositResult,
@@ -61,6 +64,7 @@ interface DcaStrategy {
 
 interface DemoApi {
   setConfidentialPolicy: (input: SetConfidentialPolicyInput) => Promise<WalletTransactionResult>;
+  setOfficialEncryptCiphertextPolicy: (input: SetOfficialEncryptCiphertextPolicyInput) => Promise<SetOfficialEncryptCiphertextPolicyResult>;
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
   configureSharedIkaApprovers: (input: SharedIkaApproverConfigInput) => Promise<WalletTransactionResult & { threshold: number; approvers: string[] }>;
   revokeSharedIkaApprover: (input: { owner: string; approver: string }) => Promise<WalletTransactionResult & { approver: string }>;
@@ -84,6 +88,7 @@ interface DemoTabContentProps {
 
 const DEFAULT_API: DemoApi = {
   setConfidentialPolicy,
+  setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
   configureSharedIkaApprovers,
   revokeSharedIkaApprover,
@@ -101,6 +106,16 @@ const DEFAULT_API: DemoApi = {
 function short(value: string) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }
+
+const ENCRYPT_PREALPHA_PROGRAM_ID = '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8';
+const ENCRYPT_PREALPHA_CONFIG = 'EyqsEJaq86kqAbF3bNKQ3ydzAFXJZ5e8tuNr89CcmcH3';
+const ENCRYPT_PREALPHA_EVENT_AUTHORITY = '6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ';
+const ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY = '2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur';
+const SAMPLE_ENCRYPT_CIPHERTEXTS = {
+  maxPerRun: 'hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd',
+  dailyCap: 'C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi',
+  dailySpent: 'AX9BKeQgSDXJcWh9EBEZnYJCr7wjwt7sM2pv945NNCVt',
+};
 
 export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) {
   const { publicKey, sendTransaction } = useWallet();
@@ -130,6 +145,14 @@ export function DemoTabContent({
 }: DemoTabContentProps) {
   const [locale, setLocale] = useState<Locale>('id');
   const [policyDraft, setPolicyDraft] = useState({ maxPerRunUsdc: '10', dailyCapUsdc: '20' });
+  const [officialEncryptDraft, setOfficialEncryptDraft] = useState({
+    maxPerRunCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.maxPerRun,
+    dailyCapCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.dailyCap,
+    dailySpentCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.dailySpent,
+    config: ENCRYPT_PREALPHA_CONFIG,
+    eventAuthority: ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+    networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+  });
   const [policySaved, setPolicySaved] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState(true);
   const [custody, setCustody] = useState<{ usdcTokenAccount: string; solTokenAccount: string } | null>(null);
@@ -185,7 +208,6 @@ export function DemoTabContent({
   });
 
   const t = COPY[locale];
-  const maskedWitnessDevFixture = useMemo(() => Array.from({ length: 32 }, () => 7), []);
   const hasAgent = Boolean(agentAddress.trim());
   const hasBlockedRun = activity.some((entry) => isBlockedStatus(entry.status) && entry.amountUsdc === '25');
   const hasAllowedRun = activity.some(
@@ -325,11 +347,22 @@ export function DemoTabContent({
         setBusy('policy');
         setError(null);
         try {
-          const result = await api.setConfidentialPolicy({
+          const deposit = await api.createEncryptDeposit(owner);
+          const depositSignature = await signAndConfirmTransaction(deposit.transaction);
+          const result = await api.setOfficialEncryptCiphertextPolicy({
             owner,
-            maxPerRunUsdc: policyDraft.maxPerRunUsdc,
-            dailyCapUsdc: policyDraft.dailyCapUsdc,
-            maskedWitnessDevFixture: maskedWitnessDevFixture,
+            maxPerRunCiphertext: officialEncryptDraft.maxPerRunCiphertext.trim(),
+            dailyCapCiphertext: officialEncryptDraft.dailyCapCiphertext.trim(),
+            dailySpentCiphertext: officialEncryptDraft.dailySpentCiphertext.trim(),
+            policyCommitment: Array.from({ length: 32 }, () => 0),
+            encrypt: {
+              encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+              config: officialEncryptDraft.config.trim(),
+              deposit: deposit.deposit,
+              networkEncryptionKey: officialEncryptDraft.networkEncryptionKey.trim(),
+              eventAuthority: officialEncryptDraft.eventAuthority.trim(),
+              payer: owner,
+            },
           });
           const signature = await signAndConfirmTransaction(result.transaction);
           setPolicySaved(true);
@@ -337,10 +370,45 @@ export function DemoTabContent({
           addActivity({
             status: 'setup',
             message: `${t.policySaved}: ${signature.slice(0, 8)}...`,
-            route: 'Contract set_confidential_numeric_policy',
+            route: `Official Encrypt policy registration (${result.graph}) deposit ${depositSignature.slice(0, 8)}...`,
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to save confidential policy');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
+  };
+
+  const saveLegacyDevPolicy = async () => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+    setPendingConfirm({
+      action: t.saveLegacyPolicy,
+      description: t.confirmLegacyPolicy,
+      onConfirm: async () => {
+        setBusy('policy-legacy');
+        setError(null);
+        try {
+          const result = await api.setConfidentialPolicy({
+            owner,
+            maxPerRunUsdc: policyDraft.maxPerRunUsdc,
+            dailyCapUsdc: policyDraft.dailyCapUsdc,
+            maskedWitnessDevFixture: Array.from({ length: 32 }, () => 7),
+          });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          setPolicySaved(true);
+          setEditingPolicy(false);
+          addActivity({
+            status: 'setup',
+            message: `${t.policySaved}: ${signature.slice(0, 8)}...`,
+            route: 'Legacy dev masked-witness fallback',
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to save legacy dev policy');
         } finally {
           setBusy(null);
         }
@@ -864,16 +932,69 @@ export function DemoTabContent({
         <Panel icon={<Shield className="h-5 w-5" />} title={t.policyTitle}>
           <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.policyBody}</p>
           {editingPolicy ? (
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.maxPerRun} (USDC)</span>
+            <div className="space-y-3">
+              <div className="grid gap-3 lg:grid-cols-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.maxPerRunCiphertext}</span>
+                  <input
+                    value={officialEncryptDraft.maxPerRunCiphertext}
+                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, maxPerRunCiphertext: event.target.value }))}
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.dailyCapCiphertext}</span>
+                  <input
+                    value={officialEncryptDraft.dailyCapCiphertext}
+                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, dailyCapCiphertext: event.target.value }))}
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.dailySpentCiphertext}</span>
+                  <input
+                    value={officialEncryptDraft.dailySpentCiphertext}
+                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, dailySpentCiphertext: event.target.value }))}
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.encryptConfig}</span>
+                  <input
+                    value={officialEncryptDraft.config}
+                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, config: event.target.value }))}
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.encryptNetworkKey}</span>
+                  <input
+                    value={officialEncryptDraft.networkEncryptionKey}
+                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, networkEncryptionKey: event.target.value }))}
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.encryptEventAuthority}</span>
+                  <input
+                    value={officialEncryptDraft.eventAuthority}
+                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, eventAuthority: event.target.value }))}
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+              <div className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.maxPerRun} (USDC)</span>
                 <input
                   value={policyDraft.maxPerRunUsdc}
                   onChange={(event) => setPolicyDraft((prev) => ({ ...prev, maxPerRunUsdc: event.target.value }))}
                   type="number"
                   min="0"
                   step="1"
-                  className="w-full rounded-lg px-3 py-2 text-sm"
+                    className="w-32 rounded-lg px-3 py-2 text-sm"
                 />
               </label>
               <label className="block">
@@ -884,13 +1005,21 @@ export function DemoTabContent({
                   type="number"
                   min="0"
                   step="1"
-                  className="w-full rounded-lg px-3 py-2 text-sm"
+                    className="w-32 rounded-lg px-3 py-2 text-sm"
                 />
               </label>
+                <button
+                  onClick={saveLegacyDevPolicy}
+                  disabled={!canSavePolicy}
+                  className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink)] disabled:opacity-50"
+                >
+                  {busy === 'policy-legacy' ? 'Signing...' : t.saveLegacyPolicy}
+                </button>
+              </div>
               <button
                 onClick={savePolicy}
                 disabled={!canSavePolicy}
-                className="self-end rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 title={!canSavePolicy && !busy ? t.custodyRequired : undefined}
               >
                 {busy === 'policy' ? 'Signing...' : t.savePolicy}

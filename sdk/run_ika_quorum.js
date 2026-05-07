@@ -6,19 +6,21 @@
  * 4. Sign + send with session key
  */
 import { createPoletAgent } from './dist/index.js';
-import { Keypair } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
-import { readFileSync } from 'fs';
 
 // === CONFIG ===
 const OWNER = 'BZiugeMWHFyL5BLuAo4fH6VgNzFLx2cFsP6tcA5e6HHe';
 const SESSION_KEY = 'ECFFvJe8yPaTSH2qdXP1CkQTxWfWy5B3fZ7HEcCQPhSn';
-const SESSION_KEYPAIR_PATH = '/home/harkon666/.hermes/keys/polet_session_keypair.json';
-const CO_SIGNER_PRIVKEY = 'FKCYmMfkShj1fghk45toismmvMfLppAEFb6KiYMZia9xcV3ghKPEH83VTMZLuuR1r14n6gdFGsj8FQAf7YVhsgK';
+const CO_SIGNER_PRIVKEY = process.env.POLET_CO_SIGNER_PRIVKEY;
 const CO_SIGNER_PUBKEY = '5v8akfxPx4hTJDVg8Dnh8vFGfhHvHcPngYXYa6Nrk6o9';
 const DWALLET_ACCOUNT = '3yNnpN8G3w1NGf4Lj7JG7xJpSh6hkwGFAJkWSxcHbP6F';
 const PROXY_URL = 'http://localhost:3001';
+const maskedWitnessDevFixture = parseMaskedWitnessDevFixture(process.env.POLET_MASKED_WITNESS_DEV_FIXTURE);
+
+if (!CO_SIGNER_PRIVKEY) {
+  throw new Error('POLET_CO_SIGNER_PRIVKEY is required to sign the shared approval challenge');
+}
 
 // === Co-signer keypair ===
 const coSignerKp = nacl.sign.keyPair.fromSecretKey(new Uint8Array(bs58.decode(CO_SIGNER_PRIVKEY)));
@@ -40,7 +42,7 @@ const step1 = await p.trade({
   rail: 'ika',
   params: {
     slippageBps: 100,
-    maskedWitnessDevFixture: Array.from({ length: 32 }, (_, i) => i + 1),
+    ...(maskedWitnessDevFixture && { maskedWitnessDevFixture }),
     ikaPreAlpha: {
       dwalletAccount: DWALLET_ACCOUNT,
       userPublicKey: OWNER,
@@ -83,7 +85,7 @@ const step3 = await p.trade({
   rail: 'ika',
   params: {
     slippageBps: 100,
-    maskedWitnessDevFixture: Array.from({ length: 32 }, (_, i) => i + 1),
+    ...(maskedWitnessDevFixture && { maskedWitnessDevFixture }),
     ikaPreAlpha: {
       dwalletAccount: DWALLET_ACCOUNT,
       userPublicKey: OWNER,
@@ -117,4 +119,13 @@ if (step3.allowed === true && step3.status === 'approval-transaction-prepared') 
   console.log('signers:', step3.ikaRequest?.poletApprovalTransaction?.signers);
 } else {
   console.log('Still not approved. Full response:', JSON.stringify(step3, null, 2));
+}
+
+function parseMaskedWitnessDevFixture(value) {
+  if (!value) return undefined;
+  const bytes = value.split(',').map((part) => Number(part.trim()));
+  if (bytes.length !== 32 || bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
+    throw new Error('POLET_MASKED_WITNESS_DEV_FIXTURE must be 32 comma-separated bytes when using the legacy dev fallback');
+  }
+  return bytes;
 }

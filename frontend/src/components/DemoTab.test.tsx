@@ -10,6 +10,7 @@ afterEach(() => {
   dcaInputs = [];
   multichainInputs = [];
   recoveryAccessInputs = [];
+  officialEncryptPolicyInputs = [];
   encryptDcaMode = null;
   encryptIkaMode = null;
 });
@@ -19,6 +20,7 @@ let sharedIkaAttempts = 0;
 let dcaInputs: RunConfidentialDcaInput[] = [];
 let multichainInputs: RunMultichainIntentInput[] = [];
 let recoveryAccessInputs: Parameters<typeof api.recoverAccess>[0][] = [];
+let officialEncryptPolicyInputs: Parameters<typeof api.setOfficialEncryptCiphertextPolicy>[0][] = [];
 let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptIkaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
@@ -57,6 +59,36 @@ const api = {
     policyCommitment: Array.from({ length: 32 }, () => 1), // legacy masked-witness dev fixture (issue #054)
     encryptionWitnessHash: Array.from({ length: 32 }, () => 2), // legacy masked-witness dev fixture (issue #054)
   }),
+  setOfficialEncryptCiphertextPolicy: async (input: {
+    owner: string;
+    maxPerRunCiphertext: string;
+    dailyCapCiphertext: string;
+    dailySpentCiphertext: string;
+    policyCommitment: number[];
+    encrypt: {
+      encryptProgram?: string;
+      config: string;
+      deposit: string;
+      networkEncryptionKey: string;
+      eventAuthority: string;
+      payer?: string;
+    };
+  }) => {
+    officialEncryptPolicyInputs.push(input);
+    return {
+      transaction: 'official-encrypt-policy-tx',
+      wallet: 'wallet-pda',
+      encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
+      grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+      ciphertexts: {
+        maxPerRun: input.maxPerRunCiphertext,
+        dailyCap: input.dailyCapCiphertext,
+        dailySpent: input.dailySpentCiphertext,
+      },
+      graph: 'polet_policy_guardrail_graph' as const,
+      boundary: 'unsigned-official-encrypt-policy-registration' as const,
+    };
+  },
   setupDemoCustody: async () => ({
     transaction: 'custody-tx',
     wallet: 'wallet-pda',
@@ -117,6 +149,14 @@ const api = {
   },
   requestPasskeyChallenge: async () => ({ challenge: Array.from(new Uint8Array(32)), publicKeyCredentialRequestOptions: { challenge: Array.from(new Uint8Array(32)), rpId: 'localhost', allowCredentials: [], userVerification: 'preferred' }, boundary: 'mock' }),
   verifyPasskeyAssertion: async () => ({ valid: false, approverPublicKey: '', challengeUsed: '', boundary: 'mock' }),
+  createEncryptDeposit: async () => ({
+    transaction: 'encrypt-deposit-tx',
+    signers: [connectedOwner],
+    deposit: 'EncryptDeposit111111111111111111111111111111',
+    config: 'EncryptConfig1111111111111111111111111111111',
+    eventAuthority: 'EncryptEventAuthority111111111111111111111',
+    status: 'pending-deposit-creation',
+  }),
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
     dcaInputs.push(input);
     if (encryptDcaMode === 'pending') {
@@ -381,6 +421,9 @@ async function setupCustodyAndPolicy(view: ReturnType<typeof renderDemo>) {
   await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
   fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
   await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
+  expect(officialEncryptPolicyInputs).toHaveLength(1);
+  expect(JSON.stringify(officialEncryptPolicyInputs[0])).not.toContain('maskedWitnessDevFixture');
+  expect(officialEncryptPolicyInputs[0].encrypt.deposit).toContain('EncryptDeposit');
 }
 
 describe('Consumer DCA demo frontend', () => {
