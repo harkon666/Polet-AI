@@ -113,6 +113,20 @@ IKA_SIGNATURE_SCHEME=ed25519-prealpha
 
 ## Local Preflight
 
+For hackathon issue `057`, run the deterministic local evidence pack before the manual devnet section:
+
+```bash
+./scripts/hackathon-encrypt-ika-local-evidence.sh
+```
+
+It runs the targeted proxy, SDK, and frontend lifecycle checks and writes the redacted summary to:
+
+```text
+docs/evidence/hackathon-encrypt-ika-local-evidence.txt
+```
+
+The local evidence covers `pending-encrypt-execution`, `encrypt-verified-blocked`, `encrypt-verified-allowed`, quorum required, quorum satisfied, and unsigned session-signer coverage without relying on live devnet availability.
+
 Run deterministic local checks before touching devnet:
 
 ```bash
