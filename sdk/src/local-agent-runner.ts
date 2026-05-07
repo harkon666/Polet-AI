@@ -12,7 +12,7 @@ async function main() {
   const proxyUrl = env.POLET_PROXY_URL ?? 'http://localhost:3001';
   const scenario = parseScenario(env.POLET_AGENT_SCENARIO);
   const amountUsdc = env.POLET_DCA_AMOUNT_USDC;
-  const witness = parseWitness(env.POLET_ENCRYPTION_WITNESS);
+  const witness = parseMaskedWitnessDevFixture(env.POLET_MASKED_WITNESS_DEV_FIXTURE);
 
   const runtime = createLocalAgentRuntime({
     owner,
@@ -117,11 +117,11 @@ function parseScenario(value: string | undefined): AgentRuntimeScenario {
   throw new Error('POLET_AGENT_SCENARIO must be "allow", "block", "ika", "ika-sui", or "hybrid"');
 }
 
-function parseWitness(value: string | undefined): number[] | undefined {
+function parseMaskedWitnessDevFixture(value: string | undefined): number[] | undefined {
   if (!value) return undefined;
   const bytes = value.split(',').map((part) => Number(part.trim()));
   if (bytes.length !== 32 || bytes.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)) {
-    throw new Error('POLET_ENCRYPTION_WITNESS must be 32 comma-separated bytes');
+    throw new Error('POLET_MASKED_WITNESS_DEV_FIXTURE must be 32 comma-separated bytes');
   }
   return bytes;
 }

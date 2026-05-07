@@ -181,7 +181,7 @@ export function DemoTabContent({
   });
 
   const t = COPY[locale];
-  const maskedWitnessDevFixture = useMemo(() => Array.from({ length: 32 }, (_, index) => index + 1), []);
+  const maskedWitnessDevFixture = useMemo(() => Array.from({ length: 32 }, () => 7), []);
   const hasAgent = Boolean(agentAddress.trim());
   const hasBlockedRun = activity.some((entry) => isBlockedStatus(entry.status) && entry.amountUsdc === '25');
   const hasAllowedRun = activity.some(

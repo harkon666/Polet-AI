@@ -40,6 +40,23 @@ The target manual path is: configure or register official Encrypt pre-alpha ciph
 - `docs/ika-devnet-smoke-runbook.md`
 - `docs/agent-runtime.md`
 
+## Progress
+
+2026-05-07 slice:
+
+- Removed the local agent runtime's static witness default. DCA, Ika, and hybrid runtime scenarios now omit `encryptionWitness` unless a caller explicitly supplies a masked-witness dev fixture.
+- Renamed the runner's optional compatibility env to `POLET_MASKED_WITNESS_DEV_FIXTURE` so no primary runtime flow references the old Encrypt witness env.
+- Updated SDK runtime tests to assert default DCA, Ika, and hybrid request bodies do not serialize `encryptionWitness`.
+- Updated `docs/agent-runtime.md` so `createPoletAgent()`, `createPoletAgentKit()`, simulation examples, and OpenClaw/Hermes-style adapter snippets use the official no-witness path by default.
+- Updated `docs/ika-devnet-smoke-runbook.md` with a no-witness official Encrypt manual E2E checklist, expected pending/blocked/allowed/quorum/signer states, evidence filenames, required devnet/Encrypt/Ika identifiers, simulation fields, and no-production-privacy/MPC/settlement boundaries.
+- Ran a regression scan across primary docs, SDK examples/source, frontend source, and proxy source for legacy static witness patterns and old witness env references.
+
+Remaining:
+
+- Add a deterministic proxy route-level E2E harness for no-witness official Encrypt states instead of library-level tests only.
+- Add Playwright coverage for official Encrypt lifecycle command-center states after issue `056` lands its expanded UI.
+- Rehearse the manual checklist against a live devnet/Encrypt/Ika stack and attach actual evidence artifacts when external services are available.
+
 ## Grill decisions
 
 Recommended dependency stance: do not start this before `054` lands, because this issue validates the new no-witness official path rather than designing it.

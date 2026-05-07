@@ -1850,7 +1850,6 @@ export function getIntentDestination(intent: Intent): string | null {
 export {
   createLocalAgentRuntime,
   defaultScenarioAmount,
-  DEFAULT_AGENT_RUNTIME_WITNESS,
   LocalAgentRuntime,
   type AgentRuntimeResult,
   type AgentRuntimeScenario,

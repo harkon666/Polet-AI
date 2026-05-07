@@ -34,8 +34,9 @@ POLET_AGENT_SCENARIO=ika-sui
 POLET_AGENT_SCENARIO=ika
 POLET_AGENT_SCENARIO=hybrid
 POLET_DCA_AMOUNT_USDC=25
-POLET_ENCRYPTION_WITNESS=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32
 ```
+
+No-witness official Encrypt is the primary runtime path. Do not set legacy witness env vars for hackathon evidence. A masked-witness dev fixture may be supplied only for local compatibility wallets that do not have official Encrypt ciphertext policy configured.
 
 Scenario defaults:
 
@@ -125,7 +126,6 @@ const polet = createPoletAgent({
   owner: process.env.POLET_OWNER!,
   sessionKey: process.env.POLET_SESSION_KEY!,
   baseUrl: process.env.POLET_PROXY_URL!,
-  encryptionWitness: [1, 2, 3 /* ...32 bytes total */],
 });
 
 const trade = await polet.trade({ from: 'USDC', to: 'SOL', amount: '5' });
@@ -162,7 +162,6 @@ const polet = createPoletAgent({
   owner: process.env.POLET_OWNER!,
   sessionKey: process.env.POLET_SESSION_KEY!,
   baseUrl: process.env.POLET_PROXY_URL!,
-  encryptionWitness: [1, 2, 3 /* ...32 bytes total */],
 });
 
 const jupiter = await polet.trade({ from: 'USDC', to: 'SOL', amount: '5' });
@@ -195,7 +194,6 @@ const kit = createPoletAgentKit({
   sessionKey: process.env.POLET_SESSION_KEY!,
   baseUrl: process.env.POLET_PROXY_URL!,
   rpcUrl: process.env.SOLANA_RPC_URL,
-  encryptionWitness: [1, 2, 3 /* ...32 bytes total */],
 });
 
 const config = kit.validateConfig();
@@ -231,13 +229,11 @@ export function createPoletTool(env: {
   owner: string;
   sessionKey: string;
   proxyUrl: string;
-  encryptionWitness: number[];
 }) {
   const polet = createPoletAgent({
     owner: env.owner,
     sessionKey: env.sessionKey,
     baseUrl: env.proxyUrl,
-    encryptionWitness: env.encryptionWitness,
   });
 
   return {

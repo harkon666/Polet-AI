@@ -97,8 +97,9 @@ Agent/runtime smoke:
 POLET_OWNER=<owner wallet public key>
 POLET_SESSION_KEY=<authorized session signer public key>
 POLET_PROXY_URL=http://localhost:3001
-POLET_ENCRYPTION_WITNESS=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32
 ```
+
+No-witness official Encrypt is the primary smoke path. Do not set legacy witness env vars for official Encrypt evidence. Masked-witness env vars are only for legacy/local dev fixture wallets that have no official Encrypt ciphertext policy configured.
 
 Ika smoke metadata:
 
@@ -134,6 +135,50 @@ NO_DNA=1 anchor build
 NO_DNA=1 cargo test
 ```
 
+## No-Witness Official Encrypt E2E Checklist
+
+Use this checklist for issue `055` evidence before any live Ika send:
+
+```text
+Cluster: devnet
+Encrypt gRPC: https://pre-alpha-dev-1.encrypt.ika-network.net:443
+Encrypt program id: 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8
+Polet program id: fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q
+Polet wallet PDA:
+Policy ciphertexts: max_per_run, daily_cap, daily_spent
+Pending output ciphertexts: source_amount, allowed_output, daily_spent_output
+Owner:
+Session signer:
+Ika dWallet:
+MessageApproval:
+CPI authority:
+Unsigned transaction signer list:
+Simulation result:
+Explorer link if sent:
+Settlement executed: no
+Production privacy claimed: no
+Production MPC claimed: no
+```
+
+Expected official no-witness states:
+
+- `pending-encrypt-execution`: no Jupiter transaction, no dWallet, no MessageApproval, no destination digest, no unsigned approval transaction.
+- `encrypt-verified-blocked`: verified Encrypt ciphertext ids only; execution payloads and Ika approval data remain suppressed.
+- `encrypt-verified-allowed`: Jupiter preview or Ika approval data can be prepared, still unsigned and `settlement: not-executed`.
+- `IKA_APPROVAL_QUORUM_REQUIRED`: shared approval counts/challenge only; no Ika approval transaction until quorum is satisfied.
+- `approval-transaction-prepared`: unsigned Polet approval transaction includes `POLET_SESSION_KEY` as required signer. Simulate before asking for a signature.
+
+Evidence files:
+
+```text
+055-frontend-official-encrypt-pending.png
+055-frontend-official-encrypt-blocked.png
+055-proxy-dca-no-witness-pending.json
+055-proxy-ika-no-witness-verified-allowed.json
+055-sdk-agent-kit-signer-required.json
+055-simulation-result.json
+```
+
 ## Step 1: Start Polet Devnet Stack
 
 Start the proxy:
@@ -157,7 +202,7 @@ Use the demo policy values:
 ```text
 Max per run: 10 USDC
 Daily cap: 20 USDC
-Policy witness: 1..32 bytes from POLET_ENCRYPTION_WITNESS
+Official Encrypt policy inputs: max-per-run, daily-cap, and daily-spent ciphertext accounts registered on the Polet wallet
 Authorized session signer: POLET_SESSION_KEY
 ```
 
@@ -234,7 +279,6 @@ POLET_SESSION_KEY="$POLET_SESSION_KEY" \
 POLET_PROXY_URL=http://localhost:3001 \
 POLET_AGENT_SCENARIO=ika-sui \
 POLET_DCA_AMOUNT_USDC=25 \
-POLET_ENCRYPTION_WITNESS="$POLET_ENCRYPTION_WITNESS" \
 bun run agent:run
 ```
 
@@ -439,7 +483,7 @@ Use this table to classify smoke failures without overclaiming success.
 | Stale session | Proxy returns `SESSION_STALE` or contract rejects attestation slot | Authorize a fresh session key after the latest kill-switch slot |
 | Expired session | Proxy returns `SESSION_EXPIRED` | Re-authorize the session signer with a future expiry |
 | Expired order | Contract rejects `order_expires_at` | Rebuild the intent and approval transaction before signing |
-| Invalid policy witness | Proxy returns `INVALID_POLICY_WITNESS` | Use the exact 32-byte witness used for policy setup; never expose it in public evidence |
+| Missing masked-witness dev fixture | Proxy returns `INVALID_POLICY_WITNESS` only for wallets without official Encrypt ciphertext policy | Use the official Encrypt ciphertext policy path for hackathon evidence; masked witness is legacy/local fixture only |
 | Over-limit policy block | Proxy returns `CONFIDENTIAL_POLICY_BLOCKED` | Expected only for the 25 USDC path; no Ika data should be present |
 
 ## Evidence Template

@@ -41,6 +41,7 @@ describe('local scripted agent runtime', () => {
     expect(result.intent.params.amountUsdc).toBe('5');
     expect(result.intent.params.inputMint).toBe(JUPITER_USDC_MINT);
     expect(result.intent.params.outputMint).toBe(JUPITER_SOL_MINT);
+    expect('encryptionWitness' in result.intent.params).toBe(false);
     expect(requests[0].url).toBe('https://proxy.polet.ai/intent/dca/run');
     expect(requests[0].body).toMatchObject({
       owner: 'owner-1',
@@ -129,6 +130,7 @@ describe('local scripted agent runtime', () => {
     expect(result.intent.params.sourceChain).toBe('solana');
     expect(result.intent.params.targetChain).toBe('sui');
     expect(result.intent.params.amount).toBe('5');
+    expect('encryptionWitness' in result.intent.params).toBe(false);
     expect(requests[0].url).toBe('https://proxy.polet.ai/intent/multichain/run');
     expect(requests[0].body).toMatchObject({
       owner: 'owner-1',
@@ -229,6 +231,7 @@ describe('local scripted agent runtime', () => {
     ]);
     expect(JSON.stringify(result)).not.toContain('10 USDC');
     expect(JSON.stringify(result)).not.toContain('20 USDC');
+    expect(JSON.stringify(requests)).not.toContain('encryptionWitness');
   });
 
   test('routes SDK-created multichain intents through submitIntent', async () => {

@@ -7,8 +7,6 @@ import {
   type ProxyClientOptions,
 } from './index.js';
 
-export const DEFAULT_AGENT_RUNTIME_WITNESS = Array.from({ length: 32 }, (_, index) => index + 1);
-
 export type AgentRuntimeScenario = 'allow' | 'block' | 'ika' | 'ika-sui' | 'hybrid';
 
 export interface LocalAgentRuntimeConfig {
@@ -144,7 +142,7 @@ export class LocalAgentRuntime {
       owner: this.config.owner,
       sessionKey: this.config.sessionKey,
       amountUsdc: input.amountUsdc ?? defaultScenarioAmount(scenario),
-      encryptionWitness: this.config.encryptionWitness ?? DEFAULT_AGENT_RUNTIME_WITNESS,
+      ...(this.config.encryptionWitness && { encryptionWitness: this.config.encryptionWitness }),
       slippageBps: this.config.slippageBps ?? 100,
       ...(input.intentId && { intentId: input.intentId }),
     });
@@ -161,7 +159,7 @@ export class LocalAgentRuntime {
       amount: input.amountUsdc ?? defaultScenarioAmount('allow'),
       executionRail: 'ika',
       strategy: 'dca',
-      encryptionWitness: this.config.encryptionWitness ?? DEFAULT_AGENT_RUNTIME_WITNESS,
+      ...(this.config.encryptionWitness && { encryptionWitness: this.config.encryptionWitness }),
       slippageBps: this.config.slippageBps ?? 100,
       ...(input.intentId && { intentId: input.intentId }),
     });
