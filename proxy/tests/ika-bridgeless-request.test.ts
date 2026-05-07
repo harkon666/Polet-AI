@@ -398,6 +398,40 @@ describe('Ika bridgeless execution request', () => {
     }
   });
 
+  test('suppresses Ika approval data when official Encrypt verification blocks the graph output', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+    const intent = createIkaIntent(fixture, '5');
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      resolveEncryptPolicyExecution: async () => ({
+        status: 'encrypt-verified-blocked',
+        policySequence: fixture.wallet.policySeq,
+        sourceAmountCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingSourceAmount,
+        allowedOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput,
+        dailySpentOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput,
+        verifiedSlot: 1002,
+        graph: 'polet_policy_guardrail_graph',
+      }),
+      buildApprovalTransaction: async () => {
+        throw new Error('verified-blocked Encrypt requests must not build Ika approval transactions');
+      },
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('ENCRYPT_POLICY_VERIFIED_BLOCKED');
+      expect(result.status).toBe('encrypt-verified-blocked');
+      expect(result.encryptPolicy?.status).toBe('encrypt-verified-blocked');
+      expect('ikaRequest' in result).toBe(false);
+      expect(JSON.stringify(result)).not.toContain('dwalletAccount');
+      expect(JSON.stringify(result)).not.toContain('messageApprovalPda');
+      expect(JSON.stringify(result)).not.toContain('poletApprovalTransaction');
+      expect(JSON.stringify(result)).not.toContain('suiTransactionDigest');
+      expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
+    }
+  });
+
   test('prepares Ika approval only after official Encrypt verification allows the graph output', async () => {
     const fixture = createFixture({ officialEncrypt: 'pending' });
     const intent = createIkaIntent(fixture, '5');
@@ -421,6 +455,49 @@ describe('Ika bridgeless execution request', () => {
       expect(result.ikaRequest.policyAttestation.status).toBe('encrypt-verified-allowed');
       expect(result.ikaRequest.policyAttestation.encryptPolicy?.status).toBe('encrypt-verified-allowed');
       expect(result.ikaRequest.poletApprovalTransaction).toEqual(fixture.approvalTransaction);
+    }
+  });
+
+  test('requires shared quorum after official Encrypt verification allows the graph output', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+    const approverA = Keypair.generate();
+    const approverB = Keypair.generate();
+    const intent = createIkaIntent(fixture, '5');
+    (intent.params as { sharedAccess?: unknown }).sharedAccess = {
+      policy: {
+        mode: 'ika-approval-quorum',
+        threshold: 2,
+        approvers: [approverA.publicKey.toString(), approverB.publicKey.toString()],
+      },
+    };
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      resolveEncryptPolicyExecution: async () => ({
+        status: 'encrypt-verified-allowed',
+        policySequence: fixture.wallet.policySeq,
+        sourceAmountCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingSourceAmount,
+        allowedOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput,
+        dailySpentOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput,
+        verifiedSlot: 1003,
+        graph: 'polet_policy_guardrail_graph',
+      }),
+      buildApprovalTransaction: async () => {
+        throw new Error('quorum-required Encrypt requests must not build Ika approval transactions');
+      },
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
+      expect(result.status).toBe('needs-approval');
+      expect(result.approval.required).toBe(2);
+      expect(result.approval.received).toBe(0);
+      expect('ikaRequest' in result).toBe(false);
+      expect(JSON.stringify(result)).not.toContain('dwalletAccount');
+      expect(JSON.stringify(result)).not.toContain('messageApprovalPda');
+      expect(JSON.stringify(result)).not.toContain('poletApprovalTransaction');
+      expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
     }
   });
 

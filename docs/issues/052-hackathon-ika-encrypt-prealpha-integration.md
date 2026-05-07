@@ -52,3 +52,4 @@ Recommended evidence stance: show transaction success and artifacts, but keep se
 ## Implementation notes
 
 - 2026-05-07: Added explicit `intentStrategy` labeling to Ika bridgeless proxy responses and SDK/Hermes normalized result details, separate from `executionRail: "ika-bridgeless"`, so `strategy: "dca"` is not presented as an Ika strategy. Updated proxy/SDK tests and the Ika devnet smoke runbook evidence checklist.
+- 2026-05-07: Added targeted proxy coverage for `encrypt-verified-blocked` Ika suppression and shared quorum enforcement after `encrypt-verified-allowed`, plus SDK normalization coverage for pending and verified-blocked official Encrypt Ika responses. The runbook now points to the deterministic proxy/SDK commands that prove pending, verified-blocked, verified-allowed, quorum-required, quorum-satisfied, and safe redaction behavior before manual devnet evidence is collected.

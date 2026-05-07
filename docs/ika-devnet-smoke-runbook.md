@@ -329,6 +329,22 @@ Capture these artifacts for issue `052` without recording private thresholds, de
 
 Evidence language must say Encrypt and Ika are pre-alpha here. Do not claim production privacy, production MPC, or bridgeless asset settlement.
 
+Deterministic local evidence for the same lifecycle is covered by:
+
+```bash
+cd proxy
+bun test ./tests/ika-bridgeless-request.test.ts
+```
+
+The proxy suite covers `pending-encrypt-execution`, `encrypt-verified-blocked`, `encrypt-verified-allowed`, quorum-required after verified allowed, quorum-satisfied, and suppression of dWallet, MessageApproval, destination digest, unsigned approval transaction, private thresholds, and witness bytes before the allowed/quorum-satisfied boundary.
+
+```bash
+cd sdk
+bun test ./tests/intent-builder.test.ts
+```
+
+The SDK suite covers Hermes-style normalization for pending, verified-blocked, verified-allowed, needs-approval, and proof-prepared Ika responses without returning witness bytes or proof data in blocked/pending states.
+
 ## Step 6: Simulate, Sign, And Send The Polet Approval Transaction
 
 The transaction is unsigned and must be reviewed by the session signer. Do not paste the session signer's private key into chat or commit it to the repository.

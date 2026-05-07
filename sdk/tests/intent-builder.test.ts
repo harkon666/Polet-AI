@@ -1389,6 +1389,103 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(JSON.stringify(result)).not.toContain('messageApproval');
     });
 
+    test('normalizes pending official Encrypt Ika responses without proof data', async () => {
+      const witness = Array.from({ length: 32 }, () => 5);
+      const fetchMock = async () => Response.json({
+        success: true,
+        data: {
+          allowed: false,
+          code: 'ENCRYPT_POLICY_PENDING',
+          status: 'pending-encrypt-execution',
+          reason: 'Encrypt policy graph execution is pending verification.',
+          encryptPolicy: {
+            status: 'pending-encrypt-execution',
+            graph: 'polet_policy_guardrail_graph',
+            policySequence: 7,
+            sourceAmountCiphertext: 'EncryptSourceCiphertext111111111111111111',
+            allowedOutputCiphertext: 'EncryptAllowedOutput1111111111111111111',
+            dailySpentOutputCiphertext: 'EncryptDailySpentOutput1111111111111111',
+            pendingSlot: 98,
+          },
+        },
+      });
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: witness,
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'sui', asset: 'SUI' },
+        amount: '5',
+      });
+
+      expect(result.allowed).toBe(false);
+      expect(result.status).toBe('pending-encrypt-execution');
+      expect(result.details?.encryptPolicy).toMatchObject({
+        status: 'pending-encrypt-execution',
+        graph: 'polet_policy_guardrail_graph',
+      });
+      expect(result.execution).toBeUndefined();
+      expect(JSON.stringify(result)).not.toContain(witness.join(','));
+      expect(JSON.stringify(result)).not.toContain('messageApproval');
+      expect(JSON.stringify(result)).not.toContain('dwallet');
+      expect(JSON.stringify(result)).not.toContain('poletApprovalTransaction');
+    });
+
+    test('normalizes verified-blocked official Encrypt Ika responses without proof data', async () => {
+      const witness = Array.from({ length: 32 }, () => 6);
+      const fetchMock = async () => Response.json({
+        success: true,
+        data: {
+          allowed: false,
+          code: 'ENCRYPT_POLICY_VERIFIED_BLOCKED',
+          status: 'encrypt-verified-blocked',
+          reason: 'Confidential policy blocked this bridgeless request.',
+          encryptPolicy: {
+            status: 'encrypt-verified-blocked',
+            graph: 'polet_policy_guardrail_graph',
+            policySequence: 7,
+            sourceAmountCiphertext: 'EncryptSourceCiphertext222222222222222222',
+            allowedOutputCiphertext: 'EncryptAllowedOutput2222222222222222222',
+            dailySpentOutputCiphertext: 'EncryptDailySpentOutput2222222222222222',
+            verifiedSlot: 1002,
+          },
+        },
+      });
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: witness,
+      });
+
+      const result = await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'sui', asset: 'SUI' },
+        amount: '25',
+      });
+
+      expect(result.allowed).toBe(false);
+      expect(result.status).toBe('encrypt-verified-blocked');
+      expect(result.policy.code).toBe('ENCRYPT_POLICY_VERIFIED_BLOCKED');
+      expect(result.details?.encryptPolicy).toMatchObject({
+        status: 'encrypt-verified-blocked',
+        graph: 'polet_policy_guardrail_graph',
+      });
+      expect(result.execution).toBeUndefined();
+      expect(JSON.stringify(result)).not.toContain(witness.join(','));
+      expect(JSON.stringify(result)).not.toContain('messageApproval');
+      expect(JSON.stringify(result)).not.toContain('dwallet');
+      expect(JSON.stringify(result)).not.toContain('poletApprovalTransaction');
+    });
+
     test('normalizes Ika signature and devnet smoke proof statuses', async () => {
       const fetchMock = async () => Response.json({
         success: true,

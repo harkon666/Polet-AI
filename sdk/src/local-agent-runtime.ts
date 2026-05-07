@@ -60,6 +60,7 @@ export interface IkaRunData {
   reason?: string;
   ikaRequest?: {
     executionRail?: string;
+    intentStrategy?: 'dca' | 'swap';
     settlement?: string;
     requestId?: string;
     preAlphaSigning?: {
