@@ -1,0 +1,64 @@
+{
+  "issue": "059-official-encrypt-devnet-ciphertext-graph-e2e",
+  "status": "unsigned-polet-transactions-built",
+  "cluster": "devnet",
+  "note": "Generated public keys are throwaway placeholders; no private keys were saved or printed, so these txs prove builder shape only.",
+  "wallet": "DWXS3gnWrVkhwjM4URHSHwEdBn4gkeibg4WvfG4RyKFx",
+  "owner": "FFmtupJQNSkaBazS8kiVyLFVAnajMVh5KggeH4L4BcB7",
+  "sessionKey": "CzBhzqycd5oe6mhyfaJ4XxFysQjA15rV2gw2uEzdRyYY",
+  "registerPolicy": {
+    "signers": [
+      "FFmtupJQNSkaBazS8kiVyLFVAnajMVh5KggeH4L4BcB7",
+      "6hxKbSrjZDXHfbW4WAaNPKdhRmCoPxrmp6mJf8GE7Fzk"
+    ],
+    "blockHash": "FAiArQk1xrFjpeZGDhHTt1c2etR7sgoc4kfGhaaYt5jX",
+    "slot": 460705590,
+    "transactionBase64Length": 896,
+    "ciphertexts": {
+      "maxPerRun": "hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd",
+      "dailyCap": "C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi",
+      "dailySpent": "AX9BKeQgSDXJcWh9EBEZnYJCr7wjwt7sM2pv945NNCVt"
+    },
+    "encrypt": {
+      "encryptProgram": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+      "config": "EyqsEJaq86kqAbF3bNKQ3ydzAFXJZ5e8tuNr89CcmcH3",
+      "deposit": "9DpPgRrDa6UdnivwzkVDeAzxX1nYMg9wANHatHFe9dj7",
+      "networkEncryptionKey": "2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur",
+      "eventAuthority": "6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ",
+      "payer": "6hxKbSrjZDXHfbW4WAaNPKdhRmCoPxrmp6mJf8GE7Fzk"
+    }
+  },
+  "executeGraph": {
+    "signers": [
+      "CzBhzqycd5oe6mhyfaJ4XxFysQjA15rV2gw2uEzdRyYY"
+    ],
+    "blockHash": "FAiArQk1xrFjpeZGDhHTt1c2etR7sgoc4kfGhaaYt5jX",
+    "slot": 460705590,
+    "transactionBase64Length": 880,
+    "inputCiphertexts": {
+      "sourceAmount": "4vMEY1JVHg1CGA5vTSL8o8XuRJPdwRhrG93Faf1ox5jC",
+      "maxPerRun": "hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd",
+      "dailySpent": "AX9BKeQgSDXJcWh9EBEZnYJCr7wjwt7sM2pv945NNCVt",
+      "dailyCap": "C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi"
+    },
+    "pendingOutputCiphertexts": {
+      "allowedOutput": "4L9sWzsiDv5VjVhUD8NQwgazjpyarAhsaBdptvQvhGPR",
+      "dailySpentOutput": "DfBdLUx5Ut1TdWSk7GmTHENYHJisFc5YtfiyT8aT34J5"
+    },
+    "encrypt": {
+      "encryptProgram": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+      "config": "EyqsEJaq86kqAbF3bNKQ3ydzAFXJZ5e8tuNr89CcmcH3",
+      "deposit": "5VKEw32TxfzCViX1goqRvAydRaWgCN9y8Z5dMaWF7trm",
+      "networkEncryptionKey": "2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur",
+      "eventAuthority": "6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ",
+      "payer": "CzBhzqycd5oe6mhyfaJ4XxFysQjA15rV2gw2uEzdRyYY"
+    },
+    "status": "pending-encrypt-execution"
+  },
+  "safety": {
+    "noPrivateKeysIncluded": true,
+    "noTransactionsSignedOrSent": true,
+    "noWitnessBytesIncluded": true,
+    "noPlaintextThresholdsIncluded": true
+  }
+}

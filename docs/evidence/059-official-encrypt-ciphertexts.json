@@ -1,0 +1,116 @@
+{
+  "issue": "059-official-encrypt-devnet-ciphertext-graph-e2e",
+  "status": "ciphertext-inputs-created",
+  "startedAt": "2026-05-07T11:50:40.924Z",
+  "completedAt": "2026-05-07T11:50:49.653Z",
+  "cluster": "devnet",
+  "solanaRpc": "https://api.devnet.solana.com",
+  "encryptGrpc": "https://pre-alpha-dev-1.encrypt.ika-network.net:443",
+  "encryptProgramId": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+  "poletProgramId": "fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q",
+  "graph": "polet_policy_guardrail_graph",
+  "fheType": "EUint64",
+  "ciphertextTypes": {
+    "maxPerRun": "EUint64",
+    "dailyCap": "EUint64",
+    "dailySpent": "EUint64",
+    "sourceAmount": "EUint64",
+    "allowedOutput": "EBool",
+    "dailySpentOutput": "EUint64"
+  },
+  "policyPlaintextsRedacted": true,
+  "proofMode": "pre-alpha-empty-proof-dev-mode",
+  "networkEncryptionKey": {
+    "publicKeyHex": "5555555555555555555555555555555555555555555555555555555555555555",
+    "pda": "2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur"
+  },
+  "encryptPdas": {
+    "config": "EyqsEJaq86kqAbF3bNKQ3ydzAFXJZ5e8tuNr89CcmcH3",
+    "eventAuthority": "6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ",
+    "deposit": "set POLET_ENCRYPT_PAYER to derive deposit PDA",
+    "networkEncryptionKey": "2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur",
+    "poletEncryptCpiAuthority": "GvnuAE53vJtoSow9rJG2rwdt8ZurVYKU69qx8GuVvAKq",
+    "pdaDerivationHash": "d91698c1be5fadcff726eb0c523d064d82b5a5f3a6d1f113a0696b52d2b27908"
+  },
+  "ciphertexts": {
+    "maxPerRun": "hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd",
+    "dailyCap": "C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi",
+    "dailySpent": "AX9BKeQgSDXJcWh9EBEZnYJCr7wjwt7sM2pv945NNCVt",
+    "sourceAmount": "4vMEY1JVHg1CGA5vTSL8o8XuRJPdwRhrG93Faf1ox5jC",
+    "allowedOutput": "4L9sWzsiDv5VjVhUD8NQwgazjpyarAhsaBdptvQvhGPR",
+    "dailySpentOutput": "DfBdLUx5Ut1TdWSk7GmTHENYHJisFc5YtfiyT8aT34J5"
+  },
+  "accountChecks": {
+    "maxPerRun": {
+      "address": "hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd",
+      "exists": true,
+      "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+      "dataLength": 100,
+      "lamports": 1586880,
+      "executable": false,
+      "ownedByOfficialEncrypt": true
+    },
+    "dailyCap": {
+      "address": "C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi",
+      "exists": true,
+      "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+      "dataLength": 100,
+      "lamports": 1586880,
+      "executable": false,
+      "ownedByOfficialEncrypt": true
+    },
+    "dailySpent": {
+      "address": "AX9BKeQgSDXJcWh9EBEZnYJCr7wjwt7sM2pv945NNCVt",
+      "exists": true,
+      "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+      "dataLength": 100,
+      "lamports": 1586880,
+      "executable": false,
+      "ownedByOfficialEncrypt": true
+    },
+    "sourceAmount": {
+      "address": "4vMEY1JVHg1CGA5vTSL8o8XuRJPdwRhrG93Faf1ox5jC",
+      "exists": true,
+      "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+      "dataLength": 100,
+      "lamports": 1586880,
+      "executable": false,
+      "ownedByOfficialEncrypt": true
+    },
+    "allowedOutput": {
+      "address": "4L9sWzsiDv5VjVhUD8NQwgazjpyarAhsaBdptvQvhGPR",
+      "exists": true,
+      "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+      "dataLength": 100,
+      "lamports": 1586880,
+      "executable": false,
+      "ownedByOfficialEncrypt": true
+    },
+    "dailySpentOutput": {
+      "address": "DfBdLUx5Ut1TdWSk7GmTHENYHJisFc5YtfiyT8aT34J5",
+      "exists": true,
+      "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+      "dataLength": 100,
+      "lamports": 1586880,
+      "executable": false,
+      "ownedByOfficialEncrypt": true
+    }
+  },
+  "pendingOutputsToUseForGraph": {
+    "allowedOutput": "4L9sWzsiDv5VjVhUD8NQwgazjpyarAhsaBdptvQvhGPR",
+    "dailySpentOutput": "DfBdLUx5Ut1TdWSk7GmTHENYHJisFc5YtfiyT8aT34J5"
+  },
+  "proxyRoutes": {
+    "registerPolicy": "POST /wallet/set-official-encrypt-ciphertext-policy",
+    "executeGraph": "POST /wallet/execute-encrypt-policy-graph",
+    "consumeVerifiedAllowedIka": "POST /wallet/approve-ika-with-verified-encrypt"
+  },
+  "safety": {
+    "noPrivateKeysIncluded": true,
+    "noSeedPhrasesIncluded": true,
+    "noWitnessBytesIncluded": true,
+    "noPlaintextThresholdsIncluded": true,
+    "noTransactionsSignedOrSentByThisRunner": true
+  },
+  "retryAction": "Use these ciphertext ids with the unsigned proxy routes, simulate, then sign/send only with operator approval."
+}

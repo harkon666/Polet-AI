@@ -14,11 +14,15 @@
   "scripts": {
     "build": "tsc",
     "agent:run": "bun run src/local-agent-runner.ts",
+    "encrypt:evidence": "bun run src/official-encrypt-evidence-runner.ts",
+    "encrypt:live-e2e": "bun run src/official-encrypt-live-e2e-runner.ts",
     "send:polet-tx": "bun run src/send-polet-transaction.ts",
     "test": "bun test",
     "dev": "bun test --watch"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@encrypt.xyz/pre-alpha-solana-client": "^0.1.1",
     "@solana/web3.js": "^1.95.8",
     "tweetnacl": "^1.0.3"
   },
