@@ -21,7 +21,7 @@ Target length: under 5 minutes.
 - Devnet wallet connected in the frontend.
 - Agent session public key available and authorized on-chain.
 - Optional live Ika smoke evidence from `docs/ika-devnet-smoke-runbook.md` if Ika devnet is available.
-- Deterministic local evidence from `docs/evidence/hackathon-encrypt-ika-local-evidence.txt` for pending, verified blocked, verified allowed, quorum, redaction, and unsigned signer coverage.
+- Official Encrypt devnet evidence from issue `059` when available.
 
 Demo policy values for narration only:
 
@@ -126,7 +126,7 @@ Use this timing if recording a judge-facing video:
 
    Say: "This optional live smoke proves the Pre-Alpha MessageApproval inspection path when Ika devnet is available. It still uses the Pre-Alpha mock signer and does not claim production MPC or real settlement."
 
-   If live devnet is unavailable, use `./scripts/hackathon-encrypt-ika-local-evidence.sh` and show `docs/evidence/hackathon-encrypt-ika-local-evidence.txt` as the deterministic local evidence pack. Say: "Local evidence covers the Encrypt/Ika lifecycle and redaction guarantees. Live MessageApproval/explorer evidence is retried later when the Pre-Alpha devnet, faucets, gRPC, and mock signer are available."
+   If live devnet is unavailable, show the recorded issue `059` blocker instead of claiming Encrypt success. Say: "Official Encrypt pre-alpha evidence is blocked by external devnet/gRPC/faucet/executor availability. Local mocks prove Polet's control flow, but the hackathon Encrypt integration will be retried against the official ciphertext and graph lifecycle."
 
 10. Optional CLI agent proof.
 

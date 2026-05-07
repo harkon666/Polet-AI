@@ -1,4 +1,4 @@
-# Official Encrypt No-Witness Manual E2E Readiness
+# Official Encrypt Devnet Manual E2E Readiness
 
 Labels: `needs-triage`
 
@@ -6,61 +6,48 @@ Type: `AFK`
 
 ## Parent
 
-`docs/issues/054-official-encrypt-policy-inputs-without-static-witness.md`
+`docs/issues/059-official-encrypt-devnet-ciphertext-graph-e2e.md`
+
+## Status
+
+Re-scoped. This is no longer a generic no-witness checklist issue. It is the manual rehearsal and evidence-pack issue for the official Encrypt devnet path created by `059`.
 
 ## What to build
 
-Prepare the repo for another full manual end-to-end test after issue `054` removes static `encryptionWitness` from the primary path. This issue should verify and polish the frontend, proxy, SDK, docs, and runbooks so a human can run the official Encrypt pre-alpha demo without hand-editing request payloads or reintroducing `[1,2,3,...,32]` witness arrays.
+Prepare a human-run manual E2E that starts from official Encrypt ciphertext creation and ends at Polet/Ika verified-output behavior.
 
-The target manual path is: configure or register official Encrypt pre-alpha ciphertext policy inputs, grant a session, run 25 USDC blocked, run 5 USDC Jupiter preview, run 5 USDC-equivalent Sui Ika pending/verified allowed/verified blocked scenarios, prove shared quorum behavior, simulate or sign the unsigned Polet approval transaction when a session signer is explicitly available, and collect evidence without claiming production privacy, production MPC, or settlement.
+The manual path must cover:
 
-## Acceptance criteria
+1. Devnet owner/session setup.
+2. Official Encrypt gRPC/client config.
+3. Encrypt ciphertext creation for max-per-run, daily cap, daily spent, and source amount.
+4. Polet `set_official_encrypt_ciphertext_policy`.
+5. Polet `execute_encrypt_policy_graph_as_session`.
+6. Pending output evidence.
+7. Verified blocked evidence.
+8. Verified allowed evidence.
+9. Ika approval preparation only after verified allowed.
+10. Optional live Ika MessageApproval smoke when Ika devnet is available.
 
-- [ ] Frontend primary demo never constructs or submits static `encryptionWitness` arrays for official Encrypt-configured wallets.
-- [ ] Frontend shows official Encrypt setup/status, pending, verified blocked, verified allowed, quorum required, quorum satisfied, and signer-required states with no private thresholds, decrypted caps, witness bytes, dWallet data on blocked/pending, or executable payload leakage.
-- [ ] Proxy DCA and Ika routes accept official Encrypt-configured wallets without `encryptionWitness`, return stable lifecycle statuses, and still reject missing witness only for explicitly named masked-witness fallback/dev routes.
-- [ ] SDK `createPoletAgent()`, `createPoletAgentKit()`, local runner, and examples can run official no-witness DCA/Ika requests and normalize `pending-encrypt-execution`, `encrypt-verified-blocked`, `encrypt-verified-allowed`, `needs-approval`, `preview-ready`, `approval-transaction-prepared`, `signer-required`, `submitted`, and `failed`.
-- [ ] Docs and runbooks provide exact manual E2E steps, required env vars, expected proxy/frontend outputs, evidence filenames, and failure triage for official Encrypt pre-alpha no-witness runs.
-- [ ] Automated tests cover frontend rendering, proxy route behavior, SDK normalization, and E2E harness flow for no-witness official Encrypt states.
-- [ ] Regression scan or tests prove primary docs/examples/frontend fixtures do not include `POLET_ENCRYPTION_WITNESS`, `encryptionWitness: [1,2,3,...,32]`, or `Array.from({ length: 32 }, (_, index) => index + 1)` outside explicitly named legacy/dev fixture tests.
-- [ ] Manual E2E checklist includes devnet cluster, Encrypt gRPC endpoint, Encrypt program id, Polet program id, wallet PDA, session signer, Ika dWallet, MessageApproval, CPI authority, unsigned transaction signer list, simulation result, and explorer link when a transaction is sent.
-- [ ] The runbook states that Encrypt and Ika are pre-alpha, production privacy/MPC are not claimed, and settlement remains `not-executed` unless a separate destination broadcast demo is explicitly enabled.
+## Acceptance Criteria
 
-## Blocked by
+- [ ] Runbook contains exact env vars, commands, and expected outputs for official Encrypt devnet.
+- [ ] Evidence template includes Encrypt program id, gRPC endpoint, ciphertext account ids, graph execution tx/signature, pending output ciphertext ids, verified result state, and Polet/Ika consume state.
+- [ ] Failure table covers gRPC unavailable, devnet reset, faucet/funding failure, executor delay, decryptor delay, client API mismatch, and Ika devnet unavailable.
+- [ ] Manual evidence avoids private keys, seed phrases, witness bytes, plaintext thresholds after setup, decrypted caps, and blocked/pending executable payloads.
+- [ ] Docs clearly state pre-alpha may be public/plaintext internally and is not production privacy.
+- [ ] Local fallback harness evidence is labeled fallback only.
 
-- `054-official-encrypt-policy-inputs-without-static-witness`
+## Blocked By
 
-## Existing related work
+- `docs/issues/059-official-encrypt-devnet-ciphertext-graph-e2e.md`
 
-- `docs/issues/052-hackathon-ika-encrypt-prealpha-integration.md`
-- `docs/issues/053-agent-sdk-integration-kit.md`
-- `docs/issues/054-official-encrypt-policy-inputs-without-static-witness.md`
-- `docs/issues/048-frontend-official-encrypt-status-surface.md`
-- `docs/issues/024-consumer-frontend-e2e-demo-coverage.md`
+## Existing Related Work
+
 - `docs/ika-devnet-smoke-runbook.md`
-- `docs/agent-runtime.md`
+- issue `059` live evidence output or blocker record
+- `docs/issues/059-official-encrypt-devnet-ciphertext-graph-e2e.md`
 
-## Progress
+## Notes
 
-2026-05-07 slice:
-
-- Removed the local agent runtime's static witness default. DCA, Ika, and hybrid runtime scenarios now omit `encryptionWitness` unless a caller explicitly supplies a masked-witness dev fixture.
-- Renamed the runner's optional compatibility env to `POLET_MASKED_WITNESS_DEV_FIXTURE` so no primary runtime flow references the old Encrypt witness env.
-- Updated SDK runtime tests to assert default DCA, Ika, and hybrid request bodies do not serialize `encryptionWitness`.
-- Updated `docs/agent-runtime.md` so `createPoletAgent()`, `createPoletAgentKit()`, simulation examples, and OpenClaw/Hermes-style adapter snippets use the official no-witness path by default.
-- Updated `docs/ika-devnet-smoke-runbook.md` with a no-witness official Encrypt manual E2E checklist, expected pending/blocked/allowed/quorum/signer states, evidence filenames, required devnet/Encrypt/Ika identifiers, simulation fields, and no-production-privacy/MPC/settlement boundaries.
-- Ran a regression scan across primary docs, SDK examples/source, frontend source, and proxy source for legacy static witness patterns and old witness env references.
-
-Remaining:
-
-- Add a deterministic proxy route-level E2E harness for no-witness official Encrypt states instead of library-level tests only.
-- Add Playwright coverage for official Encrypt lifecycle command-center states after issue `056` lands its expanded UI.
-- Rehearse the manual checklist against a live devnet/Encrypt/Ika stack and attach actual evidence artifacts when external services are available.
-
-## Grill decisions
-
-Recommended dependency stance: do not start this before `054` lands, because this issue validates the new no-witness official path rather than designing it.
-
-Recommended scope: one vertical verification/polish issue across frontend, proxy, SDK, docs, and tests. The output should be a repeatable manual E2E checklist plus automated coverage that prevents static witness arrays from returning to the primary path.
-
-Recommended demo stance: official Encrypt no-witness is the primary path. Masked witness may appear only in explicitly named legacy/dev fixture tests and must not be shown as the hackathon evidence path.
+The older "no-witness readiness" work remains useful for redaction and safe lifecycle wording, but it is not enough for hackathon Encrypt core integration.

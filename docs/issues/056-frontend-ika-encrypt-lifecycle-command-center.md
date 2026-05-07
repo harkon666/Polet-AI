@@ -1,4 +1,4 @@
-# Frontend Ika Encrypt Lifecycle Command Center
+# Frontend Official Encrypt Ika Lifecycle Command Center
 
 Labels: `needs-triage`
 
@@ -6,53 +6,52 @@ Type: `AFK`
 
 ## Parent
 
-`docs/issues/052-hackathon-ika-encrypt-prealpha-integration.md`
+`docs/issues/059-official-encrypt-devnet-ciphertext-graph-e2e.md`
+
+## Status
+
+Re-scoped. Existing frontend lifecycle cards are useful, but they currently prove UI handling of normalized statuses more than real official Encrypt integration. This issue should start after `059` defines the live official state shape.
 
 ## What to build
 
-Expose the official Encrypt Ika lifecycle as a complete command-center vertical slice in the frontend. A judge should be able to trigger or view pending, verified blocked, verified allowed, quorum required, and quorum satisfied states without seeing witness bytes, private thresholds, remaining cap values, dWallet approval data before approval, or unsigned transactions before quorum is satisfied.
+Expose official Encrypt devnet lifecycle in the command center using real ciphertext/graph state from Polet:
 
-This slice should keep the app operational and compact. Do not turn the frontend into a landing page.
+- policy ciphertext account ids,
+- source amount ciphertext id,
+- graph execution status,
+- pending allowed output ciphertext id,
+- pending daily-spent output ciphertext id,
+- verified blocked,
+- verified allowed,
+- Ika approval preparation after verified allowed,
+- signer-required transaction summary.
 
-## Acceptance criteria
+The UI must remain an operational command center, not a landing page.
 
-- [ ] Frontend renders `pending-encrypt-execution` for Ika with no dWallet, MessageApproval, destination digest, unsigned approval transaction, witness bytes, private thresholds, or remaining cap.
-- [ ] Frontend renders `encrypt-verified-blocked` for Ika with no approval artifacts or private policy data.
-- [ ] Frontend renders `encrypt-verified-allowed` for Ika with safe canonical order hash, Ika message hash, dWallet account, MessageApproval PDA, CPI authority PDA, destination digest metadata, and unsigned Polet approval transaction signer summary.
-- [ ] Frontend renders `IKA_APPROVAL_QUORUM_REQUIRED` after verified allowed as progress counts only, with no Ika approval artifacts or unsigned transaction.
-- [ ] Frontend renders quorum-satisfied Ika as `approval-transaction-prepared` and keeps settlement labeled `not-executed`.
-- [ ] Component tests cover all five states and assert no `encryptionWitness`, static witness array, private max-per-run, daily cap, decrypted remaining cap, or premature approval artifact appears.
+## Acceptance Criteria
+
+- [ ] Frontend can display official Encrypt policy setup state using ciphertext account ids, not witness bytes.
+- [ ] Frontend can trigger or display graph execution pending state from real pending output ciphertext ids.
+- [ ] Pending state hides dWallet, MessageApproval, destination digest, unsigned approval transaction, thresholds, caps, and witness bytes.
+- [ ] Verified blocked state hides all execution/approval artifacts.
+- [ ] Verified allowed state shows safe artifacts required to inspect Polet/Ika approval preparation.
+- [ ] Quorum-required after verified allowed still shows progress only and no Ika approval transaction.
+- [ ] Component tests cover official state rendering and redaction.
 - [ ] Build passes.
 
-## Blocked by
+## Blocked By
 
+- `docs/issues/059-official-encrypt-devnet-ciphertext-graph-e2e.md`
 - `docs/issues/054-official-encrypt-policy-inputs-without-static-witness.md`
-- `docs/issues/055-official-encrypt-no-witness-manual-e2e-readiness.md`
 
-## Implementation notes
+## Existing Related Work
 
-- Existing files to inspect first:
-  - `frontend/src/components/DemoTab.tsx`
-  - `frontend/src/components/ActivityCard.tsx`
-  - `frontend/src/components/DemoTab.test.tsx`
-  - `frontend/src/components/activity-log.ts`
-  - `frontend/src/lib/api.ts`
-- Preserve the command-center feel and current localized copy style.
+- `frontend/src/components/DemoTab.tsx`
+- `frontend/src/components/ActivityCard.tsx`
+- `frontend/src/components/DemoTab.test.tsx`
+- `frontend/src/components/activity-log.ts`
+- `frontend/src/lib/api.ts`
 
-## Progress
+## Notes
 
-2026-05-07 slice:
-
-- Added safe Ika verified-allowed detail rows for canonical order hash, Ika message hash, dWallet account, MessageApproval PDA, CPI authority PDA, destination digest, settlement status, and required signer summary.
-- Kept approval details behind the existing `ikaRequest` boundary, so pending, verified-blocked, and quorum-required states render only status/progress metadata.
-- Expanded `DemoTab` component coverage to verify pending, verified blocked, verified allowed, verified-allowed quorum required, and quorum satisfied states without `encryptionWitness`, private thresholds, decrypted caps, premature MessageApproval/dWallet data, or unsigned transaction leakage.
-
-Verification:
-
-- `cd frontend && bun run test src/components/DemoTab.test.tsx`
-- `cd frontend && bun run build`
-
-Remaining:
-
-- Add Playwright coverage for official Encrypt lifecycle states once deterministic e2e harness controls are expanded.
-- Consider tighter localized labels for live simulation/signing states if issue `057` adds evidence-pack controls.
+Prior UI work for `pending-encrypt-execution`, `encrypt-verified-blocked`, `encrypt-verified-allowed`, and quorum states should be reused. Do not claim production privacy.

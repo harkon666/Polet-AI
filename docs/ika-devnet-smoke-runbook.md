@@ -113,19 +113,10 @@ IKA_SIGNATURE_SCHEME=ed25519-prealpha
 
 ## Local Preflight
 
-For hackathon issue `057`, run the deterministic local evidence pack before the manual devnet section:
+For hackathon issue `059`, run the official Encrypt devnet ciphertext/graph evidence path before the manual Ika send. If Encrypt devnet, gRPC, faucet, executor, or decryptor availability blocks the run, record the exact command, error, endpoint, and retry action. Do not replace live official Encrypt evidence with masked-witness or synthetic lifecycle output.
 
-```bash
-./scripts/hackathon-encrypt-ika-local-evidence.sh
-```
+The local deterministic tests below remain useful as fallback engineering checks only. They are not sufficient evidence for the hackathon Encrypt core-integration claim.
 
-It runs the targeted proxy, SDK, and frontend lifecycle checks and writes the redacted summary to:
-
-```text
-docs/evidence/hackathon-encrypt-ika-local-evidence.txt
-```
-
-The local evidence covers `pending-encrypt-execution`, `encrypt-verified-blocked`, `encrypt-verified-allowed`, quorum required, quorum satisfied, and unsigned session-signer coverage without relying on live devnet availability.
 
 Run deterministic local checks before touching devnet:
 
@@ -149,9 +140,9 @@ NO_DNA=1 anchor build
 NO_DNA=1 cargo test
 ```
 
-## No-Witness Official Encrypt E2E Checklist
+## Official Encrypt Devnet E2E Checklist
 
-Use this checklist for issue `055` evidence before any live Ika send:
+Use this checklist for issue `059` and follow-up issue `055` evidence before any live Ika send:
 
 ```text
 Cluster: devnet
@@ -386,7 +377,7 @@ Capture these artifacts for issue `052` without recording private thresholds, de
 
 Evidence language must say Encrypt and Ika are pre-alpha here. Do not claim production privacy, production MPC, or bridgeless asset settlement.
 
-Deterministic local evidence for the same lifecycle is covered by:
+Fallback local checks for the same lifecycle control flow are covered by:
 
 ```bash
 cd proxy
