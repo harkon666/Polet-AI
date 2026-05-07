@@ -115,6 +115,9 @@ const SAMPLE_ENCRYPT_CIPHERTEXTS = {
   maxPerRun: 'hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd',
   dailyCap: 'C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi',
   dailySpent: 'AX9BKeQgSDXJcWh9EBEZnYJCr7wjwt7sM2pv945NNCVt',
+  sourceAmount: 'Hn3nScX1Sx4q84ZKQ4TjHEujc75QfYmAHp1ko6ehWZ4s',
+  allowedOutput: '9a5UcaYhLd64bY31K2vufX4yyJPxi8xDd83j3M8YtHfP',
+  dailySpentOutput: '5sDPGQjGAgzJ6fmBjtyJUjW3pYLnEyEXN14NiHyBUXrz',
 };
 
 export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) {
@@ -152,6 +155,11 @@ export function DemoTabContent({
     config: ENCRYPT_PREALPHA_CONFIG,
     eventAuthority: ENCRYPT_PREALPHA_EVENT_AUTHORITY,
     networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+  });
+  const [officialEncryptExecutionDraft, setOfficialEncryptExecutionDraft] = useState({
+    sourceAmountCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.sourceAmount,
+    allowedOutputCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.allowedOutput,
+    dailySpentOutputCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.dailySpentOutput,
   });
   const [policySaved, setPolicySaved] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState(true);
@@ -670,6 +678,7 @@ export function DemoTabContent({
         sessionKey: agentAddress.trim(),
         amountUsdc,
         slippageBps: 100,
+        officialEncrypt: officialEncryptExecutionDraft,
       });
       const encryptStatus = getEncryptStatus(result.status, result.encryptPolicy);
       addActivity({
@@ -738,6 +747,7 @@ export function DemoTabContent({
         routeRisk: { priceImpactBps: routeRiskDraft.maxPriceImpactBps, liquidityScore: routeRiskDraft.minLiquidityScore, verifiedRoute: routeRiskDraft.requireVerifiedRoute, provider: 'polet-demo-precheck' },
         riskGuardrails: { mode: 'bridgeless-route-risk', maxSlippageBps: 150, maxPriceImpactBps: 300, minLiquidityScore: routeRiskDraft.minLiquidityScore, requireVerifiedRoute: routeRiskDraft.requireVerifiedRoute },
         sharedAccess: buildSharedAccess(sharedIkaApproval, sharedApprovalProofs, t.invalidSharedProofs),
+        officialEncrypt: officialEncryptExecutionDraft,
         routeGuardrails: {
           mode: 'chain-asset-allowlist',
           allowedSourceChains: ['solana'],
@@ -1427,6 +1437,38 @@ export function DemoTabContent({
             </div>
 
             <InfoRow label={t.cadence} value={strategy.cadence} />
+            <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+              <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.encryptExecutionRefs}</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--sea-ink-soft)]">{t.encryptExecutionRefsHelp}</p>
+              <div className="mt-3 grid gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.encryptSourceAmountCiphertext}</span>
+                  <input
+                    value={officialEncryptExecutionDraft.sourceAmountCiphertext}
+                    onChange={(event) => setOfficialEncryptExecutionDraft((prev) => ({ ...prev, sourceAmountCiphertext: event.target.value.trim() }))}
+                    className="w-full rounded-lg px-2 py-1 font-mono text-xs"
+                  />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.encryptAllowedOutput}</span>
+                    <input
+                      value={officialEncryptExecutionDraft.allowedOutputCiphertext}
+                      onChange={(event) => setOfficialEncryptExecutionDraft((prev) => ({ ...prev, allowedOutputCiphertext: event.target.value.trim() }))}
+                      className="w-full rounded-lg px-2 py-1 font-mono text-xs"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.encryptDailyOutput}</span>
+                    <input
+                      value={officialEncryptExecutionDraft.dailySpentOutputCiphertext}
+                      onChange={(event) => setOfficialEncryptExecutionDraft((prev) => ({ ...prev, dailySpentOutputCiphertext: event.target.value.trim() }))}
+                      className="w-full rounded-lg px-2 py-1 font-mono text-xs"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Action Buttons */}

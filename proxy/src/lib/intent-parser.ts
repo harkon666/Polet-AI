@@ -102,6 +102,7 @@ export function mapMultichainIntentToDcaRunRequest(intent: Intent): Confidential
     inputMint: params.sourceMint ?? JUPITER_USDC_MINT,
     outputMint: params.targetMint ?? JUPITER_SOL_MINT,
     ...(params.maskedWitnessDevFixture && { maskedWitnessDevFixture: params.maskedWitnessDevFixture }),
+    ...(params.officialEncrypt && { officialEncrypt: params.officialEncrypt }),
     ...(params.slippageBps !== undefined && { slippageBps: params.slippageBps }),
     ...(params.destinationTokenAccount && { destinationTokenAccount: params.destinationTokenAccount }),
     ...(params.nativeDestinationAccount && { nativeDestinationAccount: params.nativeDestinationAccount }),
@@ -186,6 +187,17 @@ function validateMultichainStrategyParams(params: Record<string, unknown>): void
   }
   if (params.maskedWitnessDevFixture !== undefined && (!Array.isArray(params.maskedWitnessDevFixture) || params.maskedWitnessDevFixture.length !== 32)) {
     throw new Error('Multichain params maskedWitnessDevFixture must contain 32 bytes when provided');
+  }
+  if (params.officialEncrypt !== undefined) {
+    if (!params.officialEncrypt || typeof params.officialEncrypt !== 'object') {
+      throw new Error('Multichain params officialEncrypt must be an object when provided');
+    }
+    const officialEncrypt = params.officialEncrypt as Record<string, unknown>;
+    for (const key of ['sourceAmountCiphertext', 'allowedOutputCiphertext', 'dailySpentOutputCiphertext']) {
+      if (typeof officialEncrypt[key] !== 'string' || !officialEncrypt[key]) {
+        throw new Error(`Multichain params officialEncrypt.${key} must be a string`);
+      }
+    }
   }
 }
 

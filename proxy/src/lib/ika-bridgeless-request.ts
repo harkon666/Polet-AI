@@ -193,6 +193,7 @@ export async function createIkaBridgelessExecutionRequest(
         sessionKey: intent.sessionKey,
         amountBaseUnits,
         maskedWitnessDevFixture: params.maskedWitnessDevFixture,
+        officialEncrypt: params.officialEncrypt,
         blockedReason: 'Confidential policy blocked this bridgeless request.',
         buildAllowed: async ({ wallet, encryptPolicy }) => buildIkaAllowedResult(
           intent,

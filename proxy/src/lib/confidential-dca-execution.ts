@@ -24,6 +24,7 @@ import {
   type StrategyExecutionDeps,
 } from './strategy-execution';
 import type { OfficialEncryptPolicyExecution } from './official-encrypt-policy';
+import type { OfficialEncryptPolicyExecutionReference } from './official-encrypt-policy';
 
 const USDC_DECIMALS = 6;
 
@@ -38,6 +39,7 @@ export interface ConfidentialDcaRunRequest {
   outputMint?: string;
   slippageBps?: number;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptPolicyExecutionReference;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }
@@ -114,6 +116,7 @@ export async function runConfidentialDcaExecution(
         sessionKey: request.sessionKey,
         amountBaseUnits,
         maskedWitnessDevFixture: request.maskedWitnessDevFixture,
+        officialEncrypt: request.officialEncrypt,
         blockedReason: 'Confidential policy blocked this DCA run.',
         requireDemoCustody: true,
         prepare: async ({ wallet }) => {

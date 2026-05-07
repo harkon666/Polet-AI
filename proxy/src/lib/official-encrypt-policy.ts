@@ -68,6 +68,12 @@ export interface OfficialEncryptPolicyExecutionRequest {
   amountBaseUnits: bigint;
 }
 
+export interface OfficialEncryptPolicyExecutionReference {
+  sourceAmountCiphertext: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
+}
+
 export type OfficialEncryptPolicyResolver = (
   request: OfficialEncryptPolicyExecutionRequest
 ) => Promise<OfficialEncryptPolicyExecution | null> | OfficialEncryptPolicyExecution | null;
@@ -85,6 +91,24 @@ export function hasPendingOfficialEncryptPolicyOutputs(wallet: Pick<WalletData, 
     && isRealCiphertextId(state.pendingSourceAmount)
     && isRealCiphertextId(state.pendingAllowedOutput)
     && isRealCiphertextId(state.pendingDailySpentOutput);
+}
+
+export function assertOfficialEncryptExecutionReference(
+  wallet: Pick<WalletData, 'confidentialPolicy'>,
+  reference: OfficialEncryptPolicyExecutionReference | undefined
+): void {
+  if (!reference) return;
+  const state = wallet.confidentialPolicy.encryptCiphertexts;
+  if (!hasPendingOfficialEncryptPolicyOutputs(wallet) || !state) {
+    throw new Error('Official Encrypt policy graph has no pending output ciphertexts for this wallet');
+  }
+  if (
+    reference.sourceAmountCiphertext !== state.pendingSourceAmount
+    || reference.allowedOutputCiphertext !== state.pendingAllowedOutput
+    || reference.dailySpentOutputCiphertext !== state.pendingDailySpentOutput
+  ) {
+    throw new Error('Requested Official Encrypt ciphertext refs do not match wallet pending graph state');
+  }
 }
 
 export async function evaluateOfficialEncryptPolicyLifecycle(

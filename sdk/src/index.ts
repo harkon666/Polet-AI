@@ -144,6 +144,7 @@ export interface DcaParams {
   outputMint: string;
   slippageBps?: number;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptExecutionRefs;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }
@@ -166,6 +167,7 @@ export interface MultichainStrategyParams {
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptExecutionRefs;
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
   routeGuardrails?: ChainAssetAllowlistPolicy;
@@ -173,6 +175,12 @@ export interface MultichainStrategyParams {
   riskGuardrails?: BridgelessRiskGuardrailPolicy;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
+}
+
+export interface OfficialEncryptExecutionRefs {
+  sourceAmountCiphertext: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
 }
 
 export interface ChainAssetAllowlistPolicy {
@@ -360,6 +368,7 @@ export interface DcaIntentInput {
   sessionKey: string;
   amountUsdc: number | string;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptExecutionRefs;
   inputMint?: string;
   outputMint?: string;
   slippageBps?: number;
@@ -379,6 +388,7 @@ export interface MultichainStrategyIntentInput {
   amount: number | string;
   executionRail: PoletExecutionRail;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptExecutionRefs;
   sourceMint?: string;
   targetMint?: string;
   strategy?: 'dca' | 'swap';
@@ -513,6 +523,7 @@ export function createDcaIntent(input: DcaIntentInput): DcaIntent {
       inputMint: input.inputMint ?? JUPITER_USDC_MINT,
       outputMint: input.outputMint ?? JUPITER_SOL_MINT,
       ...(input.maskedWitnessDevFixture && { maskedWitnessDevFixture: input.maskedWitnessDevFixture }),
+      ...(input.officialEncrypt && { officialEncrypt: input.officialEncrypt }),
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
       ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
       ...(input.nativeDestinationAccount && { nativeDestinationAccount: input.nativeDestinationAccount }),
@@ -543,6 +554,7 @@ export function createMultichainStrategyIntent(input: MultichainStrategyIntentIn
       executionRail: input.executionRail,
       strategy: input.strategy ?? 'dca',
       ...(input.maskedWitnessDevFixture && { maskedWitnessDevFixture: input.maskedWitnessDevFixture }),
+      ...(input.officialEncrypt && { officialEncrypt: input.officialEncrypt }),
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
       ...(input.ikaPreAlpha && { ikaPreAlpha: input.ikaPreAlpha }),
       ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
@@ -751,6 +763,7 @@ export interface SimplePoletTradeInput {
   routeRisk?: BridgelessRouteRisk;
   riskGuardrails?: BridgelessRiskGuardrailPolicy;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptExecutionRefs;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
   policyHash?: string;
@@ -770,6 +783,7 @@ export interface ExplicitPoletTradeInput {
   routeRisk?: BridgelessRouteRisk;
   riskGuardrails?: BridgelessRiskGuardrailPolicy;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptExecutionRefs;
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
   policyHash?: string;
@@ -1316,6 +1330,7 @@ function toDcaRunRequest(intent: DcaIntent): Record<string, unknown> {
     inputMint: intent.params.inputMint,
     outputMint: intent.params.outputMint,
     maskedWitnessDevFixture: intent.params.maskedWitnessDevFixture,
+    ...(intent.params.officialEncrypt && { officialEncrypt: intent.params.officialEncrypt }),
     ...(intent.params.slippageBps !== undefined && { slippageBps: intent.params.slippageBps }),
     ...(intent.params.destinationTokenAccount && { destinationTokenAccount: intent.params.destinationTokenAccount }),
     ...(intent.params.nativeDestinationAccount && { nativeDestinationAccount: intent.params.nativeDestinationAccount }),
@@ -1380,6 +1395,7 @@ async function tradeWithJupiter(input: PoletTradeInput, options: PoletAgentOptio
     sessionKey: options.sessionKey,
     amountUsdc: input.amount,
     ...(witness ? { maskedWitnessDevFixture: witness } : {}),
+    ...(input.officialEncrypt ? { officialEncrypt: input.officialEncrypt } : {}),
     inputMint: from.mint ?? JUPITER_USDC_MINT,
     outputMint: to.mint ?? JUPITER_SOL_MINT,
     slippageBps: input.slippageBps,
@@ -1423,6 +1439,7 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
     executionRail: 'ika',
     strategy: input.strategy ?? 'dca',
     ...(witness ? { maskedWitnessDevFixture: witness } : {}),
+    ...(input.officialEncrypt ? { officialEncrypt: input.officialEncrypt } : {}),
     slippageBps: input.slippageBps,
     ikaPreAlpha: input.ikaPreAlpha,
     sharedAccess: input.sharedAccess,

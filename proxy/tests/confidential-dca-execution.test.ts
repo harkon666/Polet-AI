@@ -233,6 +233,37 @@ describe('Confidential DCA execution path', () => {
     }
   });
 
+  test('rejects DCA request when official Encrypt execution refs do not match wallet pending graph', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+
+    const result = await runConfidentialDcaExecution(
+      {
+        owner: fixture.owner,
+        sessionKey: fixture.sessionKey,
+        amountUsdc: 5,
+        officialEncrypt: {
+          sourceAmountCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingSourceAmount,
+          allowedOutputCiphertext: Keypair.generate().publicKey.toString(),
+          dailySpentOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput,
+        },
+      },
+      {
+        getWalletData: async () => fixture.wallet,
+        gateway: mockGateway(),
+        buildTransaction: async () => {
+          throw new Error('mismatched Encrypt refs must not build transactions');
+        },
+      }
+    );
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('ENCRYPT_POLICY_GRAPH_NOT_EXECUTED');
+      expect(result.reason).toMatch(/do not match wallet pending graph state/i);
+      expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
+    }
+  });
+
   test('blocks a DCA transaction after Encrypt verification rejects the graph output', async () => {
     const fixture = createFixture({ officialEncrypt: 'pending' });
 

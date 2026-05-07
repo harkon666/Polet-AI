@@ -3,10 +3,12 @@ import {
   evaluateConfidentialNumericPolicy,
 } from './confidential-numeric-policy';
 import {
+  assertOfficialEncryptExecutionReference,
   evaluateOfficialEncryptPolicyLifecycle,
   hasOfficialEncryptPolicy,
   hasPendingOfficialEncryptPolicyOutputs,
   type OfficialEncryptPolicyExecution,
+  type OfficialEncryptPolicyExecutionReference,
   type OfficialEncryptPolicyResolver,
 } from './official-encrypt-policy';
 import {
@@ -49,6 +51,7 @@ export interface GuardedStrategyContext<TPrepared = undefined> {
   sessionKey: string;
   amountBaseUnits: bigint;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptPolicyExecutionReference;
   encryptPolicy?: OfficialEncryptPolicyExecution;
   prepared: TPrepared;
 }
@@ -58,6 +61,7 @@ export interface ExecuteGuardedStrategyRequest<TPrepared, TPayload> {
   sessionKey: string;
   amountBaseUnits: bigint;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptPolicyExecutionReference;
   blockedReason: string;
   requireDemoCustody?: boolean;
   prepare?: (context: GuardedStrategyContext) => Promise<TPrepared>;
@@ -112,12 +116,24 @@ export async function executeGuardedStrategy<TPrepared, TPayload>(
     sessionKey: request.sessionKey,
     amountBaseUnits: request.amountBaseUnits,
     maskedWitnessDevFixture: request.maskedWitnessDevFixture,
+    officialEncrypt: request.officialEncrypt,
     encryptPolicy: undefined,
     prepared: undefined,
   };
   const prepared = request.prepare ? await request.prepare(baseContext) : undefined;
 
   if (hasOfficialEncryptPolicy(wallet)) {
+    try {
+      assertOfficialEncryptExecutionReference(wallet, request.officialEncrypt);
+    } catch (error) {
+      return {
+        allowed: false,
+        code: 'ENCRYPT_POLICY_GRAPH_NOT_EXECUTED',
+        reason: error instanceof Error ? error.message : 'Official Encrypt policy graph references are invalid.',
+        ...(prepared !== undefined && { prepared }),
+      };
+    }
+
     if (!hasPendingOfficialEncryptPolicyOutputs(wallet)) {
       return {
         allowed: false,

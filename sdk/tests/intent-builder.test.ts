@@ -138,6 +138,23 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(intent.params.slippageBps).toBe(75);
       expect(isValidIntent(intent)).toBe(true);
     });
+
+    test('keeps official Encrypt execution refs without requiring a dev witness', () => {
+      const officialEncrypt = {
+        sourceAmountCiphertext: 'EncryptSourceCiphertext111111111111111111',
+        allowedOutputCiphertext: 'EncryptAllowedOutput1111111111111111111',
+        dailySpentOutputCiphertext: 'EncryptDailySpentOutput1111111111111111',
+      };
+      const intent = createDcaIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        amountUsdc: 5,
+        officialEncrypt,
+      });
+
+      expect(intent.params.officialEncrypt).toEqual(officialEncrypt);
+      expect('maskedWitnessDevFixture' in intent.params).toBe(false);
+    });
   });
 
   describe('createMultichainStrategyIntent', () => {
@@ -168,6 +185,28 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(intent.params.executionRail).toBe('jupiter');
       expect(intent.params.maskedWitnessDevFixture).toEqual(witness);
       expect(isValidIntent(intent)).toBe(true);
+    });
+
+    test('keeps official Encrypt refs on multichain intents without serializing a dev witness', () => {
+      const officialEncrypt = {
+        sourceAmountCiphertext: 'EncryptSourceCiphertext222222222222222222',
+        allowedOutputCiphertext: 'EncryptAllowedOutput2222222222222222222',
+        dailySpentOutputCiphertext: 'EncryptDailySpentOutput2222222222222222',
+      };
+      const intent = createMultichainStrategyIntent({
+        owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+        sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+        sourceChain: 'solana',
+        sourceAsset: 'USDC',
+        targetChain: 'sui',
+        targetAsset: 'SUI',
+        amount: '5',
+        executionRail: 'ika',
+        officialEncrypt,
+      });
+
+      expect(intent.params.officialEncrypt).toEqual(officialEncrypt);
+      expect('maskedWitnessDevFixture' in intent.params).toBe(false);
     });
 
     test('keeps optional Ika Pre-Alpha signing metadata on explicit multichain intents', () => {

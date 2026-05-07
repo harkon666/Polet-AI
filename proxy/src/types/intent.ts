@@ -4,7 +4,7 @@
  */
 import type { PublicKey } from '@solana/web3.js';
 import type { BN } from '@coral-xyz/anchor';
-import type { EncryptPolicyCiphertextState } from '../lib/official-encrypt-policy';
+import type { EncryptPolicyCiphertextState, OfficialEncryptPolicyExecutionReference } from '../lib/official-encrypt-policy';
 
 export type IntentAction = 'transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom';
 export type StrategyIntentAction = 'multichain-strategy';
@@ -56,6 +56,7 @@ export interface MultichainStrategyParams {
     requireVerifiedRoute?: boolean;
   };
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptPolicyExecutionReference;
   ikaPreAlpha?: {
     dwalletAccount?: string;
     dwalletCurve?: number;

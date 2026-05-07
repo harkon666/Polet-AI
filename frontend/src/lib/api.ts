@@ -449,9 +449,16 @@ export interface RunConfidentialDcaInput {
   sessionKey: string;
   amountUsdc: string;
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptExecutionRefs;
   inputMint?: string;
   outputMint?: string;
   slippageBps?: number;
+}
+
+export interface OfficialEncryptExecutionRefs {
+  sourceAmountCiphertext: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
 }
 
 export interface JupiterPlanPreview {
@@ -634,6 +641,7 @@ export interface RunMultichainIntentInput {
     }>;
   };
   maskedWitnessDevFixture?: number[];
+  officialEncrypt?: OfficialEncryptExecutionRefs;
   routeGuardrails?: {
     mode: 'chain-asset-allowlist';
     allowedSourceChains: Array<'solana' | 'sui' | 'ethereum' | 'base'>;
@@ -763,6 +771,7 @@ export async function runMultichainIntent(input: RunMultichainIntentInput): Prom
           ...(input.riskGuardrails && { riskGuardrails: input.riskGuardrails }),
           ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
           ...(input.maskedWitnessDevFixture && { maskedWitnessDevFixture: input.maskedWitnessDevFixture }),
+          ...(input.officialEncrypt && { officialEncrypt: input.officialEncrypt }),
           ...(input.routeGuardrails && { routeGuardrails: input.routeGuardrails }),
         },
         timestamp: Math.floor(Date.now() / 1000),

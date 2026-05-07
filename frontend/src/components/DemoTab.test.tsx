@@ -487,6 +487,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/jupiter strategy rail/i)).toBeTruthy();
     expect(view.getByText(/sui\/sui primary destination/i)).toBeTruthy();
     expect(view.getByText(/ethereum\/eth optional allowed route/i)).toBeTruthy();
+    expect(view.getByText(/official encrypt execution refs/i)).toBeTruthy();
     expect(view.getByText('Jupiter')).toBeTruthy();
 
     await setupCustodyAndPolicy(view);
@@ -502,6 +503,11 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/jupiter route siap/i)).toBeTruthy();
     expect(view.getByText(/humidifi/i)).toBeTruthy();
     expect(view.getByText(/preview: route\/build jupiter/i)).toBeTruthy();
+    expect(dcaInputs.at(-1)?.officialEncrypt).toMatchObject({
+      sourceAmountCiphertext: 'Hn3nScX1Sx4q84ZKQ4TjHEujc75QfYmAHp1ko6ehWZ4s',
+      allowedOutputCiphertext: '9a5UcaYhLd64bY31K2vufX4yyJPxi8xDd83j3M8YtHfP',
+      dailySpentOutputCiphertext: '5sDPGQjGAgzJ6fmBjtyJUjW3pYLnEyEXN14NiHyBUXrz',
+    });
     expect(JSON.stringify(dcaInputs)).not.toContain('maskedWitnessDevFixture');
   });
 
@@ -559,6 +565,11 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/messageapproval/i)).toBeTruthy();
     expect(view.getByText(/message hash/i)).toBeTruthy();
     expect(view.getByText(/ed25519-prealpha/i)).toBeTruthy();
+    expect(multichainInputs.at(-1)?.officialEncrypt).toMatchObject({
+      sourceAmountCiphertext: 'Hn3nScX1Sx4q84ZKQ4TjHEujc75QfYmAHp1ko6ehWZ4s',
+      allowedOutputCiphertext: '9a5UcaYhLd64bY31K2vufX4yyJPxi8xDd83j3M8YtHfP',
+      dailySpentOutputCiphertext: '5sDPGQjGAgzJ6fmBjtyJUjW3pYLnEyEXN14NiHyBUXrz',
+    });
     expect(JSON.stringify(multichainInputs)).not.toContain('maskedWitnessDevFixture');
     logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
     expect(logText).not.toContain('10 USDC');
