@@ -15,6 +15,8 @@ import {
   UserPlus,
   Wallet,
   X,
+  KeyRound,
+  Fingerprint,
 } from 'lucide-react';
 import {
   runConfidentialDca,
@@ -24,6 +26,10 @@ import {
   getWalletData,
   revokeSharedIkaApprover,
   runMultichainIntent,
+  setRecoveryAuthority,
+  recoverAccess,
+  requestPasskeyChallenge,
+  verifyPasskeyAssertion,
   type RunConfidentialDcaResult,
   type RunMultichainIntentResult,
   type SharedIkaApproverConfigInput,
@@ -55,6 +61,10 @@ interface DemoApi {
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
   configureSharedIkaApprovers: (input: SharedIkaApproverConfigInput) => Promise<WalletTransactionResult & { threshold: number; approvers: string[] }>;
   revokeSharedIkaApprover: (input: { owner: string; approver: string }) => Promise<WalletTransactionResult & { approver: string }>;
+  setRecoveryAuthority: (input: { owner: string; recoveryAuthority: string }) => Promise<WalletTransactionResult & { recoveryAuthority: string; activity: { type: string; status: string; privacy: string } }>;
+  recoverAccess: (input: { owner: string; authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string }) => Promise<WalletTransactionResult & { authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string; activity: { type: string; status: string; states: string[]; privacy: string; boundary: string } }>;
+  requestPasskeyChallenge: (input: { owner: string; sessionKey: string; sharedApprovalChallenge: string; credentialId: string; rpId: string; expiresAtUnix: number }) => Promise<{ challenge: number[]; publicKeyCredentialRequestOptions: { challenge: number[]; rpId: string; allowCredentials: Array<{ type: string; id: string }>; userVerification: string }; boundary: string }>;
+  verifyPasskeyAssertion: (input: { expectedChallenge: number[]; expectedOrigin: string; expectedRpId: string; expectedCredentialId: string; credentialPublicKeyJwk: Record<string, unknown>; assertion: { authenticatorData: string; clientDataJSON: string; signature: string; userHandle?: string }; requireUserVerification: boolean }) => Promise<{ valid: boolean; approverPublicKey: string; challengeUsed: string; boundary: string }>;
   runConfidentialDca: typeof runConfidentialDca;
   runMultichainIntent: typeof runMultichainIntent;
   getWalletData: typeof getWalletData;
@@ -72,6 +82,10 @@ const DEFAULT_API: DemoApi = {
   setupDemoCustody,
   configureSharedIkaApprovers,
   revokeSharedIkaApprover,
+  setRecoveryAuthority,
+  recoverAccess,
+  requestPasskeyChallenge,
+  verifyPasskeyAssertion,
   runConfidentialDca,
   runMultichainIntent,
   getWalletData,
@@ -132,6 +146,22 @@ export function DemoTabContent({
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recoveryAuthority, setRecoveryAuthorityState] = useState<string | null>(null);
+  const [recoveryDraft, setRecoveryDraft] = useState({
+    recoveryAuthority: '',
+    compromisedSessions: '',
+    sharedIkaThreshold: '1',
+    sharedIkaApprovers: '',
+    pendingDwalletController: '',
+  });
+  const [passkeyChallenge, setPasskeyChallenge] = useState<string | null>(null);
+  const [passkeyVerified, setPasskeyVerified] = useState(false);
+  const [passkeyUnavailable, setPasskeyUnavailable] = useState(false);
+  const [passkeyDraft, setPasskeyDraft] = useState({
+    credentialId: '',
+    rpId: '',
+    assertion: '',
+  });
 
   const t = COPY[locale];
   const witness = useMemo(() => Array.from({ length: 32 }, (_, index) => index + 1), []);
@@ -197,6 +227,9 @@ export function DemoTabContent({
               threshold: configuredShared.threshold.toString(),
               approvers: configuredShared.approvers.join('\n'),
             });
+          }
+          if (data.recoveryAuthority) {
+            setRecoveryAuthorityState(data.recoveryAuthority);
           }
         }
       }).catch(console.error);
@@ -346,6 +379,139 @@ export function DemoTabContent({
       });
     } catch (err) {
       recordError(err instanceof Error ? err.message : 'Failed to revoke shared Ika approver');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const setRecoveryAuth = async () => {
+    if (!owner || !recoveryDraft.recoveryAuthority.trim()) {
+      return;
+    }
+    setBusy('recovery-authority');
+    setError(null);
+    try {
+      const result = await api.setRecoveryAuthority({ owner, recoveryAuthority: recoveryDraft.recoveryAuthority.trim() });
+      const signature = await signAndConfirmTransaction(result.transaction);
+      setRecoveryAuthorityState(result.recoveryAuthority);
+      addActivity({
+        status: 'setup',
+        message: `${t.recoveryReady}: ${signature.slice(0, 8)}...`,
+        route: 'Contract set_recovery_authority',
+      });
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to set recovery authority');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runRecoveryAccess = async () => {
+    if (!owner || !recoveryAuthority || !recoveryDraft.compromisedSessions.trim()) {
+      return;
+    }
+    const compromisedSessions = normalizeApproverLines(recoveryDraft.compromisedSessions);
+    const approvers = normalizeApproverLines(recoveryDraft.sharedIkaApprovers);
+    const threshold = Number.parseInt(recoveryDraft.sharedIkaThreshold, 10);
+    if (!Number.isInteger(threshold) || threshold < 1 || threshold > approvers.length) {
+      recordError(t.invalidSharedApprover);
+      return;
+    }
+
+    setBusy('recovery-access');
+    setError(null);
+    try {
+      const result = await api.recoverAccess({
+        owner,
+        authority: recoveryAuthority,
+        compromisedSessions,
+        sharedIkaThreshold: threshold,
+        sharedIkaApprovers: approvers,
+        pendingDwalletController: recoveryDraft.pendingDwalletController.trim(),
+      });
+      const signature = await signAndConfirmTransaction(result.transaction);
+      addActivity({
+        status: 'setup',
+        message: `Recovery: ${signature.slice(0, 8)}...`,
+        route: `Contract recover_wallet_access: ${result.activity.states.join(', ')}`,
+      });
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to recover access');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const isWebAuthnAvailable = () => typeof navigator !== 'undefined' && typeof navigator.credentials !== 'undefined';
+
+  const requestPasskeyChallenge = async () => {
+    if (!owner || !agentAddress.trim() || !passkeyDraft.credentialId.trim() || !passkeyDraft.rpId.trim()) {
+      return;
+    }
+    if (!isWebAuthnAvailable()) {
+      setPasskeyUnavailable(true);
+      return;
+    }
+    setBusy('passkey-challenge');
+    setError(null);
+    try {
+      const challengeResult = await api.requestPasskeyChallenge({
+        owner,
+        sessionKey: agentAddress.trim(),
+        sharedApprovalChallenge: 'demo-shared-approval-challenge',
+        credentialId: passkeyDraft.credentialId.trim(),
+        rpId: passkeyDraft.rpId.trim(),
+        expiresAtUnix: Math.floor(Date.now() / 1000) + 300,
+      });
+      const challengeHex = Array.from(new Uint8Array(challengeResult.challenge)).map(b => b.toString(16).padStart(2, '0')).join('');
+      setPasskeyChallenge(challengeHex);
+      addActivity({
+        status: 'setup',
+        message: `Passkey challenge prepared`,
+        route: 'Passkey coapproval challenge',
+      });
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to request passkey challenge');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const verifyPasskeyProof = async () => {
+    if (!passkeyChallenge || !passkeyDraft.assertion.trim()) {
+      return;
+    }
+    setBusy('passkey-verify');
+    setError(null);
+    try {
+      const assertion = JSON.parse(passkeyDraft.assertion);
+      const challengeBytes = new Uint8Array(passkeyChallenge.match(/.{2}/g)!.map(b => parseInt(b, 16)));
+      const result = await api.verifyPasskeyAssertion({
+        expectedChallenge: Array.from(challengeBytes),
+        expectedOrigin: 'http://localhost',
+        expectedRpId: passkeyDraft.rpId.trim(),
+        expectedCredentialId: passkeyDraft.credentialId.trim(),
+        credentialPublicKeyJwk: { kty: 'RSA', alg: 'RS256' },
+        assertion: {
+          authenticatorData: assertion.authenticatorData,
+          clientDataJSON: assertion.clientDataJSON,
+          signature: assertion.signature,
+          userHandle: assertion.userHandle,
+        },
+        requireUserVerification: false,
+      });
+      if (result.valid) {
+        setPasskeyVerified(true);
+        addActivity({
+          status: 'setup',
+          message: `Passkey verified for co-approval`,
+          route: 'Passkey coapproval verified',
+        });
+      } else {
+        recordError('Passkey verification failed');
+      }
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to verify passkey assertion');
     } finally {
       setBusy(null);
     }
@@ -709,6 +875,190 @@ export function DemoTabContent({
               </label>
             </div>
           </div>
+        </Panel>
+      </section>
+
+      {/* Recovery Authority */}
+      <section>
+        <Panel icon={<KeyRound className="h-5 w-5" />} title={t.recoveryTitle}>
+          <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.recoveryBody}</p>
+          <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoveryRecoveryAuthority}</span>
+                <input
+                  value={recoveryDraft.recoveryAuthority}
+                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, recoveryAuthority: event.target.value }))}
+                  placeholder={t.recoveryPlaceholder}
+                  className="w-full rounded-lg px-3 py-2 font-mono text-sm"
+                />
+              </label>
+              <button
+                onClick={setRecoveryAuth}
+                disabled={!owner || !recoveryDraft.recoveryAuthority.trim() || Boolean(busy)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                <KeyRound className="h-4 w-4" />
+                {busy === 'recovery-authority' ? '...' : t.recoverySetAuthority}
+              </button>
+            </div>
+
+            <div className="grid gap-3">
+              <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.recoveryTitle}</p>
+                <p className="mt-1 text-sm font-black text-[var(--sea-ink)]">
+                  {recoveryAuthority ? t.recoveryReady : t.recoveryNotConfigured}
+                </p>
+              </div>
+              {recoveryAuthority && (
+                <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                  <p className="break-all font-mono text-xs font-bold text-[var(--sea-ink)]">{recoveryAuthority}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </Panel>
+      </section>
+
+      {/* Recovery Access */}
+      <section>
+        <Panel icon={<Shield className="h-5 w-5" />} title={t.recoveryRecoveryAccess}>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoveryCompromisedSessions}</span>
+                <textarea
+                  value={recoveryDraft.compromisedSessions}
+                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, compromisedSessions: event.target.value }))}
+                  placeholder={t.recoverySessionsPlaceholder}
+                  rows={3}
+                  className="w-full rounded-lg px-3 py-2 font-mono text-xs"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoverySharedIkaThreshold}</span>
+                <input
+                  value={recoveryDraft.sharedIkaThreshold}
+                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, sharedIkaThreshold: event.target.value }))}
+                  type="number"
+                  min="1"
+                  step="1"
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+            <div className="grid gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoverySharedIkaApprovers}</span>
+                <textarea
+                  value={recoveryDraft.sharedIkaApprovers}
+                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, sharedIkaApprovers: event.target.value }))}
+                  placeholder={t.recoveryApproversPlaceholder}
+                  rows={3}
+                  className="w-full rounded-lg px-3 py-2 font-mono text-xs"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoveryPendingDwalletController}</span>
+                <input
+                  value={recoveryDraft.pendingDwalletController}
+                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, pendingDwalletController: event.target.value }))}
+                  placeholder={t.recoveryDwalletPlaceholder}
+                  className="w-full rounded-lg px-3 py-2 font-mono text-sm"
+                />
+              </label>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs font-medium text-amber-600">
+              {t.recoveryPrivacy}
+            </div>
+            <button
+              onClick={runRecoveryAccess}
+              disabled={!owner || !recoveryAuthority || !recoveryDraft.compromisedSessions.trim() || Boolean(busy)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-500 disabled:opacity-50"
+            >
+              <Shield className="h-4 w-4" />
+              {busy === 'recovery-access' ? '...' : t.recoveryRecoveryAccess}
+            </button>
+          </div>
+        </Panel>
+      </section>
+
+      {/* Passkey Co-approval */}
+      <section>
+        <Panel icon={<Fingerprint className="h-5 w-5" />} title={t.passkeyTitle}>
+          <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.passkeyBody}</p>
+          {passkeyUnavailable ? (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs font-medium text-amber-600">
+              {t.passkeyUnavailable}
+            </div>
+          ) : (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.passkeyCredentialId}</span>
+                  <input
+                    value={passkeyDraft.credentialId}
+                    onChange={(event) => setPasskeyDraft((prev) => ({ ...prev, credentialId: event.target.value }))}
+                    placeholder={t.passkeyCredentialIdPlaceholder}
+                    className="w-full rounded-lg px-3 py-2 font-mono text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.passkeyRpId}</span>
+                  <input
+                    value={passkeyDraft.rpId}
+                    onChange={(event) => setPasskeyDraft((prev) => ({ ...prev, rpId: event.target.value }))}
+                    placeholder={t.passkeyRpIdPlaceholder}
+                    className="w-full rounded-lg px-3 py-2 font-mono text-sm"
+                  />
+                </label>
+                <button
+                  onClick={requestPasskeyChallenge}
+                  disabled={!owner || !passkeyDraft.credentialId.trim() || !passkeyDraft.rpId.trim() || Boolean(busy)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  <Fingerprint className="h-4 w-4" />
+                  {busy === 'passkey-challenge' ? '...' : t.passkeyRequestChallenge}
+                </button>
+              </div>
+              <div className="grid gap-3">
+                {passkeyChallenge && !passkeyVerified && (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.passkeyAssertion}</span>
+                    <textarea
+                      value={passkeyDraft.assertion}
+                      onChange={(event) => setPasskeyDraft((prev) => ({ ...prev, assertion: event.target.value }))}
+                      placeholder={t.passkeyAssertionPlaceholder}
+                      rows={3}
+                      className="w-full rounded-lg px-3 py-2 font-mono text-xs"
+                    />
+                  </label>
+                )}
+                {passkeyChallenge && !passkeyVerified && (
+                  <button
+                    onClick={verifyPasskeyProof}
+                    disabled={!passkeyDraft.assertion.trim() || Boolean(busy)}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    <Check className="h-4 w-4" />
+                    {busy === 'passkey-verify' ? '...' : t.passkeyVerify}
+                  </button>
+                )}
+                {passkeyVerified && (
+                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
+                    <p className="text-xs font-semibold uppercase text-green-500">{t.passkeyVerified}</p>
+                  </div>
+                )}
+                {passkeyChallenge && (
+                  <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                    <p className="text-xs font-semibold text-[var(--sea-ink-soft)]">{t.passkeyBoundary}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </Panel>
       </section>
 

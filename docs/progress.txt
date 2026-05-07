@@ -53,9 +53,7 @@ Track alignment:
 
 ### Stretch
 
-- `043-frontend-recovery-authority-ui` — Add recovery authority and recover-access UI for compromised sessions and staged dWallet controller migration.
-- `044-frontend-passkey-coapproval-demo-ui` — Add passkey co-approval prototype UI as UX helper for shared Ika approvals.
-- `045-frontend-ika-destination-broadcast-ui` — Add disabled-by-default destination memo broadcast demo UI for eligible Ika pre-alpha signatures.
+### Stretch
 - `047-frontend-route-risk-guardrail-controls` — Add frontend route-risk controls for slippage, price impact, liquidity, and verified route policy.
 - `049-frontend-demo-command-center-polish` — Consolidate all frontend demo features into one command center after the prerequisite slices land.
 

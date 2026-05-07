@@ -204,6 +204,44 @@ export interface RevokeSharedIkaApproverResult extends WalletTransactionResult {
   approver: string;
 }
 
+export interface SetRecoveryAuthorityInput {
+  owner: string;
+  recoveryAuthority: string;
+}
+
+export interface SetRecoveryAuthorityResult extends WalletTransactionResult {
+  recoveryAuthority: string;
+  activity: {
+    type: string;
+    status: string;
+    privacy: string;
+  };
+}
+
+export interface RecoverAccessInput {
+  owner: string;
+  authority: string;
+  compromisedSessions: string[];
+  sharedIkaThreshold: number;
+  sharedIkaApprovers: string[];
+  pendingDwalletController: string;
+}
+
+export interface RecoverAccessResult extends WalletTransactionResult {
+  authority: string;
+  compromisedSessions: string[];
+  sharedIkaThreshold: number;
+  sharedIkaApprovers: string[];
+  pendingDwalletController: string;
+  activity: {
+    type: string;
+    status: string;
+    states: string[];
+    privacy: string;
+    boundary: string;
+  };
+}
+
 export async function setConfidentialPolicy(input: SetConfidentialPolicyInput): Promise<WalletTransactionResult> {
   const data = await fetchJson<{ success: boolean; data: WalletTransactionResult }>(
     `${PROXY_URL}/wallet/set-confidential-policy`,
@@ -243,6 +281,96 @@ export async function configureSharedIkaApprovers(input: SharedIkaApproverConfig
 export async function revokeSharedIkaApprover(input: RevokeSharedIkaApproverInput): Promise<RevokeSharedIkaApproverResult> {
   const data = await fetchJson<{ success: boolean; data: RevokeSharedIkaApproverResult }>(
     `${PROXY_URL}/wallet/shared-ika-approvers/revoke`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function setRecoveryAuthority(input: SetRecoveryAuthorityInput): Promise<SetRecoveryAuthorityResult> {
+  const data = await fetchJson<{ success: boolean; data: SetRecoveryAuthorityResult }>(
+    `${PROXY_URL}/wallet/recovery-authority`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function recoverAccess(input: RecoverAccessInput): Promise<RecoverAccessResult> {
+  const data = await fetchJson<{ success: boolean; data: RecoverAccessResult }>(
+    `${PROXY_URL}/wallet/recover-access`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export interface PasskeyCoapprovalChallengeInput {
+  owner: string;
+  sessionKey: string;
+  sharedApprovalChallenge: string;
+  credentialId: string;
+  rpId: string;
+  expiresAtUnix: number;
+}
+
+export interface PasskeyCoapprovalChallengeResult {
+  challenge: number[];
+  publicKeyCredentialRequestOptions: {
+    challenge: number[];
+    rpId: string;
+    allowCredentials: Array<{ type: string; id: string }>;
+    userVerification: string;
+  };
+  boundary: string;
+}
+
+export interface PasskeyVerificationInput {
+  expectedChallenge: number[];
+  expectedOrigin: string;
+  expectedRpId: string;
+  expectedCredentialId: string;
+  credentialPublicKeyJwk: Record<string, unknown>;
+  assertion: {
+    authenticatorData: string;
+    clientDataJSON: string;
+    signature: string;
+    userHandle?: string;
+  };
+  requireUserVerification: boolean;
+}
+
+export interface PasskeyVerificationResult {
+  valid: boolean;
+  approverPublicKey: string;
+  challengeUsed: string;
+  boundary: string;
+}
+
+export async function requestPasskeyChallenge(input: PasskeyCoapprovalChallengeInput): Promise<PasskeyCoapprovalChallengeResult> {
+  const data = await fetchJson<{ success: boolean; data: PasskeyCoapprovalChallengeResult }>(
+    `${PROXY_URL}/passkey/coapproval/challenge`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function verifyPasskeyAssertion(input: PasskeyVerificationInput): Promise<PasskeyVerificationResult> {
+  const data = await fetchJson<{ success: boolean; data: PasskeyVerificationResult }>(
+    `${PROXY_URL}/passkey/coapproval/verify`,
     {
       method: 'POST',
       body: JSON.stringify(input),

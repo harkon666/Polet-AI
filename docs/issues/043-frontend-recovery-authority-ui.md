@@ -1,29 +1,35 @@
 # Frontend Recovery Authority UI
 
-Labels: `needs-triage`
+Labels: `done`
 
-Type: `AFK`
+Type: `frontend`
 
 ## Parent
 
 `docs/prd.md`
 
-## What to build
+## What was built
 
-Add a frontend recovery workflow for owner-configured recovery authority. The user should be able to set a recovery authority, run a recovery action that revokes compromised sessions, rotate shared Ika approver metadata, and stage dWallet controller migration metadata while preserving the confidential policy boundary.
+Added a frontend recovery workflow for owner-configured recovery authority. The user can set a recovery authority, run a recovery action that revokes compromised sessions, rotate shared Ika approver metadata, and stage dWallet controller migration metadata while preserving the confidential policy boundary.
 
-This should be presented as an operational safety workflow, not as a marketing page.
+Presented as an operational safety workflow, not a marketing page.
 
 ## Acceptance criteria
 
-- [ ] The frontend can set a recovery authority through the proxy and sign the returned owner transaction.
-- [ ] The frontend can build and sign a recover-access transaction using the owner or configured recovery authority.
-- [ ] The UI supports selecting compromised session public keys from current wallet state.
-- [ ] The UI supports entering replacement shared Ika approvers and a pending dWallet controller.
-- [ ] Activity logs explain recovery actions without leaking confidential numeric policy values.
-- [ ] Tests cover successful setup, recovery transaction preparation, invalid/missing inputs, and post-recovery state display.
+- [x] The frontend can set a recovery authority through the proxy and sign the returned owner transaction.
+- [x] The frontend can build and sign a recover-access transaction using the owner or configured recovery authority.
+- [x] The UI supports selecting compromised session public keys from current wallet state.
+- [x] The UI supports entering replacement shared Ika approvers and a pending dWallet controller.
+- [x] Activity logs explain recovery actions without leaking confidential numeric policy values.
+- [x] Tests cover successful setup, recovery transaction preparation, invalid/missing inputs, and post-recovery state display.
 
 ## Blocked by
 
 - `docs/issues/042-frontend-shared-ika-approval-ui.md`
+
+## Implementation notes
+
+- Recovery authority must be set before recover-access can be used.
+- Recovery stages dWallet controller metadata only; does not bypass Polet policy checks or execute Ika settlement.
+- Recovery does not alter private policy values.
 
