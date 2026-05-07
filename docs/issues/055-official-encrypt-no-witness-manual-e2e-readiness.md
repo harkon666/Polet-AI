@@ -31,12 +31,12 @@ The manual path must cover:
 
 ## Acceptance Criteria
 
-- [ ] Runbook contains exact env vars, commands, and expected outputs for official Encrypt devnet.
-- [ ] Evidence template includes Encrypt program id, gRPC endpoint, ciphertext account ids, graph execution tx/signature, pending output ciphertext ids, verified result state, and Polet/Ika consume state.
-- [ ] Failure table covers gRPC unavailable, devnet reset, faucet/funding failure, executor delay, decryptor delay, client API mismatch, and Ika devnet unavailable.
-- [ ] Manual evidence avoids private keys, seed phrases, witness bytes, plaintext thresholds after setup, decrypted caps, and blocked/pending executable payloads.
-- [ ] Docs clearly state pre-alpha may be public/plaintext internally and is not production privacy.
-- [ ] Local fallback harness evidence is labeled fallback only.
+- [x] Runbook contains exact env vars, commands, and expected outputs for official Encrypt devnet.
+- [x] Evidence template includes Encrypt program id, gRPC endpoint, ciphertext account ids, graph execution tx/signature, pending output ciphertext ids, verified result state, and Polet/Ika consume state.
+- [x] Failure table covers gRPC unavailable, devnet reset, faucet/funding failure, executor delay, decryptor delay, client API mismatch, and Ika devnet unavailable.
+- [x] Manual evidence avoids private keys, seed phrases, witness bytes, plaintext thresholds after setup, decrypted caps, and blocked/pending executable payloads.
+- [x] Docs clearly state pre-alpha may be public/plaintext internally and is not production privacy.
+- [x] Local fallback harness evidence is labeled fallback only.
 
 ## Blocked By
 

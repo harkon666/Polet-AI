@@ -30,14 +30,14 @@ The UI must remain an operational command center, not a landing page.
 
 ## Acceptance Criteria
 
-- [ ] Frontend can display official Encrypt policy setup state using ciphertext account ids, not witness bytes.
-- [ ] Frontend can trigger or display graph execution pending state from real pending output ciphertext ids.
-- [ ] Pending state hides dWallet, MessageApproval, destination digest, unsigned approval transaction, thresholds, caps, and witness bytes.
-- [ ] Verified blocked state hides all execution/approval artifacts.
-- [ ] Verified allowed state shows safe artifacts required to inspect Polet/Ika approval preparation.
-- [ ] Quorum-required after verified allowed still shows progress only and no Ika approval transaction.
-- [ ] Component tests cover official state rendering and redaction.
-- [ ] Build passes.
+- [x] Frontend can display official Encrypt policy setup state using ciphertext account ids, not witness bytes.
+- [x] Frontend can trigger or display graph execution pending state from real pending output ciphertext ids.
+- [x] Pending state hides dWallet, MessageApproval, destination digest, unsigned approval transaction, thresholds, caps, and witness bytes.
+- [x] Verified blocked state hides all execution/approval artifacts.
+- [x] Verified allowed state shows safe artifacts required to inspect Polet/Ika approval preparation.
+- [x] Quorum-required after verified allowed still shows progress only and no Ika approval transaction.
+- [x] Component tests cover official state rendering and redaction.
+- [x] Build passes.
 
 ## Blocked By
 

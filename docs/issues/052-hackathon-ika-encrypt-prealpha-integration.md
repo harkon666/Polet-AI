@@ -95,3 +95,19 @@ All tests pass:
 - `cd sdk && bun test` — 85 pass
 - `cd frontend && bun run test` — 49 pass
 - All builds clean
+
+## Progress - 2026-05-07 (Final Status)
+
+| Issue | Status | Notes |
+|-------|--------|-------|
+| #050 Contract Encrypt CPI | ✅ DONE | Devin completed |
+| #051 Encrypt Test Harness | ✅ DONE | Devin completed |
+| #053 Agent SDK Integration Kit | ✅ DONE | createPoletAgentKit(), 85/85 tests, example added |
+| #054 Remove Static Witness | 🔶 PARTIAL | Frontend cleanup done (tagged legacy), proxy/SDK blocked by 059 |
+| #055 Manual E2E Runbook | ✅ DONE | encrypt-devnet-e2e-runbook.md created |
+| #056 Frontend Encrypt Lifecycle | ✅ DONE | EncryptPolicyStatusCard, 3 new tests, 49/49 pass |
+| #059 Encrypt Devnet E2E | 🔶 PARTIAL | Proxy routes + deposit creation code done, live devnet blocked by Encrypt infra |
+
+**Remaining blocker**: Encrypt devnet needs enc_mint, event_authority PDA, and vault setup.
+**What's ready**: All Polet code (contract, proxy, SDK, frontend) is implemented and tested.
+**What's waiting**: External Encrypt infrastructure initialization.
