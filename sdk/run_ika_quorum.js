@@ -19,7 +19,7 @@ const PROXY_URL = 'http://localhost:3001';
 const maskedWitnessDevFixture = parseMaskedWitnessDevFixture(process.env.POLET_MASKED_WITNESS_DEV_FIXTURE);
 
 if (!CO_SIGNER_PRIVKEY) {
-  throw new Error('POLET_CO_SIGNER_PRIVKEY is required to sign the shared approval challenge');
+  throw new Error('POLET_CO_SIGNER_PRIVKEY is required to sign the shared approval challenge (Demo Purpose)');
 }
 
 // === Co-signer keypair ===

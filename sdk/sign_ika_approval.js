@@ -10,7 +10,7 @@ import nacl from 'tweetnacl';
 // Co-signer keypair
 const CO_SIGNER_PRIVKEY = process.env.POLET_CO_SIGNER_PRIVKEY;
 if (!CO_SIGNER_PRIVKEY) {
-  throw new Error('POLET_CO_SIGNER_PRIVKEY is required to sign the shared approval challenge');
+  throw new Error('POLET_CO_SIGNER_PRIVKEY is required to sign the shared approval challenge (Demo Purpose)');
 }
 const coSignerKp = nacl.sign.keyPair.fromSecretKey(bs58.decode(CO_SIGNER_PRIVKEY));
 const CO_SIGNER_PUBKEY = '5v8akfxPx4hTJDVg8Dnh8vFGfhHvHcPngYXYa6Nrk6o9';
