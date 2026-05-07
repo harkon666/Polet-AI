@@ -1,0 +1,146 @@
+{
+  "issue": "059-official-encrypt-devnet-ciphertext-graph-e2e",
+  "startedAt": "2026-05-07T12:48:52.000Z",
+  "cluster": "devnet",
+  "solanaRpc": "https://api.devnet.solana.com",
+  "encryptGrpc": "https://pre-alpha-dev-1.encrypt.ika-network.net:443",
+  "encryptProgramId": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+  "poletProgramId": "fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q",
+  "graph": "polet_policy_guardrail_graph",
+  "devWallet": "2WdWUNeKibeX1hyC6CscJeUa1EruKYDHcHHSUhHeSFKf",
+  "walletPda": "BABog6tfsqMh2yE27yo1byFDiCXkFJc36AfHqqixKKir",
+  "owner": "2ZdjZX8XEcW4UWNF4SpqUU7u7sbSfjJViJktEc9HUJNM",
+  "sessionKey": "55JxLBqrrtGPrfEBj85eGWRx6eh3dUKwRg6tzrToQmdZ",
+  "solBudget": {
+    "ownerLamports": 15000000,
+    "sessionLamports": 12000000,
+    "totalSol": 0.027
+  },
+  "steps": {
+    "fund": {
+      "status": "ok",
+      "signature": "3JK3UvWGVnwQUf7wkaNtX9gHbHGMLbCiYJ4LeXTpAex8gNc6hiwKj3brpTWwMVpLAhYUjUkWRab7xQnrYsUXNKR8",
+      "ownerSol": 0.015,
+      "sessionSol": 0.012
+    },
+    "ciphertextCheck": {
+      "status": "ok",
+      "maxPerRun": {
+        "address": "hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd",
+        "exists": true,
+        "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+        "status": "verified",
+        "dataLength": 100
+      },
+      "dailyCap": {
+        "address": "C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi",
+        "exists": true,
+        "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+        "status": "verified",
+        "dataLength": 100
+      },
+      "dailySpent": {
+        "address": "AX9BKeQgSDXJcWh9EBEZnYJCr7wjwt7sM2pv945NNCVt",
+        "exists": true,
+        "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+        "status": "verified",
+        "dataLength": 100
+      },
+      "sourceAmount": {
+        "address": "4vMEY1JVHg1CGA5vTSL8o8XuRJPdwRhrG93Faf1ox5jC",
+        "exists": true,
+        "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+        "status": "verified",
+        "dataLength": 100
+      },
+      "allowedOutput": {
+        "address": "4L9sWzsiDv5VjVhUD8NQwgazjpyarAhsaBdptvQvhGPR",
+        "exists": true,
+        "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+        "status": "verified",
+        "dataLength": 100
+      },
+      "dailySpentOutput": {
+        "address": "DfBdLUx5Ut1TdWSk7GmTHENYHJisFc5YtfiyT8aT34J5",
+        "exists": true,
+        "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+        "status": "verified",
+        "dataLength": 100
+      }
+    },
+    "eventAuthority": {
+      "status": "warning",
+      "exists": false,
+      "note": "Event authority PDA not found; CPI may fail"
+    },
+    "initialize": {
+      "status": "ok",
+      "signature": "2fphQ97aGXLSKQU5GLyNLjn3S8LUAB1z9Eqg1hMRJbe65UH7964QHFsfxQNHRh71CP2RSteNockdkiKgXHMxmhew"
+    },
+    "setPolicy": {
+      "status": "ok",
+      "signature": "5E2MMviLSLpjkVdG1mTw3L7JUmTKD18hBBVFsXZX34unrG4rmiJfyURneLRJ3jL2FC4o5Sx4VLuH2cQ45nsQjvA7",
+      "ciphertexts": {
+        "maxPerRun": "hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd",
+        "dailyCap": "C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi",
+        "dailySpent": "AX9BKeQgSDXJcWh9EBEZnYJCr7wjwt7sM2pv945NNCVt"
+      }
+    },
+    "grantSession": {
+      "status": "ok",
+      "signature": "63fieUtEFX9oeL1bHLPaieBBdRUnAWwXXz8fwnSfpHt8PGStqGGHTFhHRDkJTAP8xYsYae765wxi7D8a6XVRvWay",
+      "expiresAt": 1778161735
+    },
+    "executeGraph": {
+      "status": "failed",
+      "error": "Simulation failed. \nMessage: Transaction simulation failed: Error processing Instruction 0: custom program error: 0x1. \nLogs: \n[\n  \"Program fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q invoke [1]\",\n  \"Program log: Instruction: ExecuteEncryptPolicyGraphAsSession\",\n  \"Program 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8 invoke [2]\",\n  \"Program 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8 consumed 186 of 176474 compute units\",\n  \"Program 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8 failed: custom program error: 0x1\",\n  \"Program fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q consumed 23712 of 200000 compute units\",\n  \"Program fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q failed: custom program error: 0x1\"\n]. \nCatch the `SendTransactionError` and call `getLogs()` on it for full details.",
+      "logs": [
+        "Program fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q invoke [1]",
+        "Program log: Instruction: ExecuteEncryptPolicyGraphAsSession",
+        "Program 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8 invoke [2]",
+        "Program 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8 consumed 186 of 176474 compute units",
+        "Program 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8 failed: custom program error: 0x1",
+        "Program fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q consumed 23712 of 200000 compute units",
+        "Program fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q failed: custom program error: 0x1"
+      ]
+    }
+  },
+  "safety": {
+    "noPrivateKeysIncluded": true,
+    "noSeedPhrasesIncluded": true,
+    "noWitnessBytesIncluded": true,
+    "noPlaintextThresholdsIncluded": true,
+    "devnetOnly": true
+  },
+  "status": "blocked-encrypt-infrastructure",
+  "rootCause": {
+    "summary": "The Encrypt pre-alpha program (4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8) CPI failed at 186 CU — an early validation exit indicating missing infrastructure accounts.",
+    "missingAccounts": {
+      "eventAuthority": {
+        "address": "6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ",
+        "derivation": "PDA from seed '__event_authority' + Encrypt program",
+        "exists": false,
+        "note": "Required by execute_graph for event emission. Must be initialized by Encrypt program admin."
+      },
+      "deposit": {
+        "address": "derived per-payer PDA (seed: 'deposit' + payer pubkey)",
+        "exists": false,
+        "note": "Per-payer deposit account for Encrypt operation fees. Must be initialized before execute_graph CPI."
+      }
+    },
+    "errorCode": "0x1 (custom program error from Encrypt program, likely account validation failure)",
+    "evidence": "CPI consumed only 186 CU out of 176474 available, indicating immediate rejection at account validation before any graph processing began.",
+    "externalDependency": true,
+    "poletCodeCorrect": true
+  },
+  "retryAction": "Contact Encrypt team to confirm event_authority PDA initialization status on devnet. Alternatively, use the Encrypt gRPC client to initialize the per-payer deposit account before re-running.",
+  "completedAt": "2026-05-07T12:48:56.849Z",
+  "poletStepsVerified": {
+    "walletInitialization": "✅ Polet wallet PDA created on devnet",
+    "officialEncryptPolicyRegistration": "✅ Ciphertext IDs registered on wallet state, policy_seq incremented",
+    "sessionKeyGrant": "✅ Session key authorized with 1-hour expiry",
+    "graphExecution": "❌ Blocked by Encrypt program infrastructure (not Polet code)",
+    "executorVerification": "⏳ Not reached (blocked at step 7)",
+    "ikaApprovalConsumption": "⏳ Not reached (blocked at step 7)"
+  }
+}

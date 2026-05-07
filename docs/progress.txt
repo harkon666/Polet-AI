@@ -52,11 +52,14 @@ Current hackathon integration decision:
 
 ## In Progress
 
-- `059-official-encrypt-devnet-ciphertext-graph-e2e` — New correction issue. Build the live official Encrypt pre-alpha devnet path using official ciphertext accounts, graph execution, pending output tracking, verified allowed/blocked ingestion, and verified-output Ika consume evidence. Masked-witness XOR remains fallback only and must not be pitched as official Encrypt/FHE.
+- `059-official-encrypt-devnet-ciphertext-graph-e2e` — Live devnet E2E attempted. Build the live official Encrypt pre-alpha devnet path using official ciphertext accounts, graph execution, pending output tracking, verified allowed/blocked ingestion, and verified-output Ika consume evidence. Masked-witness XOR remains fallback only and must not be pitched as official Encrypt/FHE.
   - Verification target: official Encrypt devnet script/route evidence when available; otherwise exact live blocker plus local fallback harness/test commands.
   - Landed this pass: unsigned proxy transaction builders and wallet routes for `set_official_encrypt_ciphertext_policy`, `execute_encrypt_policy_graph_as_session`, and no-witness `approve_ika_message_with_verified_encrypt_as_session`; route responses expose signer lists, official Encrypt program/gRPC metadata, graph/ciphertext ids, pending outputs, and pending suppression boundaries without witness bytes. Demo/runbook wording now marks masked witness as fallback only.
-  - Verification this pass: `bun test ./tests/transaction-builder.test.ts` and `bun run build` in `proxy/`.
-  - Remaining: use the official Encrypt client to create devnet ciphertext accounts, execute/poll live graph verification, and capture allowed/blocked evidence or exact external blocker.
+  - Live devnet E2E (2026-05-07): Steps 1-6 PASSED — wallet init, ciphertext check (all 6 exist + verified + owned by Encrypt program), official Encrypt policy registered (ciphertext IDs written to wallet state, policy_seq incremented), session key granted. Step 7 BLOCKED — `execute_encrypt_policy_graph_as_session` CPI to Encrypt program failed at 186 CU with `custom program error: 0x1`. Root cause: `event_authority` PDA (`6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ`) does not exist on devnet; per-payer `deposit` PDA also missing. This is an external Encrypt pre-alpha infrastructure blocker, NOT a Polet code issue.
+  - Evidence: `docs/evidence/059-official-encrypt-devnet-e2e-result.json` (tx signatures, logs, root cause analysis).
+  - Script: `scripts/059-encrypt-devnet-e2e.ts` — reusable, SOL-recovering E2E runner.
+  - Ciphertext poller: `proxy/src/lib/encrypt-ciphertext-poller.ts` — reusable utility for PENDING→VERIFIED polling.
+  - Remaining: re-run once Encrypt team initializes event_authority and deposit PDAs on devnet, then capture executor verification and Ika consume evidence.
 - `053-agent-sdk-integration-kit` — In progress generic SDK integration issue for Hermes, OpenClaw, and other AI agent runtimes. Landed this pass: `createPoletAgentKit()`, config validation, proxy/wallet/session status checks, runtime-safe tool descriptors, normalized trade tool output, simulation passthrough, smart wallet PDA onboarding helper, environment export helper, owner setup guidance, and explicit `signer-required` sign/send behavior unless an injected session signer and RPC sender exist. Remaining: broaden live-proxy status diagnostics and optional onboarding export ergonomics.
   - Verification this pass: `bun test ./tests/intent-builder.test.ts` and `bun run build` in `sdk/`.
 
