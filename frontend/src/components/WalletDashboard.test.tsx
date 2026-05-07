@@ -1,19 +1,5 @@
 import { fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { JSDOM } from 'jsdom';
-
-const dom = new JSDOM('<!doctype html><html><body></body></html>', {
-  url: 'http://localhost/',
-});
-
-globalThis.window = dom.window as unknown as Window & typeof globalThis;
-globalThis.document = dom.window.document;
-globalThis.HTMLElement = dom.window.HTMLElement;
-globalThis.Node = dom.window.Node;
-Object.defineProperty(globalThis, 'navigator', {
-  value: dom.window.navigator,
-  configurable: true,
-});
 
 vi.mock('@solana/wallet-adapter-react', () => ({
   useWallet: () => ({

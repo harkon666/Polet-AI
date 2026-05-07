@@ -1,11 +1,10 @@
 import { Check, AlertTriangle, X, Landmark } from 'lucide-react';
 import { InfoPill } from './ui/InfoPill';
-import type { ActivityEntry, ActivityStatus } from './activity-log';
+import type { ActivityEntry } from './activity-log';
 import type { COPY } from '../lib/i18n';
 import type {
   RunMultichainIntentResult,
   IkaRequestPreview,
-  JupiterPlanPreview,
   OfficialEncryptPolicyPreview,
 } from '../lib/api';
 import { short, formatTokenAmount } from './activity-log';

@@ -1,21 +1,7 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
-import { JSDOM } from 'jsdom';
 import { DemoTabContent } from './DemoTab';
 import type { RunConfidentialDcaInput, RunMultichainIntentInput } from '../lib/api';
-
-const dom = new JSDOM('<!doctype html><html><body></body></html>', {
-  url: 'http://localhost/',
-});
-
-globalThis.window = dom.window as unknown as Window & typeof globalThis;
-globalThis.document = dom.window.document;
-globalThis.HTMLElement = dom.window.HTMLElement;
-globalThis.Node = dom.window.Node;
-Object.defineProperty(globalThis, 'navigator', {
-  value: dom.window.navigator,
-  configurable: true,
-});
 
 afterEach(() => {
   document.body.innerHTML = '';

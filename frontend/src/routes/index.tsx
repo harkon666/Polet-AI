@@ -37,7 +37,7 @@ export function HomePage() {
           ['Confidential Policy', 'Set private max-per-run and daily-cap rules for the agent.'],
           ['Jupiter Preview', 'Show route/build estimates for allowed USDC to SOL runs without claiming real swap execution.'],
           ['Safe Blocks', 'Show blocked agent actions without revealing the private threshold.'],
-        ].map(([title, desc], index) => (
+        ].map(([title, desc]) => (
           <article
             key={title}
             className="island-shell feature-card rounded-lg p-4"

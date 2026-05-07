@@ -1,7 +1,5 @@
-import { Check, AlertTriangle, X, Landmark } from 'lucide-react';
 import type { COPY } from '../lib/i18n';
 import type {
-  RunConfidentialDcaResult,
   RunMultichainIntentResult,
   IkaRequestPreview,
   JupiterPlanPreview,

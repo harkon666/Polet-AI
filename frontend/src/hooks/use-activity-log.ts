@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { ActivityEntry, ActivityStatus } from '../components/activity-log';
+import type { ActivityEntry } from '../components/activity-log';
 import { isBlockedStatus, isAllowedStatus } from '../components/activity-log';
 
 interface UseActivityLogOptions {
