@@ -161,3 +161,15 @@ Remaining:
 - Re-run graph execution once Encrypt team initializes `event_authority` and per-payer `deposit` PDAs on devnet.
 - Executor verification polling and Ika consume evidence not yet captured (blocked by above).
 - Pre-existing test bug: `ika-bridgeless-request.test.ts:207` needs expected code corrected from `INVALID_IKA_RISK_METADATA` to `IKA_RISK_GUARDRAIL_BLOCKED`.
+
+## Progress - 2026-05-07 (Test Fix)
+
+Fixed pre-existing test bug in `proxy/tests/ika-bridgeless-request.test.ts:207`:
+
+- Test expected `INVALID_IKA_RISK_METADATA` thrown error for `liquidityScore: 'low'`, but 'low' is valid metadata that gets blocked by risk guardrails returning `IKA_RISK_GUARDRAIL_BLOCKED`.
+- Changed test from try/catch pattern to checking returned result.
+- All 153 proxy tests now pass with 0 failures.
+
+Remaining:
+- Re-run graph execution once Encrypt team initializes `event_authority` and per-payer `deposit` PDAs on devnet.
+- Executor verification polling and Ika consume evidence not yet captured (blocked by above).
