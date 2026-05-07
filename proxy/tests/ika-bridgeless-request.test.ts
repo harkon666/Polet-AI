@@ -190,23 +190,23 @@ describe('Ika bridgeless execution request', () => {
     });
   });
 
-  test('rejects malformed route-risk metadata before transaction construction', async () => {
+  test('blocks low liquidity route-risk metadata before transaction construction', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5');
     (intent.params as MultichainStrategyParams).routeRisk = {
       liquidityScore: 'low',
     };
 
-    try {
-      await createIkaBridgelessExecutionRequest(intent, {
-        getWalletData: async () => fixture.wallet,
-        buildApprovalTransaction: async () => fixture.approvalTransaction,
-      });
-      throw new Error('expected malformed route-risk metadata to be rejected');
-    } catch (error) {
-      expect(error).toHaveProperty('code', 'INVALID_IKA_RISK_METADATA');
-      expect(error instanceof Error ? error.message : '').toMatch(/liquidityScore/);
-    }
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+
+    expect(result).toEqual({
+      allowed: false,
+      code: 'IKA_RISK_GUARDRAIL_BLOCKED',
+      reason: expect.stringMatching(/liquidity/i),
+    });
   });
 
   test('blocks unsupported target chains before Ika approval data is prepared', async () => {

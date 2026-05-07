@@ -120,7 +120,7 @@ export function HomePage() {
           HERO — Walrus-pattern: type-driven, single column, single CTA
          ============================================================ */}
       <section className="qe-hero qe-hero--type">
-        <div className="page-wrap relative px-4 pb-24 pt-20 md:pb-32 md:pt-28 lg:pt-32">
+        <div className="page-wrap relative px-4 pb-16 pt-12 md:pb-20 md:pt-16 lg:pt-20">
           {/* Tagline kicker (Walrus: "Your Verifiable Data Platform") */}
           <p className="qe-hero-kicker">Your confidential control layer</p>
 

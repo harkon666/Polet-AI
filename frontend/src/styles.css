@@ -2038,12 +2038,12 @@ footer {
 
 /* Massive headline — 2 lines, very tight tracking, very large, CENTERED */
 .qe-hero-headline {
-  margin: 0 auto 32px;
+  margin: 0 auto 24px;
   font-family: var(--font-sans);
   font-weight: 800;
-  font-size: 2.75rem;
-  line-height: 0.95;
-  letter-spacing: -0.04em;
+  font-size: 2.25rem;
+  line-height: 1;
+  letter-spacing: -0.035em;
   color: var(--sea-ink);
   text-align: center;
   max-width: none;
@@ -2051,26 +2051,26 @@ footer {
 
 @media (min-width: 640px) {
   .qe-hero-headline {
-    font-size: 4.25rem;
+    font-size: 3rem;
   }
 }
 
 @media (min-width: 768px) {
   .qe-hero-headline {
-    font-size: 5.5rem;
+    font-size: 3.75rem;
   }
 }
 
 @media (min-width: 1024px) {
   .qe-hero-headline {
-    font-size: 7rem;
-    margin-bottom: 40px;
+    font-size: 4.75rem;
+    margin-bottom: 28px;
   }
 }
 
 @media (min-width: 1280px) {
   .qe-hero-headline {
-    font-size: 9rem;
+    font-size: 5.75rem;
   }
 }
 
