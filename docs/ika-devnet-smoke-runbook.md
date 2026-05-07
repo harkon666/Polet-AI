@@ -22,7 +22,7 @@ Solana cluster: devnet
 Solana RPC: https://api.devnet.solana.com
 Ika dWallet gRPC: https://pre-alpha-dev-1.ika.ika-network.net:443
 Ika dWallet program id: 87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY
-Polet program id: J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus
+Polet program id: fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q
 Polet wallet PDA seed: polet_wallet
 Polet Ika CPI authority seed: __ika_cpi_authority
 Sui-compatible signature scheme: EddsaSha512 / index 5
@@ -195,7 +195,7 @@ Imported dWallet path is optional. If used, record that the key-import trust mod
 
 ## Step 3: Transfer dWallet Authority To Polet
 
-Derive Polet's CPI authority PDA with seed `__ika_cpi_authority` and Polet program id `J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus`.
+Derive Polet's CPI authority PDA with seed `__ika_cpi_authority` and Polet program id `fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q`.
 
 The owner/current dWallet authority must transfer the dWallet authority to this PDA using the official Ika `TransferOwnership` flow. The proxy must not become dWallet authority.
 

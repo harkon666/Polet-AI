@@ -32,8 +32,8 @@ This document tracks the successful integration and end-to-end verification of t
 
 ## 🛠 Technical Details
 
-- **Program ID:** `J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus`
-- **Smart Wallet PDA:** `AUvTPEEhUxCTDhwYQPthxSmupTSmYVgG4S28ogqUz323`
+- **Current Program ID:** `fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q`
+- **Historical Smart Wallet PDA:** `AUvTPEEhUxCTDhwYQPthxSmupTSmYVgG4S28ogqUz323`
 - **Session Key (Agent):** `ECFFvJe8yPaTSH2qdXP1CkQTxWfWy5B3fZ7HEcCQPhSn`
 - **Execution Path:** `POST /intent/dca/run` -> Unsigned Transaction -> Agent Signature -> On-Chain Confirmation.
 

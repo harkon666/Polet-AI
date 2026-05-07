@@ -13,7 +13,7 @@ Target length: under 5 minutes.
 ## Setup
 
 - Solana cluster: devnet.
-- Polet program ID: `J1AmhNEsVQukD8cvRh7zRD9jh56QocsoGCBrfTvTmAus`.
+- Polet program ID: `fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q`.
 - Ika Pre-Alpha program ID: `87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY`.
 - Proxy running at `http://localhost:3001`.
 - Frontend running at `http://localhost:3000`.
