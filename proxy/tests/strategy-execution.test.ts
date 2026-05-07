@@ -135,6 +135,19 @@ function createFixture(options: {
     merkleRoot: Array.from({ length: 32 }, () => 0),
     policySeq: 7,
     lastRevokedSlot: options.lastRevokedSlot ?? 2,
+    recoveryAuthority: owner,
+    sharedIkaApprovals: {
+      enabled: false,
+      threshold: 0,
+      approvers: [],
+    },
+    dwalletController: {
+      currentController: owner,
+      pendingController: PublicKey.default.toString(),
+      rotationSeq: 0,
+      lastRotatedSlot: 0,
+      migrationPending: false,
+    },
     confidentialPolicy: {
       policyCommitment: policySetup.policyCommitment,
       encryptionWitnessHash: policySetup.encryptionWitnessHash,

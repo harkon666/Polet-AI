@@ -54,8 +54,10 @@ export interface IkaPreAlphaSigningRequest {
   signatureScheme: IkaPreAlphaSignatureScheme;
   cpiAuthorityPda: string;
   cpiAuthorityBump: number;
+  coordinatorPda: string;
   messageApprovalPda: string;
   messageApprovalBump: number;
+  messageApprovalDerivation: 'official-dwallet-public-key' | 'local-compatibility-fallback';
   approveMessage: {
     programId: string;
     instruction: 'approve_message';

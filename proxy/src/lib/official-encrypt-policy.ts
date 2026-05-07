@@ -29,8 +29,18 @@ export interface OfficialEncryptPolicyPending {
   graph: 'polet_policy_guardrail_graph';
 }
 
-export interface OfficialEncryptPolicyVerified {
-  status: 'encrypt-verified-allowed' | 'encrypt-verified-blocked';
+export interface OfficialEncryptPolicyVerifiedAllowed {
+  status: 'encrypt-verified-allowed';
+  policySequence: number;
+  sourceAmountCiphertext: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
+  verifiedSlot?: number;
+  graph: 'polet_policy_guardrail_graph';
+}
+
+export interface OfficialEncryptPolicyVerifiedBlocked {
+  status: 'encrypt-verified-blocked';
   policySequence: number;
   sourceAmountCiphertext: string;
   allowedOutputCiphertext: string;
@@ -41,7 +51,8 @@ export interface OfficialEncryptPolicyVerified {
 
 export type OfficialEncryptPolicyExecution =
   | OfficialEncryptPolicyPending
-  | OfficialEncryptPolicyVerified;
+  | OfficialEncryptPolicyVerifiedAllowed
+  | OfficialEncryptPolicyVerifiedBlocked;
 
 export interface OfficialEncryptPolicyExecutionRequest {
   wallet: WalletData;

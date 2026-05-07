@@ -1,0 +1,62 @@
+src/lib/confidential-dca-execution.ts(117,83): error TS2345: Argument of type 'PublicKey' is not assignable to parameter of type 'string'.
+src/lib/confidential-dca-execution.ts(137,83): error TS2345: Argument of type 'PublicKey' is not assignable to parameter of type 'string'.
+src/lib/ika-bridgeless-request.ts(338,7): error TS2322: Type 'false' is not assignable to type 'true'.
+src/lib/ika-bridgeless-request.ts(339,7): error TS2322: Type '"IKA_APPROVAL_QUORUM_REQUIRED"' is not assignable to type '"IKA_BRIDGELESS_REQUEST_READY" | "IKA_APPROVAL_TRANSACTION_PREPARED"'.
+src/lib/ika-bridgeless-request.ts(340,7): error TS2322: Type '"needs-approval"' is not assignable to type 'IkaPreAlphaSigningStatus'.
+tests/ika-bridgeless-request.test.ts(91,75): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(expected: { digestHex: string; source: "sui-devnet-transaction-digest" | "ethereum-sepolia-message-digest"; hashScheme: "sui-blake2b-256" | "ethereum-eip191-keccak256"; signPayload: "destination-chain-sign-only-artifact"; } | undefined): void', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(expected: NoInfer<{ digestHex: string; source: "sui-devnet-transaction-digest" | "ethereum-sepolia-message-digest"; hashScheme: "sui-blake2b-256" | "ethereum-eip191-keccak256"; signPayload: "destination-chain-sign-only-artifact"; } | undefined>): void', gave the following error.
+    Argument of type '{ digestHex: string | undefined; source: "sui-devnet-transaction-digest"; hashScheme: "sui-blake2b-256"; signPayload: "destination-chain-sign-only-artifact"; }' is not assignable to parameter of type '{ digestHex: string; source: "sui-devnet-transaction-digest" | "ethereum-sepolia-message-digest"; hashScheme: "sui-blake2b-256" | "ethereum-eip191-keccak256"; signPayload: "destination-chain-sign-only-artifact"; }'.
+      Types of property 'digestHex' are incompatible.
+        Type 'string | undefined' is not assignable to type 'string'.
+          Type 'undefined' is not assignable to type 'string'.
+tests/ika-bridgeless-request.test.ts(197,7): error TS2322: Type '"thin"' is not assignable to type '"low" | "medium" | "high" | undefined'.
+tests/ika-bridgeless-request.test.ts(446,21): error TS2339: Property 'encryptPolicy' does not exist on type 'IkaBridgelessNeedsApproval | IkaBridgelessBlocked'.
+  Property 'encryptPolicy' does not exist on type 'IkaBridgelessNeedsApproval'.
+tests/ika-bridgeless-request.test.ts(586,75): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(expected: { digestHex: string; source: "sui-devnet-transaction-digest" | "ethereum-sepolia-message-digest"; hashScheme: "sui-blake2b-256" | "ethereum-eip191-keccak256"; signPayload: "destination-chain-sign-only-artifact"; } | undefined): void', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(expected: NoInfer<{ digestHex: string; source: "sui-devnet-transaction-digest" | "ethereum-sepolia-message-digest"; hashScheme: "sui-blake2b-256" | "ethereum-eip191-keccak256"; signPayload: "destination-chain-sign-only-artifact"; } | undefined>): void', gave the following error.
+    Argument of type '{ digestHex: string | undefined; source: "ethereum-sepolia-message-digest"; hashScheme: "ethereum-eip191-keccak256"; signPayload: "destination-chain-sign-only-artifact"; }' is not assignable to parameter of type '{ digestHex: string; source: "sui-devnet-transaction-digest" | "ethereum-sepolia-message-digest"; hashScheme: "sui-blake2b-256" | "ethereum-eip191-keccak256"; signPayload: "destination-chain-sign-only-artifact"; }'.
+      Types of property 'digestHex' are incompatible.
+        Type 'string | undefined' is not assignable to type 'string'.
+          Type 'undefined' is not assignable to type 'string'.
+tests/ika-bridgeless-request.test.ts(640,21): error TS2339: Property 'approval' does not exist on type 'IkaBridgelessNeedsApproval | IkaBridgelessBlocked'.
+  Property 'approval' does not exist on type 'IkaBridgelessBlocked'.
+tests/ika-bridgeless-request.test.ts(648,21): error TS2339: Property 'approval' does not exist on type 'IkaBridgelessNeedsApproval | IkaBridgelessBlocked'.
+  Property 'approval' does not exist on type 'IkaBridgelessBlocked'.
+tests/ika-bridgeless-request.test.ts(727,21): error TS2339: Property 'approval' does not exist on type 'IkaBridgelessNeedsApproval | IkaBridgelessBlocked'.
+  Property 'approval' does not exist on type 'IkaBridgelessBlocked'.
+tests/ika-bridgeless-request.test.ts(782,27): error TS2339: Property 'approval' does not exist on type 'IkaBridgelessNeedsApproval | IkaBridgelessBlocked'.
+  Property 'approval' does not exist on type 'IkaBridgelessBlocked'.
+tests/ika-bridgeless-request.test.ts(783,27): error TS2339: Property 'approval' does not exist on type 'IkaBridgelessNeedsApproval | IkaBridgelessBlocked'.
+  Property 'approval' does not exist on type 'IkaBridgelessBlocked'.
+tests/ika-bridgeless-request.test.ts(1015,5): error TS1117: An object literal cannot have multiple properties with the same name.
+tests/passkey-coapproval.test.ts(31,7): error TS2322: Type 'JsonWebKey' is not assignable to type 'PasskeyJsonWebKey'.
+  Types of property 'kty' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+tests/passkey-coapproval.test.ts(71,7): error TS2322: Type 'JsonWebKey' is not assignable to type 'PasskeyJsonWebKey'.
+  Types of property 'kty' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+tests/passkey-coapproval.test.ts(92,7): error TS2322: Type 'JsonWebKey' is not assignable to type 'PasskeyJsonWebKey'.
+  Types of property 'kty' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+tests/passkey-coapproval.test.ts(114,7): error TS2322: Type 'JsonWebKey' is not assignable to type 'PasskeyJsonWebKey'.
+  Types of property 'kty' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+tests/passkey-coapproval.test.ts(142,53): error TS2345: Argument of type 'string | NonSharedBuffer | KeyObject | JsonWebKey' is not assignable to parameter of type 'KeyLike | SignKeyObjectInput | SignPrivateKeyInput | SignJsonWebKeyInput'.
+  Type 'JsonWebKey' is not assignable to type 'KeyLike | SignKeyObjectInput | SignPrivateKeyInput | SignJsonWebKeyInput'.
+tests/transaction-builder.test.ts(331,9): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(expected: string[]): void', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(expected: NoInfer<string[]>): void', gave the following error.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.

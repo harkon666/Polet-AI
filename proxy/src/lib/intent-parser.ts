@@ -181,7 +181,7 @@ function validateMultichainStrategyParams(params: Record<string, unknown>): void
   if (params.strategy !== undefined && params.strategy !== 'dca' && params.strategy !== 'swap') {
     throw new Error('Multichain params strategy must be dca or swap');
   }
-  if (params.slippageBps !== undefined && (!Number.isInteger(params.slippageBps) || params.slippageBps < 0)) {
+  if (params.slippageBps !== undefined && params.slippageBps !== null && (!Number.isInteger(params.slippageBps) || (params.slippageBps as number) < 0)) {
     throw new Error('Multichain params slippageBps must be a non-negative integer');
   }
   if (params.maskedWitnessDevFixture !== undefined && (!Array.isArray(params.maskedWitnessDevFixture) || params.maskedWitnessDevFixture.length !== 32)) {

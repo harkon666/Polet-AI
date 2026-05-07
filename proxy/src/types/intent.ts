@@ -4,6 +4,7 @@
  */
 import type { PublicKey } from '@solana/web3.js';
 import type { BN } from '@coral-xyz/anchor';
+import type { EncryptPolicyCiphertextState } from '../lib/official-encrypt-policy';
 
 export type IntentAction = 'transfer' | 'swap' | 'stake' | 'unstake' | 'delegate' | 'undelegate' | 'custom';
 export type StrategyIntentAction = 'multichain-strategy';
@@ -199,6 +200,7 @@ export interface ConfidentialNumericPolicyAccount {
   encryptedDailyCap: BN;
   encryptedDailySpent: BN;
   spentDayIndex: BN;
+  encryptCiphertexts?: EncryptPolicyCiphertextState;
   enabled: boolean;
 }
 

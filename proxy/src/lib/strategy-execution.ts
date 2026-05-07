@@ -89,7 +89,7 @@ export async function executeGuardedStrategy<TPrepared, TPayload>(
     throw new StrategyExecutionError('Wallet not found', 'WALLET_NOT_FOUND', 404);
   }
 
-  const sessionResult = validateSession(
+  const sessionResult = validateSession<TPrepared>(
     wallet,
     request.sessionKey,
     deps.nowSeconds?.() ?? Math.floor(Date.now() / 1000)
@@ -191,7 +191,11 @@ function requireMaskedWitnessDevFixture(maskedWitnessDevFixture: number[] | unde
   return maskedWitnessDevFixture;
 }
 
-function validateSession(wallet: WalletData, sessionKey: string, now: number): GuardedStrategyBlocked | { allowed: true } {
+function validateSession<TPrepared = unknown>(
+  wallet: WalletData,
+  sessionKey: string,
+  now: number
+): GuardedStrategyBlocked<TPrepared> | { allowed: true } {
   const session = wallet.sessions.find((candidate) => candidate.key === sessionKey);
   if (!session || !session.authorized) {
     return {

@@ -104,7 +104,7 @@ function normalizeRouteRisk(value: MultichainStrategyParams['routeRisk'] | undef
 }
 
 function normalizeInteger(value: unknown, label: string, min: number, max: number): number {
-  if (!Number.isSafeInteger(value) || value < min || value > max) {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < min || value > max) {
     throw new Error(`${label} must be an integer between ${min} and ${max}`);
   }
   return value;

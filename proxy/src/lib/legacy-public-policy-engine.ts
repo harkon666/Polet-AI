@@ -11,7 +11,7 @@ import * as crypto from 'crypto';
  */
 export function evaluateLegacyPublicIntent(intent: Intent, policy: Policy): IntentEvaluationResult {
   if (policy.allowedActions && policy.allowedActions.length > 0) {
-    if (!policy.allowedActions.includes(intent.action)) {
+    if (!(policy.allowedActions as string[]).includes(intent.action)) {
       return {
         allowed: false,
         reason: `Action '${intent.action}' is not in the allowed actions list`,

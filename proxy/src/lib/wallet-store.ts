@@ -132,9 +132,9 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
       confidentialPolicy: {
         policyCommitment: Array.from(accountData.confidentialPolicy.policyCommitment),
         encryptionWitnessHash: Array.from(accountData.confidentialPolicy.encryptionWitnessHash),
-        encryptedMaxPerRun: accountData.confidentialPolicy.encryptedMaxPerRun.toString(),
-        encryptedDailyCap: accountData.confidentialPolicy.encryptedDailyCap.toString(),
-        encryptedDailySpent: accountData.confidentialPolicy.encryptedDailySpent.toString(),
+        encryptedMaxPerRun: BigInt(accountData.confidentialPolicy.encryptedMaxPerRun.toString()),
+        encryptedDailyCap: BigInt(accountData.confidentialPolicy.encryptedDailyCap.toString()),
+        encryptedDailySpent: BigInt(accountData.confidentialPolicy.encryptedDailySpent.toString()),
         spentDayIndex: accountData.confidentialPolicy.spentDayIndex.toNumber(),
         encryptCiphertexts: accountData.confidentialPolicy.encryptCiphertexts && {
           maxPerRun: accountData.confidentialPolicy.encryptCiphertexts.maxPerRun.toString(),
@@ -143,8 +143,8 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
           pendingAllowedOutput: accountData.confidentialPolicy.encryptCiphertexts.pendingAllowedOutput.toString(),
           pendingDailySpentOutput: accountData.confidentialPolicy.encryptCiphertexts.pendingDailySpentOutput.toString(),
           pendingSourceAmount: accountData.confidentialPolicy.encryptCiphertexts.pendingSourceAmount.toString(),
-          pendingSlot: accountData.confidentialPolicy.encryptCiphertexts.pendingSlot.toNumber(),
-          pendingPolicySeq: accountData.confidentialPolicy.encryptCiphertexts.pendingPolicySeq.toNumber(),
+          pendingSlot: Number(accountData.confidentialPolicy.encryptCiphertexts.pendingSlot),
+          pendingPolicySeq: Number(accountData.confidentialPolicy.encryptCiphertexts.pendingPolicySeq),
           pending: accountData.confidentialPolicy.encryptCiphertexts.pending,
           configured: accountData.confidentialPolicy.encryptCiphertexts.configured,
         },

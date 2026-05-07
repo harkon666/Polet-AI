@@ -1,4 +1,4 @@
-import { createHash, createPublicKey, verify as verifySignature, type JsonWebKey } from 'crypto';
+import { createHash, createPublicKey, verify as verifySignature } from 'crypto';
 
 export const PASSKEY_COAPPROVAL_CHALLENGE_SCHEMA = 'polet.passkey.coapproval.v1';
 
@@ -18,12 +18,20 @@ export interface PasskeyAssertionInput {
   signature: string;
 }
 
+export interface PasskeyJsonWebKey {
+  kty?: string;
+  alg?: string;
+  ext?: boolean;
+  key_ops?: string[];
+  [key: string]: any; // Still need some flexibility for JWK
+}
+
 export interface PasskeyCoapprovalVerificationInput {
   expectedChallenge: string;
   expectedOrigin: string;
   expectedRpId: string;
   expectedCredentialId?: string;
-  credentialPublicKeyJwk: JsonWebKey;
+  credentialPublicKeyJwk: PasskeyJsonWebKey;
   assertion: PasskeyAssertionInput;
   requireUserVerification?: boolean;
   nowUnix?: number;

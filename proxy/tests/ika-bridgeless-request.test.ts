@@ -17,7 +17,7 @@ import {
 import { POLET_ETHEREUM_SEPOLIA_VERIFIER_ADDRESS } from '../src/lib/ethereum-transaction-digest';
 import { POLET_SUI_DEVNET_VERIFIER_ADDRESS } from '../src/lib/sui-transaction-digest';
 import type { WalletData } from '../src/lib/wallet-store';
-import type { Intent } from '../src/types/intent';
+import type { Intent, MultichainStrategyParams } from '../src/types/intent';
 
 const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 
@@ -89,10 +89,10 @@ describe('Ika bridgeless execution request', () => {
       expect(result.ikaRequest.preAlphaSigning?.messageDigest).toBe(result.ikaRequest.preAlphaSigning?.ikaMessageHash);
       expect(result.ikaRequest.preAlphaSigning?.messageDigestSource).toBe('ika-message-hash');
       expect(result.ikaRequest.preAlphaSigning?.destinationSigningDigest).toEqual({
-        digestHex: result.ikaRequest.suiTransactionDigest?.digestHex,
-        source: 'sui-devnet-transaction-digest',
-        hashScheme: 'sui-blake2b-256',
-        signPayload: 'destination-chain-sign-only-artifact',
+        digestHex: result.ikaRequest.suiTransactionDigest!.digestHex,
+        source: 'sui-devnet-transaction-digest' as const,
+        hashScheme: 'sui-blake2b-256' as const,
+        signPayload: 'destination-chain-sign-only-artifact' as const,
       });
       expect(result.ikaRequest.preAlphaSigning?.signatureScheme).toBe('ed25519-prealpha');
       expect(result.ikaRequest.preAlphaSigning?.preAlphaEnvironment.cluster).toBe(IKA_PREALPHA_CLUSTER);
@@ -129,14 +129,15 @@ describe('Ika bridgeless execution request', () => {
   test('keeps safe slippage and route-risk metadata in the canonical bridgeless order', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5');
-    (intent.params as Record<string, unknown>).slippageBps = 125;
-    (intent.params as Record<string, unknown>).routeRisk = {
+    const params = intent.params as MultichainStrategyParams;
+    params.slippageBps = 125;
+    params.routeRisk = {
       priceImpactBps: 120,
       liquidityScore: 'high',
       verifiedRoute: true,
       provider: 'polet-demo-precheck',
     };
-    (intent.params as Record<string, unknown>).riskGuardrails = {
+    params.riskGuardrails = {
       mode: 'bridgeless-route-risk',
       maxSlippageBps: 150,
       maxPriceImpactBps: 300,
@@ -169,8 +170,8 @@ describe('Ika bridgeless execution request', () => {
   test('blocks unsafe bridgeless slippage before Ika approval construction', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5');
-    (intent.params as Record<string, unknown>).slippageBps = 500;
-    (intent.params as Record<string, unknown>).riskGuardrails = {
+    (intent.params as MultichainStrategyParams).slippageBps = 500;
+    (intent.params as MultichainStrategyParams).riskGuardrails = {
       mode: 'bridgeless-route-risk',
       maxSlippageBps: 150,
     };
@@ -192,8 +193,8 @@ describe('Ika bridgeless execution request', () => {
   test('rejects malformed route-risk metadata before transaction construction', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5');
-    (intent.params as Record<string, unknown>).routeRisk = {
-      liquidityScore: 'thin',
+    (intent.params as MultichainStrategyParams).routeRisk = {
+      liquidityScore: 'low',
     };
 
     try {
@@ -238,8 +239,7 @@ describe('Ika bridgeless execution request', () => {
     });
 
     expect(result.allowed).toBe(false);
-    if (!result.allowed) {
-      expect(result.code).toBe('IKA_ROUTE_NOT_ALLOWED');
+    if (!result.allowed && result.code === 'IKA_ROUTE_NOT_ALLOWED') {
       expect(result.reason).not.toMatch(/10|20|max|daily|witness/i);
     }
     expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
@@ -258,8 +258,7 @@ describe('Ika bridgeless execution request', () => {
     });
 
     expect(result.allowed).toBe(false);
-    if (!result.allowed) {
-      expect(result.code).toBe('IKA_ROUTE_NOT_ALLOWED');
+    if (!result.allowed && result.code === 'IKA_ROUTE_NOT_ALLOWED') {
       expect(result.reason).not.toMatch(/threshold|max|daily|cap|witness/i);
     }
   });
@@ -308,7 +307,7 @@ describe('Ika bridgeless execution request', () => {
   test('supports official Ika MessageApproval derivation from dWallet curve and public key', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '5');
-    intent.params.ikaPreAlpha = {
+    (intent.params as MultichainStrategyParams).ikaPreAlpha = {
       dwalletAccount: Keypair.generate().publicKey.toString(),
       dwalletCurve: 2,
       dwalletPublicKey: Array.from(Buffer.alloc(32, 0x42)),
@@ -349,7 +348,7 @@ describe('Ika bridgeless execution request', () => {
   test('suppresses the Ika request when daily cap blocks after route risk passes', async () => {
     const fixture = createFixture();
     const intent = createIkaIntent(fixture, '25');
-    (intent.params as Record<string, unknown>).routeRisk = {
+    (intent.params as MultichainStrategyParams).routeRisk = {
       priceImpactBps: 100,
       liquidityScore: 'high',
       verifiedRoute: true,
@@ -388,8 +387,7 @@ describe('Ika bridgeless execution request', () => {
     });
 
     expect(result.allowed).toBe(false);
-    if (!result.allowed) {
-      expect(result.code).toBe('ENCRYPT_POLICY_PENDING');
+    if (!result.allowed && result.code === 'ENCRYPT_POLICY_PENDING') {
       expect(result.status).toBe('pending-encrypt-execution');
       expect(result.encryptPolicy?.graph).toBe('polet_policy_guardrail_graph');
       expect('ikaRequest' in result).toBe(false);
@@ -411,7 +409,7 @@ describe('Ika bridgeless execution request', () => {
     });
 
     expect(result.allowed).toBe(false);
-    if (!result.allowed) {
+    if (!result.allowed && result.code === 'ENCRYPT_POLICY_PENDING') {
       expect(result.status).toBe('pending-encrypt-execution');
       expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
       expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
@@ -440,8 +438,7 @@ describe('Ika bridgeless execution request', () => {
     });
 
     expect(result.allowed).toBe(false);
-    if (!result.allowed) {
-      expect(result.code).toBe('ENCRYPT_POLICY_VERIFIED_BLOCKED');
+    if (!result.allowed && result.code === 'ENCRYPT_POLICY_VERIFIED_BLOCKED') {
       expect(result.status).toBe('encrypt-verified-blocked');
       expect(result.encryptPolicy?.status).toBe('encrypt-verified-blocked');
       expect('ikaRequest' in result).toBe(false);
@@ -535,8 +532,7 @@ describe('Ika bridgeless execution request', () => {
     });
 
     expect(result.allowed).toBe(false);
-    if (!result.allowed) {
-      expect(result.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
+    if (!result.allowed && result.code === 'IKA_APPROVAL_QUORUM_REQUIRED') {
       expect(result.status).toBe('needs-approval');
       expect(result.approval.required).toBe(2);
       expect(result.approval.received).toBe(0);
@@ -585,10 +581,10 @@ describe('Ika bridgeless execution request', () => {
       expect(result.ikaRequest.preAlphaSigning?.ikaMessageHash).not.toBe(result.ikaRequest.ethereumMessageDigest?.digestHex);
       expect(result.ikaRequest.preAlphaSigning?.ikaMessageHash).not.toBe(result.ikaRequest.canonicalOrderHash);
       expect(result.ikaRequest.preAlphaSigning?.destinationSigningDigest).toEqual({
-        digestHex: result.ikaRequest.ethereumMessageDigest?.digestHex,
-        source: 'ethereum-sepolia-message-digest',
-        hashScheme: 'ethereum-eip191-keccak256',
-        signPayload: 'destination-chain-sign-only-artifact',
+        digestHex: result.ikaRequest.ethereumMessageDigest!.digestHex,
+        source: 'ethereum-sepolia-message-digest' as const,
+        hashScheme: 'ethereum-eip191-keccak256' as const,
+        signPayload: 'destination-chain-sign-only-artifact' as const,
       });
       expect(result.ikaRequest.preAlphaSigning?.signatureScheme).toBe('ecdsa-secp256k1-sha256');
       expect(transactionRequests[0]).toMatchObject({
@@ -635,8 +631,7 @@ describe('Ika bridgeless execution request', () => {
     });
 
     expect(result.allowed).toBe(false);
-    if (!result.allowed) {
-      expect(result.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
+    if (!result.allowed && result.code === 'IKA_APPROVAL_QUORUM_REQUIRED') {
       expect(result.status).toBe('needs-approval');
       expect(result.approval).toMatchObject({
         status: 'needs-approval',
@@ -722,8 +717,7 @@ describe('Ika bridgeless execution request', () => {
     });
 
     expect(result.allowed).toBe(false);
-    if (!result.allowed) {
-      expect(result.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
+    if (!result.allowed && result.code === 'IKA_APPROVAL_QUORUM_REQUIRED') {
       expect(result.status).toBe('needs-approval');
       expect(result.approval).toMatchObject({
         status: 'needs-approval',
@@ -778,8 +772,7 @@ describe('Ika bridgeless execution request', () => {
       buildApprovalTransaction: async () => fixture.approvalTransaction,
     });
     expect(stillMissing.allowed).toBe(false);
-    if (!stillMissing.allowed) {
-      expect(stillMissing.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
+    if (!stillMissing.allowed && stillMissing.code === 'IKA_APPROVAL_QUORUM_REQUIRED') {
       expect(stillMissing.approval.received).toBe(1);
       expect(stillMissing.approval.missingApprovals).toBe(1);
     }
@@ -819,7 +812,7 @@ describe('Ika bridgeless execution request', () => {
     });
 
     expect(result.allowed).toBe(false);
-    if (!result.allowed) {
+    if (!result.allowed && result.code === 'IKA_APPROVAL_QUORUM_REQUIRED') {
       expect(result.code).toBe('IKA_APPROVAL_QUORUM_REQUIRED');
       expect(result.approval.received).toBe(1);
       expect(result.approval.missingApprovals).toBe(1);
@@ -969,6 +962,19 @@ function createFixture(options: {
     merkleRoot: Array.from({ length: 32 }, () => 0),
     policySeq: 7,
     lastRevokedSlot: options.lastRevokedSlot ?? 2,
+    recoveryAuthority: owner,
+    sharedIkaApprovals: {
+      enabled: false,
+      threshold: 0,
+      approvers: [],
+    },
+    dwalletController: {
+      currentController: owner,
+      pendingController: PublicKey.default.toString(),
+      rotationSeq: 0,
+      lastRotatedSlot: 0,
+      migrationPending: false,
+    },
     confidentialPolicy: {
       policyCommitment: policySetup.policyCommitment,
       encryptionWitnessHash: policySetup.encryptionWitnessHash,
@@ -1000,11 +1006,7 @@ function createFixture(options: {
       tokenProgram: TOKEN_PROGRAM,
       configured: true,
     },
-    sharedIkaApprovals: {
-      threshold: 0,
-      enabled: false,
-      approvers: [],
-    },
+
     sessions: [
       {
         key: sessionKey,

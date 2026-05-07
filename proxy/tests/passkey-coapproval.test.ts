@@ -139,6 +139,6 @@ function createAssertion(privateKey: ReturnType<typeof generateKeyPairSync>['pri
   return {
     clientDataJSON: base64url(clientDataJSON),
     authenticatorData: base64url(authenticatorData),
-    signature: base64url(sign('sha256', signedData, privateKey)),
+    signature: base64url(sign('sha256', signedData, privateKey as unknown as Buffer)),
   };
 }

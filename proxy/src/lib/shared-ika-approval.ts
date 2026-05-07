@@ -113,7 +113,7 @@ export function buildSharedIkaApprovalChallenge(input: SharedIkaApprovalInput): 
   });
 }
 
-function normalizePolicy(value: MultichainStrategyParams['sharedAccess']['policy'] | undefined, targetChain: string): SharedIkaApprovalPolicy | undefined {
+function normalizePolicy(value: NonNullable<MultichainStrategyParams['sharedAccess']>['policy'] | undefined, targetChain: string): SharedIkaApprovalPolicy | undefined {
   if (!value) return undefined;
   if (value.mode !== 'ika-approval-quorum') {
     throw new Error('sharedAccess.policy.mode must be ika-approval-quorum');
@@ -122,7 +122,7 @@ function normalizePolicy(value: MultichainStrategyParams['sharedAccess']['policy
   if (!Number.isInteger(value.threshold) || value.threshold < 1) {
     throw new Error('sharedAccess.policy.threshold must be a positive integer');
   }
-  const approvers = value.approvers.map((approver) => normalizePublicKey(approver, 'sharedAccess.policy.approver'));
+  const approvers = value.approvers.map((approver: string) => normalizePublicKey(approver, 'sharedAccess.policy.approver'));
   const uniqueApprovers = Array.from(new Set(approvers));
   if (uniqueApprovers.length === 0) {
     throw new Error('sharedAccess.policy.approvers must not be empty');

@@ -11,6 +11,7 @@ import {
 import {
   buildConfidentialTransferSessionTransaction,
   type BuiltTransaction,
+  type ConfidentialTransferTransactionRequest,
 } from './transaction-builder';
 import {
   PROGRAM_ID,
@@ -25,6 +26,8 @@ import {
 import type { OfficialEncryptPolicyExecution } from './official-encrypt-policy';
 
 const USDC_DECIMALS = 6;
+
+
 
 export interface ConfidentialDcaRunRequest {
   owner: string;

@@ -115,13 +115,14 @@ export interface IkaBridgelessBlocked {
     | 'CONFIDENTIAL_POLICY_BLOCKED'
     | 'ENCRYPT_POLICY_PENDING'
     | 'ENCRYPT_POLICY_VERIFIED_BLOCKED'
+    | 'TOKEN_CUSTODY_NOT_CONFIGURED'
     | 'IKA_ROUTE_NOT_ALLOWED'
     | 'IKA_RISK_GUARDRAIL_BLOCKED';
   reason: string;
-  status?: 'pending-encrypt-execution' | 'encrypt-verified-blocked';
+  status?: 'pending-encrypt-execution' | 'encrypt-verified-allowed' | 'encrypt-verified-blocked';
   encryptPolicy?: Extract<
     OfficialEncryptPolicyExecution,
-    { status: 'pending-encrypt-execution' | 'encrypt-verified-blocked' }
+    { status: 'pending-encrypt-execution' | 'encrypt-verified-allowed' | 'encrypt-verified-blocked' }
   >;
 }
 
@@ -206,10 +207,11 @@ export async function createIkaBridgelessExecutionRequest(
     );
 
     if (!decision.allowed) {
-      return {
+      const blocked: IkaBridgelessBlocked = {
         ...decision,
-        ...(decision.encryptPolicy && { status: decision.encryptPolicy.status }),
+        status: decision.encryptPolicy?.status,
       };
+      return blocked;
     }
     return decision.payload;
   } catch (error) {
@@ -236,7 +238,7 @@ async function buildIkaAllowedResult(
   riskDecision: ReturnType<typeof evaluateBridgelessRiskGuardrails>,
   deps: IkaBridgelessDeps,
   encryptPolicy?: OfficialEncryptPolicyExecution
-): Promise<IkaBridgelessAllowed> {
+): Promise<IkaBridgelessAllowed | IkaBridgelessNeedsApproval> {
   const amount = params.amount.toString();
   const smartWalletAuthority = wallet.walletPda || deriveWalletPda(intent.owner);
   const preAlphaOverrides = getIkaPreAlphaOverrides(params);
@@ -248,7 +250,7 @@ async function buildIkaAllowedResult(
       ...(params.sourceMint && { mint: params.sourceMint }),
     },
     target: {
-      chain: params.targetChain,
+      chain: (params.targetChain === 'sui' || params.targetChain === 'ethereum') ? params.targetChain : 'ethereum',
       asset: params.targetAsset,
       ...(params.targetMint && { mint: params.targetMint }),
     },
@@ -332,13 +334,14 @@ async function buildIkaAllowedResult(
     walletSharedIkaApprovals: wallet.sharedIkaApprovals,
   });
   if (!sharedApproval.ready) {
-    return {
+    const needsApproval: IkaBridgelessNeedsApproval = {
       allowed: false,
       code: 'IKA_APPROVAL_QUORUM_REQUIRED',
       status: 'needs-approval',
       reason: 'Shared access quorum is required before Polet prepares Ika approval data.',
       approval: sharedApproval.progress,
     };
+    return needsApproval;
   }
   const preAlphaSigning = createIkaPreAlphaSigningRequest({
     request: ikaRequestBase,

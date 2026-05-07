@@ -328,7 +328,7 @@ describe('Transaction Builder', () => {
         request.dailyCapCiphertext,
         request.allowedOutputCiphertext,
         request.dailySpentOutputCiphertext,
-        request.encrypt.encryptProgram,
+        request.encrypt.encryptProgram!,
         request.encrypt.config,
         request.encrypt.deposit,
         deriveEncryptCpiAuthority()[0].toString(),
