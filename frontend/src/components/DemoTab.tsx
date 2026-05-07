@@ -12,6 +12,8 @@ import {
   Languages,
   Play,
   Shield,
+  Trash2,
+  UserPlus,
   Wallet,
   X,
 } from 'lucide-react';
@@ -20,11 +22,14 @@ import {
   runConfidentialDca,
   setConfidentialPolicy,
   setupDemoCustody,
+  configureSharedIkaApprovers,
   getWalletData,
+  revokeSharedIkaApprover,
   runMultichainIntent,
   type IkaRequestPreview,
   type RunConfidentialDcaResult,
   type RunMultichainIntentResult,
+  type SharedIkaApproverConfigInput,
   type JupiterPlanPreview,
   type SetConfidentialPolicyInput,
   type SetupDemoCustodyInput,
@@ -52,20 +57,28 @@ interface DcaStrategy {
 interface ActivityEntry {
   id: string;
   timestamp: number;
-  status: 'setup' | 'approved' | 'blocked' | 'error';
+  status: 'setup' | 'approved' | 'blocked' | 'needs-approval' | 'error';
   message: string;
   route?: string;
   amountUsdc?: string;
   jupiterPlan?: JupiterPlanPreview;
   ikaRequest?: IkaRequestPreview;
   approval?: RunMultichainIntentResult['approval'];
+  sharedApprovers?: string[];
   transactionSigners?: string[];
   smartWalletAuthority?: string;
+}
+
+interface SharedIkaApprovalConfig {
+  threshold: number;
+  approvers: string[];
 }
 
 interface DemoApi {
   setConfidentialPolicy: (input: SetConfidentialPolicyInput) => Promise<WalletTransactionResult>;
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
+  configureSharedIkaApprovers: (input: SharedIkaApproverConfigInput) => Promise<WalletTransactionResult & SharedIkaApprovalConfig>;
+  revokeSharedIkaApprover: (input: { owner: string; approver: string }) => Promise<WalletTransactionResult & { approver: string }>;
   runConfidentialDca: typeof runConfidentialDca;
   runMultichainIntent: typeof runMultichainIntent;
   getWalletData: typeof getWalletData;
@@ -81,6 +94,8 @@ interface DemoTabContentProps {
 const DEFAULT_API: DemoApi = {
   setConfidentialPolicy,
   setupDemoCustody,
+  configureSharedIkaApprovers,
+  revokeSharedIkaApprover,
   runConfidentialDca,
   runMultichainIntent,
   getWalletData,
@@ -130,6 +145,20 @@ const COPY = {
     runIka: 'Approve 5 USDC-equivalent Ika',
     runIkaBlocked: 'Try 25 Ika request',
     runIkaUnsupported: 'Try unsupported Ika route',
+    sharedTitle: 'Shared Ika approval',
+    sharedBody: 'Atur M-of-N co-approver Solana signer untuk Ika. Polet contract tetap enforcement boundary; passkey atau proof UI hanya membantu UX.',
+    sharedThreshold: 'Threshold',
+    sharedApprovers: 'Co-approver public keys',
+    sharedApproverPlaceholder: 'Satu public key per baris',
+    configureShared: 'Sign & configure quorum',
+    revokeShared: 'Revoke',
+    sharedReady: 'Quorum ready',
+    sharedNeedsApproval: 'Butuh co-approval',
+    sharedNotConfigured: 'Belum dikonfigurasi',
+    sharedProofs: 'Proof co-approval JSON',
+    sharedProofHelp: 'Opsional: array JSON signature dari co-approver untuk demo ready quorum. Nilai policy privat tidak dibutuhkan.',
+    countedApprovers: 'Co-approver counted',
+    missingApprovals: 'Approval kurang',
     activityTitle: 'Activity log',
     emptyLog: 'Belum ada aktivitas agen.',
     approved: 'DISETUJUI',
@@ -183,6 +212,8 @@ const COPY = {
     nextComplete: 'Demo path selesai.',
     custodyRequired: 'Setup custody dan pilih agent sebelum menyimpan policy.',
     blockedFirst: 'Jalankan block 25 USDC dulu agar flow demo linear.',
+    invalidSharedApprover: 'Masukkan public key co-approver dan threshold valid.',
+    invalidSharedProofs: 'Proof co-approval harus berupa array JSON.',
   },
   en: {
     language: 'English',
@@ -227,6 +258,20 @@ const COPY = {
     runIka: 'Approve 5 USDC-equivalent Ika',
     runIkaBlocked: 'Try 25 Ika request',
     runIkaUnsupported: 'Try unsupported Ika route',
+    sharedTitle: 'Shared Ika approval',
+    sharedBody: 'Configure M-of-N Solana signer co-approvers for Ika. The Polet contract remains the enforcement boundary; passkey or proof UI is only a UX helper.',
+    sharedThreshold: 'Threshold',
+    sharedApprovers: 'Co-approver public keys',
+    sharedApproverPlaceholder: 'One public key per line',
+    configureShared: 'Sign & configure quorum',
+    revokeShared: 'Revoke',
+    sharedReady: 'Quorum ready',
+    sharedNeedsApproval: 'Needs co-approval',
+    sharedNotConfigured: 'Not configured',
+    sharedProofs: 'Co-approval proof JSON',
+    sharedProofHelp: 'Optional JSON signature array from co-approvers for the ready-quorum demo. Private policy values are not required.',
+    countedApprovers: 'Co-approver counted',
+    missingApprovals: 'Missing approvals',
     activityTitle: 'Activity log',
     emptyLog: 'No agent activity yet.',
     approved: 'APPROVED',
@@ -280,6 +325,8 @@ const COPY = {
     nextComplete: 'Demo path complete.',
     custodyRequired: 'Set up custody and select an agent before saving policy.',
     blockedFirst: 'Run the blocked 25 USDC scenario first to keep the demo linear.',
+    invalidSharedApprover: 'Enter co-approver public keys and a valid threshold.',
+    invalidSharedProofs: 'Co-approval proofs must be a JSON array.',
   },
 } as const;
 
@@ -318,6 +365,12 @@ export function DemoTabContent({
   const [policySaved, setPolicySaved] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState(true);
   const [custody, setCustody] = useState<{ usdcTokenAccount: string; solTokenAccount: string } | null>(null);
+  const [sharedIkaApproval, setSharedIkaApproval] = useState<SharedIkaApprovalConfig | null>(null);
+  const [sharedDraft, setSharedDraft] = useState({
+    threshold: Math.max(1, Math.min(2, agentAddresses.length || 1)).toString(),
+    approvers: agentAddresses.slice(0, 2).join('\n'),
+  });
+  const [sharedApprovalProofs, setSharedApprovalProofs] = useState('');
   const [agentAddress, setAgentAddress] = useState(agentAddresses[0] ?? '');
   const [strategy, setStrategy] = useState<DcaStrategy>({
     sourceChain: 'Solana',
@@ -371,6 +424,14 @@ export function DemoTabContent({
           if (data.confidentialPolicy?.enabled) {
             setPolicySaved(true);
             setEditingPolicy(false);
+          }
+          const configuredShared = normalizeSharedIkaApproval(data.sharedIkaApprovals);
+          if (configuredShared) {
+            setSharedIkaApproval(configuredShared);
+            setSharedDraft({
+              threshold: configuredShared.threshold.toString(),
+              approvers: configuredShared.approvers.join('\n'),
+            });
           }
         }
       }).catch(console.error);
@@ -462,6 +523,85 @@ export function DemoTabContent({
     }
   };
 
+  const refreshSharedIkaApproval = async () => {
+    if (!owner) return;
+    const data = await api.getWalletData(owner);
+    if (!data) return;
+    const configuredShared = normalizeSharedIkaApproval(data?.sharedIkaApprovals);
+    setSharedIkaApproval(configuredShared);
+    if (configuredShared) {
+      setSharedDraft({
+        threshold: configuredShared.threshold.toString(),
+        approvers: configuredShared.approvers.join('\n'),
+      });
+    }
+  };
+
+  const configureSharedApproval = async () => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+    const approvers = normalizeApproverLines(sharedDraft.approvers);
+    const threshold = Number.parseInt(sharedDraft.threshold, 10);
+    if (!Number.isInteger(threshold) || threshold < 1 || threshold > approvers.length) {
+      recordError(t.invalidSharedApprover);
+      return;
+    }
+
+    setBusy('shared-config');
+    setError(null);
+    try {
+      const result = await api.configureSharedIkaApprovers({ owner, threshold, approvers });
+      const signature = await signAndConfirmTransaction(result.transaction);
+      const nextConfig = { threshold: result.threshold, approvers: result.approvers };
+      setSharedIkaApproval(nextConfig);
+      setSharedDraft({
+        threshold: result.threshold.toString(),
+        approvers: result.approvers.join('\n'),
+      });
+      await refreshSharedIkaApproval().catch(() => undefined);
+      addActivity({
+        status: 'setup',
+        message: `${t.sharedReady}: ${signature.slice(0, 8)}...`,
+        route: 'Contract configure_shared_ika_approvers',
+      });
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to configure shared Ika approval');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const revokeSharedApproval = async (approver: string) => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+
+    setBusy(`shared-revoke-${approver}`);
+    setError(null);
+    try {
+      const result = await api.revokeSharedIkaApprover({ owner, approver });
+      const signature = await signAndConfirmTransaction(result.transaction);
+      setSharedIkaApproval((prev) => {
+        if (!prev) return null;
+        const approvers = prev.approvers.filter((item) => item !== approver);
+        return approvers.length > 0 ? { threshold: Math.min(prev.threshold, approvers.length), approvers } : null;
+      });
+      await refreshSharedIkaApproval().catch(() => undefined);
+      addActivity({
+        status: 'setup',
+        message: `${t.revokeShared}: ${short(result.approver)} ${signature.slice(0, 8)}...`,
+        route: 'Contract revoke_shared_ika_approver',
+      });
+    } catch (err) {
+      recordError(err instanceof Error ? err.message : 'Failed to revoke shared Ika approver');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const runAgent = async (amountUsdc: string) => {
     if (!owner) {
       recordError(t.missingOwner);
@@ -541,6 +681,7 @@ export function DemoTabContent({
           minLiquidityScore: 'medium',
           requireVerifiedRoute: true,
         },
+        sharedAccess: buildSharedAccess(sharedIkaApproval, sharedApprovalProofs, t.invalidSharedProofs),
         encryptionWitness: witness,
         routeGuardrails: {
           mode: 'chain-asset-allowlist',
@@ -564,7 +705,8 @@ export function DemoTabContent({
             ? `${t.ikaRouteUnsupported}: ${target.chain.toUpperCase()} ${target.asset}`
             : `Ika ${result.code}`,
         ikaRequest: result.allowed ? result.ikaRequest : undefined,
-        approval: result.allowed ? undefined : result.approval,
+        approval: result.approval,
+        sharedApprovers: result.allowed ? sharedApproversFromResult(result) : result.approval?.approvedApprovers,
         smartWalletAuthority: result.allowed ? result.ikaRequest?.sessionContext.smartWalletAuthority : undefined,
       });
     } catch (err) {
@@ -730,6 +872,84 @@ export function DemoTabContent({
               </div>
             </div>
           )}
+        </Panel>
+      </section>
+
+      <section>
+        <Panel icon={<UserPlus className="h-5 w-5" />} title={t.sharedTitle}>
+          <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.sharedBody}</p>
+          <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.sharedThreshold}</span>
+                <input
+                  value={sharedDraft.threshold}
+                  onChange={(event) => setSharedDraft((prev) => ({ ...prev, threshold: event.target.value }))}
+                  type="number"
+                  min="1"
+                  step="1"
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.sharedApprovers}</span>
+                <textarea
+                  value={sharedDraft.approvers}
+                  onChange={(event) => setSharedDraft((prev) => ({ ...prev, approvers: event.target.value }))}
+                  placeholder={t.sharedApproverPlaceholder}
+                  rows={3}
+                  className="w-full rounded-lg px-3 py-2 font-mono text-xs"
+                />
+              </label>
+              <button
+                onClick={configureSharedApproval}
+                disabled={!owner || Boolean(busy)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                <UserPlus className="h-4 w-4" />
+                {busy === 'shared-config' ? 'Signing...' : t.configureShared}
+              </button>
+            </div>
+
+            <div className="grid gap-3">
+              <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.sharedTitle}</p>
+                <p className="mt-1 text-sm font-black text-[var(--sea-ink)]">
+                  {sharedIkaApproval
+                    ? `${sharedIkaApproval.threshold}/${sharedIkaApproval.approvers.length} ${t.sharedReady}`
+                    : t.sharedNotConfigured}
+                </p>
+              </div>
+              {sharedIkaApproval && (
+                <div className="grid gap-2">
+                  {sharedIkaApproval.approvers.map((approver) => (
+                    <div key={approver} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                      <span className="break-all font-mono text-xs font-bold text-[var(--sea-ink)]">{approver}</span>
+                      <button
+                        onClick={() => revokeSharedApproval(approver)}
+                        disabled={Boolean(busy)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-2 py-1 text-xs font-bold text-red-500 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {busy === `shared-revoke-${approver}` ? '...' : t.revokeShared}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.sharedProofs}</span>
+                <textarea
+                  value={sharedApprovalProofs}
+                  onChange={(event) => setSharedApprovalProofs(event.target.value)}
+                  placeholder='[{"approver":"...","signature":"...","encoding":"base64"}]'
+                  rows={3}
+                  className="w-full rounded-lg px-3 py-2 font-mono text-xs"
+                />
+                <span className="mt-1 block text-xs leading-5 text-[var(--sea-ink-soft)]">{t.sharedProofHelp}</span>
+              </label>
+            </div>
+          </div>
         </Panel>
       </section>
 
@@ -937,24 +1157,27 @@ function ActivityCard({ entry, labels }: { entry: ActivityEntry; labels: (typeof
         </p>
       </div>
       {entry.jupiterPlan && <JupiterRoutePreview entry={entry} labels={labels} />}
-      {entry.approval && <ApprovalProgressCard approval={entry.approval} />}
-      {entry.ikaRequest && <IkaRequestPreviewCard request={entry.ikaRequest} labels={labels} />}
+      {entry.approval && <ApprovalProgressCard approval={entry.approval} labels={labels} />}
+      {entry.ikaRequest && <IkaRequestPreviewCard request={entry.ikaRequest} labels={labels} sharedApprovers={entry.sharedApprovers} />}
     </article>
   );
 }
 
-function ApprovalProgressCard({ approval }: { approval: NonNullable<RunMultichainIntentResult['approval']> }) {
+function ApprovalProgressCard({ approval, labels }: { approval: NonNullable<RunMultichainIntentResult['approval']>; labels: (typeof COPY)[Locale] }) {
   return (
     <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
-      <InfoPill label="Shared approval" value={`${approval.received}/${approval.required} ready`} />
-      <InfoPill label="Missing" value={`${approval.missingApprovals} co-approval${approval.missingApprovals === 1 ? '' : 's'}`} />
+      <InfoPill label={labels.sharedTitle} value={`${approval.received}/${approval.required} ${approval.status === 'ready' ? labels.sharedReady : labels.sharedNeedsApproval}`} />
+      <InfoPill label={labels.missingApprovals} value={`${approval.missingApprovals} co-approval${approval.missingApprovals === 1 ? '' : 's'}`} />
       <InfoPill label="Approvers" value={`${approval.totalApprovers} registered`} />
       <InfoPill label="Challenge" value={short(approval.challenge)} />
+      {approval.approvedApprovers.map((approver) => (
+        <InfoPill key={approver} label={labels.countedApprovers} value={short(approver)} />
+      ))}
     </div>
   );
 }
 
-function IkaRequestPreviewCard({ request, labels }: { request: IkaRequestPreview; labels: (typeof COPY)[Locale] }) {
+function IkaRequestPreviewCard({ request, labels, sharedApprovers }: { request: IkaRequestPreview; labels: (typeof COPY)[Locale]; sharedApprovers?: string[] }) {
   const signing = request.preAlphaSigning;
   return (
     <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
@@ -972,6 +1195,9 @@ function IkaRequestPreviewCard({ request, labels }: { request: IkaRequestPreview
       <InfoPill label={labels.messageApproval} value={signing?.messageApprovalPda ? short(signing.messageApprovalPda) : 'Pending account'} />
       <InfoPill label={labels.messageHash} value={signing?.ikaMessageHash ? short(signing.ikaMessageHash) : signing?.messageDigest ? short(signing.messageDigest) : request.canonicalOrderHash ? short(request.canonicalOrderHash) : 'Ika message hash'} />
       <InfoPill label={labels.signatureScheme} value={signing?.signatureScheme ?? 'Pre-Alpha'} />
+      {sharedApprovers?.map((approver) => (
+        <InfoPill key={approver} label={labels.countedApprovers} value={short(approver)} />
+      ))}
     </div>
   );
 }
@@ -1017,4 +1243,57 @@ function formatTokenAmount(raw: string | undefined, decimals: number) {
 
 function short(value: string) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
+}
+
+function normalizeApproverLines(value: string) {
+  return Array.from(new Set(value.split(/\s+/).map((line) => line.trim()).filter(Boolean)));
+}
+
+function normalizeSharedIkaApproval(value: any): SharedIkaApprovalConfig | null {
+  if (!value?.enabled || !Number.isInteger(value.threshold)) return null;
+  const approvers = (value.approvers ?? [])
+    .filter((approver: any) => approver?.authorized !== false)
+    .map((approver: any) => typeof approver === 'string' ? approver : approver.key)
+    .filter((approver: unknown): approver is string => typeof approver === 'string' && approver.length > 0);
+  return approvers.length > 0 ? { threshold: value.threshold, approvers } : null;
+}
+
+function buildSharedAccess(config: SharedIkaApprovalConfig | null, proofsText: string, invalidMessage: string) {
+  if (!config) return undefined;
+  const trimmedProofs = proofsText.trim();
+  if (!trimmedProofs) {
+    return {
+      policy: {
+        mode: 'ika-approval-quorum' as const,
+        threshold: config.threshold,
+        approvers: config.approvers,
+        requireFor: 'all-ika' as const,
+      },
+    };
+  }
+
+  const parsed = JSON.parse(trimmedProofs);
+  if (!Array.isArray(parsed)) {
+    throw new Error(invalidMessage);
+  }
+
+  return {
+    policy: {
+      mode: 'ika-approval-quorum' as const,
+      threshold: config.threshold,
+      approvers: config.approvers,
+      requireFor: 'all-ika' as const,
+    },
+    approvals: parsed.map((proof) => ({
+      approver: String(proof.approver),
+      signature: String(proof.signature),
+      encoding: proof.encoding === 'base64' ? 'base64' as const : undefined,
+    })),
+  };
+}
+
+function sharedApproversFromResult(result: RunMultichainIntentResult) {
+  const signers = result.ikaRequest?.poletApprovalTransaction?.signers ?? [];
+  const sessionKey = result.ikaRequest?.sessionContext.sessionKey;
+  return signers.filter((signer) => signer !== sessionKey);
 }

@@ -19,7 +19,14 @@ Object.defineProperty(globalThis, 'navigator', {
 
 afterEach(() => {
   document.body.innerHTML = '';
+  sharedConfig = null;
+  sharedIkaAttempts = 0;
 });
+
+let sharedConfig: { threshold: number; approvers: string[] } | null = null;
+let sharedIkaAttempts = 0;
+const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
+const coApproverB = 'CxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR5';
 
 const api = {
   setConfidentialPolicy: async () => ({
@@ -34,7 +41,38 @@ const api = {
     usdcTokenAccount: 'USDC111111111111111111111111111111111111111',
     solTokenAccount: 'SOL1111111111111111111111111111111111111111',
   }),
-  getWalletData: async () => null,
+  configureSharedIkaApprovers: async (input: { threshold: number; approvers: string[] }) => {
+    sharedConfig = {
+      threshold: input.threshold,
+      approvers: input.approvers,
+    };
+    return {
+      transaction: 'shared-config-tx',
+      wallet: 'wallet-pda',
+      threshold: input.threshold,
+      approvers: input.approvers,
+    };
+  },
+  revokeSharedIkaApprover: async (input: { approver: string }) => {
+    sharedConfig = sharedConfig
+      ? {
+          threshold: Math.min(sharedConfig.threshold, Math.max(sharedConfig.approvers.length - 1, 1)),
+          approvers: sharedConfig.approvers.filter((approver) => approver !== input.approver),
+        }
+      : null;
+    return {
+      transaction: 'shared-revoke-tx',
+      wallet: 'wallet-pda',
+      approver: input.approver,
+    };
+  },
+  getWalletData: async () => sharedConfig ? ({
+    sharedIkaApprovals: {
+      enabled: true,
+      threshold: sharedConfig.threshold,
+      approvers: sharedConfig.approvers.map((key) => ({ key, authorized: true })),
+    },
+  }) : null,
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
     if (input.amountUsdc === '25') {
       return {
@@ -91,6 +129,26 @@ const api = {
         reason: 'Confidential policy blocked this Ika request.',
       };
     }
+    if (input.sharedAccess?.policy && (input.sharedAccess.approvals?.length ?? 0) < input.sharedAccess.policy.threshold && sharedIkaAttempts === 0) {
+      sharedIkaAttempts += 1;
+      return {
+        allowed: false,
+        code: 'IKA_APPROVAL_QUORUM_REQUIRED',
+        status: 'needs-approval',
+        reason: 'Shared access quorum is required before Polet prepares Ika approval data.',
+        approval: {
+          status: 'needs-approval' as const,
+          required: input.sharedAccess.policy.threshold,
+          received: input.sharedAccess.approvals?.length ?? 0,
+          threshold: input.sharedAccess.policy.threshold,
+          totalApprovers: input.sharedAccess.policy.approvers.length,
+          approvedApprovers: input.sharedAccess.approvals?.map((approval) => approval.approver) ?? [],
+          missingApprovals: input.sharedAccess.policy.threshold - (input.sharedAccess.approvals?.length ?? 0),
+          challenge: 'polet.ika.shared-approval.v1:test-challenge',
+        },
+      };
+    }
+    sharedIkaAttempts += 1;
 
     return {
       allowed: true,
@@ -136,7 +194,7 @@ const api = {
         },
         poletApprovalTransaction: {
           transaction: 'polet-ika-approval-tx',
-          signers: [input.sessionKey],
+          signers: [input.sessionKey, ...(input.sharedAccess?.approvals?.map((approval) => approval.approver) ?? input.sharedAccess?.policy?.approvers ?? [])],
         },
       },
     };
@@ -147,7 +205,7 @@ function renderDemo() {
   return render(
     <DemoTabContent
       owner="AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2"
-      agentAddresses={['BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4']}
+      agentAddresses={[coApproverA, coApproverB]}
       signAndConfirmTransaction={async () => 'sig111111'}
       api={api}
     />
@@ -273,6 +331,51 @@ describe('Consumer DCA demo frontend', () => {
     const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
     expect(logText).toContain('No Ika approval data was prepared');
     expect(logText).not.toContain('MessageApproval');
+    expect(logText).not.toContain('10 USDC');
+    expect(logText).not.toContain('20 USDC');
+  });
+
+  test('configures and revokes shared Ika co-approvers', async () => {
+    const view = renderDemo();
+
+    fireEvent.click(view.getByRole('button', { name: /sign & configure quorum/i }));
+
+    await waitFor(() => expect(document.body.textContent).toMatch(/2\/2\s+Quorum ready/i));
+    expect(view.getAllByText(coApproverA).length).toBeGreaterThan(0);
+    expect(view.getAllByText(coApproverB).length).toBeGreaterThan(0);
+
+    fireEvent.click(view.getAllByRole('button', { name: /revoke/i })[0]);
+    await waitFor(() => expect(document.body.textContent).toMatch(/1\/1\s+Quorum ready/i));
+  });
+
+  test('shows missing and ready shared Ika quorum states without policy leaks', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+    fireEvent.click(view.getByRole('button', { name: /sign & configure quorum/i }));
+    await waitFor(() => expect(document.body.textContent).toMatch(/2\/2\s+Quorum ready/i));
+
+    await waitFor(() => expect(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }).hasAttribute('disabled')).toBe(false));
+    fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
+    await waitFor(() => expect(view.getByText(/needs approval/i)).toBeTruthy());
+    expect(view.getByText(/0\/2 butuh co-approval/i)).toBeTruthy();
+    expect(view.getByText(/2 co-approvals/i)).toBeTruthy();
+    expect(document.body.textContent).not.toContain('MessageApproval');
+
+    fireEvent.change(view.getByPlaceholderText(/\[\{"approver"/i), {
+      target: {
+        value: JSON.stringify([
+          { approver: coApproverA, signature: 'sig-a', encoding: 'base64' },
+          { approver: coApproverB, signature: 'sig-b', encoding: 'base64' },
+        ]),
+      },
+    });
+    fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
+
+    await waitFor(() => expect(view.getAllByText(/co-approver counted/i).length).toBeGreaterThanOrEqual(1));
+    expect(view.getAllByText(/ika approval transaction prepared/i).length).toBeGreaterThan(0);
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('CxW8ng8');
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');
   });

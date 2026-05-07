@@ -16,13 +16,19 @@ This is a demo-facing frontend slice over existing proxy/contract capability. It
 
 ## Acceptance criteria
 
-- [ ] The frontend can create a shared Ika approver configuration through the proxy and sign the returned owner transaction.
-- [ ] The frontend can revoke a shared Ika approver and refresh wallet state after confirmation.
-- [ ] The Ika demo shows `needs-approval` progress with required/received/missing counts before approval data is prepared.
-- [ ] The approved path clearly shows when quorum is ready and which co-approver public keys are counted without exposing private policy witness data.
-- [ ] Tests cover configure, revoke, missing quorum, and ready quorum UI states.
+- [x] The frontend can create a shared Ika approver configuration through the proxy and sign the returned owner transaction.
+- [x] The frontend can revoke a shared Ika approver and refresh wallet state after confirmation.
+- [x] The Ika demo shows `needs-approval` progress with required/received/missing counts before approval data is prepared.
+- [x] The approved path clearly shows when quorum is ready and which co-approver public keys are counted without exposing private policy witness data.
+- [x] Tests cover configure, revoke, missing quorum, and ready quorum UI states.
 
 ## Blocked by
 
 None - can start immediately
 
+## Completion notes
+
+- Added frontend API wrappers for shared Ika approver configure/revoke owner transactions.
+- Added a shared Ika approval panel to the command-center demo with threshold, co-approver public-key list, revoke controls, wallet-state hydration, and optional collected co-approval proof JSON for the ready-quorum demo path.
+- Ika activity cards now show `needs-approval` progress and counted co-approver public keys without surfacing private policy thresholds or witness bytes.
+- Verification: `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with the existing Vitest/Vite `module is not defined` and shutdown-timeout warnings; `bun run build` passes in `frontend/`.

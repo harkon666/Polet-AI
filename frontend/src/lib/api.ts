@@ -146,6 +146,26 @@ export interface WalletTransactionResult {
   encryptionWitnessHash?: number[];
 }
 
+export interface SharedIkaApproverConfigInput {
+  owner: string;
+  threshold: number;
+  approvers: string[];
+}
+
+export interface SharedIkaApproverConfigResult extends WalletTransactionResult {
+  threshold: number;
+  approvers: string[];
+}
+
+export interface RevokeSharedIkaApproverInput {
+  owner: string;
+  approver: string;
+}
+
+export interface RevokeSharedIkaApproverResult extends WalletTransactionResult {
+  approver: string;
+}
+
 export async function setConfidentialPolicy(input: SetConfidentialPolicyInput): Promise<WalletTransactionResult> {
   const data = await fetchJson<{ success: boolean; data: WalletTransactionResult }>(
     `${PROXY_URL}/wallet/set-confidential-policy`,
@@ -161,6 +181,30 @@ export async function setConfidentialPolicy(input: SetConfidentialPolicyInput): 
 export async function setupDemoCustody(input: SetupDemoCustodyInput): Promise<WalletTransactionResult> {
   const data = await fetchJson<{ success: boolean; data: WalletTransactionResult }>(
     `${PROXY_URL}/wallet/setup-demo-custody`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function configureSharedIkaApprovers(input: SharedIkaApproverConfigInput): Promise<SharedIkaApproverConfigResult> {
+  const data = await fetchJson<{ success: boolean; data: SharedIkaApproverConfigResult }>(
+    `${PROXY_URL}/wallet/shared-ika-approvers`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function revokeSharedIkaApprover(input: RevokeSharedIkaApproverInput): Promise<RevokeSharedIkaApproverResult> {
+  const data = await fetchJson<{ success: boolean; data: RevokeSharedIkaApproverResult }>(
+    `${PROXY_URL}/wallet/shared-ika-approvers/revoke`,
     {
       method: 'POST',
       body: JSON.stringify(input),
@@ -277,6 +321,19 @@ export interface RunMultichainIntentInput {
     maxPriceImpactBps?: number;
     minLiquidityScore?: 'low' | 'medium' | 'high';
     requireVerifiedRoute?: boolean;
+  };
+  sharedAccess?: {
+    policy?: {
+      mode: 'ika-approval-quorum';
+      threshold: number;
+      approvers: string[];
+      requireFor?: 'all-ika' | 'ethereum-only';
+    };
+    approvals?: Array<{
+      approver: string;
+      signature: string;
+      encoding?: 'base64';
+    }>;
   };
   encryptionWitness: number[];
   routeGuardrails?: {
@@ -421,6 +478,7 @@ export async function runMultichainIntent(input: RunMultichainIntentInput): Prom
           ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
           ...(input.routeRisk && { routeRisk: input.routeRisk }),
           ...(input.riskGuardrails && { riskGuardrails: input.riskGuardrails }),
+          ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
           encryptionWitness: input.encryptionWitness,
           ...(input.routeGuardrails && { routeGuardrails: input.routeGuardrails }),
         },
