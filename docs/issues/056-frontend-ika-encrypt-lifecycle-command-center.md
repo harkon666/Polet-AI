@@ -55,3 +55,29 @@ The UI must remain an operational command center, not a landing page.
 ## Notes
 
 Prior UI work for `pending-encrypt-execution`, `encrypt-verified-blocked`, `encrypt-verified-allowed`, and quorum states should be reused. Do not claim production privacy.
+
+## Progress - 2026-05-07
+
+Implemented official Encrypt lifecycle surface in the command center:
+
+**api.ts:**
+- Extended `OfficialEncryptPolicyPreview` with `encryptProgram`, `grpcEndpoint`, `inputCiphertexts` (sourceAmount, maxPerRun, dailySpent, dailyCap), `pendingOutputCiphertexts` (allowedOutput, dailySpentOutput), `suppressedUntilVerified`
+
+**ActivityCard.tsx:**
+- Enhanced `EncryptPolicyStatusCard` with ciphertext IDs (short-truncated), encrypt program, gRPC endpoint
+- Pending state: shows "Suppressed until verified" list
+- Blocked state: shows red "All execution artifacts suppressed" banner
+- Allowed state: shows green "Ika approval preparation available" banner
+
+**i18n.ts:**
+- Added 7 new labels (id + en) for Encrypt lifecycle fields
+
+**Tests (DemoTab.test.tsx):**
+- "official Encrypt policy state displays ciphertext ids and suppresses pending artifacts"
+- "official Encrypt verified-allowed state shows safe Ika approval preparation"
+- "official Encrypt verified-blocked state suppresses all artifacts"
+- All 49 tests pass, build clean
+
+**Issue #054 cleanup:**
+- Tagged legacy `encryptionWitnessHash` references as masked-witness dev fixture
+- Archived unused hero components
