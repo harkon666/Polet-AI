@@ -169,6 +169,11 @@ export function DemoTabContent({
     ikaRequest: import('../lib/api').IkaRequestPreview;
     producedSignature: { status: 'signature-produced-prealpha'; signature: string; publicKey: string; messageDigest: string; signatureScheme: string };
   } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    action: string;
+    description: string;
+    onConfirm: () => void;
+  } | null>(null);
   const [routeRiskDraft, setRouteRiskDraft] = useState({
     slippageBps: 100,
     maxPriceImpactBps: 120,
@@ -188,6 +193,13 @@ export function DemoTabContent({
   );
   const hasSafeLog =
     activity.length > 0 && activity.every((entry) => !entry.message.includes('10 USDC') && !entry.message.includes('20 USDC'));
+  const hasAllowedIkaSuiRun = activity.some(
+    (entry) => isAllowedStatus(entry.status) && entry.amountUsdc === '5' && entry.routePair?.includes('SUI')
+  );
+  const hasAllowedIkaEthRun = activity.some(
+    (entry) => isAllowedStatus(entry.status) && entry.amountUsdc === '5' && entry.routePair?.includes('ETH')
+  );
+  const hasRouteRiskBlock = activity.some((entry) => entry.route?.includes('IKA_RISK_GUARDRAIL_BLOCKED'));
   const strategyReady = strategy.inputMint === 'USDC' && strategy.outputMint === 'SOL' && Boolean(strategy.amountUsdc);
   const canSavePolicy = Boolean(owner && custody && hasAgent && !busy);
   const canRunBlocked = Boolean(owner && custody && policySaved && hasAgent && strategyReady && !busy);
@@ -199,9 +211,14 @@ export function DemoTabContent({
     { label: t.stepCustody, done: Boolean(custody), next: t.nextCustody },
     { label: t.stepAgent, done: hasAgent, next: t.nextAgent },
     { label: t.stepPolicy, done: policySaved, next: t.nextPolicy },
+    { label: t.stepSharedAccess, done: Boolean(sharedIkaApproval), next: t.nextSharedAccess ?? t.nextStrategy },
+    { label: t.stepRecovery, done: Boolean(recoveryAuthority), next: t.nextRecovery ?? t.nextStrategy },
     { label: t.stepStrategy, done: strategyReady, next: t.nextBlocked },
     { label: t.stepBlocked, done: hasBlockedRun, next: t.nextBlocked },
     { label: t.stepAllowed, done: hasAllowedRun, next: t.nextAllowed },
+    { label: t.stepIkaSui, done: hasAllowedIkaSuiRun, next: t.nextIkaSui ?? t.nextLog },
+    { label: t.stepIkaEth, done: hasAllowedIkaEthRun, next: t.nextIkaEth ?? t.nextLog },
+    { label: t.stepRouteRisk, done: hasRouteRiskBlock, next: t.nextRouteRisk ?? t.nextLog },
     { label: t.stepLog, done: hasAllowedRun && hasSafeLog, next: t.nextLog },
   ];
   const nextStep = checklist.find((step) => !step.done);
@@ -263,28 +280,34 @@ export function DemoTabContent({
       recordError(t.missingOwner);
       return;
     }
-    setBusy('custody');
-    setError(null);
-    try {
-      const result = await api.setupDemoCustody({
-        owner,
-        usdcMint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
-      });
-      const signature = await signAndConfirmTransaction(result.transaction);
-      setCustody({
-        usdcTokenAccount: result.usdcTokenAccount ?? 'registered',
-        solTokenAccount: result.solTokenAccount ?? 'registered',
-      });
-      addActivity({
-        status: 'setup',
-        message: `${t.custodyReady}: ${signature.slice(0, 8)}...`,
-        route: 'Contract register_demo_custody',
-      });
-    } catch (err) {
-      recordError(err instanceof Error ? err.message : 'Failed to set up demo custody');
-    } finally {
-      setBusy(null);
-    }
+    setPendingConfirm({
+      action: t.setupCustody,
+      description: t.confirmCustody,
+      onConfirm: async () => {
+        setBusy('custody');
+        setError(null);
+        try {
+          const result = await api.setupDemoCustody({
+            owner,
+            usdcMint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+          });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          setCustody({
+            usdcTokenAccount: result.usdcTokenAccount ?? 'registered',
+            solTokenAccount: result.solTokenAccount ?? 'registered',
+          });
+          addActivity({
+            status: 'setup',
+            message: `${t.custodyReady}: ${signature.slice(0, 8)}...`,
+            route: 'Contract register_demo_custody',
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to set up demo custody');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
   };
 
   const savePolicy = async () => {
@@ -292,28 +315,34 @@ export function DemoTabContent({
       recordError(t.missingOwner);
       return;
     }
-    setBusy('policy');
-    setError(null);
-    try {
-      const result = await api.setConfidentialPolicy({
-        owner,
-        maxPerRunUsdc: policyDraft.maxPerRunUsdc,
-        dailyCapUsdc: policyDraft.dailyCapUsdc,
-        encryptionWitness: witness,
-      });
-      const signature = await signAndConfirmTransaction(result.transaction);
-      setPolicySaved(true);
-      setEditingPolicy(false);
-      addActivity({
-        status: 'setup',
-        message: `${t.policySaved}: ${signature.slice(0, 8)}...`,
-        route: 'Contract set_confidential_numeric_policy',
-      });
-    } catch (err) {
-      recordError(err instanceof Error ? err.message : 'Failed to save confidential policy');
-    } finally {
-      setBusy(null);
-    }
+    setPendingConfirm({
+      action: t.savePolicy,
+      description: t.confirmPolicy,
+      onConfirm: async () => {
+        setBusy('policy');
+        setError(null);
+        try {
+          const result = await api.setConfidentialPolicy({
+            owner,
+            maxPerRunUsdc: policyDraft.maxPerRunUsdc,
+            dailyCapUsdc: policyDraft.dailyCapUsdc,
+            encryptionWitness: witness,
+          });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          setPolicySaved(true);
+          setEditingPolicy(false);
+          addActivity({
+            status: 'setup',
+            message: `${t.policySaved}: ${signature.slice(0, 8)}...`,
+            route: 'Contract set_confidential_numeric_policy',
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to save confidential policy');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
   };
 
   const refreshSharedIkaApproval = async () => {
@@ -341,29 +370,34 @@ export function DemoTabContent({
       recordError(t.invalidSharedApprover);
       return;
     }
-
-    setBusy('shared-config');
-    setError(null);
-    try {
-      const result = await api.configureSharedIkaApprovers({ owner, threshold, approvers });
-      const signature = await signAndConfirmTransaction(result.transaction);
-      const nextConfig = { threshold: result.threshold, approvers: result.approvers };
-      setSharedIkaApproval(nextConfig);
-      setSharedDraft({
-        threshold: result.threshold.toString(),
-        approvers: result.approvers.join('\n'),
-      });
-      await refreshSharedIkaApproval();
-      addActivity({
-        status: 'setup',
-        message: `${t.sharedReady}: ${signature.slice(0, 8)}...`,
-        route: 'Contract configure_shared_ika_approvers',
-      });
-    } catch (err) {
-      recordError(err instanceof Error ? err.message : 'Failed to configure shared Ika approval');
-    } finally {
-      setBusy(null);
-    }
+    setPendingConfirm({
+      action: t.configureShared,
+      description: `${t.confirmShared}: ${threshold}/${approvers.length}.`,
+      onConfirm: async () => {
+        setBusy('shared-config');
+        setError(null);
+        try {
+          const result = await api.configureSharedIkaApprovers({ owner, threshold, approvers });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          const nextConfig = { threshold: result.threshold, approvers: result.approvers };
+          setSharedIkaApproval(nextConfig);
+          setSharedDraft({
+            threshold: result.threshold.toString(),
+            approvers: result.approvers.join('\n'),
+          });
+          await refreshSharedIkaApproval();
+          addActivity({
+            status: 'setup',
+            message: `${t.sharedReady}: ${signature.slice(0, 8)}...`,
+            route: 'Contract configure_shared_ika_approvers',
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to configure shared Ika approval');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
   };
 
   const revokeSharedApproval = async (approver: string) => {
@@ -372,51 +406,63 @@ export function DemoTabContent({
       return;
     }
 
-    setBusy(`shared-revoke-${approver}`);
-    setError(null);
-    try {
-      const result = await api.revokeSharedIkaApprover({ owner, approver });
-      const signature = await signAndConfirmTransaction(result.transaction);
-      setSharedIkaApproval((prev) => {
-        if (!prev) return null;
-        const approvers = prev.approvers.filter((item) => item !== approver);
-        return approvers.length > 0
-          ? { threshold: Math.min(prev.threshold, approvers.length), approvers }
-          : null;
-      });
-      await refreshSharedIkaApproval();
-      addActivity({
-        status: 'setup',
-        message: `${t.revokeShared}: ${short(result.approver)} ${signature.slice(0, 8)}...`,
-        route: 'Contract revoke_shared_ika_approver',
-      });
-    } catch (err) {
-      recordError(err instanceof Error ? err.message : 'Failed to revoke shared Ika approver');
-    } finally {
-      setBusy(null);
-    }
+    setPendingConfirm({
+      action: t.revokeShared,
+      description: `${t.confirmRevokeShared}: ${short(approver)}.`,
+      onConfirm: async () => {
+        setBusy(`shared-revoke-${approver}`);
+        setError(null);
+        try {
+          const result = await api.revokeSharedIkaApprover({ owner, approver });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          setSharedIkaApproval((prev) => {
+            if (!prev) return null;
+            const approvers = prev.approvers.filter((item) => item !== approver);
+            return approvers.length > 0
+              ? { threshold: Math.min(prev.threshold, approvers.length), approvers }
+              : null;
+          });
+          await refreshSharedIkaApproval();
+          addActivity({
+            status: 'setup',
+            message: `${t.revokeShared}: ${short(result.approver)} ${signature.slice(0, 8)}...`,
+            route: 'Contract revoke_shared_ika_approver',
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to revoke shared Ika approver');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
   };
 
   const setRecoveryAuth = async () => {
     if (!owner || !recoveryDraft.recoveryAuthority.trim()) {
       return;
     }
-    setBusy('recovery-authority');
-    setError(null);
-    try {
-      const result = await api.setRecoveryAuthority({ owner, recoveryAuthority: recoveryDraft.recoveryAuthority.trim() });
-      const signature = await signAndConfirmTransaction(result.transaction);
-      setRecoveryAuthorityState(result.recoveryAuthority);
-      addActivity({
-        status: 'setup',
-        message: `${t.recoveryReady}: ${signature.slice(0, 8)}...`,
-        route: 'Contract set_recovery_authority',
-      });
-    } catch (err) {
-      recordError(err instanceof Error ? err.message : 'Failed to set recovery authority');
-    } finally {
-      setBusy(null);
-    }
+    setPendingConfirm({
+      action: t.recoverySetAuthority,
+      description: `${t.confirmRecoveryAuthority}: ${short(recoveryDraft.recoveryAuthority.trim())}.`,
+      onConfirm: async () => {
+        setBusy('recovery-authority');
+        setError(null);
+        try {
+          const result = await api.setRecoveryAuthority({ owner, recoveryAuthority: recoveryDraft.recoveryAuthority.trim() });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          setRecoveryAuthorityState(result.recoveryAuthority);
+          addActivity({
+            status: 'setup',
+            message: `${t.recoveryReady}: ${signature.slice(0, 8)}...`,
+            route: 'Contract set_recovery_authority',
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to set recovery authority');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
   };
 
   const runRecoveryAccess = async () => {
@@ -430,29 +476,34 @@ export function DemoTabContent({
       recordError(t.invalidSharedApprover);
       return;
     }
-
-    setBusy('recovery-access');
-    setError(null);
-    try {
-      const result = await api.recoverAccess({
-        owner,
-        authority: recoveryAuthority,
-        compromisedSessions,
-        sharedIkaThreshold: threshold,
-        sharedIkaApprovers: approvers,
-        pendingDwalletController: recoveryDraft.pendingDwalletController.trim(),
-      });
-      const signature = await signAndConfirmTransaction(result.transaction);
-      addActivity({
-        status: 'setup',
-        message: `Recovery: ${signature.slice(0, 8)}...`,
-        route: `Contract recover_wallet_access: ${result.activity.states.join(', ')}`,
-      });
-    } catch (err) {
-      recordError(err instanceof Error ? err.message : 'Failed to recover access');
-    } finally {
-      setBusy(null);
-    }
+    setPendingConfirm({
+      action: t.recoveryRecoveryAccess,
+      description: `${t.confirmRecoveryAccess}: ${compromisedSessions.length}.`,
+      onConfirm: async () => {
+        setBusy('recovery-access');
+        setError(null);
+        try {
+          const result = await api.recoverAccess({
+            owner,
+            authority: recoveryAuthority,
+            compromisedSessions,
+            sharedIkaThreshold: threshold,
+            sharedIkaApprovers: approvers,
+            pendingDwalletController: recoveryDraft.pendingDwalletController.trim(),
+          });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          addActivity({
+            status: 'setup',
+            message: `Recovery: ${signature.slice(0, 8)}...`,
+            route: `Contract recover_wallet_access: ${result.activity.states.join(', ')}`,
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to recover access');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
   };
 
   const isWebAuthnAvailable = () => typeof navigator !== 'undefined' && typeof navigator.credentials !== 'undefined';
@@ -668,6 +719,34 @@ export function DemoTabContent({
 
   return (
     <div className="space-y-6">
+      {pendingConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-5 shadow-xl">
+            <h3 className="mb-3 text-lg font-bold text-[var(--sea-ink)]">{t.confirmTitle}</h3>
+            <p className="mb-1 text-sm font-semibold text-[var(--sea-ink)]">{pendingConfirm.action}</p>
+            <p className="mb-5 text-sm text-[var(--sea-ink-soft)]">{pendingConfirm.description}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPendingConfirm(null)}
+                className="flex-1 rounded-lg border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink)] hover:bg-[var(--link-bg-hover)]"
+              >
+                {t.confirmCancel}
+              </button>
+              <button
+                onClick={() => {
+                  const cb = pendingConfirm.onConfirm;
+                  setPendingConfirm(null);
+                  cb();
+                }}
+                className="flex-1 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+              >
+                {t.confirmExecute}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <section className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1144,9 +1223,17 @@ export function DemoTabContent({
                 <label className="block">
                   <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.routeRiskSlippage ?? 'Slippage (bps)'}</span>
                   <input
+                    data-testid="route-risk-slippage"
                     type="number"
                     value={routeRiskDraft.slippageBps}
-                    onChange={(e) => setRouteRiskDraft((d) => ({ ...d, slippageBps: Number(e.target.value) }))}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setRouteRiskDraft((d) => ({ ...d, slippageBps: value }));
+                    }}
+                    onInput={(e) => {
+                      const value = Number(e.currentTarget.value);
+                      setRouteRiskDraft((d) => ({ ...d, slippageBps: value }));
+                    }}
                     min={0}
                     max={500}
                     className="w-full rounded-lg px-2 py-1 text-xs"
@@ -1155,9 +1242,17 @@ export function DemoTabContent({
                 <label className="block">
                   <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.routeRiskMaxPriceImpact ?? 'Max price impact (bps)'}</span>
                   <input
+                    data-testid="route-risk-price-impact"
                     type="number"
                     value={routeRiskDraft.maxPriceImpactBps}
-                    onChange={(e) => setRouteRiskDraft((d) => ({ ...d, maxPriceImpactBps: Number(e.target.value) }))}
+                    onChange={(e) => {
+                      const value = Number(e.target.value);
+                      setRouteRiskDraft((d) => ({ ...d, maxPriceImpactBps: value }));
+                    }}
+                    onInput={(e) => {
+                      const value = Number(e.currentTarget.value);
+                      setRouteRiskDraft((d) => ({ ...d, maxPriceImpactBps: value }));
+                    }}
                     min={0}
                     max={1000}
                     className="w-full rounded-lg px-2 py-1 text-xs"

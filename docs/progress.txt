@@ -53,9 +53,7 @@ Track alignment:
 
 ### Stretch
 
-### Stretch
-- `047-frontend-route-risk-guardrail-controls` — Add frontend route-risk controls for slippage, price impact, liquidity, and verified route policy.
-- `049-frontend-demo-command-center-polish` — Consolidate all frontend demo features into one command center after the prerequisite slices land.
+- None.
 
 ### Frontend Demo Scope
 
@@ -283,6 +281,9 @@ Track alignment:
 - [x] `047-frontend-route-risk-guardrail-controls` — Added frontend controls for public Ika route-risk guardrails. The strategy panel now includes compact controls for slippage (bps), max price impact (bps), minimum liquidity score (Low/Medium/High select), and verified-route requirement (checkbox). These values feed into the Ika `routeRisk` and `riskGuardrails` parameters sent to the proxy on each request.
   - Verification: `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with the existing Vitest/Vite shutdown-timeout warning; `bun run build` passes in `frontend/`.
   - Note: these are public route guardrails, not encrypted allowlist or confidential numeric policy values. Controls bind into `routeRiskDraft` state and are passed through `slippageBps`, `routeRisk`, and `riskGuardrails` on Ika requests.
+- [x] `049-frontend-demo-command-center-polish` — Consolidated the frontend demo checklist and signing UX into a single command-center flow. The checklist now tracks shared access, recovery readiness, Jupiter allow/block, Sui Ika approval, optional Ethereum Ika approval, route-risk block verification, and safe log review. Owner-signed custody, policy, shared approver configure/revoke, recovery authority, and recovery-access actions now show localized transaction summaries before signing.
+  - Verification: `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with 14 tests and the existing Vitest/Vite `module is not defined` plus close-timeout warnings; `bun run build` passes in `frontend/`.
+  - Note: no legacy public policy route was exposed in the primary UI. Policy values remain redacted after save, and Ika/Jupiter outputs stay preview/unsigned unless a separate flow explicitly signs or broadcasts.
 
 ### Planning
 

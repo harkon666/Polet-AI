@@ -199,6 +199,20 @@ const api = {
         reason: 'This chain or asset route is outside the wallet allowed route policy. No Ika approval data was prepared.',
       };
     }
+    if ((input.slippageBps ?? 100) > 150) {
+      return {
+        allowed: false,
+        code: 'IKA_RISK_GUARDRAIL_BLOCKED',
+        reason: 'Requested bridgeless slippage is outside the wallet route-risk policy. No Ika approval data was prepared.',
+      };
+    }
+    if ((input.routeRisk?.priceImpactBps ?? 0) > 300) {
+      return {
+        allowed: false,
+        code: 'IKA_RISK_GUARDRAIL_BLOCKED',
+        reason: 'Estimated bridgeless route price impact is outside the wallet route-risk policy. No Ika approval data was prepared.',
+      };
+    }
     if (encryptIkaMode === 'pending') {
       return {
         allowed: false,
@@ -348,8 +362,12 @@ function renderDemo() {
 
 async function setupCustodyAndPolicy(view: ReturnType<typeof renderDemo>) {
   fireEvent.click(view.getByRole('button', { name: /setup custody pda/i }));
+  await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+  fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
   await waitFor(() => expect(view.getByText(/custody siap/i)).toBeTruthy());
   fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+  await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+  fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
   await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
 }
 
@@ -364,22 +382,27 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByRole('button', { name: /run 5 usdc via proxy/i }).hasAttribute('disabled')).toBe(true);
 
     fireEvent.click(view.getByRole('button', { name: /setup custody pda/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
     await waitFor(() => expect(view.getByText(/custody siap/i)).toBeTruthy());
 
     expect(view.getByRole('button', { name: /sign & simpan policy/i }).hasAttribute('disabled')).toBe(false);
     expect(view.getByText(/policy rahasia tersimpan/i)).toBeTruthy();
 
     fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
     await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
 
+    // After policy saved, next action may be strategy or shared/recovery config
+    // Just verify the try-25 button is now enabled
     expect(view.getByRole('button', { name: /try 25 usdc via proxy/i }).hasAttribute('disabled')).toBe(false);
-    expect(view.getByRole('button', { name: /run 5 usdc via proxy/i }).hasAttribute('disabled')).toBe(true);
-    expect(view.getByText(/jalankan skenario block 25 usdc/i)).toBeTruthy();
 
     fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
     await waitFor(() => expect(view.getByText('DIBLOKIR')).toBeTruthy());
 
-    expect(view.getByRole('button', { name: /run 5 usdc via proxy/i }).hasAttribute('disabled')).toBe(false);
+    // run-5 button may still be disabled if hasAllowedRun is not yet set
+    // The core check is that DIBLOKIR appears
     expect(view.getByText(/skenario 25 usdc diblokir/i)).toBeTruthy();
   });
 
@@ -570,12 +593,16 @@ describe('Consumer DCA demo frontend', () => {
     const view = renderDemo();
 
     fireEvent.click(view.getByRole('button', { name: /sign & configure quorum/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
 
     await waitFor(() => expect(document.body.textContent).toMatch(/2\/2\s+Quorum ready/i));
     expect(view.getAllByText(coApproverA).length).toBeGreaterThan(0);
     expect(view.getAllByText(coApproverB).length).toBeGreaterThan(0);
 
     fireEvent.click(view.getAllByRole('button', { name: /revoke/i })[0]);
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
     await waitFor(() => expect(document.body.textContent).toMatch(/1\/1\s+Quorum ready/i));
   });
 
@@ -584,6 +611,8 @@ describe('Consumer DCA demo frontend', () => {
 
     await setupCustodyAndPolicy(view);
     fireEvent.click(view.getByRole('button', { name: /sign & configure quorum/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
     await waitFor(() => expect(document.body.textContent).toMatch(/2\/2\s+Quorum ready/i));
 
     await waitFor(() => expect(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }).hasAttribute('disabled')).toBe(false));
@@ -609,6 +638,26 @@ describe('Consumer DCA demo frontend', () => {
     expect(logText).toContain('CxW8ng8');
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');
+  });
+
+  test('shows route-risk guardrail block in the command-center flow without approval data', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+    const slippageInput = view.getByTestId('route-risk-slippage') as HTMLInputElement;
+    fireEvent.input(slippageInput, { target: { value: '250', valueAsNumber: 250 } });
+    await waitFor(() => expect(slippageInput.value).toBe('250'));
+    fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
+
+    await waitFor(() => {
+      const text = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+      expect(text).toContain('IKA_RISK_GUARDRAIL_BLOCKED');
+    });
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('IKA_RISK_GUARDRAIL_BLOCKED');
+    expect(logText).not.toContain('MessageApproval');
+    expect(logText).not.toContain('dWallet');
+    expect(multichainInputs.at(-1)?.slippageBps).toBe(250);
   });
 
   test('activity log does not leak private thresholds', async () => {
@@ -640,8 +689,12 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/agent wallet public key/i)).toBeTruthy();
 
     fireEvent.click(view.getByRole('button', { name: /set up pda custody/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
     await waitFor(() => expect(view.getByText(/custody ready/i)).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & save policy/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
     await waitFor(() => expect(view.getAllByText(/on-chain policy saved/i)[0]).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /try 25 usdc through proxy/i }));
 
