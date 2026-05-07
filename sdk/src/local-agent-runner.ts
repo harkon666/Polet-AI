@@ -18,7 +18,7 @@ async function main() {
     owner,
     sessionKey,
     proxyUrl,
-    ...(witness && { encryptionWitness: witness }),
+    ...(witness && { maskedWitnessDevFixture: witness }),
   });
 
   if (scenario === 'hybrid') {

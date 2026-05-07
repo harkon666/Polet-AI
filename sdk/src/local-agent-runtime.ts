@@ -13,7 +13,7 @@ export interface LocalAgentRuntimeConfig {
   owner: string;
   sessionKey: string;
   proxyUrl: string;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   slippageBps?: number;
   fetch?: typeof fetch;
 }
@@ -142,7 +142,7 @@ export class LocalAgentRuntime {
       owner: this.config.owner,
       sessionKey: this.config.sessionKey,
       amountUsdc: input.amountUsdc ?? defaultScenarioAmount(scenario),
-      ...(this.config.encryptionWitness && { encryptionWitness: this.config.encryptionWitness }),
+      ...(this.config.maskedWitnessDevFixture && { maskedWitnessDevFixture: this.config.maskedWitnessDevFixture }),
       slippageBps: this.config.slippageBps ?? 100,
       ...(input.intentId && { intentId: input.intentId }),
     });
@@ -159,7 +159,7 @@ export class LocalAgentRuntime {
       amount: input.amountUsdc ?? defaultScenarioAmount('allow'),
       executionRail: 'ika',
       strategy: 'dca',
-      ...(this.config.encryptionWitness && { encryptionWitness: this.config.encryptionWitness }),
+      ...(this.config.maskedWitnessDevFixture && { maskedWitnessDevFixture: this.config.maskedWitnessDevFixture }),
       slippageBps: this.config.slippageBps ?? 100,
       ...(input.intentId && { intentId: input.intentId }),
     });

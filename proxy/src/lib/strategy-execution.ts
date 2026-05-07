@@ -46,7 +46,7 @@ export interface GuardedStrategyContext<TPrepared = undefined> {
   owner: string;
   sessionKey: string;
   amountBaseUnits: bigint;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   encryptPolicy?: OfficialEncryptPolicyExecution;
   prepared: TPrepared;
 }
@@ -55,7 +55,7 @@ export interface ExecuteGuardedStrategyRequest<TPrepared, TPayload> {
   owner: string;
   sessionKey: string;
   amountBaseUnits: bigint;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   blockedReason: string;
   requireDemoCustody?: boolean;
   prepare?: (context: GuardedStrategyContext) => Promise<TPrepared>;
@@ -109,7 +109,7 @@ export async function executeGuardedStrategy<TPrepared, TPayload>(
     owner: request.owner,
     sessionKey: request.sessionKey,
     amountBaseUnits: request.amountBaseUnits,
-    encryptionWitness: request.encryptionWitness,
+    maskedWitnessDevFixture: request.maskedWitnessDevFixture,
     encryptPolicy: undefined,
     prepared: undefined,
   };
@@ -164,7 +164,7 @@ export async function executeGuardedStrategy<TPrepared, TPayload>(
   const policyResult = evaluateConfidentialNumericPolicy(
     wallet,
     request.amountBaseUnits,
-    requireMaskedWitnessDevFixture(request.encryptionWitness),
+    requireMaskedWitnessDevFixture(request.maskedWitnessDevFixture),
     deps.todayIndex?.() ?? currentDayIndex(),
     { blockedReason: request.blockedReason }
   );
@@ -181,14 +181,14 @@ export async function executeGuardedStrategy<TPrepared, TPayload>(
   };
 }
 
-function requireMaskedWitnessDevFixture(encryptionWitness: number[] | undefined): number[] {
-  if (!Array.isArray(encryptionWitness) || encryptionWitness.length !== 32) {
+function requireMaskedWitnessDevFixture(maskedWitnessDevFixture: number[] | undefined): number[] {
+  if (!Array.isArray(maskedWitnessDevFixture) || maskedWitnessDevFixture.length !== 32) {
     throw new StrategyExecutionError(
-      'maskedWitnessDevFixture must contain 32 bytes when no official Encrypt ciphertext policy is configured.',
+      'maskedWitnessDevFixture must be exactly 32 bytes for legacy masked-witness execution. (This is a dev fixture only)',
       'INVALID_POLICY_WITNESS'
     );
   }
-  return encryptionWitness;
+  return maskedWitnessDevFixture;
 }
 
 function validateSession(wallet: WalletData, sessionKey: string, now: number): GuardedStrategyBlocked | { allowed: true } {

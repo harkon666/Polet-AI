@@ -132,7 +132,7 @@ describe('Transaction Builder', () => {
         amount: 5_000_000n,
         attestationSlot: 9n,
         attestationPolicySeq: 3n,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
       });
 
       expect(data.subarray(0, 8)).toEqual(EXECUTE_CONFIDENTIAL_TRANSFER_AS_SESSION_DISCRIMINATOR);
@@ -156,7 +156,7 @@ describe('Transaction Builder', () => {
         amount: 5_000_000n,
         attestationSlot: 9n,
         attestationPolicySeq: 3n,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
       };
 
       expect(buildExecuteConfidentialTransferInstructionData(request)).toEqual(
@@ -191,8 +191,8 @@ describe('Transaction Builder', () => {
         amount: 1n,
         attestationSlot: 1n,
         attestationPolicySeq: 1n,
-        encryptionWitness: [1, 2, 3],
-      })).toThrow('encryptionWitness must contain exactly 32 bytes');
+        maskedWitnessDevFixture: [1, 2, 3],
+      })).toThrow('maskedWitnessDevFixture must contain exactly 32 bytes');
       expect(() => buildTransferIntentPayload(destination, -1n)).toThrow('u64 value out of range');
     });
   });
@@ -209,7 +209,7 @@ describe('Transaction Builder', () => {
       expect(data.readBigInt64LE(48)).toBe(1_700_000_600n);
       expect(data.readBigUInt64LE(56)).toBe(9n);
       expect(data.readBigUInt64LE(64)).toBe(7n);
-      expect(Array.from(data.subarray(72, 104))).toEqual(request.encryptionWitness as number[]);
+      expect(Array.from(data.subarray(72, 104))).toEqual(request.maskedWitnessDevFixture as number[]);
       expect(data.subarray(104, 136)).toEqual(Buffer.from(user.toBytes()));
       expect(data.readUInt16LE(136)).toBe(5);
       expect(data.readUInt8(138)).toBe(201);
@@ -477,7 +477,7 @@ function createApproveIkaRequest(overrides: Partial<Parameters<typeof buildAppro
     orderExpiresAt: 1_700_000_600n,
     attestationSlot: 9n,
     attestationPolicySeq: 7n,
-    encryptionWitness: Array.from({ length: 32 }, (_, index) => index + 1),
+    maskedWitnessDevFixture: Array.from({ length: 32 }, (_, index) => index + 1),
     userPubkey: Keypair.generate().publicKey.toString(),
     signatureScheme: 5,
     messageApprovalBump: 201,

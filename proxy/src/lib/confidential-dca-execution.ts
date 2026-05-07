@@ -34,7 +34,7 @@ export interface ConfidentialDcaRunRequest {
   inputMint?: string;
   outputMint?: string;
   slippageBps?: number;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }
@@ -109,7 +109,7 @@ export async function runConfidentialDcaExecution(
         owner: request.owner,
         sessionKey: request.sessionKey,
         amountBaseUnits,
-        encryptionWitness: request.encryptionWitness,
+        maskedWitnessDevFixture: request.maskedWitnessDevFixture,
         blockedReason: 'Confidential policy blocked this DCA run.',
         requireDemoCustody: true,
         prepare: async ({ wallet }) => {
@@ -134,16 +134,18 @@ export async function runConfidentialDcaExecution(
         },
         buildAllowed: async ({ wallet, prepared, encryptPolicy }) => {
           const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
+          const destinationTokenAccount = request.destinationTokenAccount ?? wallet.demoCustody.solTokenAccount;
+          const txRequest: ConfidentialTransferTransactionRequest = {
+            wallet: smartWalletAuthority,
+            sessionKey: request.sessionKey,
+            destination: destinationTokenAccount,
+            amount: amountBaseUnits,
+            attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
+            attestationPolicySeq: wallet.policySeq,
+            maskedWitnessDevFixture: request.maskedWitnessDevFixture ?? [],
+          };
           const transaction = await (deps.buildTransaction ?? buildConfidentialTransferSessionTransaction)(
-            {
-              wallet: smartWalletAuthority,
-              sessionKey: request.sessionKey,
-              destination: request.destinationTokenAccount ?? wallet.demoCustody.solTokenAccount,
-              amount: amountBaseUnits,
-              attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
-              attestationPolicySeq: wallet.policySeq,
-              encryptionWitness: request.encryptionWitness ?? [],
-            },
+            txRequest,
             PROGRAM_ID_STRING
           );
 
@@ -199,7 +201,7 @@ function validateRunRequest(request: ConfidentialDcaRunRequest): void {
   if (request.amount === undefined && request.amountUsdc === undefined) {
     throw new ConfidentialDcaExecutionError('amountUsdc is required', 'INVALID_DCA_REQUEST');
   }
-  if (request.encryptionWitness !== undefined && (!Array.isArray(request.encryptionWitness) || request.encryptionWitness.length !== 32)) {
+  if (request.maskedWitnessDevFixture !== undefined && (!Array.isArray(request.maskedWitnessDevFixture) || request.maskedWitnessDevFixture.length !== 32)) {
     throw new ConfidentialDcaExecutionError('maskedWitnessDevFixture must contain 32 bytes when provided', 'INVALID_DCA_REQUEST');
   }
 }

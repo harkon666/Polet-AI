@@ -124,7 +124,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
         sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
         amountUsdc: 5,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
         slippageBps: 75,
         intentId: 'dca-demo-1',
       });
@@ -134,7 +134,7 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(intent.params.amountUsdc).toBe(5);
       expect(intent.params.inputMint).toBe(JUPITER_USDC_MINT);
       expect(intent.params.outputMint).toBe(JUPITER_SOL_MINT);
-      expect(intent.params.encryptionWitness).toEqual(witness);
+      expect(intent.params.maskedWitnessDevFixture).toEqual(witness);
       expect(intent.params.slippageBps).toBe(75);
       expect(isValidIntent(intent)).toBe(true);
     });
@@ -154,7 +154,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         targetMint: JUPITER_SOL_MINT,
         amount: '5',
         executionRail: 'jupiter',
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
         intentId: 'multichain-1',
       });
 
@@ -166,7 +166,7 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(intent.params.targetAsset).toBe('SOL');
       expect(intent.params.amount).toBe('5');
       expect(intent.params.executionRail).toBe('jupiter');
-      expect(intent.params.encryptionWitness).toEqual(witness);
+      expect(intent.params.maskedWitnessDevFixture).toEqual(witness);
       expect(isValidIntent(intent)).toBe(true);
     });
 
@@ -180,7 +180,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         targetAsset: 'SUI',
         amount: '5',
         executionRail: 'ika',
-        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 1),
         ikaPreAlpha: {
           dwalletAccount: 'DwALLET1111111111111111111111111111111111',
           dwalletCurve: 2,
@@ -209,7 +209,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         targetAsset: 'SUI',
         amount: '5',
         executionRail: 'ika',
-        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 1),
         routeGuardrails: {
           mode: 'chain-asset-allowlist',
           allowedSourceChains: ['solana'],
@@ -238,7 +238,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         targetAsset: 'SUI',
         amount: '5',
         executionRail: 'ika',
-        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 1),
         slippageBps: 125,
         routeRisk: {
           priceImpactBps: 120,
@@ -573,7 +573,7 @@ describe('Polet AI SDK - Intent Builder', () => {
           owner: 'owner-1',
           sessionKey: 'session-1',
           amountUsdc: '5',
-          encryptionWitness: Array.from({ length: 32 }, () => 1),
+          maskedWitnessDevFixture: Array.from({ length: 32 }, () => 1),
         }),
         { baseUrl: 'https://proxy.polet.ai', fetch: fetchMock }
       );
@@ -608,7 +608,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         targetAsset: 'SOL',
         amount: '5',
         executionRail: 'jupiter',
-        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 1),
       });
 
       const result = await submitIntent(intent, {
@@ -808,7 +808,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey,
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 1),
       });
 
       expect(kit.validateConfig()).toEqual({ ok: true, missing: [], invalid: [] });
@@ -835,7 +835,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         owner: 'not-a-pubkey',
         sessionKey: '',
         baseUrl: 'not-url',
-        encryptionWitness: [1, 2, 3],
+        maskedWitnessDevFixture: [1, 2, 3],
       } as unknown as Parameters<typeof createPoletAgentKit>[0]);
 
       const validation = kit.validateConfig();
@@ -870,7 +870,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: Keypair.generate().publicKey.toString(),
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
       });
       const tradeTool = kit.tools().find((candidate) => candidate.name === 'polet_trade');
 
@@ -879,7 +879,7 @@ describe('Polet AI SDK - Intent Builder', () => {
       expect(result.status).toBe('blocked');
       expect(result.ok).toBe(false);
       expect(JSON.stringify(result)).not.toContain('9,9,9');
-      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
     });
 
     test('agent kit sign/send tool returns signer-required unless explicit session signer is configured', async () => {
@@ -976,7 +976,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: Array.from({ length: 32 }, () => 7),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 7),
       });
 
       const result = await polet.trade({ from: 'USDC', to: 'SOL', amount: '5' });
@@ -996,7 +996,7 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
     });
 
-    test('omits encryptionWitness from default Jupiter trade requests', async () => {
+    test('omits maskedWitnessDevFixture from default Jupiter trade requests', async () => {
       const requests: Array<{ body: unknown }> = [];
       const fetchMock = async (_input: URL | RequestInfo, init?: RequestInit) => {
         requests.push({ body: JSON.parse(init?.body?.toString() ?? '{}') });
@@ -1020,7 +1020,7 @@ describe('Polet AI SDK - Intent Builder', () => {
 
       await polet.trade({ from: 'USDC', to: 'SOL', amount: '5' });
 
-      expect(JSON.stringify(requests[0].body)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(requests[0].body)).not.toContain('maskedWitnessDevFixture');
     });
 
     test('submits an explicit Ika trade through the multichain adapter', async () => {
@@ -1072,7 +1072,7 @@ describe('Polet AI SDK - Intent Builder', () => {
           minLiquidityScore: 'medium',
           requireVerifiedRoute: true,
         },
-        encryptionWitness: Array.from({ length: 32 }, () => 3),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 3),
       });
 
       expect(result.allowed).toBe(true);
@@ -1109,7 +1109,7 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
     });
 
-    test('omits encryptionWitness from default Ika trade requests', async () => {
+    test('omits maskedWitnessDevFixture from default Ika trade requests', async () => {
       const requests: Array<{ body: unknown }> = [];
       const fetchMock = async (_input: URL | RequestInfo, init?: RequestInit) => {
         requests.push({ body: JSON.parse(init?.body?.toString() ?? '{}') });
@@ -1138,7 +1138,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         amount: '5',
       });
 
-      expect(JSON.stringify(requests[0].body)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(requests[0].body)).not.toContain('maskedWitnessDevFixture');
       expect(JSON.stringify(requests[0].body)).not.toContain('1,2,3');
     });
 
@@ -1190,7 +1190,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: Array.from({ length: 32 }, () => 2),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 2),
       });
 
       const result = await polet.trade({
@@ -1286,7 +1286,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: Array.from({ length: 32 }, () => 6),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 6),
       });
 
       const result = await polet.trade({
@@ -1362,7 +1362,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: Array.from({ length: 32 }, () => 8),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 8),
       });
 
       const result = await polet.trade({
@@ -1423,7 +1423,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
       });
 
       const result = await polet.trade({
@@ -1474,7 +1474,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
       });
 
       const result = await polet.trade({
@@ -1522,7 +1522,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
       });
 
       const result = await polet.trade({
@@ -1572,7 +1572,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: Array.from({ length: 32 }, () => 4),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 4),
       });
 
       const result = await polet.trade({
@@ -1607,7 +1607,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
       });
 
       const result = await polet.trade({ from: 'USDC', to: 'SOL', amount: '25' });
@@ -1629,7 +1629,7 @@ describe('Polet AI SDK - Intent Builder', () => {
           requestCount += 1;
           return Response.json({ success: true });
         },
-        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 1),
       });
 
       const result = await polet.trade({
@@ -1656,7 +1656,7 @@ describe('Polet AI SDK - Intent Builder', () => {
           requestCount += 1;
           return Response.json({ success: true });
         },
-        encryptionWitness: Array.from({ length: 32 }, () => 1),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 1),
       });
 
       const result = await polet.trade({
@@ -1685,7 +1685,7 @@ describe('Polet AI SDK - Intent Builder', () => {
         sessionKey: 'session-1',
         baseUrl: 'https://proxy.polet.ai',
         fetch: fetchMock,
-        encryptionWitness: Array.from({ length: 32 }, () => 9),
+        maskedWitnessDevFixture: Array.from({ length: 32 }, () => 9),
       });
 
       const result = await polet.trade({

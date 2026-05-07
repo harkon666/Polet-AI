@@ -48,7 +48,7 @@ test.describe('consumer confidential DCA demo', () => {
     const activityLog = page.locator('section').filter({ hasText: /activity log/i }).last();
     await expect(activityLog).not.toContainText('10 USDC');
     await expect(activityLog).not.toContainText('20 USDC');
-    await expect(activityLog).not.toContainText(/remaining cap|max per run 10|daily cap 20|witness:|encryptionWitness/i);
+    await expect(activityLog).not.toContainText(/remaining cap|max per run 10|daily cap 20|witness:|maskedWitnessDevFixture/i);
 
     await expect(allowRun).toBeEnabled();
     await allowRun.click();
@@ -86,7 +86,7 @@ test.describe('consumer confidential DCA demo', () => {
     activityLog = page.getByTestId('activity-log-panel');
     await expect(activityLog).not.toContainText('10 USDC');
     await expect(activityLog).not.toContainText('20 USDC');
-    await expect(activityLog).not.toContainText(/remaining cap|max per run 10|daily cap 20|witness:|encryptionWitness/i);
+    await expect(activityLog).not.toContainText(/remaining cap|max per run 10|daily cap 20|witness:|maskedWitnessDevFixture/i);
   });
 
   test('keeps the checklist readable at the active viewport width', async ({ page }) => {

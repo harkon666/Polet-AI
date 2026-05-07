@@ -33,10 +33,10 @@ export type ConfidentialNumericPolicyEvaluation =
 export function buildConfidentialNumericPolicySetup(input: {
   maxPerRunUsdc: unknown;
   dailyCapUsdc: unknown;
-  encryptionWitness: number[] | Uint8Array;
+  maskedWitnessDevFixture: number[] | Uint8Array;
   spentDayIndex?: bigint | number;
 }): ConfidentialNumericPolicySetup {
-  const witness = normalizeWitness(input.encryptionWitness);
+  const witness = normalizeWitness(input.maskedWitnessDevFixture);
   const witnessHash = hashWitness(witness);
   const encryptedMaxPerRun = encryptAmount(parseUsdcAmount(input.maxPerRunUsdc), witness);
   const encryptedDailyCap = encryptAmount(parseUsdcAmount(input.dailyCapUsdc), witness);
@@ -63,7 +63,7 @@ export function buildConfidentialNumericPolicySetup(input: {
 export function evaluateConfidentialNumericPolicy(
   wallet: Pick<WalletData, 'confidentialPolicy'>,
   amountBaseUnits: bigint,
-  encryptionWitness: number[] | Uint8Array,
+  maskedWitnessDevFixture: number[] | Uint8Array,
   today: number = currentDayIndex(),
   options: ConfidentialNumericPolicyEvaluationOptions = {
     blockedReason: 'Confidential policy blocked this action.',
@@ -78,7 +78,7 @@ export function evaluateConfidentialNumericPolicy(
     };
   }
 
-  const witness = normalizeWitness(encryptionWitness);
+  const witness = normalizeWitness(maskedWitnessDevFixture);
   if (!byteArraysEqual(hashWitness(witness), policy.encryptionWitnessHash)) {
     return {
       allowed: false,
@@ -115,20 +115,20 @@ export function parseUsdcAmount(value: unknown): bigint {
   return baseUnits;
 }
 
-export function encodeConfidentialAmount(amountBaseUnits: bigint, encryptionWitness: number[] | Uint8Array): bigint {
-  return encryptAmount(amountBaseUnits, normalizeWitness(encryptionWitness));
+export function encodeConfidentialAmount(amountBaseUnits: bigint, maskedWitnessDevFixture: number[] | Uint8Array): bigint {
+  return encryptAmount(amountBaseUnits, normalizeWitness(maskedWitnessDevFixture));
 }
 
 export function currentDayIndex(): number {
   return Math.floor(Math.floor(Date.now() / 1000) / 86_400);
 }
 
-function normalizeWitness(encryptionWitness: number[] | Uint8Array): Uint8Array {
-  const witness = encryptionWitness instanceof Uint8Array
-    ? encryptionWitness
-    : Uint8Array.from(encryptionWitness);
+function normalizeWitness(maskedWitnessDevFixture: number[] | Uint8Array): Uint8Array {
+  const witness = maskedWitnessDevFixture instanceof Uint8Array
+    ? maskedWitnessDevFixture
+    : Uint8Array.from(maskedWitnessDevFixture);
   if (witness.length !== 32) {
-    throw new Error('encryptionWitness must contain 32 bytes');
+    throw new Error('maskedWitnessDevFixture must contain 32 bytes');
   }
   return witness;
 }

@@ -143,7 +143,7 @@ export interface DcaParams {
   inputMint: string;
   outputMint: string;
   slippageBps?: number;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }
@@ -165,7 +165,7 @@ export interface MultichainStrategyParams {
   executionRail: PoletExecutionRail;
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
   routeGuardrails?: ChainAssetAllowlistPolicy;
@@ -359,7 +359,7 @@ export interface DcaIntentInput {
   owner: string;
   sessionKey: string;
   amountUsdc: number | string;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   inputMint?: string;
   outputMint?: string;
   slippageBps?: number;
@@ -378,7 +378,7 @@ export interface MultichainStrategyIntentInput {
   targetAsset: string;
   amount: number | string;
   executionRail: PoletExecutionRail;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   sourceMint?: string;
   targetMint?: string;
   strategy?: 'dca' | 'swap';
@@ -512,7 +512,7 @@ export function createDcaIntent(input: DcaIntentInput): DcaIntent {
       amountUsdc: input.amountUsdc,
       inputMint: input.inputMint ?? JUPITER_USDC_MINT,
       outputMint: input.outputMint ?? JUPITER_SOL_MINT,
-      ...(input.encryptionWitness && { encryptionWitness: input.encryptionWitness }),
+      ...(input.maskedWitnessDevFixture && { maskedWitnessDevFixture: input.maskedWitnessDevFixture }),
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
       ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
       ...(input.nativeDestinationAccount && { nativeDestinationAccount: input.nativeDestinationAccount }),
@@ -542,7 +542,7 @@ export function createMultichainStrategyIntent(input: MultichainStrategyIntentIn
       amount: input.amount,
       executionRail: input.executionRail,
       strategy: input.strategy ?? 'dca',
-      ...(input.encryptionWitness && { encryptionWitness: input.encryptionWitness }),
+      ...(input.maskedWitnessDevFixture && { maskedWitnessDevFixture: input.maskedWitnessDevFixture }),
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
       ...(input.ikaPreAlpha && { ikaPreAlpha: input.ikaPreAlpha }),
       ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
@@ -735,7 +735,7 @@ export type PoletTradeAsset = string | ChainAsset;
 export interface PoletAgentOptions extends ProxyClientOptions {
   owner: string;
   sessionKey: string;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
 }
 
 export interface SimplePoletTradeInput {
@@ -750,7 +750,7 @@ export interface SimplePoletTradeInput {
   routeGuardrails?: ChainAssetAllowlistPolicy;
   routeRisk?: BridgelessRouteRisk;
   riskGuardrails?: BridgelessRiskGuardrailPolicy;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
   policyHash?: string;
@@ -769,7 +769,7 @@ export interface ExplicitPoletTradeInput {
   routeGuardrails?: ChainAssetAllowlistPolicy;
   routeRisk?: BridgelessRouteRisk;
   riskGuardrails?: BridgelessRiskGuardrailPolicy;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
   policyHash?: string;
@@ -1081,8 +1081,8 @@ function validatePoletAgentKitConfig(options: PoletAgentKitOptions): PoletAgentK
   if (!options.sessionKey) missing.push(diagnostic('sessionKey', 'MISSING_SESSION_KEY', 'Session key public key is required.'));
   else if (!isValidPublicKey(options.sessionKey)) invalid.push(diagnostic('sessionKey', 'INVALID_SESSION_KEY', 'Session key must be a Solana public key.'));
 
-  if (options.encryptionWitness !== undefined && !isEncryptionWitness(options.encryptionWitness)) {
-    invalid.push(diagnostic('encryptionWitness', 'INVALID_ENCRYPTION_WITNESS', 'Encryption witness must be 32 bytes when configured.'));
+  if (options.maskedWitnessDevFixture !== undefined && !isMaskedWitnessDevFixture(options.maskedWitnessDevFixture)) {
+    invalid.push(diagnostic('maskedWitnessDevFixture', 'INVALID_ENCRYPTION_WITNESS', 'Encryption witness must be 32 bytes when configured.'));
   }
 
   if (options.rpcUrl !== undefined) {
@@ -1315,7 +1315,7 @@ function toDcaRunRequest(intent: DcaIntent): Record<string, unknown> {
     amountUsdc: intent.params.amountUsdc,
     inputMint: intent.params.inputMint,
     outputMint: intent.params.outputMint,
-    encryptionWitness: intent.params.encryptionWitness,
+    maskedWitnessDevFixture: intent.params.maskedWitnessDevFixture,
     ...(intent.params.slippageBps !== undefined && { slippageBps: intent.params.slippageBps }),
     ...(intent.params.destinationTokenAccount && { destinationTokenAccount: intent.params.destinationTokenAccount }),
     ...(intent.params.nativeDestinationAccount && { nativeDestinationAccount: intent.params.nativeDestinationAccount }),
@@ -1370,8 +1370,8 @@ async function tradeWithJupiter(input: PoletTradeInput, options: PoletAgentOptio
     return notSupportedTradeResult('jupiter', 'Only Solana USDC -> SOL DCA is supported on the Jupiter adapter in this MVP slice.');
   }
 
-  const witness = input.encryptionWitness ?? options.encryptionWitness;
-  if (witness !== undefined && !isEncryptionWitness(witness)) {
+  const witness = input.maskedWitnessDevFixture ?? options.maskedWitnessDevFixture;
+  if (witness !== undefined && !isMaskedWitnessDevFixture(witness)) {
     return notSupportedTradeResult('jupiter', 'maskedWitnessDevFixture must contain 32 bytes when provided.');
   }
 
@@ -1379,7 +1379,7 @@ async function tradeWithJupiter(input: PoletTradeInput, options: PoletAgentOptio
     owner: options.owner,
     sessionKey: options.sessionKey,
     amountUsdc: input.amount,
-    ...(witness ? { encryptionWitness: witness } : {}),
+    ...(witness ? { maskedWitnessDevFixture: witness } : {}),
     inputMint: from.mint ?? JUPITER_USDC_MINT,
     outputMint: to.mint ?? JUPITER_SOL_MINT,
     slippageBps: input.slippageBps,
@@ -1405,8 +1405,8 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
     return notSupportedTradeResult('ika', 'Only Solana USDC -> Sui SUI or Ethereum ETH is supported on the Ika adapter in this MVP slice.');
   }
 
-  const witness = input.encryptionWitness ?? options.encryptionWitness;
-  if (witness !== undefined && !isEncryptionWitness(witness)) {
+  const witness = input.maskedWitnessDevFixture ?? options.maskedWitnessDevFixture;
+  if (witness !== undefined && !isMaskedWitnessDevFixture(witness)) {
     return notSupportedTradeResult('ika', 'maskedWitnessDevFixture must contain 32 bytes when provided.');
   }
 
@@ -1422,7 +1422,7 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
     amount: input.amount,
     executionRail: 'ika',
     strategy: input.strategy ?? 'dca',
-    ...(witness ? { encryptionWitness: witness } : {}),
+    ...(witness ? { maskedWitnessDevFixture: witness } : {}),
     slippageBps: input.slippageBps,
     ikaPreAlpha: input.ikaPreAlpha,
     sharedAccess: input.sharedAccess,
@@ -1707,7 +1707,7 @@ function isSupportedJupiterDca(from: ChainAsset, to: ChainAsset, strategy: 'dca'
   );
 }
 
-function isEncryptionWitness(value: unknown): value is number[] {
+function isMaskedWitnessDevFixture(value: unknown): value is number[] {
   return Array.isArray(value)
     && value.length === 32
     && value.every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 255);
@@ -1738,7 +1738,7 @@ function isSupportedIkaDestination(from: ChainAsset, to: ChainAsset): boolean {
 
 function redactIntent<TIntent extends PoletIntent>(intent: TIntent): RedactedPoletIntent {
   const params = { ...(intent.params as unknown as Record<string, unknown>) };
-  delete params.encryptionWitness;
+  delete params.maskedWitnessDevFixture;
 
   return {
     ...intent,

@@ -20,7 +20,7 @@ describe('strategy execution interface', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountBaseUnits: 5_000_000n,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
         blockedReason: 'Confidential policy blocked this strategy.',
         prepare: async ({ wallet, amountBaseUnits }) => {
           calls.push(`prepare:${wallet.walletPda}:${amountBaseUnits}`);
@@ -52,7 +52,7 @@ describe('strategy execution interface', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountBaseUnits: 25_000_000n,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
         blockedReason: 'Confidential policy blocked this strategy.',
         prepare: async () => {
           calls.push('prepare');
@@ -91,7 +91,7 @@ describe('strategy execution interface', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountBaseUnits: 5_000_000n,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
         blockedReason: 'Confidential policy blocked this strategy.',
         prepare: async () => {
           calls.push('prepare');
@@ -125,7 +125,7 @@ function createFixture(options: {
   const policySetup = buildConfidentialNumericPolicySetup({
     maxPerRunUsdc: '10',
     dailyCapUsdc: '20',
-    encryptionWitness: witness,
+    maskedWitnessDevFixture: witness,
   });
   const wallet: WalletData = {
     walletPda,

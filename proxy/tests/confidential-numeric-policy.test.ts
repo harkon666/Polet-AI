@@ -13,7 +13,7 @@ describe('Confidential numeric policy module', () => {
     const setup = buildConfidentialNumericPolicySetup({
       maxPerRunUsdc: '10',
       dailyCapUsdc: '20',
-      encryptionWitness: witness,
+      maskedWitnessDevFixture: witness,
       spentDayIndex: 123,
     });
     const wallet = walletWithPolicy(setup, 123);
@@ -37,7 +37,7 @@ describe('Confidential numeric policy module', () => {
     const setup = buildConfidentialNumericPolicySetup({
       maxPerRunUsdc: '10',
       dailyCapUsdc: '20',
-      encryptionWitness: witness,
+      maskedWitnessDevFixture: witness,
       spentDayIndex: 123,
     });
     const wallet = walletWithPolicy(setup, 123);

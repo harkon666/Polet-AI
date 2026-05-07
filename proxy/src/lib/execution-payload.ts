@@ -19,7 +19,7 @@ export interface ConfidentialTransferPayloadRequest {
   amount: number | bigint;
   attestationSlot: number | bigint;
   attestationPolicySeq: number | bigint;
-  encryptionWitness: Uint8Array | number[];
+  maskedWitnessDevFixture: Uint8Array | number[];
 }
 
 export interface ConfidentialTransferAccountRequest {
@@ -41,10 +41,10 @@ export function buildExecuteConfidentialTransferPayload(
   request: ConfidentialTransferPayloadRequest
 ): Buffer {
   const intentData = buildTransferIntentPayload(request.destination, request.amount);
-  const witness = Buffer.from(request.encryptionWitness);
+  const witness = Buffer.from(request.maskedWitnessDevFixture);
 
   if (witness.length !== EXECUTE_CONFIDENTIAL_TRANSFER_WITNESS_LENGTH) {
-    throw new Error('encryptionWitness must contain exactly 32 bytes');
+    throw new Error('maskedWitnessDevFixture must contain exactly 32 bytes');
   }
 
   return Buffer.concat([

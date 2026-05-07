@@ -320,19 +320,19 @@ walletRouter.post('/grant-key', async (c) => {
  */
 walletRouter.post('/set-confidential-policy', async (c) => {
   try {
-    const { owner, maxPerRunUsdc, dailyCapUsdc, encryptionWitness } = await c.req.json();
+    const { owner, maxPerRunUsdc, dailyCapUsdc, maskedWitnessDevFixture } = await c.req.json();
     if (!owner || maxPerRunUsdc === undefined || dailyCapUsdc === undefined) {
       return c.json({ success: false, error: 'owner, maxPerRunUsdc, and dailyCapUsdc are required' }, 400);
     }
-    if (!Array.isArray(encryptionWitness) || encryptionWitness.length !== 32) {
-      return c.json({ success: false, error: 'encryptionWitness must contain 32 bytes' }, 400);
+    if (!Array.isArray(maskedWitnessDevFixture) || maskedWitnessDevFixture.length !== 32) {
+      return c.json({ success: false, error: 'maskedWitnessDevFixture must contain 32 bytes' }, 400);
     }
     const ownerPubkey = new PublicKey(owner);
     const walletPda = deriveWalletPda(ownerPubkey);
     const policySetup = buildConfidentialNumericPolicySetup({
       maxPerRunUsdc,
       dailyCapUsdc,
-      encryptionWitness,
+      maskedWitnessDevFixture,
     });
 
     const program = getProgram();

@@ -401,7 +401,7 @@ describe('Ika bridgeless execution request', () => {
   test('official Encrypt Ika path accepts no witness and returns pending lifecycle', async () => {
     const fixture = createFixture({ officialEncrypt: 'pending' });
     const intent = createIkaIntent(fixture, '5');
-    delete (intent.params as { encryptionWitness?: number[] }).encryptionWitness;
+    delete (intent.params as { maskedWitnessDevFixture?: number[] }).maskedWitnessDevFixture;
 
     const result = await createIkaBridgelessExecutionRequest(intent, {
       getWalletData: async () => fixture.wallet,
@@ -413,7 +413,7 @@ describe('Ika bridgeless execution request', () => {
     expect(result.allowed).toBe(false);
     if (!result.allowed) {
       expect(result.status).toBe('pending-encrypt-execution');
-      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
       expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
       expect('ikaRequest' in result).toBe(false);
     }
@@ -482,7 +482,7 @@ describe('Ika bridgeless execution request', () => {
   test('official Encrypt verified-allowed Ika request does not require witness in API input', async () => {
     const fixture = createFixture({ officialEncrypt: 'pending' });
     const intent = createIkaIntent(fixture, '5');
-    delete (intent.params as { encryptionWitness?: number[] }).encryptionWitness;
+    delete (intent.params as { maskedWitnessDevFixture?: number[] }).maskedWitnessDevFixture;
 
     const result = await createIkaBridgelessExecutionRequest(intent, {
       getWalletData: async () => fixture.wallet,
@@ -501,7 +501,7 @@ describe('Ika bridgeless execution request', () => {
     expect(result.allowed).toBe(true);
     if (result.allowed) {
       expect(result.ikaRequest.policyAttestation.status).toBe('encrypt-verified-allowed');
-      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
     }
   });
 
@@ -909,7 +909,7 @@ describe('Ika bridgeless execution request', () => {
         orderExpiresAt: result.ikaRequest.canonicalOrder.expiresAtUnix,
         attestationSlot: BigInt(fixture.wallet.lastRevokedSlot) + 1n,
         attestationPolicySeq: fixture.wallet.policySeq,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
         userPubkey: fixture.owner,
         signatureScheme: 5,
       });
@@ -940,7 +940,7 @@ function createIkaIntent(
       executionRail: 'ika',
       strategy: 'dca',
       slippageBps: 100,
-      encryptionWitness: Array.from(fixture.witness),
+      maskedWitnessDevFixture: Array.from(fixture.witness),
     },
     timestamp: 1700000000,
   };
@@ -959,7 +959,7 @@ function createFixture(options: {
   const policySetup = buildConfidentialNumericPolicySetup({
     maxPerRunUsdc: '10',
     dailyCapUsdc: '20',
-    encryptionWitness: witness,
+    maskedWitnessDevFixture: witness,
   });
   const wallet: WalletData = {
     walletPda,

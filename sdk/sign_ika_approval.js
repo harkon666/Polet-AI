@@ -26,7 +26,7 @@ const result1 = await p.trade({
   rail: 'ika',
   params: {
     slippageBps: 100,
-    encryptionWitness: Array.from({ length: 32 }, (_, i) => i + 1),
+    maskedWitnessDevFixture: Array.from({ length: 32 }, (_, i) => i + 1),
     ikaPreAlpha: {
       dwalletAccount: '3yNnpN8G3w1NGf4Lj7JG7xJpSh6hkwGFAJkWSxcHbP6F',
       userPublicKey: 'BZiugeMWHFyL5BLuAo4fH6VgNzFLx2cFsP6tcA5e6HHe',
@@ -67,7 +67,7 @@ const result2 = await p.trade({
   rail: 'ika',
   params: {
     slippageBps: 100,
-    encryptionWitness: Array.from({ length: 32 }, (_, i) => i + 1),
+    maskedWitnessDevFixture: Array.from({ length: 32 }, (_, i) => i + 1),
     ikaPreAlpha: {
       dwalletAccount: '3yNnpN8G3w1NGf4Lj7JG7xJpSh6hkwGFAJkWSxcHbP6F',
       userPublicKey: 'BZiugeMWHFyL5BLuAo4fH6VgNzFLx2cFsP6tcA5e6HHe',

@@ -442,7 +442,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/jupiter route siap/i)).toBeTruthy();
     expect(view.getByText(/humidifi/i)).toBeTruthy();
     expect(view.getByText(/preview: route\/build jupiter/i)).toBeTruthy();
-    expect(JSON.stringify(dcaInputs)).not.toContain('encryptionWitness');
+    expect(JSON.stringify(dcaInputs)).not.toContain('maskedWitnessDevFixture');
   });
 
   test('renders official Encrypt DCA lifecycle states without executable payload leaks', async () => {
@@ -499,7 +499,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/messageapproval/i)).toBeTruthy();
     expect(view.getByText(/message hash/i)).toBeTruthy();
     expect(view.getByText(/ed25519-prealpha/i)).toBeTruthy();
-    expect(JSON.stringify(multichainInputs)).not.toContain('encryptionWitness');
+    expect(JSON.stringify(multichainInputs)).not.toContain('maskedWitnessDevFixture');
     logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');
@@ -687,7 +687,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(logText).not.toContain('polet-ika-approval-tx');
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');
-    expect(logText).not.toContain('encryptionWitness');
+    expect(logText).not.toContain('maskedWitnessDevFixture');
   });
 
   test('shows route-risk guardrail block in the command-center flow without approval data', async () => {

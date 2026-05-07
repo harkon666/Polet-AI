@@ -27,7 +27,7 @@ describe('Confidential DCA execution path', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountUsdc: 5,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
       },
       {
         getWalletData: async () => fixture.wallet,
@@ -64,7 +64,7 @@ describe('Confidential DCA execution path', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountUsdc: 25,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
       },
       {
         getWalletData: async () => fixture.wallet,
@@ -94,7 +94,7 @@ describe('Confidential DCA execution path', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountUsdc: 5,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
       },
       {
         getWalletData: async () => fixture.wallet,
@@ -136,7 +136,7 @@ describe('Confidential DCA execution path', () => {
     expect(result.allowed).toBe(false);
     if (!result.allowed) {
       expect(result.status).toBe('pending-encrypt-execution');
-      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
       expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
     }
   });
@@ -149,7 +149,7 @@ describe('Confidential DCA execution path', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountUsdc: 5,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
       },
       {
         getWalletData: async () => fixture.wallet,
@@ -202,7 +202,7 @@ describe('Confidential DCA execution path', () => {
     expect(result.allowed).toBe(true);
     if (result.allowed) {
       expect(result.encryptPolicy?.status).toBe('encrypt-verified-allowed');
-      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
     }
   });
 
@@ -214,7 +214,7 @@ describe('Confidential DCA execution path', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountUsdc: 25,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
       },
       {
         getWalletData: async () => fixture.wallet,
@@ -255,7 +255,7 @@ describe('Confidential DCA execution path', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountUsdc: 5,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
       },
       {
         getWalletData: async () => fixture.wallet,
@@ -275,7 +275,7 @@ describe('Confidential DCA execution path', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountUsdc: 5,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
       },
       {
         getWalletData: async () => fixture.wallet,
@@ -299,7 +299,7 @@ describe('Confidential DCA execution path', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountUsdc: 5,
-        encryptionWitness: Array.from(fixture.witness),
+        maskedWitnessDevFixture: Array.from(fixture.witness),
       },
       {
         getWalletData: async () => fixture.wallet,
@@ -318,7 +318,7 @@ describe('Confidential DCA execution path', () => {
         owner: fixture.owner,
         sessionKey: fixture.sessionKey,
         amountUsdc: 5,
-        encryptionWitness: badWitness,
+        maskedWitnessDevFixture: badWitness,
       },
       {
         getWalletData: async () => fixture.wallet,
@@ -349,7 +349,7 @@ function createFixture(options: {
   const policySetup = buildConfidentialNumericPolicySetup({
     maxPerRunUsdc: '10',
     dailyCapUsdc: '20',
-    encryptionWitness: witness,
+    maskedWitnessDevFixture: witness,
   });
   const wallet: WalletData = {
     walletPda,

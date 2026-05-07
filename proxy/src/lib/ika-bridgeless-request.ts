@@ -190,7 +190,7 @@ export async function createIkaBridgelessExecutionRequest(
         owner: intent.owner,
         sessionKey: intent.sessionKey,
         amountBaseUnits,
-        encryptionWitness: params.encryptionWitness,
+        maskedWitnessDevFixture: params.maskedWitnessDevFixture,
         blockedReason: 'Confidential policy blocked this bridgeless request.',
         buildAllowed: async ({ wallet, encryptPolicy }) => buildIkaAllowedResult(
           intent,
@@ -358,7 +358,7 @@ async function buildIkaAllowedResult(
     orderExpiresAt: canonicalOrder.expiresAtUnix,
     attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
     attestationPolicySeq: wallet.policySeq,
-    encryptionWitness: params.encryptionWitness ?? [],
+    maskedWitnessDevFixture: params.maskedWitnessDevFixture ?? [],
     userPubkey: preAlphaSigning.userPublicKey,
     signatureScheme: signatureSchemeCode(preAlphaSigning.signatureScheme),
     messageApprovalBump: preAlphaSigning.messageApprovalBump,

@@ -212,7 +212,7 @@ function createIkaIntent(fixture: ReturnType<typeof createFixture>, amount: stri
       amount,
       executionRail: 'ika',
       strategy: 'dca',
-      encryptionWitness: Array.from(fixture.witness),
+      maskedWitnessDevFixture: Array.from(fixture.witness),
     },
     timestamp: 1700000000,
   };
@@ -226,7 +226,7 @@ function createFixture() {
   const policySetup = buildConfidentialNumericPolicySetup({
     maxPerRunUsdc: '10',
     dailyCapUsdc: '20',
-    encryptionWitness: witness,
+    maskedWitnessDevFixture: witness,
   });
   const wallet: WalletData = {
     walletPda,

@@ -106,7 +106,7 @@ describe('Intent Parser', () => {
           targetMint: JUPITER_SOL_MINT,
           amount: '5',
           executionRail: 'jupiter',
-          encryptionWitness: witness,
+          maskedWitnessDevFixture: witness,
         },
         timestamp: 1700000000,
       };
@@ -118,7 +118,7 @@ describe('Intent Parser', () => {
       expect(params.sourceChain).toBe('solana');
       expect(params.targetAsset).toBe('SOL');
       expect(params.executionRail).toBe('jupiter');
-      expect(params.encryptionWitness).toEqual(witness);
+      expect(params.maskedWitnessDevFixture).toEqual(witness);
     });
 
     test('throws on invalid multichain chain and asset combinations', () => {
@@ -135,7 +135,7 @@ describe('Intent Parser', () => {
           targetAsset: 'SOL',
           amount: '5',
           executionRail: 'ika',
-          encryptionWitness: witness,
+          maskedWitnessDevFixture: witness,
         },
         timestamp: 1700000000,
       });
@@ -161,7 +161,7 @@ describe('Intent Parser', () => {
           executionRail: 'jupiter',
           strategy: 'dca',
           slippageBps: 100,
-          encryptionWitness: witness,
+          maskedWitnessDevFixture: witness,
         },
         timestamp: 1700000000,
       });
@@ -173,7 +173,7 @@ describe('Intent Parser', () => {
         inputMint: JUPITER_USDC_MINT,
         outputMint: JUPITER_SOL_MINT,
         slippageBps: 100,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
       });
     });
   });

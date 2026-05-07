@@ -163,7 +163,7 @@ export interface SetConfidentialPolicyInput {
   owner: string;
   maxPerRunUsdc: string;
   dailyCapUsdc: string;
-  encryptionWitness: number[];
+  maskedWitnessDevFixture: number[];
 }
 
 export interface SetupDemoCustodyInput {
@@ -384,7 +384,7 @@ export interface RunConfidentialDcaInput {
   owner: string;
   sessionKey: string;
   amountUsdc: string;
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   inputMint?: string;
   outputMint?: string;
   slippageBps?: number;
@@ -556,7 +556,7 @@ export interface RunMultichainIntentInput {
       encoding?: 'base64';
     }>;
   };
-  encryptionWitness?: number[];
+  maskedWitnessDevFixture?: number[];
   routeGuardrails?: {
     mode: 'chain-asset-allowlist';
     allowedSourceChains: Array<'solana' | 'sui' | 'ethereum' | 'base'>;
@@ -685,7 +685,7 @@ export async function runMultichainIntent(input: RunMultichainIntentInput): Prom
           ...(input.routeRisk && { routeRisk: input.routeRisk }),
           ...(input.riskGuardrails && { riskGuardrails: input.riskGuardrails }),
           ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
-          ...(input.encryptionWitness && { encryptionWitness: input.encryptionWitness }),
+          ...(input.maskedWitnessDevFixture && { maskedWitnessDevFixture: input.maskedWitnessDevFixture }),
           ...(input.routeGuardrails && { routeGuardrails: input.routeGuardrails }),
         },
         timestamp: Math.floor(Date.now() / 1000),

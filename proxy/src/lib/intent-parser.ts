@@ -101,7 +101,7 @@ export function mapMultichainIntentToDcaRunRequest(intent: Intent): Confidential
     amountUsdc: params.amount,
     inputMint: params.sourceMint ?? JUPITER_USDC_MINT,
     outputMint: params.targetMint ?? JUPITER_SOL_MINT,
-    ...(params.encryptionWitness && { encryptionWitness: params.encryptionWitness }),
+    ...(params.maskedWitnessDevFixture && { maskedWitnessDevFixture: params.maskedWitnessDevFixture }),
     ...(params.slippageBps !== undefined && { slippageBps: params.slippageBps }),
     ...(params.destinationTokenAccount && { destinationTokenAccount: params.destinationTokenAccount }),
     ...(params.nativeDestinationAccount && { nativeDestinationAccount: params.nativeDestinationAccount }),
@@ -184,7 +184,7 @@ function validateMultichainStrategyParams(params: Record<string, unknown>): void
   if (params.slippageBps !== undefined && (!Number.isInteger(params.slippageBps) || params.slippageBps < 0)) {
     throw new Error('Multichain params slippageBps must be a non-negative integer');
   }
-  if (params.encryptionWitness !== undefined && (!Array.isArray(params.encryptionWitness) || params.encryptionWitness.length !== 32)) {
+  if (params.maskedWitnessDevFixture !== undefined && (!Array.isArray(params.maskedWitnessDevFixture) || params.maskedWitnessDevFixture.length !== 32)) {
     throw new Error('Multichain params maskedWitnessDevFixture must contain 32 bytes when provided');
   }
 }

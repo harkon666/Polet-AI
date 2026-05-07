@@ -53,7 +53,7 @@ export function usePolicyManager({
         owner,
         maxPerRunUsdc: policyDraft.maxPerRunUsdc,
         dailyCapUsdc: policyDraft.dailyCapUsdc,
-        encryptionWitness: witness,
+        maskedWitnessDevFixture: witness,
       });
       await signAndConfirmTransaction(result.transaction);
       setPolicySaved(true);

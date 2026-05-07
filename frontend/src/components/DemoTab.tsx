@@ -325,7 +325,7 @@ export function DemoTabContent({
             owner,
             maxPerRunUsdc: policyDraft.maxPerRunUsdc,
             dailyCapUsdc: policyDraft.dailyCapUsdc,
-            encryptionWitness: maskedWitnessDevFixture,
+            maskedWitnessDevFixture: maskedWitnessDevFixture,
           });
           const signature = await signAndConfirmTransaction(result.transaction);
           setPolicySaved(true);

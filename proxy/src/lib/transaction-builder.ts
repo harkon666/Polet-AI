@@ -47,7 +47,7 @@ export interface ConfidentialTransferTransactionRequest {
   amount: number | bigint;
   attestationSlot: number | bigint;
   attestationPolicySeq: number | bigint;
-  encryptionWitness: Uint8Array | number[];
+  maskedWitnessDevFixture: Uint8Array | number[];
 }
 
 export interface ApproveIkaMessageTransactionRequest {
@@ -64,7 +64,7 @@ export interface ApproveIkaMessageTransactionRequest {
   orderExpiresAt: number | bigint;
   attestationSlot: number | bigint;
   attestationPolicySeq: number | bigint;
-  encryptionWitness: Uint8Array | number[];
+  maskedWitnessDevFixture: Uint8Array | number[];
   userPubkey: string | Uint8Array | number[];
   signatureScheme: number;
   messageApprovalBump: number;
@@ -182,7 +182,7 @@ export function buildApproveIkaMessageAsSessionInstructionData(
   offset += 8;
   data.writeBigUInt64LE(toU64(request.attestationPolicySeq), offset);
   offset += 8;
-  Buffer.from(normalizeBytes32(request.encryptionWitness, 'encryptionWitness')).copy(data, offset);
+  Buffer.from(normalizeBytes32(request.maskedWitnessDevFixture, 'maskedWitnessDevFixture')).copy(data, offset);
   offset += 32;
   Buffer.from(normalizeUserPubkey(request.userPubkey)).copy(data, offset);
   offset += 32;
