@@ -192,6 +192,10 @@ function IkaRequestPreviewCard({
       <InfoPill label="Target" value={`${request.target.chain.toUpperCase()} ${request.target.asset}`} />
       <InfoPill label="Request" value={request.requestId} />
       <InfoPill label="Policy seq" value={request.policyAttestation.policySequence.toString()} />
+      <InfoPill label={labels.settlement} value={request.settlement} />
+      {request.canonicalOrderHash && (
+        <InfoPill label={labels.canonicalOrder} value={short(request.canonicalOrderHash)} />
+      )}
       <InfoPill
         label={labels.routeRiskStatus}
         value={request.routeRisk ? `${labels.routeRiskPassed}: ${request.routeRisk.priceImpactBps ?? 'n/a'} bps` : labels.routeRiskPassed}
@@ -199,9 +203,15 @@ function IkaRequestPreviewCard({
       <InfoPill label={labels.ikaTechnicalDetails} value={request.executionBoundary.note} wide />
       <InfoPill label={labels.dwallet} value={signing?.dwalletAccount ? short(signing.dwalletAccount) : 'Pre-Alpha dWallet'} />
       <InfoPill label={labels.messageApproval} value={signing?.messageApprovalPda ? short(signing.messageApprovalPda) : 'Pending account'} />
-      <InfoPill label={labels.messageHash} value={signing?.ikaMessageHash ? short(signing.ikaMessageHash) : signing?.messageDigest ? short(signing.messageDigest) : request.canonicalOrderHash ? short(request.canonicalOrderHash) : 'Ika message hash'} />
+      <InfoPill label={labels.messageHash} value={request.ikaMessageHash ? short(request.ikaMessageHash) : signing?.ikaMessageHash ? short(signing.ikaMessageHash) : signing?.messageDigest ? short(signing.messageDigest) : 'Ika message hash'} />
+      {signing?.cpiAuthorityPda && (
+        <InfoPill label={labels.cpiAuthority} value={short(signing.cpiAuthorityPda)} />
+      )}
       {destinationDigest && <InfoPill label={destinationDigestLabel} value={short(destinationDigest)} />}
       <InfoPill label={labels.signatureScheme} value={signing?.signatureScheme ?? 'Pre-Alpha'} />
+      {request.poletApprovalTransaction?.signers && (
+        <InfoPill label={labels.requiredSigners} value={request.poletApprovalTransaction.signers.map(short).join(', ')} wide />
+      )}
       {sharedApprovers?.map((approver) => (
         <InfoPill key={approver} label={labels.countedApprovers} value={short(approver)} />
       ))}

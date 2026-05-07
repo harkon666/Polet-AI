@@ -38,3 +38,21 @@ This slice should keep the app operational and compact. Do not turn the frontend
   - `frontend/src/components/activity-log.ts`
   - `frontend/src/lib/api.ts`
 - Preserve the command-center feel and current localized copy style.
+
+## Progress
+
+2026-05-07 slice:
+
+- Added safe Ika verified-allowed detail rows for canonical order hash, Ika message hash, dWallet account, MessageApproval PDA, CPI authority PDA, destination digest, settlement status, and required signer summary.
+- Kept approval details behind the existing `ikaRequest` boundary, so pending, verified-blocked, and quorum-required states render only status/progress metadata.
+- Expanded `DemoTab` component coverage to verify pending, verified blocked, verified allowed, verified-allowed quorum required, and quorum satisfied states without `encryptionWitness`, private thresholds, decrypted caps, premature MessageApproval/dWallet data, or unsigned transaction leakage.
+
+Verification:
+
+- `cd frontend && bun run test src/components/DemoTab.test.tsx`
+- `cd frontend && bun run build`
+
+Remaining:
+
+- Add Playwright coverage for official Encrypt lifecycle states once deterministic e2e harness controls are expanded.
+- Consider tighter localized labels for live simulation/signing states if issue `057` adds evidence-pack controls.

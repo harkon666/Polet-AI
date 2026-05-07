@@ -534,6 +534,14 @@ describe('Consumer DCA demo frontend', () => {
     expect(logText).toContain('encrypt-verified-allowed');
     expect(logText).toContain('MessageApproval');
     expect(logText).toContain('dWallet');
+    expect(logText).toContain('Canonical order');
+    expect(logText).toContain('canonica');
+    expect(logText).toContain('CPI authority');
+    expect(logText).toContain('CpiAuth');
+    expect(logText).toContain('Required signers');
+    expect(logText).toContain('BxW8ng8');
+    expect(logText).toContain('Settlement');
+    expect(logText).toContain('not-executed');
   });
 
   test('displays approved Ethereum Ika route with Sepolia EIP-191 digest', async () => {
@@ -656,6 +664,30 @@ describe('Consumer DCA demo frontend', () => {
     expect(logText).toContain('CxW8ng8');
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');
+  });
+
+  test('renders verified-allowed quorum-required Ika progress without approval artifacts', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+    fireEvent.click(view.getByRole('button', { name: /sign & configure quorum/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(document.body.textContent).toMatch(/2\/2\s+Quorum ready/i));
+
+    encryptIkaMode = 'allowed';
+    fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
+
+    await waitFor(() => expect(view.getByText(/needs approval/i)).toBeTruthy());
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('0/2');
+    expect(logText).toContain('polet.ik');
+    expect(logText).not.toContain('MessageApproval');
+    expect(logText).not.toContain('dWallet');
+    expect(logText).not.toContain('polet-ika-approval-tx');
+    expect(logText).not.toContain('10 USDC');
+    expect(logText).not.toContain('20 USDC');
+    expect(logText).not.toContain('encryptionWitness');
   });
 
   test('shows route-risk guardrail block in the command-center flow without approval data', async () => {
