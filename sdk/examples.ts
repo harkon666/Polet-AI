@@ -12,6 +12,7 @@ import {
   createCustomIntent,
   createDcaIntent,
   createPoletAgent,
+  createPoletAgentKit,
   createRiskGatedSwapIntent,
   isValidIntent,
   generateIntentId,
@@ -298,4 +299,50 @@ export async function example_polet_agent_trade() {
   if (ikaRequest.status === 'approval-transaction-prepared') {
     console.log('[Polet AI] Session signer can inspect/sign the Polet approval transaction.');
   }
+}
+
+/**
+ * Example 10: Generic Agent Integration Kit
+ *
+ * Recommended entry point for AI agent runtimes (Hermes, OpenClaw, etc.).
+ * One kit provides config validation, wallet/session status, normalized
+ * trade tools, transaction simulation, and opt-in signing — without
+ * exposing private thresholds, witness bytes, or seed phrases.
+ */
+export async function example_polet_agent_kit() {
+  const kit = createPoletAgentKit({
+    owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
+    sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
+    baseUrl: 'https://proxy.polet.ai',
+  });
+
+  // 1. Validate config (missing/invalid fields)
+  const config = kit.validateConfig();
+  if (!config.ok) {
+    console.error('[Polet Kit] Config issues:', [...config.missing, ...config.invalid]);
+    return;
+  }
+
+  // 2. Check wallet/session status
+  const status = await kit.status();
+  console.log('[Polet Kit] Wallet PDA:', status.walletPda);
+  console.log('[Polet Kit] Session authorized:', status.wallet.sessionAuthorized);
+
+  // 3. Register tools with any agent runtime
+  const tools = kit.tools();
+  for (const t of tools) {
+    console.log(`[Polet Kit] Tool: ${t.name} — ${t.description}`);
+  }
+
+  // 4. Execute a trade via the normalized tool interface
+  const tradeTool = tools.find(t => t.name === 'polet_trade')!;
+  const result = await tradeTool.handler({ from: 'USDC', to: 'SOL', amount: '5' });
+  console.log('[Polet Kit] Trade result:', result.status, result.ok);
+
+  // 5. Export config for environment provisioning (no secrets leaked)
+  const env = kit.onboarding.exportConfig();
+  console.log('[Polet Kit] Environment:', env);
+
+  // 6. Onboarding guidance
+  console.log('[Polet Kit] Owner setup steps:', kit.onboarding.requiredOwnerSetup());
 }
