@@ -1,44 +1,130 @@
+import { Link } from '@tanstack/react-router';
+
 export default function Footer() {
-  const year = new Date().getFullYear()
+  const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-20 border-t border-[var(--line)] px-4 pb-14 pt-10 text-[var(--sea-ink-soft)]">
-      <div className="page-wrap flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-        <p className="m-0 text-sm">
-          &copy; {year} Your name here. All rights reserved.
-        </p>
-        <p className="island-kicker m-0">Built with TanStack Start</p>
+    <footer className="border-t border-[var(--line)] bg-[var(--bg-base)] text-[var(--sea-ink)]">
+      {/* Main grid — brand + columns */}
+      <div className="page-wrap grid gap-10 py-14 md:grid-cols-[1.4fr_repeat(3,1fr)] md:gap-8">
+        {/* Brand block */}
+        <div>
+          <Link
+            to="/"
+            className="qe-wordmark"
+            aria-label="Polet AI — home"
+          >
+            <span className="qe-wordmark__mark" aria-hidden="true">P</span>
+            <span className="qe-wordmark__name">Polet</span>
+            <span className="qe-wordmark__tag">/AI</span>
+          </Link>
+          <p className="mt-4 max-w-sm text-sm leading-6 text-[var(--sea-ink-soft)]">
+            Confidential Solana control layer for AI agents. Private spending
+            guardrails stay hidden, agents never receive unlimited wallet
+            authority, and cross-chain signing requests cannot bypass on-chain
+            policy.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className="qe-pill qe-pill--accent">
+              <span className="qe-status-dot" aria-hidden="true" />
+              Devnet · Live
+            </span>
+            <span className="qe-badge qe-badge--alpha">Pre-Alpha</span>
+          </div>
+        </div>
+
+        {/* SYSTEM column — mono technical stats */}
+        <div>
+          <h3 className="qe-col-heading">System</h3>
+          <dl className="space-y-1">
+            <div className="qe-stat-row">
+              <dt className="qe-stat-row__label">Network</dt>
+              <dd className="qe-stat-row__value">Devnet</dd>
+            </div>
+            <div className="qe-stat-row">
+              <dt className="qe-stat-row__label">Status</dt>
+              <dd className="qe-stat-row__value text-[var(--palm)]">● Live</dd>
+            </div>
+            <div className="qe-stat-row">
+              <dt className="qe-stat-row__label">Version</dt>
+              <dd className="qe-stat-row__value">v0.1.0</dd>
+            </div>
+            <div className="qe-stat-row">
+              <dt className="qe-stat-row__label">Build</dt>
+              <dd className="qe-stat-row__value">Alpha</dd>
+            </div>
+          </dl>
+        </div>
+
+        {/* RAILS column */}
+        <div>
+          <h3 className="qe-col-heading">Rails</h3>
+          <ul className="flex flex-col items-start gap-2.5">
+            <li>
+              <a className="qe-link" href="https://jup.ag" target="_blank" rel="noreferrer">
+                Jupiter Strategy <span className="qe-link__arrow">→</span>
+              </a>
+            </li>
+            <li>
+              <a className="qe-link" href="https://docs.ika.xyz/" target="_blank" rel="noreferrer">
+                Ika dWallet <span className="qe-link__arrow">→</span>
+              </a>
+            </li>
+            <li>
+              <a className="qe-link" href="https://github.com/dwallet-labs/encrypt-pre-alpha" target="_blank" rel="noreferrer">
+                Encrypt Policy <span className="qe-link__arrow">→</span>
+              </a>
+            </li>
+            <li>
+              <Link className="qe-link" to="/about">
+                Smart Wallet <span className="qe-link__arrow">→</span>
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* RESOURCES column */}
+        <div>
+          <h3 className="qe-col-heading">Resources</h3>
+          <ul className="flex flex-col items-start gap-2.5">
+            <li>
+              <Link className="qe-link" to="/about">
+                Documentation <span className="qe-link__arrow">→</span>
+              </Link>
+            </li>
+            <li>
+              <a className="qe-link" href="https://github.com/" target="_blank" rel="noreferrer">
+                GitHub <span className="qe-link__arrow">↗</span>
+              </a>
+            </li>
+            <li>
+              <a className="qe-link" href="https://x.com/" target="_blank" rel="noreferrer">
+                Twitter / X <span className="qe-link__arrow">↗</span>
+              </a>
+            </li>
+            <li>
+              <Link className="qe-link" to="/about">
+                Pre-Alpha Disclaimer <span className="qe-link__arrow">→</span>
+              </Link>
+            </li>
+          </ul>
+        </div>
       </div>
-      <div className="mt-4 flex justify-center gap-4">
-        <a
-          href="https://x.com/tan_stack"
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-xl p-2 text-[var(--sea-ink-soft)] transition hover:bg-[var(--link-bg-hover)] hover:text-[var(--sea-ink)]"
-        >
-          <span className="sr-only">Follow TanStack on X</span>
-          <svg viewBox="0 0 16 16" aria-hidden="true" width="32" height="32">
-            <path
-              fill="currentColor"
-              d="M12.6 1h2.2L10 6.48 15.64 15h-4.41L7.78 9.82 3.23 15H1l5.14-5.84L.72 1h4.52l3.12 4.73L12.6 1zm-.77 12.67h1.22L4.57 2.26H3.26l8.57 11.41z"
-            />
-          </svg>
-        </a>
-        <a
-          href="https://github.com/TanStack"
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-xl p-2 text-[var(--sea-ink-soft)] transition hover:bg-[var(--link-bg-hover)] hover:text-[var(--sea-ink)]"
-        >
-          <span className="sr-only">Go to TanStack GitHub</span>
-          <svg viewBox="0 0 16 16" aria-hidden="true" width="32" height="32">
-            <path
-              fill="currentColor"
-              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"
-            />
-          </svg>
-        </a>
+
+      {/* Bottom strip — quiet meta line */}
+      <div className="border-t border-[var(--line)] bg-[var(--foam)]">
+        <div className="page-wrap flex flex-col items-center justify-between gap-2 py-4 font-mono text-[11px] text-[var(--sea-ink-soft)] sm:flex-row">
+          <span>
+            © {year} Polet AI · All rights reserved
+          </span>
+          <span>
+            Built for Superteam Frontier · Indonesia
+          </span>
+          <span className="hidden text-[var(--kicker)] sm:inline">
+            Devnet only · No production claims
+          </span>
+        </div>
       </div>
     </footer>
-  )
+  );
 }

@@ -1,18 +1,31 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh issue create --title '[AFK] Temporal key grant' --body ' *)",
-      "Bash(gh issue create --title '[AFK] Session revoke \\(kill switch\\)' --body ' *)",
-      "Bash(gh issue create --title '[AFK] Off-chain proxy: intent parsing + routing' --body ' *)",
-      "Bash(gh issue create --title '[AFK] Off-chain proxy: transaction construction' --body ' *)",
-      "Bash(gh issue create --title '[AFK] SDK: intent JSON builder' --body ' *)",
-      "Bash(gh issue create --title '[AFK] Policy UI: template-based configuration' --body ' *)",
-      "Bash(gh issue create --title '[AFK] Frontend: wallet + temporal key flow' --body ' *)",
-      "Bash(NO_DNA=1 cargo build)",
-      "Bash(NO_DNA=1 cargo expand)",
-      "Bash(NO_DNA=1 cargo metadata --format-version 1)",
-      "Bash(bun test *)",
-      "Bash(timeout 10 bash -c \"NO_DNA=1 bun run dev 2>&1\")"
+      "Read",
+      "Edit",
+      "Write",
+      "Bash(bun *)",
+      "Bash(bunx *)",
+      "Bash(npx *)",
+      "Bash(git *)",
+      "Bash(anchor *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(pnpm *)",
+      "Bash(vitest *)",
+      "Bash(npx playwright *)",
+      "Bash(gh *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push *--force*)"
     ]
   }
 }

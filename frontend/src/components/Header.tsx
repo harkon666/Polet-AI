@@ -1,40 +1,86 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useLocation } from '@tanstack/react-router';
 import { WalletButton } from './WalletButton';
 import ThemeToggle from './ThemeToggle';
 
+/**
+ * Context-aware header.
+ *
+ * - Landing routes (`/`, `/about`): right cluster shows "Open App →" CTA.
+ *   No wallet adapter — visitor evaluates the product before connecting.
+ * - App route (`/app`, `/app/*`): right cluster shows the WalletButton
+ *   (Connect Wallet → wallet pill once connected).
+ *
+ * Brand wordmark, devnet pill, nav links, and theme toggle stay consistent
+ * across all routes.
+ */
 export default function Header() {
-  return (
-    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] px-4 backdrop-blur-lg">
-      <nav className="page-wrap flex flex-wrap items-center gap-x-3 gap-y-2 py-3 sm:py-4">
-        <h2 className="m-0 flex-shrink-0 text-base font-semibold tracking-tight">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 rounded-lg border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-sm text-[var(--sea-ink)] no-underline sm:px-4 sm:py-2"
-          >
-            <span className="h-2 w-2 rounded-full bg-[var(--lagoon-deep)]" />
-            Polet AI
-          </Link>
-        </h2>
+  const { pathname } = useLocation();
+  const isAppRoute = pathname === '/app' || pathname.startsWith('/app/');
 
-        <div className="order-3 flex w-full flex-wrap items-center gap-x-4 gap-y-1 pb-1 text-sm font-semibold sm:order-2 sm:w-auto sm:flex-nowrap sm:pb-0">
+  return (
+    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] backdrop-blur-md">
+      <nav className="page-wrap flex flex-wrap items-center gap-x-3 gap-y-3 py-3 sm:py-4">
+        {/* Wordmark + devnet pill */}
+        <Link
+          to="/"
+          className="qe-wordmark group flex-shrink-0"
+          aria-label="Polet AI — home"
+        >
+          <span className="qe-wordmark__mark" aria-hidden="true">P</span>
+          <span className="qe-wordmark__name">Polet</span>
+          <span className="qe-wordmark__tag">/AI</span>
+        </Link>
+
+        <span className="qe-pill qe-pill--accent hidden md:inline-flex">
+          <span className="qe-status-dot" aria-hidden="true" />
+          Devnet
+        </span>
+
+        {/* Nav links — same across all routes (no separate App link;
+            the route-aware right cluster handles the conversion CTA) */}
+        <div className="order-3 -ml-2 flex w-full flex-wrap items-center gap-x-1 sm:order-2 sm:ml-3 sm:w-auto">
           <Link
             to="/"
-            className="nav-link"
-            activeProps={{ className: 'nav-link is-active' }}
+            className="qe-nav-link"
+            activeOptions={{ exact: true }}
+            activeProps={{ className: 'qe-nav-link is-active' }}
           >
-            Wallet
+            Home
           </Link>
           <Link
             to="/about"
-            className="nav-link"
-            activeProps={{ className: 'nav-link is-active' }}
+            className="qe-nav-link"
+            activeProps={{ className: 'qe-nav-link is-active' }}
           >
             How It Works
           </Link>
+          <a
+            href="https://github.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="qe-nav-link"
+          >
+            <span>Docs</span>
+            <span className="ml-1 text-[var(--sea-ink-soft)]" aria-hidden="true">↗</span>
+          </a>
         </div>
 
-        <div className="ml-auto flex items-center gap-3 sm:ml-0">
-          <WalletButton />
+        {/* Right cluster — route-aware
+            Landing/About → "Open App →" CTA (no wallet adapter)
+            /app → WalletButton (Connect Wallet / wallet pill) */}
+        <div className="order-2 ml-auto flex items-center gap-2 sm:order-3">
+          {isAppRoute ? (
+            <WalletButton />
+          ) : (
+            <Link
+              to="/app"
+              className="qe-button qe-button--primary"
+              aria-label="Open the wallet console app"
+            >
+              Open App
+              <span aria-hidden="true">→</span>
+            </Link>
+          )}
           <ThemeToggle />
         </div>
       </nav>
