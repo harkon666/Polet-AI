@@ -53,7 +53,6 @@ Track alignment:
 
 ### Stretch
 
-- `051-encrypt-test-harness-compatibility` — Add full `encrypt-solana-test` / `EncryptTestContext::process_pending()` executor coverage once the Encrypt harness dependency graph can be pinned or patched to match this workspace's Solana/Anchor versions.
 - `043-frontend-recovery-authority-ui` — Add recovery authority and recover-access UI for compromised sessions and staged dWallet controller migration.
 - `044-frontend-passkey-coapproval-demo-ui` — Add passkey co-approval prototype UI as UX helper for shared Ika approvals.
 - `045-frontend-ika-destination-broadcast-ui` — Add disabled-by-default destination memo broadcast demo UI for eligible Ika pre-alpha signatures.
@@ -178,6 +177,9 @@ Track alignment:
 - [x] `012-hybrid-agent-demo-jupiter-ika-encrypt` — Added the final scripted hybrid agent path in the SDK. The local runtime now supports `allow`, `block`, `ika`, and `hybrid` scenarios; `hybrid` runs the blocked 25 USDC DCA, approved 5 USDC Jupiter route/build DCA, and approved 5 USDC Ika bridgeless request sequence through the same proxy submission helpers. Updated the agent runtime docs, demo script, and issue notes to state what is executed, previewed, and still pre-alpha/future integration.
   - Verification: `bun run test` and `bun run build` pass in `sdk/`; `bun run test src/components/DemoTab.test.tsx` passes in `frontend/`.
   - Note: the hybrid path does not sign or broadcast transactions. Jupiter remains a route/build preview with unsigned policy-gated payload, and Ika remains a prepared request envelope without verified settlement.
+- [x] `051-encrypt-test-harness-compatibility` — Added a local mock Encrypt SBF program under the official pre-alpha program id plus an `EncryptTestContext` compatibility wrapper with `process_pending()` coverage. The new contract tests execute Polet's official Encrypt graph CPI in LiteSVM, process deterministic allowed and blocked outputs, approve Ika only after verified allowed output, update daily-spent to the verified output ciphertext, and prove verified blocked output suppresses Ika approval without mutating spend.
+  - Verification: `NO_DNA=1 anchor build`, `NO_DNA=1 cargo test -p contract encrypt_harness`, and `NO_DNA=1 cargo test -p contract` pass in `contract/`.
+  - Note: this is an Encrypt pre-alpha compatibility harness. It avoids the upstream `encrypt-solana-test` Solana/wincode dependency conflict by using a local equivalent wrapper and does not claim production privacy, production FHE, production MPC, or settlement.
 - [x] `013-smart-wallet-identity-module` — Added a shared proxy smart wallet identity module for program id, wallet seed, and wallet PDA derivation, then updated proxy wallet/session/setup/execution call sites to use it. Fixed the SDK wallet PDA helper to use the contract seed `polet_wallet` and real Solana PDA derivation instead of the old `polet_ai_wallet` hash simulation.
   - Verification: `bun run test` and `bun run build` pass in `sdk/`; `bun run test` and `bun run build` pass in `proxy/`.
   - Note: this is an architecture hardening slice from `/improve-codebase-architecture`; it reduces duplicated wallet identity knowledge before deeper confidential policy refactors.

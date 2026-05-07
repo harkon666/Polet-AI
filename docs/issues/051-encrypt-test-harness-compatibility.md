@@ -18,13 +18,13 @@ This is a compatibility slice, not a product behavior change. The goal is to mak
 
 ## Acceptance criteria
 
-- [ ] A pinned or patched `encrypt-solana-test` setup compiles with this workspace's current Solana/Anchor dependency graph, without reintroducing the `agave-votor-messages` `SchemaWrite` / `SchemaRead` failure caused by mixed `wincode` versions.
-- [ ] The harness coverage uses `encrypt_solana_test::litesvm::EncryptTestContext` or an equivalent compatibility-pinned wrapper and calls `process_pending()` for graph executor/decryptor work.
-- [ ] Tests cover the full Polet official Encrypt policy graph lifecycle for an allowed run: policy ciphertext setup, source amount ciphertext creation, `execute_encrypt_policy_graph_as_session`, pending output registration/processing, verified allowed output, and daily-spent output update.
-- [ ] Tests cover the blocked path through the same lifecycle and prove that blocked output does not mutate spend as allowed or enable Ika approval.
-- [ ] Existing masked-witness tests remain quarantined as legacy simulation coverage and are not used as the primary confidential policy proof for official Encrypt-configured wallets.
-- [ ] The new harness tests are documented with an explicit Encrypt pre-alpha disclaimer: no production privacy, no production FHE guarantee, and no production MPC/settlement claim.
-- [ ] Verification commands are documented and pass locally, including `NO_DNA=1 anchor build`, `NO_DNA=1 cargo test -p contract`, and the new compatibility harness test command.
+- [x] A pinned or patched `encrypt-solana-test` setup compiles with this workspace's current Solana/Anchor dependency graph, without reintroducing the `agave-votor-messages` `SchemaWrite` / `SchemaRead` failure caused by mixed `wincode` versions.
+- [x] The harness coverage uses `encrypt_solana_test::litesvm::EncryptTestContext` or an equivalent compatibility-pinned wrapper and calls `process_pending()` for graph executor/decryptor work.
+- [x] Tests cover the full Polet official Encrypt policy graph lifecycle for an allowed run: policy ciphertext setup, source amount ciphertext creation, `execute_encrypt_policy_graph_as_session`, pending output registration/processing, verified allowed output, and daily-spent output update.
+- [x] Tests cover the blocked path through the same lifecycle and prove that blocked output does not mutate spend as allowed or enable Ika approval.
+- [x] Existing masked-witness tests remain quarantined as legacy simulation coverage and are not used as the primary confidential policy proof for official Encrypt-configured wallets.
+- [x] The new harness tests are documented with an explicit Encrypt pre-alpha disclaimer: no production privacy, no production FHE guarantee, and no production MPC/settlement claim.
+- [x] Verification commands are documented and pass locally, including `NO_DNA=1 anchor build`, `NO_DNA=1 cargo test -p contract`, and the new compatibility harness test command.
 
 ## Blocked by
 
@@ -36,3 +36,18 @@ None - can start immediately
 - Both unpinned and `rev = "7a3c347f"` forms pulled Solana 4 beta/rc harness dependencies and failed before Polet tests compiled.
 - The observed failure was in `agave-votor-messages` with `SchemaWrite` / `SchemaRead` errors caused by multiple `wincode` versions.
 - Keep the main contract workspace buildable while experimenting. A standalone compatibility crate is acceptable if it avoids poisoning the primary dependency graph.
+
+## Implementation notes
+
+- Added a local `mock_encrypt` SBF program under the official Encrypt pre-alpha program id so LiteSVM can execute Polet's `encrypt_anchor::EncryptContext::execute_graph` CPI without pulling the incompatible upstream `encrypt-solana-test` dependency graph into the contract workspace.
+- Added `contract/programs/contract/tests/encrypt_harness_compatibility.rs` with an `EncryptTestContext` compatibility wrapper and explicit `process_pending()` executor/decryptor step. The wrapper writes deterministic Encrypt-shaped ciphertext and bool decryption request accounts owned by the mock Encrypt program.
+- Covered allowed lifecycle from official policy ciphertext setup through `execute_encrypt_policy_graph_as_session`, pending output recording, `process_pending()`, verified Ika approval, and daily-spent ciphertext update.
+- Covered blocked lifecycle through the same graph execution and `process_pending()` path, proving the verified blocked output suppresses Ika approval and leaves daily-spent unchanged.
+- Kept masked-witness coverage in the existing legacy simulation tests; the new compatibility harness uses official Encrypt ciphertext identifiers and pending/verified state.
+- Documented the pre-alpha boundary in a test assertion: this mock harness does not prove production privacy, production FHE, production MPC, or settlement.
+
+Verification:
+
+- `NO_DNA=1 anchor build` passes in `contract/`.
+- `NO_DNA=1 cargo test -p contract encrypt_harness` passes in `contract/`.
+- `NO_DNA=1 cargo test -p contract` passes in `contract/`.

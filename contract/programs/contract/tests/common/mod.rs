@@ -32,6 +32,10 @@ pub fn mock_ika_id() -> anchor_lang::prelude::Pubkey {
         .expect("valid mock Ika program id")
 }
 
+pub fn mock_encrypt_id() -> anchor_lang::prelude::Pubkey {
+    contract::encrypt_prealpha::ENCRYPT_PREALPHA_PROGRAM_ID
+}
+
 pub fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
     let program_id = contract::id();
     let payer = Keypair::new();
@@ -47,6 +51,10 @@ pub fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
     let mock_ika_bytes = std::fs::read(deploy_dir.join("mock_ika.so"))
         .expect("Build mock Ika program first with: NO_DNA=1 anchor build");
     svm.add_program(mock_ika_id(), &mock_ika_bytes).unwrap();
+    let mock_encrypt_bytes = std::fs::read(deploy_dir.join("mock_encrypt.so"))
+        .expect("Build mock Encrypt program first with: NO_DNA=1 anchor build");
+    svm.add_program(mock_encrypt_id(), &mock_encrypt_bytes)
+        .unwrap();
     svm.airdrop(&payer.pubkey(), 10_000_000_000).unwrap();
 
     let (wallet_pda, _bump) = anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
@@ -546,6 +554,58 @@ pub fn execute_confidential_as_session(
     send_ix(svm, payer, &[session_key], ix)
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn execute_encrypt_policy_graph_as_session(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    session_key: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    source_amount_ciphertext: anchor_lang::prelude::Pubkey,
+    max_per_run_ciphertext: anchor_lang::prelude::Pubkey,
+    daily_spent_ciphertext: anchor_lang::prelude::Pubkey,
+    daily_cap_ciphertext: anchor_lang::prelude::Pubkey,
+    allowed_output_ciphertext: anchor_lang::prelude::Pubkey,
+    daily_spent_output_ciphertext: anchor_lang::prelude::Pubkey,
+    config: anchor_lang::prelude::Pubkey,
+    deposit: anchor_lang::prelude::Pubkey,
+    network_encryption_key: anchor_lang::prelude::Pubkey,
+    event_authority: anchor_lang::prelude::Pubkey,
+    attestation_slot: u64,
+    attestation_policy_seq: u64,
+) -> Result<(), String> {
+    let (cpi_authority, cpi_authority_bump) = encrypt_cpi_authority();
+    let ix_data = contract::instruction::ExecuteEncryptPolicyGraphAsSession {
+        attestation_slot,
+        attestation_policy_seq,
+        cpi_authority_bump,
+    };
+    let ix_accounts = contract::accounts::ExecuteEncryptPolicyGraphAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        source_amount_ciphertext,
+        max_per_run_ciphertext,
+        daily_spent_ciphertext,
+        daily_cap_ciphertext,
+        allowed_output_ciphertext,
+        daily_spent_output_ciphertext,
+        encrypt_program: mock_encrypt_id(),
+        config,
+        deposit,
+        cpi_authority,
+        program: contract::id(),
+        network_encryption_key,
+        payer: payer.pubkey(),
+        event_authority,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, payer, &[session_key], ix)
+}
+
 pub fn ika_cpi_authority() -> (anchor_lang::prelude::Pubkey, u8) {
     anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
         &[IKA_CPI_AUTHORITY_SEED],
@@ -623,6 +683,30 @@ pub fn write_mock_encrypt_ciphertext(
     .expect("mock Encrypt ciphertext write failed");
 }
 
+pub fn write_encrypt_ciphertext_with_owner(
+    svm: &mut LiteSVM,
+    account: anchor_lang::prelude::Pubkey,
+    digest: [u8; 32],
+    fhe_type: u8,
+    owner: anchor_lang::prelude::Pubkey,
+) {
+    let mut data = vec![0u8; 100];
+    data[2..34].copy_from_slice(&digest);
+    data[98] = fhe_type;
+    data[99] = 1;
+    svm.set_account(
+        account,
+        Account {
+            lamports: 1_000_000_000,
+            data,
+            owner,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .expect("Encrypt ciphertext write failed");
+}
+
 pub fn write_official_encrypt_ciphertext(
     svm: &mut LiteSVM,
     account: anchor_lang::prelude::Pubkey,
@@ -670,6 +754,38 @@ pub fn write_mock_encrypt_bool_decryption_request(
         },
     )
     .expect("mock Encrypt decryption request write failed");
+}
+
+pub fn write_encrypt_bool_decryption_request_with_owner(
+    svm: &mut LiteSVM,
+    account: anchor_lang::prelude::Pubkey,
+    ciphertext: anchor_lang::prelude::Pubkey,
+    digest: [u8; 32],
+    requester: anchor_lang::prelude::Pubkey,
+    value: Option<bool>,
+    owner: anchor_lang::prelude::Pubkey,
+) {
+    let mut data = vec![0u8; 108];
+    data[2..34].copy_from_slice(ciphertext.as_ref());
+    data[34..66].copy_from_slice(&digest);
+    data[66..98].copy_from_slice(requester.as_ref());
+    data[98] = 0;
+    data[99..103].copy_from_slice(&1u32.to_le_bytes());
+    if let Some(value) = value {
+        data[103..107].copy_from_slice(&1u32.to_le_bytes());
+        data[107] = u8::from(value);
+    }
+    svm.set_account(
+        account,
+        Account {
+            lamports: 1_000_000_000,
+            data,
+            owner,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .expect("Encrypt decryption request write failed");
 }
 
 #[allow(clippy::too_many_arguments)]

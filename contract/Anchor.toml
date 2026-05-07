@@ -10,12 +10,14 @@ members = [
     "programs/contract"
 ]
 exclude = [
-    "programs/mock_ika"
+    "programs/mock_ika",
+    "programs/mock_encrypt"
 ]
 
 [programs.devnet]
 contract = "3bJjtLutfxy1oG6dREi32BnvousDcBYug7AsWcdBbkeN"
 mock_ika = "CXHt5JcKMshPiW7HJUqyRnyUugQTnoWN3mbWm92sGLMw"
+mock_encrypt = "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8"
 
 [provider]
 cluster = "devnet"
@@ -25,4 +27,4 @@ wallet = "~/.config/solana/id.json"
 test = "cargo test"
 
 [hooks]
-pre-build = "NO_DNA=1 CARGO_NET_OFFLINE=true cargo build-sbf --manifest-path programs/mock_ika/Cargo.toml"
+pre-build = "NO_DNA=1 CARGO_NET_OFFLINE=true cargo build-sbf --manifest-path programs/mock_ika/Cargo.toml && NO_DNA=1 CARGO_NET_OFFLINE=true cargo build-sbf --manifest-path programs/mock_encrypt/Cargo.toml"

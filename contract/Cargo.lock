@@ -1832,6 +1832,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mock_encrypt"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+]
+
+[[package]]
 name = "mock_ika"
 version = "0.1.0"
 dependencies = [
