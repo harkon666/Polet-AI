@@ -87,6 +87,25 @@ const api = {
       approvers: sharedConfig.approvers.map((key) => ({ key, authorized: true })),
     },
   }) : null,
+  broadcastIkaDestination: async () => ({
+    ok: false,
+    status: 'broadcast-disabled' as const,
+    code: 'BROADCAST_DISABLED',
+    reason: 'Destination broadcast demo is disabled.',
+    demoPath: {
+      chain: 'solana',
+      cluster: 'devnet',
+      action: 'memo-proof',
+      asset: 'none',
+      faucetRequirement: 'fee payer needs devnet SOL only; no user asset is moved',
+      receiptVerification: 'Solana devnet transaction signature and explorer URL',
+      productionSettlement: false as const,
+    },
+  }),
+  setRecoveryAuthority: async () => ({ transaction: 'recovery-tx', wallet: 'wallet-pda', recoveryAuthority: 'recovery-auth', activity: { type: 'recovery', status: 'set', privacy: 'redacted' } }),
+  recoverAccess: async () => ({ transaction: 'recover-tx', wallet: 'wallet-pda', authority: 'recovery-auth', compromisedSessions: [], sharedIkaThreshold: 1, sharedIkaApprovers: [], pendingDwalletController: '', activity: { type: 'recover', status: 'done', states: ['sessions-revoked'], privacy: 'redacted', boundary: 'mock' } }),
+  requestPasskeyChallenge: async () => ({ challenge: Array.from(new Uint8Array(32)), publicKeyCredentialRequestOptions: { challenge: Array.from(new Uint8Array(32)), rpId: 'localhost', allowCredentials: [], userVerification: 'preferred' }, boundary: 'mock' }),
+  verifyPasskeyAssertion: async () => ({ valid: false, approverPublicKey: '', challengeUsed: '', boundary: 'mock' }),
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
     if (encryptDcaMode === 'pending') {
       return {
@@ -456,7 +475,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getAllByText(/solana usdc/i).length).toBeGreaterThan(0);
     expect(view.getAllByText(/sui sui/i).length).toBeGreaterThan(0);
     expect(view.getByText(/technical proof/i)).toBeTruthy();
-    expect(view.getByText(/route risk/i)).toBeTruthy();
+    expect(view.getAllByText(/route risk/i).length).toBeGreaterThan(0);
     expect(view.getByText(/slippage and risk guardrails passed/i)).toBeTruthy();
     expect(view.getByText(/messageapproval/i)).toBeTruthy();
     expect(view.getByText(/message hash/i)).toBeTruthy();

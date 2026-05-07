@@ -468,6 +468,54 @@ export async function runConfidentialDca(input: RunConfidentialDcaInput): Promis
   return data.data;
 }
 
+export interface IkaDestinationBroadcastInput {
+  ikaRequest: IkaRequestPreview;
+  producedSignature: {
+    status: 'signature-produced-prealpha';
+    signature: string;
+    publicKey: string;
+    messageDigest: string;
+    signatureScheme: string;
+  };
+  demoConfig?: {
+    enabled?: boolean;
+    feePayerSecretKey?: string;
+    rpcUrl?: string;
+    commitment?: 'processed' | 'confirmed' | 'finalized';
+    confirm?: boolean;
+  };
+}
+
+export interface IkaDestinationBroadcastResult {
+  ok: boolean;
+  status: 'broadcast-disabled' | 'broadcast-submitted' | 'broadcast-confirmed' | 'broadcast-failed';
+  code?: string;
+  reason?: string;
+  demoPath?: {
+    chain: string;
+    cluster: string;
+    action: string;
+    asset: string;
+    faucetRequirement: string;
+    receiptVerification: string;
+    productionSettlement: false;
+  };
+  transaction?: {
+    base64: string;
+    feePayer?: string;
+    recentBlockhash?: string;
+  };
+  receipt?: {
+    chain: string;
+    cluster: string;
+    action: string;
+    transactionId: string;
+    explorerUrl: string;
+    slot?: number;
+    confirmationStatus?: string;
+  };
+}
+
 export interface RunMultichainIntentInput {
   id?: string;
   owner: string;
@@ -642,6 +690,20 @@ export async function runMultichainIntent(input: RunMultichainIntentInput): Prom
         },
         timestamp: Math.floor(Date.now() / 1000),
       }),
+    }
+  );
+
+  return data.data;
+}
+
+export async function broadcastIkaDestination(
+  input: IkaDestinationBroadcastInput
+): Promise<IkaDestinationBroadcastResult> {
+  const data = await fetchJson<{ success: boolean; data: IkaDestinationBroadcastResult }>(
+    `${PROXY_URL}/intent/ika/destination-broadcast`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
     }
   );
 

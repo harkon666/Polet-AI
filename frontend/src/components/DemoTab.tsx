@@ -30,6 +30,7 @@ import {
   recoverAccess,
   requestPasskeyChallenge,
   verifyPasskeyAssertion,
+  broadcastIkaDestination,
   type RunConfidentialDcaResult,
   type RunMultichainIntentResult,
   type SharedIkaApproverConfigInput,
@@ -65,6 +66,7 @@ interface DemoApi {
   recoverAccess: (input: { owner: string; authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string }) => Promise<WalletTransactionResult & { authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string; activity: { type: string; status: string; states: string[]; privacy: string; boundary: string } }>;
   requestPasskeyChallenge: (input: { owner: string; sessionKey: string; sharedApprovalChallenge: string; credentialId: string; rpId: string; expiresAtUnix: number }) => Promise<{ challenge: number[]; publicKeyCredentialRequestOptions: { challenge: number[]; rpId: string; allowCredentials: Array<{ type: string; id: string }>; userVerification: string }; boundary: string }>;
   verifyPasskeyAssertion: (input: { expectedChallenge: number[]; expectedOrigin: string; expectedRpId: string; expectedCredentialId: string; credentialPublicKeyJwk: Record<string, unknown>; assertion: { authenticatorData: string; clientDataJSON: string; signature: string; userHandle?: string }; requireUserVerification: boolean }) => Promise<{ valid: boolean; approverPublicKey: string; challengeUsed: string; boundary: string }>;
+  broadcastIkaDestination: typeof import('../lib/api').broadcastIkaDestination;
   runConfidentialDca: typeof runConfidentialDca;
   runMultichainIntent: typeof runMultichainIntent;
   getWalletData: typeof getWalletData;
@@ -86,6 +88,7 @@ const DEFAULT_API: DemoApi = {
   recoverAccess,
   requestPasskeyChallenge,
   verifyPasskeyAssertion,
+  broadcastIkaDestination,
   runConfidentialDca,
   runMultichainIntent,
   getWalletData,
@@ -161,6 +164,16 @@ export function DemoTabContent({
     credentialId: '',
     rpId: '',
     assertion: '',
+  });
+  const [lastIkaBroadcastable, setLastIkaBroadcastable] = useState<{
+    ikaRequest: import('../lib/api').IkaRequestPreview;
+    producedSignature: { status: 'signature-produced-prealpha'; signature: string; publicKey: string; messageDigest: string; signatureScheme: string };
+  } | null>(null);
+  const [routeRiskDraft, setRouteRiskDraft] = useState({
+    slippageBps: 100,
+    maxPriceImpactBps: 120,
+    minLiquidityScore: 'medium' as 'low' | 'medium' | 'high',
+    requireVerifiedRoute: true,
   });
 
   const t = COPY[locale];
@@ -593,9 +606,9 @@ export function DemoTabContent({
         amount,
         executionRail: 'ika',
         strategy: 'dca',
-        slippageBps: 100,
-        routeRisk: { priceImpactBps: 120, liquidityScore: 'high', verifiedRoute: true, provider: 'polet-demo-precheck' },
-        riskGuardrails: { mode: 'bridgeless-route-risk', maxSlippageBps: 150, maxPriceImpactBps: 300, minLiquidityScore: 'medium', requireVerifiedRoute: true },
+        slippageBps: routeRiskDraft.slippageBps,
+        routeRisk: { priceImpactBps: routeRiskDraft.maxPriceImpactBps, liquidityScore: routeRiskDraft.minLiquidityScore, verifiedRoute: routeRiskDraft.requireVerifiedRoute, provider: 'polet-demo-precheck' },
+        riskGuardrails: { mode: 'bridgeless-route-risk', maxSlippageBps: 150, maxPriceImpactBps: 300, minLiquidityScore: routeRiskDraft.minLiquidityScore, requireVerifiedRoute: routeRiskDraft.requireVerifiedRoute },
         sharedAccess: buildSharedAccess(sharedIkaApproval, sharedApprovalProofs, t.invalidSharedProofs),
         encryptionWitness: witness,
         routeGuardrails: {
@@ -633,6 +646,19 @@ export function DemoTabContent({
         sharedApprovers: result.allowed ? sharedApproversFromResult(result) : result.approval?.approvedApprovers,
         smartWalletAuthority: result.allowed ? result.ikaRequest?.sessionContext.smartWalletAuthority : undefined,
       });
+      if (result.allowed && result.ikaRequest?.preAlphaSigning?.status === 'signature-produced-prealpha' && result.ikaRequest.preAlphaSigning.messageDigest) {
+        const preSign = result.ikaRequest.preAlphaSigning;
+        setLastIkaBroadcastable({
+          ikaRequest: result.ikaRequest,
+          producedSignature: {
+            status: 'signature-produced-prealpha' as const,
+            signature: preSign.dwalletAccount ? `demo-sig-${preSign.dwalletAccount.slice(0, 8)}` : `demo-sig-${Date.now()}`,
+            publicKey: preSign.dwalletAccount ?? owner ?? 'demo',
+            messageDigest: preSign.messageDigest!,
+            signatureScheme: preSign.signatureScheme ?? 'ed25519',
+          },
+        });
+      }
     } catch (err) {
       recordError(err instanceof Error ? err.message : 'Failed to request Ika bridgeless route');
     } finally {
@@ -1109,6 +1135,58 @@ export function DemoTabContent({
               />
               <span className="mt-1 block text-xs leading-5 text-[var(--sea-ink-soft)]">{t.agentHelp}</span>
             </label>
+
+            {/* Route Risk Guardrails */}
+            <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+              <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.routeRiskTitle ?? 'Route risk guardrails'}</p>
+              <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">{t.routeRiskBody ?? 'Public Ika route-risk settings. This is not a private policy.'}</p>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.routeRiskSlippage ?? 'Slippage (bps)'}</span>
+                  <input
+                    type="number"
+                    value={routeRiskDraft.slippageBps}
+                    onChange={(e) => setRouteRiskDraft((d) => ({ ...d, slippageBps: Number(e.target.value) }))}
+                    min={0}
+                    max={500}
+                    className="w-full rounded-lg px-2 py-1 text-xs"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.routeRiskMaxPriceImpact ?? 'Max price impact (bps)'}</span>
+                  <input
+                    type="number"
+                    value={routeRiskDraft.maxPriceImpactBps}
+                    onChange={(e) => setRouteRiskDraft((d) => ({ ...d, maxPriceImpactBps: Number(e.target.value) }))}
+                    min={0}
+                    max={1000}
+                    className="w-full rounded-lg px-2 py-1 text-xs"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.routeRiskMinLiquidity ?? 'Min liquidity score'}</span>
+                  <select
+                    value={routeRiskDraft.minLiquidityScore}
+                    onChange={(e) => setRouteRiskDraft((d) => ({ ...d, minLiquidityScore: e.target.value as 'low' | 'medium' | 'high' }))}
+                    className="w-full rounded-lg px-2 py-1 text-xs"
+                  >
+                    <option value="low">{t.liquidityLow ?? 'Low'}</option>
+                    <option value="medium">{t.liquidityMedium ?? 'Medium'}</option>
+                    <option value="high">{t.liquidityHigh ?? 'High'}</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={routeRiskDraft.requireVerifiedRoute}
+                    onChange={(e) => setRouteRiskDraft((d) => ({ ...d, requireVerifiedRoute: e.target.checked }))}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-xs text-[var(--sea-ink-soft)]">{t.routeRiskVerifiedRoute ?? 'Require verified route'}</span>
+                </label>
+              </div>
+            </div>
+
             <InfoRow label={t.cadence} value={strategy.cadence} />
           </div>
 
@@ -1177,6 +1255,63 @@ export function DemoTabContent({
             <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-red-500">{t.ikaRouteBlocked}: no dWallet approval data.</p>
           )}
         </Panel>
+
+        {/* Ika Destination Broadcast Demo */}
+        {lastIkaBroadcastable && (
+          <Panel icon={<Activity className="h-5 w-5" />} title="Ika Destination Broadcast" testId="ika-broadcast-panel">
+            <div className="space-y-3">
+              <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                <div className="mb-2 text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">Demo Path</div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <InfoRow label="Chain" value={lastIkaBroadcastable.ikaRequest.target.chain.toUpperCase()} />
+                  <InfoRow label="Network" value="devnet" />
+                  <InfoRow label="Action" value="Memo proof" />
+                  <InfoRow label="Asset" value="None moved" />
+                </div>
+                <div className="mt-2 rounded border border-amber-500/20 bg-amber-500/5 p-2 text-[10px] font-semibold text-amber-500">
+                  Disabled by default. Requires POLET_DESTINATION_BROADCAST_DEMO=enabled on proxy.
+                  No user asset is moved. Devnet SOL fee payer needed.
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  if (!owner) return;
+                  setBusy('broadcast-demo');
+                  setError(null);
+                  try {
+                    const result = await api.broadcastIkaDestination({
+                      ikaRequest: lastIkaBroadcastable.ikaRequest,
+                      producedSignature: lastIkaBroadcastable.producedSignature,
+                    });
+                    if (result.ok) {
+                      addActivity({
+                        status: 'approved',
+                        message: `Broadcast ${result.status}: ${result.receipt?.transactionId.slice(0, 8) ?? 'n/a'}...`,
+                        route: 'Solana devnet memo proof',
+                      });
+                    } else {
+                      addActivity({
+                        status: result.status === 'broadcast-disabled' ? 'blocked' : 'error',
+                        message: `${result.code ?? result.status}: ${result.reason ?? 'broadcast failed'}`,
+                        route: 'Solana devnet memo proof',
+                      });
+                    }
+                    setLastIkaBroadcastable(null);
+                  } catch (err) {
+                    recordError(err instanceof Error ? err.message : 'Destination broadcast failed');
+                  } finally {
+                    setBusy(null);
+                  }
+                }}
+                disabled={Boolean(busy)}
+                className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink)] transition-all hover:bg-[var(--link-bg-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Play className="h-4 w-4" />
+                {busy === 'broadcast-demo' ? 'Broadcasting...' : 'Request Devnet Memo Broadcast'}
+              </button>
+            </div>
+          </Panel>
+        )}
 
         {/* Activity Log */}
         <Panel icon={<Activity className="h-5 w-5" />} title={t.activityTitle} testId="activity-log-panel">
