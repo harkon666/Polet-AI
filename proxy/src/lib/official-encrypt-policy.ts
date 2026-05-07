@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import type { WalletData } from './wallet-store';
 
 export type OfficialEncryptPolicyStatus =
@@ -36,6 +35,10 @@ export interface OfficialEncryptPolicyVerifiedAllowed {
   allowedOutputCiphertext: string;
   dailySpentOutputCiphertext: string;
   verifiedSlot?: number;
+  allowedDecryptionRequest?: string;
+  dailySpentDecryptionRequest?: string;
+  allowedDecryptionResult?: string;
+  dailySpentDecryptionResult?: string;
   graph: 'polet_policy_guardrail_graph';
 }
 
@@ -46,6 +49,10 @@ export interface OfficialEncryptPolicyVerifiedBlocked {
   allowedOutputCiphertext: string;
   dailySpentOutputCiphertext: string;
   verifiedSlot?: number;
+  allowedDecryptionRequest?: string;
+  dailySpentDecryptionRequest?: string;
+  allowedDecryptionResult?: string;
+  dailySpentDecryptionResult?: string;
   graph: 'polet_policy_guardrail_graph';
 }
 
@@ -66,10 +73,18 @@ export type OfficialEncryptPolicyResolver = (
 ) => Promise<OfficialEncryptPolicyExecution | null> | OfficialEncryptPolicyExecution | null;
 
 const GRAPH_NAME = 'polet_policy_guardrail_graph';
-const PLACEHOLDER_PREFIX = 'encrypt-pending';
 
 export function hasOfficialEncryptPolicy(wallet: Pick<WalletData, 'confidentialPolicy'>): boolean {
   return wallet.confidentialPolicy.encryptCiphertexts?.configured === true;
+}
+
+export function hasPendingOfficialEncryptPolicyOutputs(wallet: Pick<WalletData, 'confidentialPolicy'>): boolean {
+  const state = wallet.confidentialPolicy.encryptCiphertexts;
+  return state?.configured === true
+    && state.pending === true
+    && isRealCiphertextId(state.pendingSourceAmount)
+    && isRealCiphertextId(state.pendingAllowedOutput)
+    && isRealCiphertextId(state.pendingDailySpentOutput);
 }
 
 export async function evaluateOfficialEncryptPolicyLifecycle(
@@ -80,7 +95,7 @@ export async function evaluateOfficialEncryptPolicyLifecycle(
   if (resolved) return assertSafeExecution(request.wallet, resolved);
 
   const state = request.wallet.confidentialPolicy.encryptCiphertexts;
-  if (state?.pending) {
+  if (state?.pending && hasPendingOfficialEncryptPolicyOutputs(request.wallet)) {
     return {
       status: 'pending-encrypt-execution',
       policySequence: state.pendingPolicySeq || request.wallet.policySeq,
@@ -92,15 +107,7 @@ export async function evaluateOfficialEncryptPolicyLifecycle(
     };
   }
 
-  return {
-    status: 'pending-encrypt-execution',
-    policySequence: request.wallet.policySeq,
-    sourceAmountCiphertext: deterministicPendingCiphertext(request, 'source-amount'),
-    allowedOutputCiphertext: deterministicPendingCiphertext(request, 'allowed-output'),
-    dailySpentOutputCiphertext: deterministicPendingCiphertext(request, 'daily-spent-output'),
-    pendingSlot: 0,
-    graph: GRAPH_NAME,
-  };
+  throw new Error('Official Encrypt policy graph has no pending output ciphertexts for this wallet');
 }
 
 function assertSafeExecution(
@@ -108,22 +115,30 @@ function assertSafeExecution(
   execution: OfficialEncryptPolicyExecution
 ): OfficialEncryptPolicyExecution {
   const state = wallet.confidentialPolicy.encryptCiphertexts;
+  if (!hasPendingOfficialEncryptPolicyOutputs(wallet)) {
+    throw new Error('Official Encrypt policy graph has no pending output ciphertexts for this wallet');
+  }
   if (state?.pending && execution.policySequence !== state.pendingPolicySeq) {
     throw new Error('Encrypt policy execution policy sequence does not match wallet pending state');
+  }
+  if (
+    state
+    && (
+      execution.sourceAmountCiphertext !== state.pendingSourceAmount
+      || execution.allowedOutputCiphertext !== state.pendingAllowedOutput
+      || execution.dailySpentOutputCiphertext !== state.pendingDailySpentOutput
+    )
+  ) {
+    throw new Error('Encrypt policy execution ciphertexts do not match wallet pending state');
   }
   return execution;
 }
 
-function deterministicPendingCiphertext(
-  request: OfficialEncryptPolicyExecutionRequest,
-  label: string
-): string {
-  return `${PLACEHOLDER_PREFIX}:${createHash('sha256')
-    .update(label)
-    .update(request.wallet.walletPda)
-    .update(request.sessionKey)
-    .update(request.amountBaseUnits.toString())
-    .update(request.wallet.policySeq.toString())
-    .digest('hex')
-    .slice(0, 32)}`;
+function isRealCiphertextId(value: string | undefined): boolean {
+  return typeof value === 'string'
+    && value.length > 0
+    && !value.startsWith('encrypt-pending:')
+    && value !== PublicKeyDefault;
 }
+
+const PublicKeyDefault = '11111111111111111111111111111111';

@@ -141,6 +141,33 @@ describe('Confidential DCA execution path', () => {
     }
   });
 
+  test('official Encrypt DCA path does not synthesize pending ciphertext ids before graph execution', async () => {
+    const fixture = createFixture({ officialEncrypt: 'configured' });
+
+    const result = await runConfidentialDcaExecution(
+      {
+        owner: fixture.owner,
+        sessionKey: fixture.sessionKey,
+        amountUsdc: 5,
+      },
+      {
+        getWalletData: async () => fixture.wallet,
+        gateway: mockGateway(),
+        buildTransaction: async () => {
+          throw new Error('unexecuted Encrypt graph must not build transactions');
+        },
+      }
+    );
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('ENCRYPT_POLICY_GRAPH_NOT_EXECUTED');
+      expect(result.encryptPolicy).toBeUndefined();
+      expect(JSON.stringify(result)).not.toContain('encrypt-pending:');
+      expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
+    }
+  });
+
   test('builds a DCA transaction only after Encrypt verification allows the graph output', async () => {
     const fixture = createFixture({ officialEncrypt: 'pending' });
 
@@ -339,7 +366,7 @@ function createFixture(options: {
   sessionAuthorized?: boolean;
   sessionGrantedSlot?: number;
   lastRevokedSlot?: number;
-  officialEncrypt?: 'pending';
+  officialEncrypt?: 'pending' | 'configured';
 } = {}) {
   const owner = Keypair.generate().publicKey.toString();
   const sessionKey = Keypair.generate().publicKey.toString();
@@ -379,17 +406,17 @@ function createFixture(options: {
       encryptedDailyCap: policySetup.encryptedDailyCap,
       encryptedDailySpent: policySetup.encryptedDailySpent,
       spentDayIndex: currentDayIndex(),
-      ...(options.officialEncrypt === 'pending' && {
+      ...((options.officialEncrypt === 'pending' || options.officialEncrypt === 'configured') && {
         encryptCiphertexts: {
           maxPerRun: Keypair.generate().publicKey.toString(),
           dailyCap: Keypair.generate().publicKey.toString(),
           dailySpent: Keypair.generate().publicKey.toString(),
-          pendingAllowedOutput: Keypair.generate().publicKey.toString(),
-          pendingDailySpentOutput: Keypair.generate().publicKey.toString(),
-          pendingSourceAmount: Keypair.generate().publicKey.toString(),
-          pendingSlot: 88,
-          pendingPolicySeq: 3,
-          pending: true,
+          pendingAllowedOutput: options.officialEncrypt === 'pending' ? Keypair.generate().publicKey.toString() : PublicKey.default.toString(),
+          pendingDailySpentOutput: options.officialEncrypt === 'pending' ? Keypair.generate().publicKey.toString() : PublicKey.default.toString(),
+          pendingSourceAmount: options.officialEncrypt === 'pending' ? Keypair.generate().publicKey.toString() : PublicKey.default.toString(),
+          pendingSlot: options.officialEncrypt === 'pending' ? 88 : 0,
+          pendingPolicySeq: options.officialEncrypt === 'pending' ? 3 : 0,
+          pending: options.officialEncrypt === 'pending',
           configured: true,
         },
       }),

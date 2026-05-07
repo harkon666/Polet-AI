@@ -1721,6 +1721,7 @@ function isBlockingProxyCode(code: string | undefined): boolean {
     || code === 'ORDER_EXPIRED'
     || code === 'POLICY_NOT_CONFIGURED'
     || code === 'INVALID_POLICY_WITNESS'
+    || code === 'ENCRYPT_POLICY_GRAPH_NOT_EXECUTED'
     || code === 'ENCRYPT_POLICY_PENDING'
     || code === 'ENCRYPT_POLICY_VERIFIED_BLOCKED'
     || code === 'IKA_ROUTE_NOT_ALLOWED'

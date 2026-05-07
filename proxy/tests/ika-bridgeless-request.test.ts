@@ -417,6 +417,52 @@ describe('Ika bridgeless execution request', () => {
     }
   });
 
+  test('official Encrypt Ika path does not synthesize pending ciphertext ids before graph execution', async () => {
+    const fixture = createFixture({ officialEncrypt: 'configured' });
+    const intent = createIkaIntent(fixture, '5');
+    delete (intent.params as { maskedWitnessDevFixture?: number[] }).maskedWitnessDevFixture;
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => {
+        throw new Error('unexecuted Encrypt graph must not build Ika approval transactions');
+      },
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('ENCRYPT_POLICY_GRAPH_NOT_EXECUTED');
+      expect(result.encryptPolicy).toBeUndefined();
+      expect('ikaRequest' in result).toBe(false);
+      expect(JSON.stringify(result)).not.toContain('encrypt-pending:');
+      expect(JSON.stringify(result)).not.toContain('messageApprovalPda');
+      expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
+    }
+  });
+
+  test('rejects verified Encrypt results that do not match wallet pending output ciphertexts', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+    const intent = createIkaIntent(fixture, '5');
+    delete (intent.params as { maskedWitnessDevFixture?: number[] }).maskedWitnessDevFixture;
+
+    await expect(createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      resolveEncryptPolicyExecution: async () => ({
+        status: 'encrypt-verified-allowed',
+        policySequence: fixture.wallet.policySeq,
+        sourceAmountCiphertext: Keypair.generate().publicKey.toString(),
+        allowedOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput,
+        dailySpentOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput,
+        verifiedSlot: 1001,
+        allowedDecryptionRequest: Keypair.generate().publicKey.toString(),
+        graph: 'polet_policy_guardrail_graph',
+      }),
+      buildApprovalTransaction: async () => {
+        throw new Error('mismatched Encrypt outputs must not build Ika approval transactions');
+      },
+    })).rejects.toThrow('Encrypt policy execution ciphertexts do not match wallet pending state');
+  });
+
   test('suppresses Ika approval data when official Encrypt verification blocks the graph output', async () => {
     const fixture = createFixture({ officialEncrypt: 'pending' });
     const intent = createIkaIntent(fixture, '5');
@@ -943,7 +989,7 @@ function createFixture(options: {
   sessionAuthorized?: boolean;
   sessionGrantedSlot?: number;
   lastRevokedSlot?: number;
-  officialEncrypt?: 'pending';
+  officialEncrypt?: 'pending' | 'configured';
 } = {}) {
   const owner = Keypair.generate().publicKey.toString();
   const sessionKey = Keypair.generate().publicKey.toString();
@@ -982,17 +1028,17 @@ function createFixture(options: {
       encryptedDailyCap: policySetup.encryptedDailyCap,
       encryptedDailySpent: policySetup.encryptedDailySpent,
       spentDayIndex: currentDayIndex(),
-      ...(options.officialEncrypt === 'pending' && {
+      ...((options.officialEncrypt === 'pending' || options.officialEncrypt === 'configured') && {
         encryptCiphertexts: {
           maxPerRun: Keypair.generate().publicKey.toString(),
           dailyCap: Keypair.generate().publicKey.toString(),
           dailySpent: Keypair.generate().publicKey.toString(),
-          pendingAllowedOutput: Keypair.generate().publicKey.toString(),
-          pendingDailySpentOutput: Keypair.generate().publicKey.toString(),
-          pendingSourceAmount: Keypair.generate().publicKey.toString(),
-          pendingSlot: 98,
-          pendingPolicySeq: 7,
-          pending: true,
+          pendingAllowedOutput: options.officialEncrypt === 'pending' ? Keypair.generate().publicKey.toString() : PublicKey.default.toString(),
+          pendingDailySpentOutput: options.officialEncrypt === 'pending' ? Keypair.generate().publicKey.toString() : PublicKey.default.toString(),
+          pendingSourceAmount: options.officialEncrypt === 'pending' ? Keypair.generate().publicKey.toString() : PublicKey.default.toString(),
+          pendingSlot: options.officialEncrypt === 'pending' ? 98 : 0,
+          pendingPolicySeq: options.officialEncrypt === 'pending' ? 7 : 0,
+          pending: options.officialEncrypt === 'pending',
           configured: true,
         },
       }),

@@ -5,6 +5,7 @@ import {
 import {
   evaluateOfficialEncryptPolicyLifecycle,
   hasOfficialEncryptPolicy,
+  hasPendingOfficialEncryptPolicyOutputs,
   type OfficialEncryptPolicyExecution,
   type OfficialEncryptPolicyResolver,
 } from './official-encrypt-policy';
@@ -20,6 +21,7 @@ export type GuardedStrategyBlockedCode =
   | 'POLICY_NOT_CONFIGURED'
   | 'INVALID_POLICY_WITNESS'
   | 'CONFIDENTIAL_POLICY_BLOCKED'
+  | 'ENCRYPT_POLICY_GRAPH_NOT_EXECUTED'
   | 'ENCRYPT_POLICY_PENDING'
   | 'ENCRYPT_POLICY_VERIFIED_BLOCKED'
   | 'TOKEN_CUSTODY_NOT_CONFIGURED';
@@ -116,6 +118,15 @@ export async function executeGuardedStrategy<TPrepared, TPayload>(
   const prepared = request.prepare ? await request.prepare(baseContext) : undefined;
 
   if (hasOfficialEncryptPolicy(wallet)) {
+    if (!hasPendingOfficialEncryptPolicyOutputs(wallet)) {
+      return {
+        allowed: false,
+        code: 'ENCRYPT_POLICY_GRAPH_NOT_EXECUTED',
+        reason: 'Official Encrypt policy graph must be executed before strategy payloads can be prepared.',
+        ...(prepared !== undefined && { prepared }),
+      };
+    }
+
     const encryptPolicy = await evaluateOfficialEncryptPolicyLifecycle(
       {
         wallet,
