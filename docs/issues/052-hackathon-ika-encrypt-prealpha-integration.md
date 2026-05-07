@@ -24,15 +24,15 @@ This is now an umbrella tracking issue, not the next executable task. Ralph-styl
 
 ## Acceptance criteria
 
-- [ ] A demo setup path exists for configuring an official Encrypt pre-alpha policy state on the Polet wallet without relying on the masked-witness fallback as the primary Ika approval gate.
+- [x] A demo setup path exists for configuring an official Encrypt pre-alpha policy state on the Polet wallet without relying on the masked-witness fallback as the primary Ika approval gate.
 - [x] The Ika intent path can return `pending-encrypt-execution` for unresolved Encrypt graph output and does not expose dWallet, MessageApproval, unsigned transaction, destination digest, private threshold, remaining cap, or witness material in that state.
 - [x] The Ika intent path can return `encrypt-verified-blocked` and proves blocked output suppresses Ika approval data and unsigned approval transactions.
 - [x] The Ika intent path can return `encrypt-verified-allowed` and only then prepares the Ika approval artifacts: canonical order hash, Ika message hash, dWallet account, MessageApproval PDA, CPI authority PDA, and unsigned Polet approval transaction for the session signer.
 - [x] Shared Ika approval quorum still applies after verified Encrypt allowed output, so a missing co-approver proof returns `IKA_APPROVAL_QUORUM_REQUIRED` before dWallet approval data is prepared.
 - [x] SDK/Hermes-facing responses clearly label `intentStrategy` separately from `executionRail`, so `strategy: dca` is not misread as “Ika has a DCA strategy.”
-- [ ] Frontend activity cards and proxy/API responses never display `encryptionWitness`, private max-per-run, daily cap, or decrypted remaining cap in any Encrypt lifecycle state.
+- [x] Frontend activity cards and proxy/API responses never display `encryptionWitness`, private max-per-run, daily cap, or decrypted remaining cap in any Encrypt lifecycle state.
 - [x] A hackathon runbook section documents the exact evidence to capture: pending, verified blocked, verified allowed, quorum required, quorum satisfied, unsigned approval signer, and devnet transaction/explorer links where applicable.
-- [ ] Tests cover the pending, verified blocked, verified allowed, quorum-required, and quorum-satisfied Ika x Encrypt outcomes across proxy, SDK normalization, and frontend rendering.
+- [x] Tests cover the pending, verified blocked, verified allowed, quorum-required, and quorum-satisfied Ika x Encrypt outcomes across proxy, SDK normalization, and frontend rendering.
 - [x] Documentation states explicitly that Encrypt and Ika are pre-alpha here: no production privacy guarantee, no production MPC claim, and settlement remains `not-executed` unless a separate destination broadcast demo is explicitly enabled.
 
 ## Blocked by
@@ -61,3 +61,4 @@ Recommended evidence stance: show transaction success and artifacts, but keep se
 
 - 2026-05-07: Added explicit `intentStrategy` labeling to Ika bridgeless proxy responses and SDK/Hermes normalized result details, separate from `executionRail: "ika-bridgeless"`, so `strategy: "dca"` is not presented as an Ika strategy. Updated proxy/SDK tests and the Ika devnet smoke runbook evidence checklist.
 - 2026-05-07: Added targeted proxy coverage for `encrypt-verified-blocked` Ika suppression and shared quorum enforcement after `encrypt-verified-allowed`, plus SDK normalization coverage for pending and verified-blocked official Encrypt Ika responses. The runbook now points to the deterministic proxy/SDK commands that prove pending, verified-blocked, verified-allowed, quorum-required, quorum-satisfied, and safe redaction behavior before manual devnet evidence is collected.
+- 2026-05-07: Closed the local hackathon evidence path. Deterministic proxy, SDK, and frontend checks cover pending, verified-blocked, verified-allowed, quorum-required, quorum-satisfied, safe redaction, and unsigned signer behavior. The live devnet caveat remains external availability: official Encrypt/Ika devnet setup and MessageApproval/explorer evidence are optional manual smoke artifacts in `docs/ika-devnet-smoke-runbook.md`, not blockers for local closeout.
