@@ -54,7 +54,7 @@ export interface MultichainStrategyParams {
     minLiquidityScore?: 'low' | 'medium' | 'high';
     requireVerifiedRoute?: boolean;
   };
-  encryptionWitness: number[];
+  encryptionWitness?: number[];
   ikaPreAlpha?: {
     dwalletAccount?: string;
     dwalletCurve?: number;

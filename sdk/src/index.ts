@@ -143,7 +143,7 @@ export interface DcaParams {
   inputMint: string;
   outputMint: string;
   slippageBps?: number;
-  encryptionWitness: number[];
+  encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }
@@ -165,7 +165,7 @@ export interface MultichainStrategyParams {
   executionRail: PoletExecutionRail;
   strategy?: 'dca' | 'swap';
   slippageBps?: number;
-  encryptionWitness: number[];
+  encryptionWitness?: number[];
   ikaPreAlpha?: IkaPreAlphaSigningInput;
   sharedAccess?: SharedIkaApprovalInput;
   routeGuardrails?: ChainAssetAllowlistPolicy;
@@ -359,7 +359,7 @@ export interface DcaIntentInput {
   owner: string;
   sessionKey: string;
   amountUsdc: number | string;
-  encryptionWitness: number[];
+  encryptionWitness?: number[];
   inputMint?: string;
   outputMint?: string;
   slippageBps?: number;
@@ -378,7 +378,7 @@ export interface MultichainStrategyIntentInput {
   targetAsset: string;
   amount: number | string;
   executionRail: PoletExecutionRail;
-  encryptionWitness: number[];
+  encryptionWitness?: number[];
   sourceMint?: string;
   targetMint?: string;
   strategy?: 'dca' | 'swap';
@@ -512,7 +512,7 @@ export function createDcaIntent(input: DcaIntentInput): DcaIntent {
       amountUsdc: input.amountUsdc,
       inputMint: input.inputMint ?? JUPITER_USDC_MINT,
       outputMint: input.outputMint ?? JUPITER_SOL_MINT,
-      encryptionWitness: input.encryptionWitness,
+      ...(input.encryptionWitness && { encryptionWitness: input.encryptionWitness }),
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
       ...(input.destinationTokenAccount && { destinationTokenAccount: input.destinationTokenAccount }),
       ...(input.nativeDestinationAccount && { nativeDestinationAccount: input.nativeDestinationAccount }),
@@ -542,7 +542,7 @@ export function createMultichainStrategyIntent(input: MultichainStrategyIntentIn
       amount: input.amount,
       executionRail: input.executionRail,
       strategy: input.strategy ?? 'dca',
-      encryptionWitness: input.encryptionWitness,
+      ...(input.encryptionWitness && { encryptionWitness: input.encryptionWitness }),
       ...(input.slippageBps !== undefined && { slippageBps: input.slippageBps }),
       ...(input.ikaPreAlpha && { ikaPreAlpha: input.ikaPreAlpha }),
       ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
@@ -1371,15 +1371,15 @@ async function tradeWithJupiter(input: PoletTradeInput, options: PoletAgentOptio
   }
 
   const witness = input.encryptionWitness ?? options.encryptionWitness;
-  if (!isEncryptionWitness(witness)) {
-    return notSupportedTradeResult('jupiter', 'A 32-byte confidential policy witness is required.');
+  if (witness !== undefined && !isEncryptionWitness(witness)) {
+    return notSupportedTradeResult('jupiter', 'maskedWitnessDevFixture must contain 32 bytes when provided.');
   }
 
   const intent = createDcaIntent({
     owner: options.owner,
     sessionKey: options.sessionKey,
     amountUsdc: input.amount,
-    encryptionWitness: witness,
+    ...(witness ? { encryptionWitness: witness } : {}),
     inputMint: from.mint ?? JUPITER_USDC_MINT,
     outputMint: to.mint ?? JUPITER_SOL_MINT,
     slippageBps: input.slippageBps,
@@ -1400,14 +1400,14 @@ async function tradeWithJupiter(input: PoletTradeInput, options: PoletAgentOptio
 async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions): Promise<PoletTradeResult> {
   const from = normalizeTradeAsset(input.from, 'solana');
   const to = normalizeTradeAsset(input.to, 'sui');
-  const witness = input.encryptionWitness ?? options.encryptionWitness;
 
   if (!isSupportedIkaDestination(from, to)) {
     return notSupportedTradeResult('ika', 'Only Solana USDC -> Sui SUI or Ethereum ETH is supported on the Ika adapter in this MVP slice.');
   }
 
-  if (!isEncryptionWitness(witness)) {
-    return notSupportedTradeResult('ika', 'A 32-byte confidential policy witness is required.');
+  const witness = input.encryptionWitness ?? options.encryptionWitness;
+  if (witness !== undefined && !isEncryptionWitness(witness)) {
+    return notSupportedTradeResult('ika', 'maskedWitnessDevFixture must contain 32 bytes when provided.');
   }
 
   const intent = createMultichainStrategyIntent({
@@ -1422,7 +1422,7 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
     amount: input.amount,
     executionRail: 'ika',
     strategy: input.strategy ?? 'dca',
-    encryptionWitness: witness,
+    ...(witness ? { encryptionWitness: witness } : {}),
     slippageBps: input.slippageBps,
     ikaPreAlpha: input.ikaPreAlpha,
     sharedAccess: input.sharedAccess,

@@ -996,6 +996,33 @@ describe('Polet AI SDK - Intent Builder', () => {
       });
     });
 
+    test('omits encryptionWitness from default Jupiter trade requests', async () => {
+      const requests: Array<{ body: unknown }> = [];
+      const fetchMock = async (_input: URL | RequestInfo, init?: RequestInit) => {
+        requests.push({ body: JSON.parse(init?.body?.toString() ?? '{}') });
+        return Response.json({
+          success: true,
+          data: {
+            allowed: false,
+            code: 'ENCRYPT_POLICY_PENDING',
+            status: 'pending-encrypt-execution',
+            reason: 'Encrypt policy graph execution is pending verification.',
+          },
+        });
+      };
+
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+      });
+
+      await polet.trade({ from: 'USDC', to: 'SOL', amount: '5' });
+
+      expect(JSON.stringify(requests[0].body)).not.toContain('encryptionWitness');
+    });
+
     test('submits an explicit Ika trade through the multichain adapter', async () => {
       const requests: Array<{ url: string; body: unknown }> = [];
       const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
@@ -1080,6 +1107,39 @@ describe('Polet AI SDK - Intent Builder', () => {
           },
         },
       });
+    });
+
+    test('omits encryptionWitness from default Ika trade requests', async () => {
+      const requests: Array<{ body: unknown }> = [];
+      const fetchMock = async (_input: URL | RequestInfo, init?: RequestInit) => {
+        requests.push({ body: JSON.parse(init?.body?.toString() ?? '{}') });
+        return Response.json({
+          success: true,
+          data: {
+            allowed: false,
+            code: 'ENCRYPT_POLICY_PENDING',
+            status: 'pending-encrypt-execution',
+            reason: 'Encrypt policy graph execution is pending verification.',
+          },
+        });
+      };
+
+      const polet = createPoletAgent({
+        owner: 'owner-1',
+        sessionKey: 'session-1',
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+      });
+
+      await polet.trade({
+        rail: 'ika',
+        from: { chain: 'solana', asset: 'USDC' },
+        to: { chain: 'sui', asset: 'SUI' },
+        amount: '5',
+      });
+
+      expect(JSON.stringify(requests[0].body)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(requests[0].body)).not.toContain('1,2,3');
     });
 
     test('normalizes Ika Pre-Alpha approval transaction status from proxy responses', async () => {

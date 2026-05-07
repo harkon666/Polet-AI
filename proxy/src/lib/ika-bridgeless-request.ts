@@ -358,7 +358,7 @@ async function buildIkaAllowedResult(
     orderExpiresAt: canonicalOrder.expiresAtUnix,
     attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
     attestationPolicySeq: wallet.policySeq,
-    encryptionWitness: params.encryptionWitness,
+    encryptionWitness: params.encryptionWitness ?? [],
     userPubkey: preAlphaSigning.userPublicKey,
     signatureScheme: signatureSchemeCode(preAlphaSigning.signatureScheme),
     messageApprovalBump: preAlphaSigning.messageApprovalBump,

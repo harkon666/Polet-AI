@@ -34,7 +34,7 @@ export interface ConfidentialDcaRunRequest {
   inputMint?: string;
   outputMint?: string;
   slippageBps?: number;
-  encryptionWitness: number[];
+  encryptionWitness?: number[];
   destinationTokenAccount?: string;
   nativeDestinationAccount?: string;
 }
@@ -142,7 +142,7 @@ export async function runConfidentialDcaExecution(
               amount: amountBaseUnits,
               attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
               attestationPolicySeq: wallet.policySeq,
-              encryptionWitness: request.encryptionWitness,
+              encryptionWitness: request.encryptionWitness ?? [],
             },
             PROGRAM_ID_STRING
           );
@@ -199,8 +199,8 @@ function validateRunRequest(request: ConfidentialDcaRunRequest): void {
   if (request.amount === undefined && request.amountUsdc === undefined) {
     throw new ConfidentialDcaExecutionError('amountUsdc is required', 'INVALID_DCA_REQUEST');
   }
-  if (!Array.isArray(request.encryptionWitness) || request.encryptionWitness.length !== 32) {
-    throw new ConfidentialDcaExecutionError('encryptionWitness must contain 32 bytes', 'INVALID_DCA_REQUEST');
+  if (request.encryptionWitness !== undefined && (!Array.isArray(request.encryptionWitness) || request.encryptionWitness.length !== 32)) {
+    throw new ConfidentialDcaExecutionError('maskedWitnessDevFixture must contain 32 bytes when provided', 'INVALID_DCA_REQUEST');
   }
 }
 

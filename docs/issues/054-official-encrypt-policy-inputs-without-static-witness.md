@@ -45,6 +45,22 @@ This is the next executable slice after `052` was converted into an umbrella tra
 - `docs/issues/052-hackathon-ika-encrypt-prealpha-integration.md`
 - `docs/issues/053-agent-sdk-integration-kit.md`
 
+## Progress
+
+2026-05-07 slice:
+
+- Landed no-witness primary proxy/API handling for official Encrypt-configured DCA and Ika requests. Omitted `encryptionWitness` now returns pending/verified official lifecycle states instead of failing request validation.
+- Kept masked-witness evaluation as explicit fallback only when no official Encrypt ciphertext policy is configured; missing fallback witness returns `INVALID_POLICY_WITNESS`.
+- Updated SDK high-level trade defaults and examples so `createPoletAgent()`, agent-kit tools, and OpenClaw/Hermes-style examples no longer serialize static `[1..32]` witness arrays by default.
+- Updated frontend DCA/Ika action payloads and the Ika smoke runbook to omit witness bytes from primary action requests. The remaining frontend policy-save fixture is named as a masked-witness dev fixture.
+- Added deterministic proxy regression tests for pending and verified-allowed official Encrypt DCA/Ika requests without witness bytes.
+
+Remaining:
+
+- Add owner/demo UX and proxy route coverage for registering real official Encrypt ciphertext policy inputs end to end.
+- Add production transaction builders for verified Encrypt DCA/Ika paths that do not fall back to masked-witness instruction data when a resolver returns verified allowed output.
+- Broaden SDK/frontend regression tests to snapshot primary serialized request bodies across all demo buttons and local-runtime modes.
+
 ## Grill decisions
 
 Recommended scope: one vertical AFK issue. The completed slice must be demoable end to end: setup official Encrypt policy inputs, submit a DCA/Ika request without witness bytes, observe pending/verified states, and prove payload suppression or preparation based on verified output.

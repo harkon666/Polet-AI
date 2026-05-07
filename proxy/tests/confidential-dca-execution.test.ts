@@ -115,6 +115,32 @@ describe('Confidential DCA execution path', () => {
     }
   });
 
+  test('official Encrypt DCA path accepts no witness and returns pending lifecycle', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+
+    const result = await runConfidentialDcaExecution(
+      {
+        owner: fixture.owner,
+        sessionKey: fixture.sessionKey,
+        amountUsdc: 5,
+      },
+      {
+        getWalletData: async () => fixture.wallet,
+        gateway: mockGateway(),
+        buildTransaction: async () => {
+          throw new Error('pending Encrypt runs must not build transactions');
+        },
+      }
+    );
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.status).toBe('pending-encrypt-execution');
+      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
+    }
+  });
+
   test('builds a DCA transaction only after Encrypt verification allows the graph output', async () => {
     const fixture = createFixture({ officialEncrypt: 'pending' });
 
@@ -145,6 +171,38 @@ describe('Confidential DCA execution path', () => {
     if (result.allowed) {
       expect(result.encryptPolicy?.status).toBe('encrypt-verified-allowed');
       expect(result.transaction.signers).toEqual([fixture.sessionKey]);
+    }
+  });
+
+  test('official Encrypt verified-allowed DCA request does not require witness in API input', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+
+    const result = await runConfidentialDcaExecution(
+      {
+        owner: fixture.owner,
+        sessionKey: fixture.sessionKey,
+        amountUsdc: 5,
+      },
+      {
+        getWalletData: async () => fixture.wallet,
+        gateway: mockGateway(),
+        resolveEncryptPolicyExecution: async () => ({
+          status: 'encrypt-verified-allowed',
+          policySequence: fixture.wallet.policySeq,
+          sourceAmountCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingSourceAmount,
+          allowedOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput,
+          dailySpentOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput,
+          verifiedSlot: 999,
+          graph: 'polet_policy_guardrail_graph',
+        }),
+        buildTransaction: async () => mockBuiltTransaction(fixture.sessionKey),
+      }
+    );
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      expect(result.encryptPolicy?.status).toBe('encrypt-verified-allowed');
+      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
     }
   });
 

@@ -384,7 +384,7 @@ export interface RunConfidentialDcaInput {
   owner: string;
   sessionKey: string;
   amountUsdc: string;
-  encryptionWitness: number[];
+  encryptionWitness?: number[];
   inputMint?: string;
   outputMint?: string;
   slippageBps?: number;
@@ -556,7 +556,7 @@ export interface RunMultichainIntentInput {
       encoding?: 'base64';
     }>;
   };
-  encryptionWitness: number[];
+  encryptionWitness?: number[];
   routeGuardrails?: {
     mode: 'chain-asset-allowlist';
     allowedSourceChains: Array<'solana' | 'sui' | 'ethereum' | 'base'>;
@@ -685,7 +685,7 @@ export async function runMultichainIntent(input: RunMultichainIntentInput): Prom
           ...(input.routeRisk && { routeRisk: input.routeRisk }),
           ...(input.riskGuardrails && { riskGuardrails: input.riskGuardrails }),
           ...(input.sharedAccess && { sharedAccess: input.sharedAccess }),
-          encryptionWitness: input.encryptionWitness,
+          ...(input.encryptionWitness && { encryptionWitness: input.encryptionWitness }),
           ...(input.routeGuardrails && { routeGuardrails: input.routeGuardrails }),
         },
         timestamp: Math.floor(Date.now() / 1000),

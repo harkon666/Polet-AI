@@ -51,6 +51,8 @@ Current hackathon integration decision:
 
 ## In Progress
 
+- `054-official-encrypt-policy-inputs-without-static-witness` — In progress no-witness primary API/SDK/frontend slice. Landed this pass: proxy DCA and Ika official Encrypt-configured requests accept omitted `encryptionWitness`, fallback masked-witness evaluation now requires an explicitly provided dev fixture only when no official Encrypt ciphertext policy is configured, SDK high-level trade defaults and examples stop serializing static `[1..32]` witness arrays, frontend DCA/Ika action payloads stop sending the masked witness fixture, and the Ika devnet smoke request no longer includes witness bytes. Remaining: owner/demo registration UX for real official Encrypt ciphertext inputs and production transaction builders for verified Encrypt DCA/Ika without masked-witness compatibility.
+  - Verification this pass: `bun test ./tests/confidential-dca-execution.test.ts ./tests/ika-bridgeless-request.test.ts` and `bun run build` in `proxy/`; `bun test ./tests/intent-builder.test.ts` and `bun run build` in `sdk/`; `bun run test src/components/DemoTab.test.tsx` and `bun run build` in `frontend/`.
 - `053-agent-sdk-integration-kit` — In progress generic SDK integration issue for Hermes, OpenClaw, and other AI agent runtimes. Landed this pass: `createPoletAgentKit()`, config validation, proxy/wallet/session status checks, runtime-safe tool descriptors, normalized trade tool output, simulation passthrough, smart wallet PDA onboarding helper, environment export helper, owner setup guidance, and explicit `signer-required` sign/send behavior unless an injected session signer and RPC sender exist. Remaining: broaden live-proxy status diagnostics and optional onboarding export ergonomics.
   - Verification this pass: `bun test ./tests/intent-builder.test.ts` and `bun run build` in `sdk/`.
 
@@ -65,7 +67,7 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-1. `054-official-encrypt-policy-inputs-without-static-witness` — Remove static `[1,2,3,...,32]` witness arrays from the primary proxy/API, SDK/runtime, and frontend demo path. Masked witness remains only as explicit local dev fixture/fallback.
+1. `054-official-encrypt-policy-inputs-without-static-witness` — Continue the remaining official Encrypt ciphertext registration/verified transaction-builder work after the no-witness primary request slice landed. Masked witness remains only as explicit local dev fixture/fallback.
 2. `055-official-encrypt-no-witness-manual-e2e-readiness` — Make frontend, proxy, SDK, docs, and tests ready for a no-witness manual E2E run after `054`.
 3. `056-frontend-ika-encrypt-lifecycle-command-center` — Render pending, verified blocked, verified allowed, quorum required, and quorum satisfied Ika x Encrypt states in the command-center UI with redaction tests.
 4. `057-hackathon-encrypt-ika-local-evidence-pack` — Produce deterministic local evidence commands/output for the full Ika x Encrypt lifecycle without relying on live devnet availability.

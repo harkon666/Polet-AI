@@ -181,7 +181,7 @@ export function DemoTabContent({
   });
 
   const t = COPY[locale];
-  const witness = useMemo(() => Array.from({ length: 32 }, (_, index) => index + 1), []);
+  const maskedWitnessDevFixture = useMemo(() => Array.from({ length: 32 }, (_, index) => index + 1), []);
   const hasAgent = Boolean(agentAddress.trim());
   const hasBlockedRun = activity.some((entry) => isBlockedStatus(entry.status) && entry.amountUsdc === '25');
   const hasAllowedRun = activity.some(
@@ -325,7 +325,7 @@ export function DemoTabContent({
             owner,
             maxPerRunUsdc: policyDraft.maxPerRunUsdc,
             dailyCapUsdc: policyDraft.dailyCapUsdc,
-            encryptionWitness: witness,
+            encryptionWitness: maskedWitnessDevFixture,
           });
           const signature = await signAndConfirmTransaction(result.transaction);
           setPolicySaved(true);
@@ -597,7 +597,6 @@ export function DemoTabContent({
         owner,
         sessionKey: agentAddress.trim(),
         amountUsdc,
-        encryptionWitness: witness,
         slippageBps: 100,
       });
       const encryptStatus = getEncryptStatus(result.status, result.encryptPolicy);
@@ -667,7 +666,6 @@ export function DemoTabContent({
         routeRisk: { priceImpactBps: routeRiskDraft.maxPriceImpactBps, liquidityScore: routeRiskDraft.minLiquidityScore, verifiedRoute: routeRiskDraft.requireVerifiedRoute, provider: 'polet-demo-precheck' },
         riskGuardrails: { mode: 'bridgeless-route-risk', maxSlippageBps: 150, maxPriceImpactBps: 300, minLiquidityScore: routeRiskDraft.minLiquidityScore, requireVerifiedRoute: routeRiskDraft.requireVerifiedRoute },
         sharedAccess: buildSharedAccess(sharedIkaApproval, sharedApprovalProofs, t.invalidSharedProofs),
-        encryptionWitness: witness,
         routeGuardrails: {
           mode: 'chain-asset-allowlist',
           allowedSourceChains: ['solana'],

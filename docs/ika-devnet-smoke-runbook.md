@@ -272,7 +272,6 @@ curl -sS -X POST http://localhost:3001/intent/multichain/run \
       \"executionRail\": \"ika\",
       \"strategy\": \"dca\",
       \"slippageBps\": 100,
-      \"encryptionWitness\": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32],
       \"ikaPreAlpha\": {
         \"dwalletAccount\": \"$IKA_DWALLET_ACCOUNT\",
         \"userPublicKey\": \"$IKA_USER_PUBLIC_KEY\",

@@ -225,7 +225,6 @@ export async function example_agent_dca_strategy() {
     owner: userWallet,
     sessionKey,
     amountUsdc: 5,
-    encryptionWitness: Array.from({ length: 32 }, (_, index) => index + 1),
     slippageBps: 100,
   });
 
@@ -273,7 +272,6 @@ export async function example_polet_agent_trade() {
     owner: 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2',
     sessionKey: 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4',
     baseUrl: 'https://proxy.polet.ai',
-    encryptionWitness: Array.from({ length: 32 }, (_, index) => index + 1),
   });
 
   const jupiterPreview = await polet.trade({

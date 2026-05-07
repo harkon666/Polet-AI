@@ -7,6 +7,7 @@ afterEach(() => {
   document.body.innerHTML = '';
   sharedConfig = null;
   sharedIkaAttempts = 0;
+  dcaInputs = [];
   multichainInputs = [];
   recoveryAccessInputs = [];
   encryptDcaMode = null;
@@ -15,6 +16,7 @@ afterEach(() => {
 
 let sharedConfig: { threshold: number; approvers: string[] } | null = null;
 let sharedIkaAttempts = 0;
+let dcaInputs: RunConfidentialDcaInput[] = [];
 let multichainInputs: RunMultichainIntentInput[] = [];
 let recoveryAccessInputs: Parameters<typeof api.recoverAccess>[0][] = [];
 let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
@@ -99,6 +101,7 @@ const api = {
   requestPasskeyChallenge: async () => ({ challenge: Array.from(new Uint8Array(32)), publicKeyCredentialRequestOptions: { challenge: Array.from(new Uint8Array(32)), rpId: 'localhost', allowCredentials: [], userVerification: 'preferred' }, boundary: 'mock' }),
   verifyPasskeyAssertion: async () => ({ valid: false, approverPublicKey: '', challengeUsed: '', boundary: 'mock' }),
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
+    dcaInputs.push(input);
     if (encryptDcaMode === 'pending') {
       return {
         allowed: false,
@@ -439,6 +442,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/jupiter route siap/i)).toBeTruthy();
     expect(view.getByText(/humidifi/i)).toBeTruthy();
     expect(view.getByText(/preview: route\/build jupiter/i)).toBeTruthy();
+    expect(JSON.stringify(dcaInputs)).not.toContain('encryptionWitness');
   });
 
   test('renders official Encrypt DCA lifecycle states without executable payload leaks', async () => {
@@ -495,6 +499,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/messageapproval/i)).toBeTruthy();
     expect(view.getByText(/message hash/i)).toBeTruthy();
     expect(view.getByText(/ed25519-prealpha/i)).toBeTruthy();
+    expect(JSON.stringify(multichainInputs)).not.toContain('encryptionWitness');
     logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
     expect(logText).not.toContain('10 USDC');
     expect(logText).not.toContain('20 USDC');

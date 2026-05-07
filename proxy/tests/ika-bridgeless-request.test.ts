@@ -398,6 +398,27 @@ describe('Ika bridgeless execution request', () => {
     }
   });
 
+  test('official Encrypt Ika path accepts no witness and returns pending lifecycle', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+    const intent = createIkaIntent(fixture, '5');
+    delete (intent.params as { encryptionWitness?: number[] }).encryptionWitness;
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      buildApprovalTransaction: async () => {
+        throw new Error('pending Encrypt requests must not build Ika approval transactions');
+      },
+    });
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.status).toBe('pending-encrypt-execution');
+      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
+      expect(JSON.stringify(result)).not.toContain(Array.from(fixture.witness).join(','));
+      expect('ikaRequest' in result).toBe(false);
+    }
+  });
+
   test('suppresses Ika approval data when official Encrypt verification blocks the graph output', async () => {
     const fixture = createFixture({ officialEncrypt: 'pending' });
     const intent = createIkaIntent(fixture, '5');
@@ -455,6 +476,32 @@ describe('Ika bridgeless execution request', () => {
       expect(result.ikaRequest.policyAttestation.status).toBe('encrypt-verified-allowed');
       expect(result.ikaRequest.policyAttestation.encryptPolicy?.status).toBe('encrypt-verified-allowed');
       expect(result.ikaRequest.poletApprovalTransaction).toEqual(fixture.approvalTransaction);
+    }
+  });
+
+  test('official Encrypt verified-allowed Ika request does not require witness in API input', async () => {
+    const fixture = createFixture({ officialEncrypt: 'pending' });
+    const intent = createIkaIntent(fixture, '5');
+    delete (intent.params as { encryptionWitness?: number[] }).encryptionWitness;
+
+    const result = await createIkaBridgelessExecutionRequest(intent, {
+      getWalletData: async () => fixture.wallet,
+      resolveEncryptPolicyExecution: async () => ({
+        status: 'encrypt-verified-allowed',
+        policySequence: fixture.wallet.policySeq,
+        sourceAmountCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingSourceAmount,
+        allowedOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput,
+        dailySpentOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput,
+        verifiedSlot: 1001,
+        graph: 'polet_policy_guardrail_graph',
+      }),
+      buildApprovalTransaction: async () => fixture.approvalTransaction,
+    });
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      expect(result.ikaRequest.policyAttestation.status).toBe('encrypt-verified-allowed');
+      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
     }
   });
 
