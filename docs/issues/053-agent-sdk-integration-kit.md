@@ -55,3 +55,20 @@ Recommended safety stance: signing and broadcasting remain explicit. If the agen
 ## Implementation notes
 
 - 2026-05-07: Added the first `createPoletAgentKit()` SDK slice. The kit now exposes config validation, proxy/wallet/session status, smart wallet PDA derivation, runtime-safe tool descriptors, normalized trade tool output, transaction simulation passthrough, and explicit `signer-required` behavior for sign/send unless a session signer plus RPC sender is injected. Docs now include generic kit and tool-registration examples. Remaining: broaden status normalization against live proxy edge cases and add onboarding helpers for exported environment bundles if needed.
+
+## Progress - 2026-05-07
+
+All acceptance criteria met:
+
+- `createPoletAgentKit()` entry point — implemented with validateConfig, status, trade, simulateTransaction, signAndSendTransaction, tools, onboarding.
+- 6 runtime-safe tools: polet_status, polet_trade, polet_ika_request, polet_simulate_transaction, polet_sign_and_send_transaction, polet_shared_ika_approval_status.
+- Normalized statuses: blocked, pending-encrypt-execution, needs-approval, preview-ready, approval-transaction-prepared, submitted, failed, not-supported, signer-required.
+- No private thresholds, witness bytes, or seed phrases in tool output — verified by tests.
+- Signing is opt-in; signer-required fallback when no session signer configured.
+- Onboarding: deriveSmartWalletPda, exportConfig (env bundle), requiredOwnerSetup.
+- SDK docs: Added Example 10 (`example_polet_agent_kit`) in `sdk/examples.ts` — 10-20 line integration pattern for Hermes/OpenClaw.
+- 85/85 SDK tests pass, tsc build clean.
+
+Verification:
+- `cd sdk && bun test` — 85 pass, 0 fail
+- `cd sdk && bun run build` — tsc clean
