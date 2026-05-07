@@ -1,11 +1,11 @@
 
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 }
 
@@ -1560,5 +1560,221 @@ footer {
   }
   .qe-anti-thesis__body p {
     font-size: 1.15rem;
+  }
+}
+
+/* ============================================
+   LANDING INTERACTIONS — scroll reveal, hover, micro-animations
+   ============================================ */
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ---- Scroll Reveal ----
+   Elements start invisible + shifted. When .is-visible is added
+   (by IntersectionObserver in JS), they animate into place. */
+
+.qe-reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.qe-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger children — each child delays slightly more */
+.qe-reveal-stagger > * {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.qe-reveal-stagger.is-visible > *:nth-child(1) { transition-delay: 0.05s; }
+.qe-reveal-stagger.is-visible > *:nth-child(2) { transition-delay: 0.12s; }
+.qe-reveal-stagger.is-visible > *:nth-child(3) { transition-delay: 0.19s; }
+.qe-reveal-stagger.is-visible > *:nth-child(4) { transition-delay: 0.26s; }
+.qe-reveal-stagger.is-visible > *:nth-child(5) { transition-delay: 0.33s; }
+
+.qe-reveal-stagger.is-visible > * {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Slide from left */
+.qe-reveal-left {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.qe-reveal-left.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Slide from right */
+.qe-reveal-right {
+  opacity: 0;
+  transform: translateX(40px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.qe-reveal-right.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Scale up */
+.qe-reveal-scale {
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.qe-reveal-scale.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ---- Card Hover ---- */
+.qe-card {
+  transition:
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.28s ease;
+}
+
+.qe-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  border-color: var(--line-strong);
+}
+
+/* ---- Hero Gradient Drift ---- */
+@keyframes qe-hero-gradient-drift {
+  0%, 100% {
+    background-position: 22% 28%, 78% 35%, 50% 110%;
+  }
+  33% {
+    background-position: 25% 32%, 75% 30%, 48% 115%;
+  }
+  66% {
+    background-position: 20% 25%, 80% 38%, 52% 108%;
+  }
+}
+
+.qe-hero--type::before {
+  animation: qe-hero-gradient-drift 18s ease-in-out infinite;
+}
+
+/* ---- Status Dot Pulse ---- */
+@keyframes qe-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.qe-status-dot {
+  animation: qe-pulse 2.4s ease-in-out infinite;
+}
+
+/* ---- Button Hover Glow ---- */
+.qe-button--primary {
+  transition:
+    background 0.2s ease,
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s ease;
+}
+
+.qe-button--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0, 240, 160, 0.25);
+}
+
+.qe-button--primary:active {
+  transform: translateY(0);
+}
+
+.qe-button--secondary {
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.qe-button--secondary:hover {
+  transform: translateY(-1px);
+}
+
+/* ---- Quadrant Cell Hover ---- */
+.qe-quadrant__cell {
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.qe-quadrant__cell:hover {
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+/* ---- Link Arrow Nudge ---- */
+.qe-link__arrow {
+  display: inline-block;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.qe-link:hover .qe-link__arrow {
+  transform: translateX(3px);
+}
+
+/* ---- Reduced Motion Override ---- */
+@media (prefers-reduced-motion: reduce) {
+  .qe-reveal,
+  .qe-reveal-left,
+  .qe-reveal-right,
+  .qe-reveal-scale {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .qe-reveal-stagger > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .qe-hero--type::before {
+    animation: none;
+  }
+
+  .qe-status-dot {
+    animation: none;
+  }
+
+  .qe-card:hover,
+  .qe-button--primary:hover,
+  .qe-button--secondary:hover {
+    transform: none;
+  }
+
+  html {
+    scroll-behavior: auto;
   }
 }

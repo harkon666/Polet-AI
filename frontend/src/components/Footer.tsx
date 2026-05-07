@@ -117,8 +117,12 @@ export default function Footer() {
           <span>
             © {year} Polet AI · All rights reserved
           </span>
-          <span>
-            Built for Superteam Frontier · Indonesia
+          <span className="flex items-center gap-2">
+            <img src="/brand/colosseum-symbol.svg" alt="" width={14} height={14} className="opacity-70" aria-hidden="true" />
+            <a href="https://colosseum.com/frontier" target="_blank" rel="noreferrer" className="font-semibold text-[var(--sea-ink)] hover:text-[var(--lagoon)] transition-colors">Colosseum Frontier</a>
+            <span>×</span>
+            <img src="/brand/solana-logomark.svg" alt="" width={14} height={14} className="opacity-70" aria-hidden="true" />
+            <a href="https://solana.com/" target="_blank" rel="noreferrer" className="font-semibold text-[var(--sea-ink)] hover:text-[var(--lagoon)] transition-colors">Solana</a>
           </span>
           <span className="hidden text-[var(--kicker)] sm:inline">
             Devnet only · No production claims

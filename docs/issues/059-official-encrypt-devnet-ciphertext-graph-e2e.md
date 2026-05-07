@@ -173,3 +173,35 @@ Fixed pre-existing test bug in `proxy/tests/ika-bridgeless-request.test.ts:207`:
 Remaining:
 - Re-run graph execution once Encrypt team initializes `event_authority` and per-payer `deposit` PDAs on devnet.
 - Executor verification polling and Ika consume evidence not yet captured (blocked by above).
+
+## Progress - 2026-05-07 (Deposit Creation)
+
+Added Encrypt deposit creation infrastructure:
+
+**Proxy (transaction-builder.ts):**
+- `deriveEncryptDepositPda(ownerPubkey)` — derives deposit PDA from owner's pubkey
+- `deriveEncryptConfigPda()`, `deriveEncryptEventAuthorityPda()`, `derivePoletEncryptCpiAuthorityPda()`
+- `buildCreateEncryptDepositTransaction(ownerPubkey)` — builds create_deposit instruction (disc 13)
+- Reads encVault from on-chain config data bytes 100-132
+- 17-byte data: bump(1) | initial_enc_amount(8) | initial_gas_amount(8)
+
+**Proxy route (wallet.ts):**
+- `POST /wallet/create-encrypt-deposit` — takes `{ owner }`, returns unsigned tx
+
+**Frontend (api.ts):**
+- `createEncryptDeposit(owner)` — calls proxy route
+
+**Frontend (DemoTab.tsx):**
+- Added `createEncryptDeposit` to DemoApi interface
+
+**Tests:**
+- 154 proxy tests pass (1 new)
+- 49 frontend tests pass
+- All builds clean
+
+**Known blockers:**
+- `create_deposit` instruction fails on devnet with error 0x1 (156 CU)
+- Root cause: Encrypt devnet config has enc_mint = 0 (no ENC token configured)
+- event_authority PDA not initialized on devnet
+- These are external Encrypt infrastructure issues, not Polet code bugs
+- Deposit creation code is ready, will work once Encrypt devnet is properly configured

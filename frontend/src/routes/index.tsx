@@ -4,6 +4,7 @@ import { StatsCounter } from '../components/StatsCounter';
 import { FlowDiagram } from '../components/FlowDiagram';
 import { RailMockup } from '../components/RailMockup';
 import { BrandLogo } from '../components/BrandLogo';
+import { useScrollReveal } from '../hooks/useScrollReveal';
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -18,7 +19,7 @@ const TRUST_PARTNERS = [
 ] as const;
 
 const STATS = [
-  { value: 32, label: 'Tests passing', sub: 'Rust + TS suites' },
+  { value: 49, label: 'Tests passing', sub: 'Frontend TS suite' },
   { value: 8, label: 'Contract instructions', sub: 'Single program ID' },
   { value: 2, label: 'Execution rails', sub: 'Jupiter + Ika' },
   { value: 1, label: 'Policy gate', sub: 'Confidential, on-chain' },
@@ -114,8 +115,10 @@ const RAILS = [
 ];
 
 export function HomePage() {
+  const revealRef = useScrollReveal();
+
   return (
-    <main>
+    <main ref={revealRef}>
       {/* ============================================================
           HERO — Walrus-pattern: type-driven, single column, single CTA
          ============================================================ */}
@@ -159,9 +162,9 @@ export function HomePage() {
             <span className="qe-hero-meta__sep">·</span>
             <span className="qe-hero-meta__item">Program 3bJjt…bkeN</span>
             <span className="qe-hero-meta__sep">·</span>
-            <span className="qe-hero-meta__item">32 tests passing</span>
+            <span className="qe-hero-meta__item">49+ tests passing</span>
             <span className="qe-hero-meta__sep">·</span>
-            <span className="qe-hero-meta__item">End-to-end devnet verified</span>
+            <span className="qe-hero-meta__item">Jupiter + Ika devnet verified</span>
           </div>
         </div>
       </section>
@@ -169,7 +172,7 @@ export function HomePage() {
       {/* ============================================================
           TRUST STRIP — partner logos / integration marks (marquee)
          ============================================================ */}
-      <section className="qe-trust-strip">
+      <section className="qe-trust-strip qe-reveal">
         <div className="page-wrap px-4">
           <p className="mt-7 mb-2 text-center font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--kicker)]">
             Built on · Integrated with
@@ -203,8 +206,8 @@ export function HomePage() {
       {/* ============================================================
           STATS COUNTER — engineering credibility numbers
          ============================================================ */}
-      <section className="page-wrap px-4">
-        <div className="qe-stats">
+      <section className="page-wrap px-4 py-16 md:py-24">
+        <div className="qe-stats qe-reveal-stagger">
           {STATS.map((s) => (
             <div key={s.label} className="qe-stat">
               <span className="qe-stat__value">
@@ -220,7 +223,7 @@ export function HomePage() {
       {/* ============================================================
           MANIFESTO / PROBLEM — narrative + 3 problem cards
          ============================================================ */}
-      <section className="border-y border-[var(--line)] bg-[var(--foam)]">
+      <section className="border-y border-[var(--line)] bg-[var(--foam)] qe-reveal">
         <div className="page-wrap grid gap-12 px-4 py-16 md:grid-cols-[5fr_7fr] md:gap-16 md:py-24">
           <div>
             <p className="island-kicker mb-4">The delegation problem</p>
@@ -257,7 +260,7 @@ export function HomePage() {
       {/* ============================================================
           ARCHITECTURE FLOW DIAGRAM
          ============================================================ */}
-      <section className="page-wrap px-4 py-16 md:py-24">
+      <section className="page-wrap px-4 py-16 md:py-24 qe-reveal-scale">
         <div className="mb-10 max-w-3xl">
           <p className="island-kicker mb-3">How it works</p>
           <h2 className="display-title text-3xl font-bold leading-tight tracking-tight text-[var(--sea-ink)] sm:text-4xl md:text-5xl">
@@ -286,7 +289,7 @@ export function HomePage() {
         return (
           <section
             key={rail.id}
-            className={`qe-rail-section ${rail.railClass} border-t border-[var(--line)]`}
+            className={`qe-rail-section ${rail.railClass} border-t border-[var(--line)] ${idx % 2 === 0 ? 'qe-reveal-left' : 'qe-reveal-right'}`}
             style={
               {
                 background:
@@ -348,7 +351,7 @@ export function HomePage() {
       {/* ============================================================
           SECURITY 4-QUADRANT
          ============================================================ */}
-      <section className="border-y border-[var(--line)] bg-[var(--bg-base)]">
+      <section className="border-y border-[var(--line)] bg-[var(--bg-base)] qe-reveal">
         <div className="page-wrap px-4 py-16 md:py-24">
           <div className="mb-10 grid gap-6 md:grid-cols-[1fr_1fr] md:items-end">
             <div>
@@ -363,7 +366,7 @@ export function HomePage() {
             </p>
           </div>
 
-          <div className="qe-quadrant">
+          <div className="qe-quadrant qe-reveal-stagger">
             {SECURITY_FACTS.map((f) => (
               <div key={f.title} className="qe-quadrant__cell">
                 <span className="qe-quadrant__icon" aria-hidden="true">
@@ -382,7 +385,7 @@ export function HomePage() {
       {/* ============================================================
           INTERACTIVE DEMO WIDGET
          ============================================================ */}
-      <section className="border-b border-[var(--line)] bg-[var(--foam)]">
+      <section className="border-b border-[var(--line)] bg-[var(--foam)] qe-reveal">
         <div className="page-wrap grid gap-12 px-4 py-16 md:grid-cols-[5fr_7fr] md:gap-12 md:py-24">
           <div>
             <p className="island-kicker mb-3">Try it · no wallet needed</p>
@@ -429,7 +432,7 @@ export function HomePage() {
       {/* ============================================================
           HONEST DISCLAIMER
          ============================================================ */}
-      <section className="page-wrap px-4 py-16 md:py-24">
+      <section className="page-wrap px-4 py-16 md:py-24 qe-reveal">
         <div className="qe-card border-2 border-dashed border-[var(--line-strong)] bg-[var(--sand)]">
           <div className="mb-3 flex items-center gap-3">
             <span className="qe-badge qe-badge--alpha">Pre-Alpha</span>
@@ -475,7 +478,7 @@ export function HomePage() {
       {/* ============================================================
           FINAL CTA — gradient panel
          ============================================================ */}
-      <section className="page-wrap px-4 pb-16 md:pb-24">
+      <section className="page-wrap px-4 pt-16 pb-16 md:pt-24 md:pb-24 qe-reveal-scale">
         <div className="qe-cta-panel">
           <h2 className="display-title mx-auto max-w-2xl text-3xl font-extrabold sm:text-4xl md:text-5xl">
             Try the policy gate on devnet.

@@ -89,7 +89,7 @@ export function FlowDiagram() {
         y={305}
         w={240}
         h={60}
-        num="07"
+        num="08"
         label="Ika dWallet"
         sub="approve_message CPI"
         rail

@@ -26,6 +26,7 @@ import {
   buildApproveIkaMessageWithVerifiedEncryptAsSessionAccounts,
   buildApproveIkaMessageWithVerifiedEncryptAsSessionInstructionData,
   buildApproveIkaMessageWithVerifiedEncryptSessionTransaction,
+  buildCreateEncryptDepositTransaction,
   buildExecuteEncryptPolicyGraphAsSessionAccounts,
   buildExecuteEncryptPolicyGraphAsSessionInstructionData,
   buildExecuteEncryptPolicyGraphSessionTransaction,
@@ -35,6 +36,9 @@ import {
   buildSetOfficialEncryptCiphertextPolicyInstructionData,
   buildSetOfficialEncryptCiphertextPolicyTransaction,
   deriveEncryptCpiAuthority,
+  deriveEncryptDepositPda,
+  deriveEncryptConfigPda,
+  deriveEncryptEventAuthorityPda,
   setConnection,
   to_LE_Bytes,
   type TransactionRequest,
@@ -412,6 +416,119 @@ describe('Transaction Builder', () => {
       expect(verifiedBuilt.signers).toEqual([verifiedRequest.sessionKey]);
       expect(verifiedTx.feePayer?.toString()).toBe(verifiedRequest.sessionKey);
       expect(verifiedTx.instructions[0].data).toEqual(buildApproveIkaMessageWithVerifiedEncryptAsSessionInstructionData(verifiedRequest));
+    });
+
+    test('builds create_encrypt_deposit transaction with correct accounts and data', async () => {
+      const ENCRYPT_PROGRAM = '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8';
+      const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+
+      // Create a mock vault pubkey (will be bytes 100-132 of config data)
+      const mockVault = Keypair.generate().publicKey;
+
+      // Build mock config account data: 132 bytes with vault at offset 100
+      const configData = Buffer.alloc(132);
+      mockVault.toBuffer().copy(configData, 100);
+
+      const owner = Keypair.generate().publicKey;
+      const blockhash = Keypair.generate().publicKey.toString();
+
+      // Mock connection with getAccountInfo returning the config data
+      setConnection({
+        getLatestBlockhash: async () => ({ blockhash, lastValidBlockHeight: 99 }),
+        getSlot: async () => 777,
+        getAccountInfo: async (pubkey: PublicKey) => {
+          // Return config data for the config PDA
+          const [configPda] = deriveEncryptConfigPda(ENCRYPT_PROGRAM);
+          if (pubkey.equals(configPda)) {
+            return {
+              data: configData,
+              owner: new PublicKey(ENCRYPT_PROGRAM),
+              lamports: 1000000,
+              executable: false,
+            } as never;
+          }
+          return null;
+        },
+      } as never);
+
+      const result = await buildCreateEncryptDepositTransaction(owner.toString(), ENCRYPT_PROGRAM);
+
+      // Deserialize the transaction
+      const tx = Transaction.from(Buffer.from(result.transaction, 'base64'));
+
+      // Verify basic transaction properties
+      expect(tx.feePayer?.toString()).toBe(owner.toString());
+      expect(tx.recentBlockhash).toBe(blockhash);
+      expect(tx.instructions).toHaveLength(1);
+
+      const ix = tx.instructions[0];
+
+      // Verify program ID is the Encrypt program
+      expect(ix.programId.toString()).toBe(ENCRYPT_PROGRAM);
+
+      // Verify instruction data: 17 bytes (bump + 2x u64 LE zeros)
+      expect(ix.data.length).toBe(17);
+
+      // Verify the bump is at position 0
+      const [expectedDepositPda, expectedBump] = deriveEncryptDepositPda(owner.toString(), ENCRYPT_PROGRAM);
+      expect(ix.data[0]).toBe(expectedBump);
+
+      // Verify initial_enc_amount (bytes 1-8) is zero
+      expect(ix.data.readBigUInt64LE(1)).toBe(0n);
+      // Verify initial_gas_amount (bytes 9-16) is zero
+      expect(ix.data.readBigUInt64LE(9)).toBe(0n);
+
+      // Verify that the expected account pubkeys appear in the instruction.
+      // Note: Solana's compiled message format deduplicates accounts, so duplicate
+      // pubkeys (owner at signer+read-only and signer+writable, SystemProgram as
+      // writable user_ata and read-only system_program) get merged.
+      const keyStrings = ix.keys.map((k) => k.pubkey.toString());
+      const [configPda] = deriveEncryptConfigPda(ENCRYPT_PROGRAM);
+      const [eventAuthority] = deriveEncryptEventAuthorityPda(ENCRYPT_PROGRAM);
+
+      expect(keyStrings).toContain(expectedDepositPda.toString());
+      expect(keyStrings).toContain(configPda.toString());
+      expect(keyStrings).toContain(owner.toString());
+      expect(keyStrings).toContain(mockVault.toString());
+      expect(keyStrings).toContain(TOKEN_PROGRAM);
+      expect(keyStrings).toContain(SystemProgram.programId.toString());
+
+      // After deduplication, the merged owner entry should be signer+writable
+      const ownerMeta = ix.keys.find((k) => k.pubkey.equals(owner))!;
+      expect(ownerMeta.isSigner).toBe(true);
+      expect(ownerMeta.isWritable).toBe(true);
+
+      // After deduplication, the merged SystemProgram entry should be writable (from user_ata)
+      const sysMeta = ix.keys.find((k) => k.pubkey.equals(SystemProgram.programId))!;
+      expect(sysMeta.isWritable).toBe(true);
+      expect(sysMeta.isSigner).toBe(false);
+
+      // Deposit PDA should be writable, not signer
+      const depositMeta = ix.keys.find((k) => k.pubkey.equals(expectedDepositPda))!;
+      expect(depositMeta.isWritable).toBe(true);
+      expect(depositMeta.isSigner).toBe(false);
+
+      // Config should be read-only
+      const configMeta = ix.keys.find((k) => k.pubkey.equals(configPda))!;
+      expect(configMeta.isWritable).toBe(false);
+      expect(configMeta.isSigner).toBe(false);
+
+      // Vault should be writable
+      const vaultMeta = ix.keys.find((k) => k.pubkey.equals(mockVault))!;
+      expect(vaultMeta.isWritable).toBe(true);
+      expect(vaultMeta.isSigner).toBe(false);
+
+      // Token program should be read-only
+      const tokenMeta = ix.keys.find((k) => k.pubkey.toString() === TOKEN_PROGRAM)!;
+      expect(tokenMeta.isWritable).toBe(false);
+      expect(tokenMeta.isSigner).toBe(false);
+
+      // Verify returned metadata
+      expect(result.deposit).toBe(expectedDepositPda.toString());
+      expect(result.config).toBe(configPda.toString());
+      expect(result.eventAuthority).toBe(eventAuthority.toString());
+      expect(result.signers).toEqual([owner.toString()]);
+      expect(result.slot).toBe(777);
     });
   });
 

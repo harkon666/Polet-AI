@@ -142,6 +142,9 @@ export const ENCRYPT_PREALPHA_PROGRAM_ID_STRING = '4ebfzWdKnrnGseuQpezXdG8yCdHqw
 export const ENCRYPT_PREALPHA_GRPC_URL = 'https://pre-alpha-dev-1.encrypt.ika-network.net:443';
 export const ENCRYPT_CPI_AUTHORITY_SEED = '__encrypt_cpi_authority';
 
+/** create_deposit instruction index (not embedded in data; the program routes by instruction ordinal 13). */
+export const ENCRYPT_CREATE_DEPOSIT_INSTRUCTION_INDEX = 13;
+
 /**
  * Build instruction data matching the Solana program's execute_intent format
  * Format: [instruction(1) + destination(32) + amount(8)]
@@ -490,6 +493,139 @@ export function deriveEncryptCpiAuthority(programId = PROGRAM_ID_STRING): [Publi
     [Buffer.from(ENCRYPT_CPI_AUTHORITY_SEED)],
     new PublicKey(programId)
   );
+}
+
+/**
+ * Derive the Encrypt deposit PDA from the owner's public key.
+ * Seed: ["encrypt_deposit", owner_pubkey], program: Encrypt program.
+ */
+export function deriveEncryptDepositPda(
+  ownerPubkey: string,
+  encryptProgramId = ENCRYPT_PREALPHA_PROGRAM_ID_STRING
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('encrypt_deposit'), new PublicKey(ownerPubkey).toBuffer()],
+    new PublicKey(encryptProgramId)
+  );
+}
+
+/**
+ * Derive the Encrypt config PDA.
+ * Seed: ["encrypt_config"], program: Encrypt program.
+ */
+export function deriveEncryptConfigPda(
+  encryptProgramId = ENCRYPT_PREALPHA_PROGRAM_ID_STRING
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('encrypt_config')],
+    new PublicKey(encryptProgramId)
+  );
+}
+
+/**
+ * Derive the Encrypt event authority PDA.
+ * Seed: ["__event_authority"], program: Encrypt program.
+ */
+export function deriveEncryptEventAuthorityPda(
+  encryptProgramId = ENCRYPT_PREALPHA_PROGRAM_ID_STRING
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('__event_authority')],
+    new PublicKey(encryptProgramId)
+  );
+}
+
+/**
+ * Derive the Polet Encrypt CPI authority PDA.
+ * Seed: ["__encrypt_cpi_authority"], program: Polet program.
+ */
+export function derivePoletEncryptCpiAuthorityPda(
+  poletProgramId = PROGRAM_ID_STRING
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from('__encrypt_cpi_authority')],
+    new PublicKey(poletProgramId)
+  );
+}
+
+export interface CreateEncryptDepositResult extends BuiltTransaction {
+  deposit: string;
+  config: string;
+  eventAuthority: string;
+}
+
+/**
+ * Build an unsigned transaction that creates an Encrypt deposit PDA for the given owner.
+ *
+ * The deposit PDA is derived from ["encrypt_deposit", owner_pubkey].
+ * The encVault address is read from the on-chain config account data (bytes 100-132).
+ *
+ * Instruction data layout (17 bytes):
+ *   bump(1) | initial_enc_amount(8 LE) | initial_gas_amount(8 LE)
+ *
+ * Accounts:
+ *   0. deposit PDA (writable)
+ *   1. config (read-only)
+ *   2. user/owner (signer, read-only)
+ *   3. payer (signer, writable) — same as owner
+ *   4. user_ata (writable) — SystemProgram placeholder in pre-alpha
+ *   5. vault (writable) — derived from config data
+ *   6. token_program (read-only)
+ *   7. system_program (read-only)
+ */
+export async function buildCreateEncryptDepositTransaction(
+  ownerPubkey: string,
+  encryptProgramId = ENCRYPT_PREALPHA_PROGRAM_ID_STRING
+): Promise<CreateEncryptDepositResult> {
+  const owner = new PublicKey(ownerPubkey);
+  const encryptProgram = new PublicKey(encryptProgramId);
+
+  // Derive PDAs
+  const [configPda] = deriveEncryptConfigPda(encryptProgramId);
+  const [eventAuthority] = deriveEncryptEventAuthorityPda(encryptProgramId);
+  const [depositPda, depositBump] = deriveEncryptDepositPda(ownerPubkey, encryptProgramId);
+
+  // Read the encVault from the on-chain config account data (bytes 100-132)
+  const connection = getConnection();
+  const configInfo = await connection.getAccountInfo(configPda);
+  if (!configInfo) {
+    throw new Error('Encrypt config account not found on devnet');
+  }
+  const encVault = new PublicKey(configInfo.data.slice(100, 132));
+
+  // Build instruction data: bump(1) | initial_enc_amount(8) | initial_gas_amount(8) = 17 bytes
+  const data = Buffer.alloc(17);
+  data[0] = depositBump;
+  // initial_enc_amount and initial_gas_amount default to 0 (already zeroed)
+
+  const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+
+  const ix = new TransactionInstruction({
+    programId: encryptProgram,
+    data,
+    keys: [
+      { pubkey: depositPda, isSigner: false, isWritable: true },        // 0. deposit PDA
+      { pubkey: configPda, isSigner: false, isWritable: false },        // 1. config
+      { pubkey: owner, isSigner: true, isWritable: false },             // 2. user/owner (signer)
+      { pubkey: owner, isSigner: true, isWritable: true },              // 3. payer (signer, writable)
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: true }, // 4. user_ata placeholder
+      { pubkey: encVault, isSigner: false, isWritable: true },          // 5. vault
+      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // 6. token_program
+      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 7. system_program
+    ],
+  });
+
+  const transaction = new Transaction();
+  transaction.add(ix);
+
+  const built = await serializeBuiltTransaction(transaction, owner, [ownerPubkey]);
+
+  return {
+    ...built,
+    deposit: depositPda.toString(),
+    config: configPda.toString(),
+    eventAuthority: eventAuthority.toString(),
+  };
 }
 
 /**

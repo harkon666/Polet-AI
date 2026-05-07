@@ -5,6 +5,7 @@ import {
   ENCRYPT_PREALPHA_GRPC_URL,
   ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
   buildApproveIkaMessageWithVerifiedEncryptSessionTransaction,
+  buildCreateEncryptDepositTransaction,
   buildExecuteEncryptPolicyGraphSessionTransaction,
   buildSetOfficialEncryptCiphertextPolicyTransaction,
   getConnection,
@@ -178,6 +179,45 @@ walletRouter.post('/initialize', async (c) => {
     return c.json({ success: false, error: 'Failed to build initialization transaction' }, 500);
   }
 });
+
+/**
+ * POST /wallet/create-encrypt-deposit
+ * Builds an unsigned transaction to create an Encrypt deposit PDA for the wallet owner.
+ * The deposit PDA is derived from ["encrypt_deposit", owner_pubkey].
+ * Required before any official Encrypt CPI can succeed.
+ */
+walletRouter.post('/create-encrypt-deposit', async (c) => {
+  try {
+    const { owner } = await c.req.json();
+    if (!owner) {
+      return c.json({ success: false, error: 'Owner public key is required' }, 400);
+    }
+
+    const ownerPubkey = parsePublicKey(owner, 'owner');
+
+    const result = await buildCreateEncryptDepositTransaction(ownerPubkey.toString());
+
+    return c.json({
+      success: true,
+      data: {
+        transaction: result.transaction,
+        signers: result.signers,
+        deposit: result.deposit,
+        config: result.config,
+        eventAuthority: result.eventAuthority,
+        status: 'pending-deposit-creation',
+      },
+    });
+  } catch (error) {
+    console.error('Create Encrypt deposit error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build Encrypt deposit creation transaction' }, 500);
+  }
+});
+
+function deriveEncryptConfigPda(encryptProgram: PublicKey): string {
+  const [pda] = PublicKey.findProgramAddressSync([Buffer.from('encrypt_config')], encryptProgram);
+  return pda.toString();
+}
 
 /**
  * POST /wallet/legacy/set-policy

@@ -30,12 +30,14 @@ import {
   requestPasskeyChallenge,
   verifyPasskeyAssertion,
   broadcastIkaDestination,
+  createEncryptDeposit,
   type RunConfidentialDcaResult,
   type RunMultichainIntentResult,
   type SharedIkaApproverConfigInput,
   type SetConfidentialPolicyInput,
   type SetupDemoCustodyInput,
   type WalletTransactionResult,
+  type CreateEncryptDepositResult,
 } from '../lib/api';
 import { COPY, type Locale } from '../lib/i18n';
 import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
@@ -70,6 +72,7 @@ interface DemoApi {
   runConfidentialDca: typeof runConfidentialDca;
   runMultichainIntent: typeof runMultichainIntent;
   getWalletData: typeof getWalletData;
+  createEncryptDeposit: typeof createEncryptDeposit;
 }
 
 interface DemoTabContentProps {
@@ -92,6 +95,7 @@ const DEFAULT_API: DemoApi = {
   runConfidentialDca,
   runMultichainIntent,
   getWalletData,
+  createEncryptDeposit,
 };
 
 function short(value: string) {

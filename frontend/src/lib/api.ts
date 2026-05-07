@@ -314,6 +314,27 @@ export async function recoverAccess(input: RecoverAccessInput): Promise<RecoverA
   return data.data;
 }
 
+export interface CreateEncryptDepositResult {
+  transaction: string;
+  signers: string[];
+  deposit: string;
+  config: string;
+  eventAuthority: string;
+  status: string;
+}
+
+export async function createEncryptDeposit(owner: string): Promise<CreateEncryptDepositResult> {
+  const data = await fetchJson<{ success: boolean; data: CreateEncryptDepositResult }>(
+    `${PROXY_URL}/wallet/create-encrypt-deposit`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ owner }),
+    }
+  );
+
+  return data.data;
+}
+
 export interface PasskeyCoapprovalChallengeInput {
   owner: string;
   sessionKey: string;
