@@ -47,7 +47,8 @@ Current hackathon integration decision:
 
 - `052-hackathon-ika-encrypt-prealpha-integration` — In progress vertical hackathon issue to make the Ika x Encrypt pre-alpha path coherent end to end. Landed this pass: Ika bridgeless proxy responses now expose `intentStrategy` separately from `executionRail: "ika-bridgeless"`, SDK/Hermes normalized trade results carry the same separation in `details`, and the Ika devnet smoke runbook has a pending/verified-blocked/verified-allowed/quorum/signer evidence checklist. Remaining: complete official Encrypt setup/demo path evidence and broaden frontend rendering coverage for the final lifecycle proof.
   - Verification this pass: `bun test ./tests/ika-bridgeless-request.test.ts` in `proxy/`; `bun test ./tests/intent-builder.test.ts` and `bun run build` in `sdk/`.
-- `053-agent-sdk-integration-kit` — Newly created generic SDK integration issue for Hermes, OpenClaw, and other AI agent runtimes. Scope: `createPoletAgentKit()`, runtime-safe tools, status/config diagnostics, smart wallet PDA and authority discovery, normalized trade/Ika results, explicit signer-required behavior, onboarding helpers, and docs/examples that avoid private-key helper scripts.
+- `053-agent-sdk-integration-kit` — In progress generic SDK integration issue for Hermes, OpenClaw, and other AI agent runtimes. Landed this pass: `createPoletAgentKit()`, config validation, proxy/wallet/session status checks, runtime-safe tool descriptors, normalized trade tool output, simulation passthrough, smart wallet PDA onboarding helper, environment export helper, owner setup guidance, and explicit `signer-required` sign/send behavior unless an injected session signer and RPC sender exist. Remaining: broaden live-proxy status diagnostics and optional onboarding export ergonomics.
+  - Verification this pass: `bun test ./tests/intent-builder.test.ts` and `bun run build` in `sdk/`.
 
 ## Blocked
 

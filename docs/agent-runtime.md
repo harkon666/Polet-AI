@@ -183,6 +183,41 @@ const ikaEth = await polet.trade({
 
 Allowed Jupiter trades normalize to `status: "preview-ready"` and `settlement: "not-executed"`. Allowed Ika Sui and optional Ethereum trades can progress through `status: "request-prepared"`, `"approval-transaction-prepared"`, `"approval-submitted"`, `"signature-pending"`, `"signature-produced-prealpha"`, or `"devnet-smoke-proof"` while keeping `settlement: "not-executed"`. SDK results expose `details.proof` with dWallet, canonical order hash, Keccak-256 Ika message hash, Sui devnet digest or Ethereum Sepolia EIP-191 digest, MessageApproval, signature scheme, destination, optional Polet approval transaction, and optional devnet smoke proof. Returned high-level results redact the confidential witness from `execution.intent`. Ika Pre-Alpha uses Solana devnet/mock-signer constraints; production MPC security and final settlement are not executed by this MVP slice.
 
+## Generic Agent Kit
+
+Issue 053 adds `createPoletAgentKit()` for Hermes, OpenClaw, or any runtime that wants status checks, runtime-safe tools, simulation, and explicit signer handling from one SDK entry point.
+
+```ts
+import { createPoletAgentKit } from '@polet-ai/sdk';
+
+const kit = createPoletAgentKit({
+  owner: process.env.POLET_OWNER!,
+  sessionKey: process.env.POLET_SESSION_KEY!,
+  baseUrl: process.env.POLET_PROXY_URL!,
+  rpcUrl: process.env.SOLANA_RPC_URL,
+  encryptionWitness: [1, 2, 3 /* ...32 bytes total */],
+});
+
+const config = kit.validateConfig();
+const status = config.ok ? await kit.status() : config;
+const trade = await kit.trade({ from: 'USDC', to: 'SOL', amount: '5' });
+```
+
+Tool registration example:
+
+```ts
+for (const tool of kit.tools()) {
+  runtime.registerTool({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+    execute: tool.handler,
+  });
+}
+```
+
+Runtime-safe tools: `polet_status`, `polet_trade`, `polet_ika_request`, `polet_simulate_transaction`, `polet_sign_and_send_transaction`, and `polet_shared_ika_approval_status`. Signing and broadcasting return `signer-required` unless `createPoletAgentKit()` receives an explicit session signer provider. Owner setup guidance lives under `kit.onboarding`; it derives addresses and explains required owner actions, but does not initialize wallets, set policy, grant sessions, rotate recovery, or configure shared approvers by itself.
+
 ## OpenClaw/Hermes-Style Usage
 
 OpenClaw, Hermes, or another agent runtime should treat Polet as a policy oracle plus unsigned-transaction/proof builder. The runtime decides the strategy, but it does not build Solana or Ika transactions directly.

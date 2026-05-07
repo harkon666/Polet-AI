@@ -51,3 +51,7 @@ Recommended namespace split: runtime-safe tools are exposed by default; owner/se
 Recommended UX bar: an agent runtime should not need to create temporary files like `check_key.js`, `debug_keypair.js`, or custom curl wrappers just to understand Polet wallet status, smart wallet PDA, required signers, or allowed/blocked trade results.
 
 Recommended safety stance: signing and broadcasting remain explicit. If the agent does not hold a configured session signer, the SDK returns a structured signer-required result instead of trying to infer private key material or asking the model for secrets.
+
+## Implementation notes
+
+- 2026-05-07: Added the first `createPoletAgentKit()` SDK slice. The kit now exposes config validation, proxy/wallet/session status, smart wallet PDA derivation, runtime-safe tool descriptors, normalized trade tool output, transaction simulation passthrough, and explicit `signer-required` behavior for sign/send unless a session signer plus RPC sender is injected. Docs now include generic kit and tool-registration examples. Remaining: broaden status normalization against live proxy edge cases and add onboarding helpers for exported environment bundles if needed.

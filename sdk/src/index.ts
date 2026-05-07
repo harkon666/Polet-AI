@@ -38,9 +38,26 @@ import {
   type Signer,
   type SimulatedTransactionResponse,
 } from '@solana/web3.js';
+import {
+  PROGRAM_ID as POLET_PROGRAM_ID,
+  deriveWalletPDA,
+  isValidPublicKey,
+} from './session.js';
 
 export const JUPITER_USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 export const JUPITER_SOL_MINT = 'So11111111111111111111111111111111111111112';
+
+export {
+  PROGRAM_ID,
+  WALLET_SEED,
+  deriveWalletPDA,
+  isValidPublicKey,
+  formatPublicKey,
+  publicKeysEqual,
+  estimateFee,
+  lamportsToSol,
+  solToLamports,
+} from './session.js';
 
 export {
   CANONICAL_BRIDGELESS_ORDER_SCHEMA,
@@ -811,6 +828,144 @@ export interface PoletAgent {
   trade(input: PoletTradeInput): Promise<PoletTradeResult>;
 }
 
+export interface PoletAgentKitOptions extends PoletAgentOptions {
+  rpcUrl?: string;
+  connection?: PoletAgentKitConnection;
+  signers?: Signer[] | (() => Promise<Signer[]> | Signer[]);
+}
+
+export interface PoletAgentKitConnection extends PoletSimulationConnection {
+  sendRawTransaction?(rawTransaction: Buffer | Uint8Array, options?: { skipPreflight?: boolean }): Promise<string>;
+  confirmTransaction?(signature: string, commitment?: Commitment): Promise<unknown>;
+}
+
+export interface PoletAgentKitDiagnostic {
+  field: string;
+  code: string;
+  message: string;
+}
+
+export interface PoletAgentKitConfigValidation {
+  ok: boolean;
+  missing: PoletAgentKitDiagnostic[];
+  invalid: PoletAgentKitDiagnostic[];
+}
+
+export interface PoletAgentKitStatus {
+  ok: boolean;
+  proxy: {
+    ok: boolean;
+    status?: string;
+    version?: string;
+  };
+  programId: string;
+  owner?: string;
+  sessionKey?: string;
+  walletPda?: string;
+  wallet: {
+    exists: boolean;
+    policyConfigured: boolean;
+    sessionAuthorized: boolean;
+    sessionExpiresAt?: number;
+    sharedIkaApproval?: unknown;
+    recovery?: unknown;
+  };
+  diagnostics: PoletAgentKitDiagnostic[];
+}
+
+export type PoletAgentToolStatus =
+  | PoletTradeStatus
+  | 'ok'
+  | 'submitted'
+  | 'failed'
+  | 'signer-required';
+
+export interface PoletAgentToolResult {
+  status: PoletAgentToolStatus;
+  ok: boolean;
+  data?: unknown;
+  reason?: string;
+  requiredSigners?: string[];
+}
+
+export interface PoletAgentToolDescriptor {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  handler(input?: unknown): Promise<PoletAgentToolResult>;
+}
+
+export interface PoletSignAndSendInput {
+  transaction: string | PoletUnsignedTransactionLike;
+  skipPreflight?: boolean;
+  commitment?: Commitment;
+}
+
+export interface PoletSignAndSendResult {
+  status: 'submitted' | 'signer-required' | 'failed';
+  ok: boolean;
+  requiredSigners: string[];
+  signature?: string;
+  reason?: string;
+}
+
+export interface PoletAgentKit {
+  validateConfig(): PoletAgentKitConfigValidation;
+  status(): Promise<PoletAgentKitStatus>;
+  trade(input: PoletTradeInput): Promise<PoletTradeResult>;
+  simulateTransaction(input: SimulatePoletTransactionInput): Promise<SimulatePoletTransactionResult>;
+  signAndSendTransaction(input: PoletSignAndSendInput): Promise<PoletSignAndSendResult>;
+  tools(): PoletAgentToolDescriptor[];
+  onboarding: {
+    deriveSmartWalletPda(owner?: string): Promise<string | undefined>;
+    exportConfig(): {
+      POLET_OWNER?: string;
+      POLET_SESSION_KEY?: string;
+      POLET_PROXY_URL: string;
+      POLET_RPC_URL?: string;
+      POLET_PROGRAM_ID: string;
+    };
+    requiredOwnerSetup(): string[];
+  };
+}
+
+export function createPoletAgentKit(options: PoletAgentKitOptions): PoletAgentKit {
+  const agent = createPoletAgent(options);
+
+  return {
+    validateConfig: () => validatePoletAgentKitConfig(options),
+    status: () => getPoletAgentKitStatus(options),
+    trade: (input) => agent.trade(input),
+    simulateTransaction: (input) => simulatePoletTransaction({
+      ...input,
+      rpcUrl: input.rpcUrl ?? options.rpcUrl,
+      connection: input.connection ?? options.connection,
+    }),
+    signAndSendTransaction: (input) => signAndSendPoletTransaction(input, options),
+    tools: () => buildPoletAgentKitTools(options, agent),
+    onboarding: {
+      deriveSmartWalletPda: async (owner = options.owner) => {
+        if (!owner || !isValidPublicKey(owner)) return undefined;
+        return (await deriveWalletPDA(owner)).toString();
+      },
+      exportConfig: () => ({
+        ...(options.owner && { POLET_OWNER: options.owner }),
+        ...(options.sessionKey && { POLET_SESSION_KEY: options.sessionKey }),
+        POLET_PROXY_URL: options.baseUrl,
+        ...(options.rpcUrl && { POLET_RPC_URL: options.rpcUrl }),
+        POLET_PROGRAM_ID,
+      }),
+      requiredOwnerSetup: () => [
+        'Initialize the Polet wallet PDA with owner authority.',
+        'Register demo custody accounts.',
+        'Configure confidential numeric policy without exposing private thresholds to the agent.',
+        'Grant the agent session key and share only runtime-safe config.',
+        'Configure shared Ika approvers or recovery authority only through explicit owner-signed flows.',
+      ],
+    },
+  };
+}
+
 export class ProxyRequestError extends Error {
   constructor(
     message: string,
@@ -905,6 +1060,252 @@ export function createPoletAgent(options: PoletAgentOptions): PoletAgent {
       return Promise.resolve(notSupportedTradeResult(rail as PoletExecutionRail, 'Unsupported execution rail.'));
     },
   };
+}
+
+function validatePoletAgentKitConfig(options: PoletAgentKitOptions): PoletAgentKitConfigValidation {
+  const missing: PoletAgentKitDiagnostic[] = [];
+  const invalid: PoletAgentKitDiagnostic[] = [];
+
+  if (!options.baseUrl) missing.push(diagnostic('baseUrl', 'MISSING_BASE_URL', 'Polet proxy baseUrl is required.'));
+  else {
+    try {
+      new URL(normalizeBaseUrl(options.baseUrl));
+    } catch {
+      invalid.push(diagnostic('baseUrl', 'INVALID_BASE_URL', 'Polet proxy baseUrl must be an absolute URL.'));
+    }
+  }
+
+  if (!options.owner) missing.push(diagnostic('owner', 'MISSING_OWNER', 'Owner public key is required.'));
+  else if (!isValidPublicKey(options.owner)) invalid.push(diagnostic('owner', 'INVALID_OWNER', 'Owner must be a Solana public key.'));
+
+  if (!options.sessionKey) missing.push(diagnostic('sessionKey', 'MISSING_SESSION_KEY', 'Session key public key is required.'));
+  else if (!isValidPublicKey(options.sessionKey)) invalid.push(diagnostic('sessionKey', 'INVALID_SESSION_KEY', 'Session key must be a Solana public key.'));
+
+  if (options.encryptionWitness !== undefined && !isEncryptionWitness(options.encryptionWitness)) {
+    invalid.push(diagnostic('encryptionWitness', 'INVALID_ENCRYPTION_WITNESS', 'Encryption witness must be 32 bytes when configured.'));
+  }
+
+  if (options.rpcUrl !== undefined) {
+    try {
+      new URL(options.rpcUrl);
+    } catch {
+      invalid.push(diagnostic('rpcUrl', 'INVALID_RPC_URL', 'RPC URL must be an absolute URL when configured.'));
+    }
+  }
+
+  return {
+    ok: missing.length === 0 && invalid.length === 0,
+    missing,
+    invalid,
+  };
+}
+
+async function getPoletAgentKitStatus(options: PoletAgentKitOptions): Promise<PoletAgentKitStatus> {
+  const diagnostics = [
+    ...validatePoletAgentKitConfig(options).missing,
+    ...validatePoletAgentKitConfig(options).invalid,
+  ];
+  const walletPda = options.owner && isValidPublicKey(options.owner)
+    ? (await deriveWalletPDA(options.owner)).toString()
+    : undefined;
+  const proxy = await fetchProxyHealth(options).catch((error) => {
+    diagnostics.push(diagnostic('baseUrl', 'PROXY_UNREACHABLE', error instanceof Error ? error.message : 'Proxy health check failed.'));
+    return { ok: false };
+  });
+  const walletEnvelope = options.owner && isValidPublicKey(options.owner)
+    ? await fetchProxyGet<{ success?: boolean; data?: Record<string, unknown>; error?: unknown }>(`/wallet/${options.owner}`, options).catch((error) => {
+      diagnostics.push(diagnostic('wallet', 'WALLET_LOOKUP_FAILED', error instanceof Error ? error.message : 'Wallet lookup failed.'));
+      return undefined;
+    })
+    : undefined;
+  const walletData = walletEnvelope?.success === true ? walletEnvelope.data : undefined;
+  const session = findWalletSession(walletData, options.sessionKey);
+  const policy = walletData?.confidentialPolicy as { enabled?: unknown } | undefined;
+
+  return {
+    ok: proxy.ok && Boolean(walletData) && Boolean(session?.authorized),
+    proxy,
+    programId: POLET_PROGRAM_ID,
+    ...(options.owner && { owner: options.owner }),
+    ...(options.sessionKey && { sessionKey: options.sessionKey }),
+    ...(walletPda && { walletPda }),
+    wallet: {
+      exists: Boolean(walletData),
+      policyConfigured: policy?.enabled === true,
+      sessionAuthorized: session?.authorized === true,
+      ...(typeof session?.expiresAt === 'number' && { sessionExpiresAt: session.expiresAt }),
+      ...(walletData?.sharedIkaApprovals !== undefined && { sharedIkaApproval: walletData.sharedIkaApprovals }),
+      ...(walletData?.recovery !== undefined && { recovery: walletData.recovery }),
+    },
+    diagnostics,
+  };
+}
+
+function buildPoletAgentKitTools(options: PoletAgentKitOptions, agent: PoletAgent): PoletAgentToolDescriptor[] {
+  return [
+    tool('polet_status', 'Check proxy, wallet, policy, session, shared Ika approval, and recovery status.', async () => ({
+      status: 'ok',
+      ok: true,
+      data: await getPoletAgentKitStatus(options),
+    })),
+    tool('polet_trade', 'Submit a normalized Jupiter or Ika Polet trade request.', async (input) => tradeToolResult(await agent.trade(input as PoletTradeInput))),
+    tool('polet_ika_request', 'Submit a Sui-primary or Ethereum-optional Ika signed-intent request.', async (input) => tradeToolResult(await agent.trade({
+      ...(input as Record<string, unknown>),
+      rail: 'ika',
+    } as PoletTradeInput))),
+    tool('polet_simulate_transaction', 'Simulate an unsigned Polet transaction without signing or broadcasting.', async (input) => ({
+      status: 'ok',
+      ok: true,
+      data: await simulatePoletTransaction({
+        ...(input as SimulatePoletTransactionInput),
+        rpcUrl: (input as SimulatePoletTransactionInput | undefined)?.rpcUrl ?? options.rpcUrl,
+        connection: (input as SimulatePoletTransactionInput | undefined)?.connection ?? options.connection,
+      }),
+    })),
+    tool('polet_sign_and_send_transaction', 'Sign and send only when an explicit session signer is configured.', async (input) => signAndSendToolResult(await signAndSendPoletTransaction(input as PoletSignAndSendInput, options))),
+    tool('polet_shared_ika_approval_status', 'Return shared Ika approval status from wallet status.', async () => {
+      const status = await getPoletAgentKitStatus(options);
+      return {
+        status: 'ok',
+        ok: true,
+        data: status.wallet.sharedIkaApproval ?? { enabled: false },
+      };
+    }),
+  ];
+}
+
+function tool(
+  name: string,
+  description: string,
+  handler: (input?: unknown) => Promise<PoletAgentToolResult>
+): PoletAgentToolDescriptor {
+  return {
+    name,
+    description,
+    inputSchema: { type: 'object' },
+    handler: async (input?: unknown) => {
+      try {
+        return await handler(input);
+      } catch (error) {
+        return {
+          status: 'failed',
+          ok: false,
+          reason: error instanceof Error ? error.message : 'Polet tool failed.',
+        };
+      }
+    },
+  };
+}
+
+async function signAndSendPoletTransaction(
+  input: PoletSignAndSendInput,
+  options: PoletAgentKitOptions
+): Promise<PoletSignAndSendResult> {
+  const base64 = extractPoletTransactionBase64(input.transaction);
+  const { transaction } = deserializePoletTransaction(Buffer.from(base64, 'base64'));
+  const requiredSigners = extractPoletSignerPubkeys(transaction);
+  const signers = await resolveKitSigners(options);
+  const signerPubkeys = signers.map((signer) => signer.publicKey.toBase58());
+  const missing = requiredSigners.filter((required) => !signerPubkeys.includes(required));
+
+  if (missing.length > 0) {
+    return {
+      status: 'signer-required',
+      ok: false,
+      requiredSigners,
+      reason: 'Explicit session signer is required before Polet can sign or broadcast this transaction.',
+    };
+  }
+
+  const connection = options.connection ?? (options.rpcUrl ? new Connection(options.rpcUrl) : undefined);
+  if (!connection?.sendRawTransaction) {
+    return {
+      status: 'signer-required',
+      ok: false,
+      requiredSigners,
+      reason: 'RPC connection with sendRawTransaction is required to broadcast.',
+    };
+  }
+
+  if (transaction instanceof VersionedTransaction) transaction.sign(signers);
+  else transaction.partialSign(...signers);
+
+  const signature = await connection.sendRawTransaction(transaction.serialize(), { skipPreflight: input.skipPreflight });
+  await connection.confirmTransaction?.(signature, input.commitment);
+  return {
+    status: 'submitted',
+    ok: true,
+    requiredSigners,
+    signature,
+  };
+}
+
+async function resolveKitSigners(options: PoletAgentKitOptions): Promise<Signer[]> {
+  if (!options.signers) return [];
+  return typeof options.signers === 'function' ? await options.signers() : options.signers;
+}
+
+function tradeToolResult(result: PoletTradeResult): PoletAgentToolResult {
+  return {
+    status: normalizeToolTradeStatus(result.status),
+    ok: result.allowed,
+    data: result,
+    ...(!result.allowed && { reason: result.policy.reason }),
+  };
+}
+
+function signAndSendToolResult(result: PoletSignAndSendResult): PoletAgentToolResult {
+  return {
+    status: result.status,
+    ok: result.ok,
+    data: result,
+    ...(result.reason && { reason: result.reason }),
+    ...(result.requiredSigners.length > 0 && { requiredSigners: result.requiredSigners }),
+  };
+}
+
+function normalizeToolTradeStatus(status: PoletTradeStatus): PoletAgentToolStatus {
+  if (status === 'preview-ready'
+    || status === 'approval-transaction-prepared'
+    || status === 'pending-encrypt-execution'
+    || status === 'needs-approval'
+    || status === 'blocked'
+    || status === 'not-supported') {
+    return status;
+  }
+  return status;
+}
+
+async function fetchProxyHealth(options: ProxyClientOptions): Promise<PoletAgentKitStatus['proxy']> {
+  const response = await fetchProxyGet<{ success?: boolean; data?: { status?: string; version?: string } }>('/health', options);
+  return {
+    ok: response.success === true,
+    status: response.data?.status,
+    version: response.data?.version,
+  };
+}
+
+async function fetchProxyGet<TResponse>(path: string, options: ProxyClientOptions): Promise<TResponse> {
+  const fetchImpl = options.fetch ?? fetch;
+  const response = await fetchImpl(new URL(path, normalizeBaseUrl(options.baseUrl)), {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return await response.json() as TResponse;
+}
+
+function findWalletSession(walletData: Record<string, unknown> | undefined, sessionKey: string): { authorized?: boolean; expiresAt?: number } | undefined {
+  const sessions = walletData?.sessions ?? walletData?.temporalKeys;
+  if (!Array.isArray(sessions)) return undefined;
+  return sessions.find((candidate): candidate is { key: string; authorized?: boolean; expiresAt?: number } => (
+    Boolean(candidate)
+    && typeof candidate === 'object'
+    && (candidate as { key?: unknown }).key === sessionKey
+  ));
+}
+
+function diagnostic(field: string, code: string, message: string): PoletAgentKitDiagnostic {
+  return { field, code, message };
 }
 
 function toDcaRunRequest(intent: DcaIntent): Record<string, unknown> {

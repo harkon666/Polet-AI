@@ -11,7 +11,9 @@ import {
   createDcaIntent,
   createMultichainStrategyIntent,
   createPoletAgent,
+  createPoletAgentKit,
   createRiskGatedSwapIntent,
+  deriveWalletPDA,
   assertCanonicalBridgelessOrderActive,
   broadcastIkaDestinationDemo,
   buildCanonicalBridgelessOrder,
@@ -780,6 +782,176 @@ describe('Polet AI SDK - Intent Builder', () => {
   });
 
   describe('createPoletAgent trade API', () => {
+    test('creates a generic agent kit with config diagnostics and wallet/session status', async () => {
+      const owner = Keypair.generate().publicKey.toString();
+      const sessionKey = Keypair.generate().publicKey.toString();
+      const walletPda = (await deriveWalletPDA(owner)).toString();
+      const requests: string[] = [];
+      const fetchMock = async (input: URL | RequestInfo) => {
+        requests.push(input.toString());
+        if (input.toString() === 'https://proxy.polet.ai/health') {
+          return Response.json({ success: true, data: { status: 'healthy', version: '0.1.0' } });
+        }
+        return Response.json({
+          success: true,
+          data: {
+            walletPda,
+            confidentialPolicy: { enabled: true },
+            sessions: [{ key: sessionKey, authorized: true, expiresAt: 1800000000 }],
+            sharedIkaApprovals: { enabled: true, threshold: 2 },
+            recovery: { configured: false },
+          },
+        });
+      };
+      const kit = createPoletAgentKit({
+        owner,
+        sessionKey,
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: Array.from({ length: 32 }, () => 1),
+      });
+
+      expect(kit.validateConfig()).toEqual({ ok: true, missing: [], invalid: [] });
+      const status = await kit.status();
+
+      expect(requests).toEqual([
+        'https://proxy.polet.ai/health',
+        `https://proxy.polet.ai/wallet/${owner}`,
+      ]);
+      expect(status.ok).toBe(true);
+      expect(status.proxy).toEqual({ ok: true, status: 'healthy', version: '0.1.0' });
+      expect(status.walletPda).toBe(walletPda);
+      expect(status.wallet).toMatchObject({
+        exists: true,
+        policyConfigured: true,
+        sessionAuthorized: true,
+        sessionExpiresAt: 1800000000,
+        sharedIkaApproval: { enabled: true, threshold: 2 },
+      });
+    });
+
+    test('agent kit validates missing and invalid runtime config without exposing witness bytes', () => {
+      const kit = createPoletAgentKit({
+        owner: 'not-a-pubkey',
+        sessionKey: '',
+        baseUrl: 'not-url',
+        encryptionWitness: [1, 2, 3],
+      } as unknown as Parameters<typeof createPoletAgentKit>[0]);
+
+      const validation = kit.validateConfig();
+
+      expect(validation.ok).toBe(false);
+      expect(validation.missing.map((item) => item.code)).toContain('MISSING_SESSION_KEY');
+      expect(validation.invalid.map((item) => item.code)).toEqual([
+        'INVALID_BASE_URL',
+        'INVALID_OWNER',
+        'INVALID_ENCRYPTION_WITNESS',
+      ]);
+      expect(JSON.stringify(validation)).not.toContain('1,2,3');
+    });
+
+    test('agent kit tools normalize blocked trades and keep witness bytes out of outputs', async () => {
+      const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
+        if (input.toString().endsWith('/intent/dca/run')) {
+          return Response.json({
+            success: true,
+            data: {
+              allowed: false,
+              code: 'CONFIDENTIAL_POLICY_BLOCKED',
+              reason: 'Polet confidential policy blocked this trade without revealing private thresholds.',
+            },
+          });
+        }
+        return Response.json({ success: true, data: { status: 'healthy' } });
+      };
+      const witness = Array.from({ length: 32 }, () => 9);
+      const kit = createPoletAgentKit({
+        owner: Keypair.generate().publicKey.toString(),
+        sessionKey: Keypair.generate().publicKey.toString(),
+        baseUrl: 'https://proxy.polet.ai',
+        fetch: fetchMock,
+        encryptionWitness: witness,
+      });
+      const tradeTool = kit.tools().find((candidate) => candidate.name === 'polet_trade');
+
+      const result = await tradeTool!.handler({ from: 'USDC', to: 'SOL', amount: '25' });
+
+      expect(result.status).toBe('blocked');
+      expect(result.ok).toBe(false);
+      expect(JSON.stringify(result)).not.toContain('9,9,9');
+      expect(JSON.stringify(result)).not.toContain('encryptionWitness');
+    });
+
+    test('agent kit sign/send tool returns signer-required unless explicit session signer is configured', async () => {
+      const sessionSigner = Keypair.generate();
+      const tx = new Transaction({
+        feePayer: sessionSigner.publicKey,
+        recentBlockhash: '11111111111111111111111111111111',
+      }).add(SystemProgram.transfer({
+        fromPubkey: sessionSigner.publicKey,
+        toPubkey: Keypair.generate().publicKey,
+        lamports: 0,
+      }));
+      const unsignedTransaction = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64');
+      const kit = createPoletAgentKit({
+        owner: Keypair.generate().publicKey.toString(),
+        sessionKey: sessionSigner.publicKey.toString(),
+        baseUrl: 'https://proxy.polet.ai',
+      });
+
+      const result = await kit.signAndSendTransaction({ transaction: { transaction: unsignedTransaction } });
+
+      expect(result).toEqual({
+        status: 'signer-required',
+        ok: false,
+        requiredSigners: [sessionSigner.publicKey.toString()],
+        reason: 'Explicit session signer is required before Polet can sign or broadcast this transaction.',
+      });
+    });
+
+    test('agent kit signs and sends with an injected test signer and RPC connection', async () => {
+      const sessionSigner = Keypair.generate();
+      const sent: Uint8Array[] = [];
+      const tx = new Transaction({
+        feePayer: sessionSigner.publicKey,
+        recentBlockhash: '11111111111111111111111111111111',
+      }).add(SystemProgram.transfer({
+        fromPubkey: sessionSigner.publicKey,
+        toPubkey: Keypair.generate().publicKey,
+        lamports: 0,
+      }));
+      const unsignedTransaction = tx.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64');
+      const kit = createPoletAgentKit({
+        owner: Keypair.generate().publicKey.toString(),
+        sessionKey: sessionSigner.publicKey.toString(),
+        baseUrl: 'https://proxy.polet.ai',
+        signers: [sessionSigner],
+        connection: {
+          async simulateTransaction() {
+            throw new Error('simulate not used');
+          },
+          async sendRawTransaction(rawTransaction) {
+            sent.push(Uint8Array.from(rawTransaction));
+            return 'tx-signature-1';
+          },
+          async confirmTransaction(signature) {
+            expect(signature).toBe('tx-signature-1');
+            return {};
+          },
+        },
+      });
+
+      const result = await kit.signAndSendTransaction({ transaction: { transaction: unsignedTransaction } });
+
+      expect(result).toEqual({
+        status: 'submitted',
+        ok: true,
+        requiredSigners: [sessionSigner.publicKey.toString()],
+        signature: 'tx-signature-1',
+      });
+      expect(sent).toHaveLength(1);
+    });
+
     test('submits a simple USDC to SOL trade through the Jupiter DCA adapter', async () => {
       const requests: Array<{ url: string; body: unknown }> = [];
       const fetchMock = async (input: URL | RequestInfo, init?: RequestInit) => {
