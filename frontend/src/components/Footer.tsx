@@ -93,7 +93,7 @@ export default function Footer() {
               </Link>
             </li>
             <li>
-              <a className="qe-link" href="https://github.com/" target="_blank" rel="noreferrer">
+              <a className="qe-link" href="https://github.com/harkon666/Polet-AI" target="_blank" rel="noreferrer">
                 GitHub <span className="qe-link__arrow">↗</span>
               </a>
             </li>

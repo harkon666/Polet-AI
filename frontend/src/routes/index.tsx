@@ -167,16 +167,31 @@ export function HomePage() {
       </section>
 
       {/* ============================================================
-          TRUST STRIP — partner logos / integration marks
+          TRUST STRIP — partner logos / integration marks (marquee)
          ============================================================ */}
       <section className="qe-trust-strip">
         <div className="page-wrap px-4">
-          <p className="mt-7 mb-1 text-center font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--kicker)]">
+          <p className="mt-7 mb-2 text-center font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--kicker)]">
             Built on · Integrated with
           </p>
-          <div className="qe-trust-strip__row pt-2">
+        </div>
+        <div className="qe-trust-strip__marquee" aria-label="Polet AI partners and integrations">
+          <div className="qe-trust-strip__track">
+            {/* First copy */}
             {TRUST_PARTNERS.map((p) => (
-              <span key={p.label} className="qe-trust-strip__item">
+              <span key={`a-${p.label}`} className="qe-trust-strip__item">
+                <BrandLogo brand={p.brand} size={22} />
+                {p.label}
+              </span>
+            ))}
+            {/* Second copy — duplicated for seamless infinite loop. Hidden
+                from assistive tech to avoid double-reading partner names. */}
+            {TRUST_PARTNERS.map((p) => (
+              <span
+                key={`b-${p.label}`}
+                className="qe-trust-strip__item"
+                aria-hidden="true"
+              >
                 <BrandLogo brand={p.brand} size={22} />
                 {p.label}
               </span>
@@ -475,7 +490,7 @@ export function HomePage() {
               <span aria-hidden="true">→</span>
             </Link>
             <a
-              href="https://github.com/"
+              href="https://github.com/harkon666/Polet-AI"
               target="_blank"
               rel="noreferrer"
               className="qe-button qe-button--secondary qe-button--xl"

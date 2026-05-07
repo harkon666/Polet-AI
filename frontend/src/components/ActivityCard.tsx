@@ -127,6 +127,13 @@ function EncryptPolicyStatusCard({
   policy: OfficialEncryptPolicyPreview;
   labels: (typeof COPY)['id' | 'en'];
 }) {
+  const isPending = policy.status === 'pending-encrypt-execution';
+  const isBlocked = policy.status === 'encrypt-verified-blocked';
+  const isAllowed = policy.status === 'encrypt-verified-allowed';
+
+  const inputCt = policy.inputCiphertexts;
+  const outputCt = policy.pendingOutputCiphertexts;
+
   return (
     <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
       <InfoPill label={labels.encryptGraph} value={policy.graph} wide />
@@ -138,8 +145,52 @@ function EncryptPolicyStatusCard({
       {'verifiedSlot' in policy && policy.verifiedSlot !== undefined && (
         <InfoPill label={labels.encryptVerifiedSlot} value={policy.verifiedSlot.toString()} />
       )}
+      {policy.encryptProgram && (
+        <InfoPill label={labels.encryptProgram} value={short(policy.encryptProgram)} />
+      )}
+      {policy.grpcEndpoint && (
+        <InfoPill label={labels.encryptGrpcEndpoint} value={policy.grpcEndpoint} />
+      )}
       <InfoPill label={labels.encryptAllowedOutput} value={short(policy.allowedOutputCiphertext)} />
       <InfoPill label={labels.encryptDailyOutput} value={short(policy.dailySpentOutputCiphertext)} />
+      {inputCt?.sourceAmount && (
+        <InfoPill label={`${labels.encryptInputCiphertext} (source)`} value={short(inputCt.sourceAmount)} />
+      )}
+      {inputCt?.maxPerRun && (
+        <InfoPill label={`${labels.encryptInputCiphertext} (max/run)`} value={short(inputCt.maxPerRun)} />
+      )}
+      {inputCt?.dailySpent && (
+        <InfoPill label={`${labels.encryptInputCiphertext} (daily)`} value={short(inputCt.dailySpent)} />
+      )}
+      {inputCt?.dailyCap && (
+        <InfoPill label={`${labels.encryptInputCiphertext} (cap)`} value={short(inputCt.dailyCap)} />
+      )}
+      {outputCt?.allowedOutput && (
+        <InfoPill label={`${labels.encryptOutputCiphertext} (allowed)`} value={short(outputCt.allowedOutput)} />
+      )}
+      {outputCt?.dailySpentOutput && (
+        <InfoPill label={`${labels.encryptOutputCiphertext} (daily)`} value={short(outputCt.dailySpentOutput)} />
+      )}
+      {isPending && policy.suppressedUntilVerified && policy.suppressedUntilVerified.length > 0 && (
+        <div className="sm:col-span-2 mt-1">
+          <p className="text-xs font-semibold text-amber-500">{labels.encryptSuppressedUntilVerified}:</p>
+          <ul className="mt-1 list-none space-y-0.5">
+            {policy.suppressedUntilVerified.map((item) => (
+              <li key={item} className="font-mono text-[10px] text-[var(--sea-ink-soft)]">{short(item)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {isBlocked && (
+        <div className="sm:col-span-2 mt-1 rounded-md bg-red-500/5 border border-red-500/20 px-2 py-1">
+          <p className="text-xs font-bold text-red-500">{labels.encryptAllArtifactsSuppressed}</p>
+        </div>
+      )}
+      {isAllowed && (
+        <div className="sm:col-span-2 mt-1 rounded-md bg-green-500/5 border border-green-500/20 px-2 py-1">
+          <p className="text-xs font-bold text-green-500">{labels.encryptApprovalPreparation}</p>
+        </div>
+      )}
     </div>
   );
 }

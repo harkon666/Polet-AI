@@ -31,14 +31,31 @@ const encryptPolicyBase = {
   allowedOutputCiphertext: 'EncryptAllowedOutput1111111111111111111',
   dailySpentOutputCiphertext: 'EncryptDailySpentOutput1111111111111111',
   graph: 'polet_policy_guardrail_graph' as const,
+  encryptProgram: 'EncryptProGram1111111111111111111111111111111',
+  grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+  inputCiphertexts: {
+    sourceAmount: 'InputSrcCiphertext111111111111111111111',
+    maxPerRun: 'InputMaxCiphertext11111111111111111111111',
+    dailySpent: 'InputDailyCiphertext111111111111111111111',
+    dailyCap: 'InputCapCiphertext111111111111111111111111',
+  },
+  pendingOutputCiphertexts: {
+    allowedOutput: 'PendingAllowedOutput11111111111111111111',
+    dailySpentOutput: 'PendingDailyOutput111111111111111111111',
+  },
+  suppressedUntilVerified: [
+    'JupiterPayloadSuppressed111111111111111111',
+    'DwalletArtifactSuppressed11111111111111111',
+    'ApprovalDataSuppressed11111111111111111111',
+  ],
 };
 
 const api = {
   setConfidentialPolicy: async () => ({
     transaction: 'policy-tx',
     wallet: 'wallet-pda',
-    policyCommitment: Array.from({ length: 32 }, () => 1),
-    encryptionWitnessHash: Array.from({ length: 32 }, () => 2),
+    policyCommitment: Array.from({ length: 32 }, () => 1), // legacy masked-witness dev fixture (issue #054)
+    encryptionWitnessHash: Array.from({ length: 32 }, () => 2), // legacy masked-witness dev fixture (issue #054)
   }),
   setupDemoCustody: async () => ({
     transaction: 'custody-tx',
@@ -753,5 +770,100 @@ describe('Consumer DCA demo frontend', () => {
       expect(activityLog).toBeTruthy();
       expect(within(activityLog as HTMLElement).getByText('BLOCKED')).toBeTruthy();
     });
+  });
+
+  test('official Encrypt policy state displays ciphertext ids and suppresses pending artifacts', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+
+    encryptDcaMode = 'pending';
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText(/encrypt pending/i)).toBeTruthy());
+
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+
+    // Graph name and policy sequence should be visible
+    expect(logText).toContain('polet_policy_guardrail_graph');
+    expect(logText).toContain('pending-encrypt-execution');
+
+    // Short ciphertext IDs from inputCiphertexts and pendingOutputCiphertexts should be visible (truncated)
+    expect(logText).toContain('InputSrc...');
+    expect(logText).toContain('PendingA...');
+    expect(logText).toContain('encrypt-grpc.polet.dev:443');
+
+    // Suppressed items should be visible (truncated short IDs)
+    expect(logText).toContain('Ditekan sampai diverifikasi');
+    expect(logText).toContain('JupiterP...');
+    expect(logText).toContain('DwalletA...');
+    expect(logText).toContain('Approval...');
+
+    // Must NOT show Jupiter execution payload, dWallet data, MessageApproval, thresholds, caps, witness bytes
+    expect(logText).not.toContain('Jupiter route siap');
+    expect(logText).not.toContain('Policy-gated payload');
+    expect(logText).not.toContain('10 USDC');
+    expect(logText).not.toContain('20 USDC');
+
+    // Full ciphertext values must NOT be leaked (only short IDs)
+    expect(logText).not.toContain('EncryptSourceCiphertext111111111111111111');
+    expect(logText).not.toContain('EncryptAllowedOutput1111111111111111111');
+    expect(logText).not.toContain('JupiterPayloadSuppressed111111111111111111');
+  });
+
+  test('official Encrypt verified-allowed state shows safe Ika approval preparation', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+
+    // Must run blocked first to enable the "run 5" button
+    encryptDcaMode = 'blocked';
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText(/encrypt blocked/i)).toBeTruthy());
+
+    encryptDcaMode = 'allowed';
+    fireEvent.click(view.getByRole('button', { name: /run 5 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText(/encrypt verified/i)).toBeTruthy());
+
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+
+    // Verify status and approval preparation message
+    expect(logText).toContain('encrypt-verified-allowed');
+    expect(logText).toContain('Persiapan approval Ika tersedia');
+
+    // Jupiter route should still be shown for allowed state
+    expect(logText).toContain('Jupiter route siap');
+
+    // Full ciphertext values must NOT be leaked
+    expect(logText).not.toContain('EncryptSourceCiphertext111111111111111111');
+    expect(logText).not.toContain('EncryptAllowedOutput1111111111111111111');
+  });
+
+  test('official Encrypt verified-blocked state suppresses all artifacts', async () => {
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+
+    encryptDcaMode = 'blocked';
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText(/encrypt blocked/i)).toBeTruthy());
+
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+
+    // Verify status and suppression message (Indonesian locale by default)
+    expect(logText).toContain('encrypt-verified-blocked');
+    expect(logText).toContain('Semua artefak eksekusi ditekan');
+
+    // No Jupiter payload, agent transaction, or private policy values
+    expect(logText).not.toContain('Jupiter route siap');
+    expect(logText).not.toContain('Policy-gated payload');
+    expect(logText).not.toContain('agent-tx');
+    expect(logText).not.toContain('10 USDC');
+    expect(logText).not.toContain('20 USDC');
+    expect(logText).not.toContain('MessageApproval');
+    expect(logText).not.toContain('dWallet');
+
+    // Full ciphertext values must NOT be leaked
+    expect(logText).not.toContain('EncryptSourceCiphertext111111111111111111');
+    expect(logText).not.toContain('EncryptAllowedOutput1111111111111111111');
   });
 });

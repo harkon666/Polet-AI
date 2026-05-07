@@ -435,6 +435,19 @@ export interface OfficialEncryptPolicyPreview {
   pendingSlot?: number;
   verifiedSlot?: number;
   graph: 'polet_policy_guardrail_graph';
+  encryptProgram?: string;
+  grpcEndpoint?: string;
+  inputCiphertexts?: {
+    sourceAmount?: string;
+    maxPerRun?: string;
+    dailySpent?: string;
+    dailyCap?: string;
+  };
+  pendingOutputCiphertexts?: {
+    allowedOutput?: string;
+    dailySpentOutput?: string;
+  };
+  suppressedUntilVerified?: string[];
 }
 
 export type RunConfidentialDcaResult = {

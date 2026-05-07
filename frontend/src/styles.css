@@ -714,31 +714,85 @@ a {
   transform: translateY(-1px);
 }
 
-/* Trust strip — partner/integration logos row */
+/* Trust strip — partner/integration logos infinite marquee */
 .qe-trust-strip {
   border-block: 1px solid var(--line);
   background: var(--foam);
 }
 
-.qe-trust-strip__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 28px 56px;
+/* Marquee viewport — fixed, edges fade for cleaner look */
+.qe-trust-strip__marquee {
+  position: relative;
+  overflow: hidden;
   padding-block: 28px;
+  /* Soft fade-in/fade-out at edges so logos don't pop in/out abruptly */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+}
+
+/* Track — content runs twice for seamless loop, animated rightwards.
+   Continuous loop — no hover pause, no reduced-motion override (per design).
+
+   IMPORTANT: spacing between items uses `margin-right` per item, NOT `gap`.
+   Why: with flex `gap`, total track width = 2N×W + (2N-1)×G, and
+   translate(-50%) = -(N×W + (N-0.5)×G) — which is short by 0.5×G = 28px
+   from the actual position of copy B's first item (N×(W+G)). That 28px
+   discrepancy causes a visible "snap" on every loop iteration.
+   Using margin-right makes total width = 2 × N × (W + G) so -50% lands
+   EXACTLY where copy B's first item starts. Truly seamless wrap. */
+.qe-trust-strip__track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  animation: qe-trust-marquee 32s linear infinite;
+  will-change: transform;
+}
+
+@keyframes qe-trust-marquee {
+  /* Track starts already shifted left by half its total width (showing the
+     second copy). It then animates back to 0 (showing the first copy).
+     Visual effect: logos enter from the LEFT edge and flow RIGHTWARDS,
+     exiting on the right edge. Seamless because both copies are identical. */
+  from { transform: translate3d(-50%, 0, 0); }
+  to   { transform: translate3d(0, 0, 0); }
+}
+
+/* Accessibility: stop marquee for users who prefer reduced motion.
+   Shows the first copy of logos as a static row. */
+@media (prefers-reduced-motion: reduce) {
+  .qe-trust-strip__track {
+    animation: none;
+    transform: none;
+  }
 }
 
 .qe-trust-strip__item {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  /* Spacing to the next item — including the last item, whose trailing
+     margin completes the periodic structure for seamless looping. */
+  margin-right: 56px;
   font-family: var(--font-mono);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   color: var(--sea-ink-soft);
   text-transform: uppercase;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .qe-trust-strip__item-mark {
@@ -1987,6 +2041,18 @@ footer {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  /* Fill most of the viewport so the hero dominates the first impression
+     and the trust strip naturally falls below the fold on 1080p+ desktops. */
+  min-height: calc(100svh - 64px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+@media (min-width: 1024px) {
+  .qe-hero--type {
+    min-height: calc(88svh - 80px);
+  }
 }
 
 .qe-hero--type::before {

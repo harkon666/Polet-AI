@@ -5,10 +5,12 @@ import ThemeToggle from './ThemeToggle';
 /**
  * Context-aware header.
  *
- * - Landing routes (`/`, `/about`): right cluster shows "Open App →" CTA.
- *   No wallet adapter — visitor evaluates the product before connecting.
+ * - Landing routes (`/`, `/about`): right cluster shows ONLY the theme toggle.
+ *   Hero owns the primary "Start building" CTA, so the header stays minimal
+ *   (Walrus / Vercel / Linear pattern). Conversion is also captured by the
+ *   final CTA gradient panel at the end of the landing page.
  * - App route (`/app`, `/app/*`): right cluster shows the WalletButton
- *   (Connect Wallet → wallet pill once connected).
+ *   (Connect Wallet → wallet pill once connected) + theme toggle.
  *
  * Brand wordmark, devnet pill, nav links, and theme toggle stay consistent
  * across all routes.
@@ -36,8 +38,7 @@ export default function Header() {
           Devnet
         </span>
 
-        {/* Nav links — same across all routes (no separate App link;
-            the route-aware right cluster handles the conversion CTA) */}
+        {/* Nav links — same across all routes */}
         <div className="order-3 -ml-2 flex w-full flex-wrap items-center gap-x-1 sm:order-2 sm:ml-3 sm:w-auto">
           <Link
             to="/"
@@ -48,6 +49,13 @@ export default function Header() {
             Home
           </Link>
           <Link
+            to="/app"
+            className="qe-nav-link"
+            activeProps={{ className: 'qe-nav-link is-active' }}
+          >
+            App
+          </Link>
+          <Link
             to="/about"
             className="qe-nav-link"
             activeProps={{ className: 'qe-nav-link is-active' }}
@@ -55,7 +63,7 @@ export default function Header() {
             How It Works
           </Link>
           <a
-            href="https://github.com/"
+            href="https://github.com/harkon666/Polet-AI"
             target="_blank"
             rel="noreferrer"
             className="qe-nav-link"
@@ -65,22 +73,9 @@ export default function Header() {
           </a>
         </div>
 
-        {/* Right cluster — route-aware
-            Landing/About → "Open App →" CTA (no wallet adapter)
-            /app → WalletButton (Connect Wallet / wallet pill) */}
+        {/* Right cluster — wallet on /app, theme toggle always */}
         <div className="order-2 ml-auto flex items-center gap-2 sm:order-3">
-          {isAppRoute ? (
-            <WalletButton />
-          ) : (
-            <Link
-              to="/app"
-              className="qe-button qe-button--primary"
-              aria-label="Open the wallet console app"
-            >
-              Open App
-              <span aria-hidden="true">→</span>
-            </Link>
-          )}
+          {isAppRoute && <WalletButton />}
           <ThemeToggle />
         </div>
       </nav>
