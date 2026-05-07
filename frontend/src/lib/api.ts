@@ -121,6 +121,44 @@ export async function getWalletData(owner: string) {
   return data.data;
 }
 
+export interface InitializeWalletResult {
+  transaction: string;
+  wallet: string;
+}
+
+export async function initializeWallet(owner: string): Promise<InitializeWalletResult> {
+  const data = await fetchJson<{ success: boolean; data: InitializeWalletResult }>(
+    `${PROXY_URL}/wallet/initialize`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ owner }),
+    }
+  );
+  return data.data;
+}
+
+export interface GrantKeyInput {
+  owner: string;
+  sessionKey: string;
+  expiresAt: number;
+  dailyLimit: number;
+}
+
+export interface GrantKeyResult {
+  transaction: string;
+}
+
+export async function grantKey(input: GrantKeyInput): Promise<GrantKeyResult> {
+  const data = await fetchJson<{ success: boolean; data: GrantKeyResult }>(
+    `${PROXY_URL}/wallet/grant-key`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+  return data.data;
+}
+
 export interface SetConfidentialPolicyInput {
   owner: string;
   maxPerRunUsdc: string;

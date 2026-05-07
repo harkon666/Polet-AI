@@ -1,12 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletButton } from './WalletButton';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
 import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
 import { Transaction } from '@solana/web3.js';
-import { useEffect } from 'react';
-import { getWalletData } from '../lib/api';
+import { getWalletData, initializeWallet, grantKey } from '../lib/api';
 
 interface TemporalKey {
   id: string;
@@ -75,23 +74,16 @@ export function WalletDashboard() {
   const handleGrantKey = async (sessionKey: string, expiresAt: number, dailyLimit: number) => {
     if (!publicKey) return;
     try {
-      const res = await fetch('http://localhost:3001/wallet/grant-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          owner: publicKey.toBase58(),
-          sessionKey,
-          expiresAt: Math.floor(expiresAt / 1000),
-          dailyLimit
-        }),
+      const result = await grantKey({
+        owner: publicKey.toBase58(),
+        sessionKey,
+        expiresAt: Math.floor(expiresAt / 1000),
+        dailyLimit
       });
-      const data = await res.json();
-      if (data.success && data.data.transaction) {
-        const tx = Transaction.from(Uint8Array.from(atob(data.data.transaction), c => c.charCodeAt(0)));
-        const signature = await sendTransaction(tx, connection);
-        await connection.confirmTransaction(signature, 'confirmed');
-        refreshData();
-      }
+      const tx = Transaction.from(Uint8Array.from(atob(result.transaction), c => c.charCodeAt(0)));
+      const signature = await sendTransaction(tx, connection);
+      await connection.confirmTransaction(signature, 'confirmed');
+      refreshData();
     } catch (err) {
       console.error('Grant key failed:', err);
     }
@@ -121,31 +113,21 @@ export function WalletDashboard() {
     setError(null);
     setStatus('Preparing transaction...');
     try {
-      const res = await fetch('http://localhost:3001/wallet/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ owner: pubkeyStr }),
-      });
-      const data = await res.json();
-      if (data.success && data.data.transaction) {
-        setStatus('Waiting for wallet signature...');
-        const tx = Transaction.from(Uint8Array.from(atob(data.data.transaction), c => c.charCodeAt(0)));
-        const signature = await sendTransaction(tx, connection);
-        setStatus('Confirming transaction on-chain...');
-        const latestBlockhash = await connection.getLatestBlockhash();
-        await connection.confirmTransaction({
-          signature,
-          ...latestBlockhash
-        }, 'confirmed');
-        console.log('Wallet initialized on-chain!', signature);
-        setStatus('Wallet ready!');
-        setIsInitialized(true);
-        console.log(data)
-        setPoletWalletPda(data.data.wallet);
-        refreshData();
-      } else {
-        throw new Error(data.error || 'Failed to get transaction from proxy');
-      }
+      const result = await initializeWallet(pubkeyStr!);
+      setStatus('Waiting for wallet signature...');
+      const tx = Transaction.from(Uint8Array.from(atob(result.transaction), c => c.charCodeAt(0)));
+      const signature = await sendTransaction(tx, connection);
+      setStatus('Confirming transaction on-chain...');
+      const latestBlockhash = await connection.getLatestBlockhash();
+      await connection.confirmTransaction({
+        signature,
+        ...latestBlockhash
+      }, 'confirmed');
+      console.log('Wallet initialized on-chain!', signature);
+      setStatus('Wallet ready!');
+      setIsInitialized(true);
+      setPoletWalletPda(result.wallet);
+      refreshData();
     } catch (err) {
       console.error('Initialization failed:', err);
       setError(err instanceof Error ? err.message : 'Initialization failed');
