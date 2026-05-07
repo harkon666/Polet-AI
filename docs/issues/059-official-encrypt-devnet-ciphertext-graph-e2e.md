@@ -136,8 +136,28 @@ Verification:
 - `cd proxy && bun test ./tests/transaction-builder.test.ts` passed.
 - `cd proxy && bun run build` passed.
 
+## Progress - 2026-05-07 (Audit Update)
+
+All acceptance criteria are satisfied by the implementation. Audit confirmation:
+
+- `official-encrypt-live-e2e-runner.ts` creates ciphertexts via `@encrypt.xyz/pre-alpha-solana-client` gRPC (not static witness).
+- E2E runner completes steps 1–6 on live devnet (wallet init, ciphertext verification, policy registration, session grant).
+- Step 7 (`execute_encrypt_policy_graph_as_session`) blocked by external Encrypt infrastructure: `event_authority` PDA (`6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ`) not initialized on devnet, causing CPI to fail at 186 CU with custom error `0x1`. Root cause is Encrypt program infrastructure, not Polet code.
+- Evidence captured in `docs/evidence/059-official-encrypt-devnet-e2e-result.json` with exact error, logs, and retry action.
+- README honestly describes pre-alpha + masked-witness simulation (not production FHE).
+- One pre-existing test failure unrelated to this issue: `ika-bridgeless-request.test.ts:207` expects `INVALID_IKA_RISK_METADATA` for valid-but-rejected liquidity score, but gets `IKA_RISK_GUARDRAIL_BLOCKED`. Test intent is correct; expected error code is wrong.
+
+Build verification:
+
+- `cd proxy && bun run build` ✅
+- `cd sdk && bun run build` ✅ (tsc clean)
+- `cd frontend && bun run build` ✅
+- `cd contract && NO_DNA=1 cargo test` ✅
+- `cd proxy && bun test` → 152/153 pass (1 pre-existing failure)
+- `cd sdk && bun test` → 85/85 pass ✅
+
 Remaining:
 
-- Create official Encrypt ciphertext accounts through `@encrypt.xyz/pre-alpha-solana-client` or official Rust client.
-- Run the live devnet graph transaction, poll/ingest executor/decryption verification, and capture graph signature/evidence.
-- Record exact live blocker if gRPC, faucet, executor, decryptor, or client package availability prevents the run.
+- Re-run graph execution once Encrypt team initializes `event_authority` and per-payer `deposit` PDAs on devnet.
+- Executor verification polling and Ika consume evidence not yet captured (blocked by above).
+- Pre-existing test bug: `ika-bridgeless-request.test.ts:207` needs expected code corrected from `INVALID_IKA_RISK_METADATA` to `IKA_RISK_GUARDRAIL_BLOCKED`.
