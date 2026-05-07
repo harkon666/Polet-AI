@@ -75,3 +75,23 @@ Use:
 Do not use:
 
 > Polet uses XOR witness bytes as Encrypt FHE.
+
+## Progress - 2026-05-07
+
+Child issue status:
+
+| Issue | Status | Notes |
+|-------|--------|-------|
+| #053 Agent SDK Integration Kit | ✅ DONE | createPoletAgentKit(), 85/85 tests |
+| #054 Remove Static Witness | ✅ DONE (frontend) | Tagged legacy encryptionWitnessHash as masked-witness dev fixture |
+| #055 Manual E2E Runbook | ✅ DONE | Created encrypt-devnet-e2e-runbook.md |
+| #056 Frontend Encrypt Lifecycle | ✅ DONE | EncryptPolicyStatusCard, 49/49 tests |
+| #059 Encrypt Devnet E2E | 🔒 BLOCKED | Proxy routes landed, blocked by Encrypt infra (event_authority PDA) |
+
+Remaining blocker: Encrypt team needs to initialize `event_authority` PDA and per-payer `deposit` PDAs on devnet for graph execution to complete.
+
+All tests pass:
+- `cd proxy && bun test` — 153 pass
+- `cd sdk && bun test` — 85 pass
+- `cd frontend && bun run test` — 49 pass
+- All builds clean

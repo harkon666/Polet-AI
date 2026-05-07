@@ -51,3 +51,23 @@ The manual path must cover:
 ## Notes
 
 The older "no-witness readiness" work remains useful for redaction and safe lifecycle wording, but it is not enough for hackathon Encrypt core integration.
+
+## Progress - 2026-05-07
+
+Created `docs/encrypt-devnet-e2e-runbook.md` covering:
+
+- Environment variables (Encrypt gRPC, program IDs, USDC amounts)
+- Devnet owner/session setup with throwaway keypairs
+- Step-by-step commands for ciphertext creation, policy registration, graph execution
+- Pending/verified/blocked state documentation
+- Ika approval preparation (only after verified allowed)
+- Failure table: gRPC unavailable, devnet reset, faucet failure, executor delay, decryptor delay, client API mismatch, Ika devnet unavailable
+- Evidence template with safe fields only (no private keys, no thresholds, no witness bytes)
+- Safety rules
+
+**Note**: Live devnet execution is blocked by external Encrypt infra (event_authority PDA not initialized). The runbook documents the exact commands and expected outputs based on #059 implementation. Step 8 (Ika approval) requires Ika devnet availability.
+
+Verification:
+- Runbook references actual proxy routes: `/wallet/set-official_encrypt_ciphertext-policy`, `/wallet/execute-encrypt-policy-graph`, `/wallet/approve-ika-with-verified-encrypt`
+- Runbook references actual scripts: `scripts/059-encrypt-devnet-e2e.ts`, `sdk/src/official-encrypt-evidence-runner.ts`
+- All referenced file paths verified to exist
