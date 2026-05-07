@@ -107,6 +107,10 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
     const provider = new anchor.AnchorProvider(connection, dummyWallet as unknown as anchor.Wallet, { commitment: 'confirmed' });
     const program = new anchor.Program(idl as anchor.Idl, provider);
     const walletPda = deriveWalletPda(owner);
+    const walletAccountInfo = await connection.getAccountInfo(walletPda);
+    if (!walletAccountInfo || !walletAccountInfo.owner.equals(PROGRAM_ID)) {
+      return null;
+    }
 
     const accountData = (await (program.account as any).wallet.fetch(walletPda)) as unknown as WalletAccount;
     const sessions = accountData.sessions.map(tk => ({
@@ -173,9 +177,22 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
       temporalKeys: sessions,
     };
   } catch (error) {
+    if (isMissingAnchorAccountError(error) || isInvalidPublicKeyError(error)) {
+      return null;
+    }
     console.error(`Error fetching wallet data for ${ownerStr}:`, error);
     return null;
   }
+}
+
+function isMissingAnchorAccountError(error: unknown): boolean {
+  return error instanceof Error
+    && error.message.includes('Account does not exist or has no data');
+}
+
+function isInvalidPublicKeyError(error: unknown): boolean {
+  return error instanceof Error
+    && error.message.includes('Invalid public key input');
 }
 
 /**

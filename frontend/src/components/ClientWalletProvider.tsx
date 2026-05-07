@@ -11,7 +11,7 @@ export const ClientWalletProvider: FC<{ children: ReactNode }> = ({ children }) 
     setMounted(true);
   }, []);
 
-  const endpoint = import.meta.env.VITE_SOLANA_RPC_URL || 'https://devnet.helius.xyz';
+  const endpoint = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
   const wallets = useMemo(() => [], []); // Wallets standard detects most wallets automatically
 
   if (!mounted) {

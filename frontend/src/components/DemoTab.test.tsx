@@ -8,6 +8,7 @@ afterEach(() => {
   sharedConfig = null;
   sharedIkaAttempts = 0;
   multichainInputs = [];
+  recoveryAccessInputs = [];
   encryptDcaMode = null;
   encryptIkaMode = null;
 });
@@ -15,10 +16,12 @@ afterEach(() => {
 let sharedConfig: { threshold: number; approvers: string[] } | null = null;
 let sharedIkaAttempts = 0;
 let multichainInputs: RunMultichainIntentInput[] = [];
+let recoveryAccessInputs: Parameters<typeof api.recoverAccess>[0][] = [];
 let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptIkaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 const coApproverB = 'CxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR5';
+const connectedOwner = 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2';
 
 const encryptPolicyBase = {
   policySequence: 7,
@@ -89,7 +92,10 @@ const api = {
     },
   }),
   setRecoveryAuthority: async () => ({ transaction: 'recovery-tx', wallet: 'wallet-pda', recoveryAuthority: 'recovery-auth', activity: { type: 'recovery', status: 'set', privacy: 'redacted' } }),
-  recoverAccess: async () => ({ transaction: 'recover-tx', wallet: 'wallet-pda', authority: 'recovery-auth', compromisedSessions: [], sharedIkaThreshold: 1, sharedIkaApprovers: [], pendingDwalletController: '', activity: { type: 'recover', status: 'done', states: ['sessions-revoked'], privacy: 'redacted', boundary: 'mock' } }),
+  recoverAccess: async (input: { owner: string; authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string }) => {
+    recoveryAccessInputs.push(input);
+    return { transaction: 'recover-tx', wallet: 'wallet-pda', authority: input.authority, compromisedSessions: input.compromisedSessions, sharedIkaThreshold: input.sharedIkaThreshold, sharedIkaApprovers: input.sharedIkaApprovers, pendingDwalletController: input.pendingDwalletController, activity: { type: 'recover', status: 'done', states: ['sessions-revoked'], privacy: 'redacted', boundary: 'mock' } };
+  },
   requestPasskeyChallenge: async () => ({ challenge: Array.from(new Uint8Array(32)), publicKeyCredentialRequestOptions: { challenge: Array.from(new Uint8Array(32)), rpId: 'localhost', allowCredentials: [], userVerification: 'preferred' }, boundary: 'mock' }),
   verifyPasskeyAssertion: async () => ({ valid: false, approverPublicKey: '', challengeUsed: '', boundary: 'mock' }),
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
@@ -338,7 +344,7 @@ const api = {
 function renderDemo() {
   return render(
     <DemoTabContent
-      owner="AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2"
+      owner={connectedOwner}
       agentAddresses={[coApproverA, coApproverB]}
       signAndConfirmTransaction={async () => 'sig111111'}
       api={api}
@@ -590,6 +596,27 @@ describe('Consumer DCA demo frontend', () => {
     await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
     await waitFor(() => expect(document.body.textContent).toMatch(/1\/1\s+Quorum ready/i));
+  });
+
+  test('builds recovery access transaction for the connected owner signer', async () => {
+    const view = renderDemo();
+
+    fireEvent.change(view.getByPlaceholderText(/recovery authority/i), { target: { value: coApproverA } });
+    fireEvent.click(view.getByRole('button', { name: /sign & set recovery authority/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(view.getAllByText(/recovery authority aktif/i).length).toBeGreaterThan(0));
+
+    fireEvent.change(view.getByPlaceholderText(/agent\/session wallet/i), { target: { value: coApproverB } });
+    fireEvent.change(view.getByPlaceholderText(/approver public key/i), { target: { value: coApproverA } });
+    fireEvent.change(view.getByPlaceholderText(/pending dwallet controller/i), { target: { value: coApproverA } });
+    fireEvent.click(view.getByRole('button', { name: /^sign & recover access$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+
+    await waitFor(() => expect(recoveryAccessInputs).toHaveLength(1));
+    expect(recoveryAccessInputs[0]?.owner).toBe(connectedOwner);
+    expect(recoveryAccessInputs[0]?.authority).toBe(connectedOwner);
   });
 
   test('shows missing and ready shared Ika quorum states without policy leaks', async () => {

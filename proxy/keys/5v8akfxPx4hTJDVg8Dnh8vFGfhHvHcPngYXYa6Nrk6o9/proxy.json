@@ -1,6 +1,6 @@
 {
-  "publicKey": "9YQw9SbZbmNtTGYJucJPsnVDWkLbJBsoyEeTt3FMAqnv",
-  "iv": "6b63d9dd69d117b26a3b2d80",
-  "authTag": "944c6b703d33711fc8d9679a31770941",
-  "encryptedPrivateKey": "06ede8a0763bb3cb286c9fedef9f3b65c5f35c2a3ea75fc908d0b70ba1a40b153094d186f6a251752bf726926224dc4818f0a1b1ab11ebff09016dac032bd65a"
+  "publicKey": "CxCncURstinRTT1rTa5qoygqkJTsHvwBmiqLYQmiuUsF",
+  "iv": "b6bad41e7119bf71df4898cf",
+  "authTag": "55e649a9bab4b4ab7574f6ac37270f80",
+  "encryptedPrivateKey": "29ba43b047596908c2b5855ce038daa06ae3fa9d0a9c553a6a63c7d4db579315adf74c3210cbfd247ec028ea48d207ada4b83975e9ae295bdbf0dcf91c45bf02"
 }

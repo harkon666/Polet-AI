@@ -4,8 +4,9 @@ import { WalletButton } from './WalletButton';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
 import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
-import { Transaction } from '@solana/web3.js';
 import { getWalletData, initializeWallet, grantKey } from '../lib/api';
+import { POLET_PROGRAM_ID, shortProgramId } from '../lib/program';
+import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
 
 interface TemporalKey {
   id: string;
@@ -80,9 +81,9 @@ export function WalletDashboard() {
         expiresAt: Math.floor(expiresAt / 1000),
         dailyLimit
       });
-      const tx = Transaction.from(Uint8Array.from(atob(result.transaction), c => c.charCodeAt(0)));
-      const signature = await sendTransaction(tx, connection);
-      await connection.confirmTransaction(signature, 'confirmed');
+      const { transaction, latestBlockhash } = await prepareFreshTransaction(result.transaction, connection);
+      const signature = await sendTransaction(transaction, connection);
+      await confirmFreshTransaction(connection, signature, latestBlockhash);
       refreshData();
     } catch (err) {
       console.error('Grant key failed:', err);
@@ -115,14 +116,10 @@ export function WalletDashboard() {
     try {
       const result = await initializeWallet(pubkeyStr!);
       setStatus('Waiting for wallet signature...');
-      const tx = Transaction.from(Uint8Array.from(atob(result.transaction), c => c.charCodeAt(0)));
-      const signature = await sendTransaction(tx, connection);
+      const { transaction, latestBlockhash } = await prepareFreshTransaction(result.transaction, connection);
+      const signature = await sendTransaction(transaction, connection);
       setStatus('Confirming transaction on-chain...');
-      const latestBlockhash = await connection.getLatestBlockhash();
-      await connection.confirmTransaction({
-        signature,
-        ...latestBlockhash
-      }, 'confirmed');
+      await confirmFreshTransaction(connection, signature, latestBlockhash);
       console.log('Wallet initialized on-chain!', signature);
       setStatus('Wallet ready!');
       setIsInitialized(true);
@@ -198,6 +195,12 @@ export function WalletDashboard() {
                   <span className="font-mono text-sm text-[var(--lagoon-deep)]">{poletWalletPda}</span>
                 </div>
               )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-[var(--sea-ink-soft)]">Program:</span>
+                <span className="font-mono text-sm text-[var(--sea-ink)]" title={POLET_PROGRAM_ID}>
+                  {shortProgramId()}
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-full border border-[rgba(79,184,178,0.3)] bg-[rgba(79,184,178,0.1)] px-3 py-1">

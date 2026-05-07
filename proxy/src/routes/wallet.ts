@@ -89,6 +89,27 @@ async function serializeUnsigned(ownerPubkey: PublicKey, tx: Transaction) {
   }).toString('base64');
 }
 
+function parsePublicKey(value: unknown, label: string): PublicKey {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(`${label} must be a Solana public key`);
+  }
+  try {
+    return new PublicKey(value.trim());
+  } catch {
+    throw new Error(`${label} must be a valid Solana public key`);
+  }
+}
+
+walletRouter.get('/status', (c) => {
+  return c.json({
+    success: true,
+    data: {
+      status: 'wallet-router-ready',
+      programId: PROGRAM_ID.toString(),
+    },
+  });
+});
+
 /**
  * POST /wallet/initialize
  * Creates a new proxy key, saves it encrypted, and returns an unsigned initialization transaction.
@@ -495,13 +516,13 @@ walletRouter.post('/recover-access', async (c) => {
       return c.json({ success: false, error: 'sharedIkaThreshold must be a positive integer no greater than approver count' }, 400);
     }
 
-    const ownerPubkey = new PublicKey(owner);
-    const authorityPubkey = new PublicKey(authority);
+    const ownerPubkey = parsePublicKey(owner, 'owner');
+    const authorityPubkey = parsePublicKey(authority, 'authority');
     const walletPda = deriveWalletPda(ownerPubkey);
-    const compromisedSessionPubkeys = Array.from(new Set(compromisedSessions.map((session) => new PublicKey(session).toString())))
-      .map((session) => new PublicKey(session));
-    const sharedIkaApproverPubkeys = Array.from(new Set(sharedIkaApprovers.map((approver) => new PublicKey(approver).toString())))
-      .map((approver) => new PublicKey(approver));
+    const compromisedSessionPubkeys = Array.from(new Set(compromisedSessions.map((session) => parsePublicKey(session, 'compromisedSessions entry').toString())))
+      .map((session) => parsePublicKey(session, 'compromisedSessions entry'));
+    const sharedIkaApproverPubkeys = Array.from(new Set(sharedIkaApprovers.map((approver) => parsePublicKey(approver, 'sharedIkaApprovers entry').toString())))
+      .map((approver) => parsePublicKey(approver, 'sharedIkaApprovers entry'));
     if (compromisedSessionPubkeys.length !== compromisedSessions.length) {
       return c.json({ success: false, error: 'compromisedSessions must be unique' }, 400);
     }
@@ -509,7 +530,7 @@ walletRouter.post('/recover-access', async (c) => {
       return c.json({ success: false, error: 'sharedIkaApprovers must be unique' }, 400);
     }
 
-    const pendingDwalletControllerPubkey = new PublicKey(pendingDwalletController);
+    const pendingDwalletControllerPubkey = parsePublicKey(pendingDwalletController, 'pendingDwalletController');
     const program = getProgram();
     const ix = await program.methods.recoverWalletAccess(
       compromisedSessionPubkeys,
@@ -549,7 +570,9 @@ walletRouter.post('/recover-access', async (c) => {
     });
   } catch (error) {
     console.error('Recover wallet access error:', error);
-    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build recovery transaction' }, 500);
+    const message = error instanceof Error ? error.message : 'Failed to build recovery transaction';
+    const status = message.includes('valid Solana public key') || message.includes('must be a Solana public key') ? 400 : 500;
+    return c.json({ success: false, error: message }, status);
   }
 });
 

@@ -1,4 +1,4 @@
-import { Check, AlertTriangle, X, Landmark } from 'lucide-react';
+import { Check, AlertTriangle, X, Landmark, Clipboard } from 'lucide-react';
 import { InfoPill } from './ui/InfoPill';
 import type { ActivityEntry } from './activity-log';
 import type { COPY } from '../lib/i18n';
@@ -82,7 +82,41 @@ export function ActivityCard({ entry, labels }: ActivityCardProps) {
       {entry.encryptPolicy && <EncryptPolicyStatusCard policy={entry.encryptPolicy} labels={labels} />}
       {entry.approval && <ApprovalProgressCard approval={entry.approval} labels={labels} />}
       {entry.ikaRequest && <IkaRequestPreviewCard request={entry.ikaRequest} labels={labels} sharedApprovers={entry.sharedApprovers} />}
+      {entry.unsignedTransaction && <UnsignedTransactionCard entry={entry} />}
     </article>
+  );
+}
+
+function UnsignedTransactionCard({ entry }: { entry: ActivityEntry }) {
+  const payload = entry.unsignedTransaction;
+  if (!payload) return null;
+
+  const copyPayload = () => {
+    void navigator.clipboard?.writeText(payload.transaction);
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-semibold uppercase text-[var(--sea-ink-soft)]">Unsigned transaction</p>
+          <p className="mt-1 text-[var(--sea-ink-soft)]">
+            Agent signer required: {payload.signers.map(short).join(', ') || 'session signer'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={copyPayload}
+          className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--lagoon-deep)] hover:bg-[var(--link-bg-hover)]"
+        >
+          <Clipboard className="h-3.5 w-3.5" />
+          Copy base64
+        </button>
+      </div>
+      <p className="mt-2 break-all rounded-md bg-[var(--surface)] p-2 font-mono text-[10px] leading-5 text-[var(--sea-ink-soft)]">
+        {payload.transaction.slice(0, 96)}...
+      </p>
+    </div>
   );
 }
 

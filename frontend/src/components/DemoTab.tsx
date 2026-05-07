@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { Transaction } from '@solana/web3.js';
 import {
   Activity,
   AlertTriangle,
@@ -39,6 +38,7 @@ import {
   type WalletTransactionResult,
 } from '../lib/api';
 import { COPY, type Locale } from '../lib/i18n';
+import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
 import { Panel } from './ui/Panel';
 import { InfoTile } from './ui/InfoTile';
 import { InfoRow } from './ui/InfoRow';
@@ -103,10 +103,9 @@ export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) 
   const { connection } = useConnection();
 
   const signAndConfirmTransaction = async (transactionBase64: string) => {
-    const transaction = Transaction.from(Uint8Array.from(atob(transactionBase64), (char) => char.charCodeAt(0)));
+    const { transaction, latestBlockhash } = await prepareFreshTransaction(transactionBase64, connection);
     const signature = await sendTransaction(transaction, connection);
-    const latestBlockhash = await connection.getLatestBlockhash();
-    await connection.confirmTransaction({ signature, ...latestBlockhash }, 'confirmed');
+    await confirmFreshTransaction(connection, signature, latestBlockhash);
     return signature;
   };
 
@@ -485,7 +484,7 @@ export function DemoTabContent({
         try {
           const result = await api.recoverAccess({
             owner,
-            authority: recoveryAuthority,
+            authority: owner,
             compromisedSessions,
             sharedIkaThreshold: threshold,
             sharedIkaApprovers: approvers,
@@ -619,6 +618,13 @@ export function DemoTabContent({
         encryptPolicy: result.encryptPolicy,
         jupiterPlan: result.allowed ? result.jupiterPlan : undefined,
         transactionSigners: result.allowed ? result.transaction?.signers : undefined,
+        unsignedTransaction: result.allowed && result.transaction
+          ? {
+              transaction: result.transaction.transaction,
+              signers: result.transaction.signers,
+              kind: 'jupiter-dca',
+            }
+          : undefined,
         smartWalletAuthority: result.allowed ? result.smartWalletAuthority : undefined,
       });
     } catch (err) {
@@ -695,6 +701,13 @@ export function DemoTabContent({
         ikaRequest: result.allowed ? result.ikaRequest : undefined,
         approval: result.approval,
         sharedApprovers: result.allowed ? sharedApproversFromResult(result) : result.approval?.approvedApprovers,
+        unsignedTransaction: result.allowed && result.ikaRequest?.poletApprovalTransaction?.transaction
+          ? {
+              transaction: result.ikaRequest.poletApprovalTransaction.transaction,
+              signers: result.ikaRequest.poletApprovalTransaction.signers ?? [],
+              kind: 'ika-approval',
+            }
+          : undefined,
         smartWalletAuthority: result.allowed ? result.ikaRequest?.sessionContext.smartWalletAuthority : undefined,
       });
       if (result.allowed && result.ikaRequest?.preAlphaSigning?.status === 'signature-produced-prealpha' && result.ikaRequest.preAlphaSigning.messageDigest) {

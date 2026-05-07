@@ -24,6 +24,11 @@ export interface ActivityEntry {
   approval?: RunMultichainIntentResult['approval'];
   sharedApprovers?: string[];
   transactionSigners?: string[];
+  unsignedTransaction?: {
+    transaction: string;
+    signers: string[];
+    kind: 'jupiter-dca' | 'ika-approval';
+  };
   smartWalletAuthority?: string;
 }
 
