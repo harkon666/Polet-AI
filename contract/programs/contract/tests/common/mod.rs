@@ -25,6 +25,7 @@ pub const WSOL_MINT_BYTES: [u8; 32] = [
     235, 59, 85, 152, 160, 240, 0, 0, 0, 0, 1,
 ];
 pub const IKA_CPI_AUTHORITY_SEED: &[u8] = b"__ika_cpi_authority";
+pub const ENCRYPT_CPI_AUTHORITY_SEED: &[u8] = b"__encrypt_cpi_authority";
 
 pub fn mock_ika_id() -> anchor_lang::prelude::Pubkey {
     anchor_lang::prelude::Pubkey::from_str("CXHt5JcKMshPiW7HJUqyRnyUugQTnoWN3mbWm92sGLMw")
@@ -439,6 +440,49 @@ pub fn set_encrypt_ciphertext_policy(
     send_ix(svm, owner, &[], ix)
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn set_official_encrypt_ciphertext_policy(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    payer: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    max_per_run_ciphertext: anchor_lang::prelude::Pubkey,
+    daily_cap_ciphertext: anchor_lang::prelude::Pubkey,
+    daily_spent_ciphertext: anchor_lang::prelude::Pubkey,
+    encrypt_program: anchor_lang::prelude::Pubkey,
+    config: anchor_lang::prelude::Pubkey,
+    deposit: anchor_lang::prelude::Pubkey,
+    network_encryption_key: anchor_lang::prelude::Pubkey,
+    event_authority: anchor_lang::prelude::Pubkey,
+) -> Result<(), String> {
+    let (cpi_authority, _cpi_bump) = encrypt_cpi_authority();
+    let ix_data = contract::instruction::SetOfficialEncryptCiphertextPolicy {
+        policy_commitment: [0xadu8; 32],
+    };
+    let ix_accounts = contract::accounts::SetOfficialEncryptCiphertextPolicy {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+        max_per_run_ciphertext,
+        daily_cap_ciphertext,
+        daily_spent_ciphertext,
+        encrypt_program,
+        config,
+        deposit,
+        cpi_authority,
+        program: contract::id(),
+        network_encryption_key,
+        payer: payer.pubkey(),
+        event_authority,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[payer], ix)
+}
+
 pub fn execute_as_session(
     svm: &mut LiteSVM,
     payer: &Keypair,
@@ -509,6 +553,13 @@ pub fn ika_cpi_authority() -> (anchor_lang::prelude::Pubkey, u8) {
     )
 }
 
+pub fn encrypt_cpi_authority() -> (anchor_lang::prelude::Pubkey, u8) {
+    anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
+        &[ENCRYPT_CPI_AUTHORITY_SEED],
+        &contract::id(),
+    )
+}
+
 pub fn ika_coordinator() -> anchor_lang::prelude::Pubkey {
     anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
         &[b"dwallet_coordinator"],
@@ -570,6 +621,24 @@ pub fn write_mock_encrypt_ciphertext(
         },
     )
     .expect("mock Encrypt ciphertext write failed");
+}
+
+pub fn write_official_encrypt_ciphertext(
+    svm: &mut LiteSVM,
+    account: anchor_lang::prelude::Pubkey,
+    encrypt_program: anchor_lang::prelude::Pubkey,
+) {
+    svm.set_account(
+        account,
+        Account {
+            lamports: 1_000_000_000,
+            data: vec![0u8; 100],
+            owner: encrypt_program,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .expect("official Encrypt ciphertext account write failed");
 }
 
 pub fn write_mock_encrypt_bool_decryption_request(

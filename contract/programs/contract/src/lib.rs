@@ -16,7 +16,7 @@ declare_id!("3bJjtLutfxy1oG6dREi32BnvousDcBYug7AsWcdBbkeN");
 use confidential_policy::enforce_confidential_numeric_policy;
 pub use constants::WALLET_SEED;
 use encrypt_policy_graph::polet_policy_guardrail_graph_bytes;
-use encrypt_prealpha::ENCRYPT_CPI_AUTHORITY_SEED;
+use encrypt_prealpha::{ENCRYPT_CPI_AUTHORITY_SEED, ENCRYPT_PREALPHA_PROGRAM_ID};
 pub use error::ErrorCode;
 use execution_payload::parse_transfer_intent;
 use ika_approval::{approve_ika_message, IkaApproveMessageAccounts, IKA_CPI_AUTHORITY_SEED};
@@ -29,6 +29,7 @@ const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
     6, 221, 246, 225, 215, 101, 161, 147, 217, 203, 225, 70, 206, 235, 121, 172, 28, 180, 133, 237,
     95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
 ];
+const ENCRYPT_CIPHERTEXT_ACCOUNT_LEN: usize = 100;
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -78,6 +79,38 @@ pub struct SetEncryptCiphertextPolicy<'info> {
     #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetOfficialEncryptCiphertextPolicy<'info> {
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+    /// CHECK: Max-per-run ciphertext account created through Encrypt pre-alpha.
+    pub max_per_run_ciphertext: UncheckedAccount<'info>,
+    /// CHECK: Daily-cap ciphertext account created through Encrypt pre-alpha.
+    pub daily_cap_ciphertext: UncheckedAccount<'info>,
+    /// CHECK: Daily-spent ciphertext account created through Encrypt pre-alpha.
+    pub daily_spent_ciphertext: UncheckedAccount<'info>,
+    /// CHECK: Encrypt pre-alpha program.
+    pub encrypt_program: UncheckedAccount<'info>,
+    /// CHECK: Encrypt config account.
+    pub config: UncheckedAccount<'info>,
+    /// CHECK: Encrypt deposit account.
+    #[account(mut)]
+    pub deposit: UncheckedAccount<'info>,
+    /// CHECK: Polet Encrypt CPI authority PDA.
+    #[account(seeds = [ENCRYPT_CPI_AUTHORITY_SEED], bump)]
+    pub cpi_authority: UncheckedAccount<'info>,
+    /// CHECK: This program executable account, required by Encrypt CPI authority checks.
+    pub program: UncheckedAccount<'info>,
+    /// CHECK: Encrypt network encryption key account.
+    pub network_encryption_key: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    /// CHECK: Encrypt event authority account.
+    pub event_authority: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -362,6 +395,76 @@ fn require_not_expired(expires_at: i64) -> Result<()> {
 
 fn require_non_default_pubkey(pubkey: Pubkey) -> Result<()> {
     require!(pubkey != Pubkey::default(), ErrorCode::InvalidEncryptPolicy);
+    Ok(())
+}
+
+fn require_official_encrypt_context_accounts(
+    encrypt_program: Pubkey,
+    program: Pubkey,
+    config: Pubkey,
+    deposit: Pubkey,
+    network_encryption_key: Pubkey,
+    event_authority: Pubkey,
+) -> Result<()> {
+    require!(
+        encrypt_program == ENCRYPT_PREALPHA_PROGRAM_ID,
+        ErrorCode::InvalidEncryptPolicy
+    );
+    require!(program == crate::ID, ErrorCode::InvalidEncryptPolicy);
+    require_non_default_pubkey(config)?;
+    require_non_default_pubkey(deposit)?;
+    require_non_default_pubkey(network_encryption_key)?;
+    require_non_default_pubkey(event_authority)?;
+    Ok(())
+}
+
+fn require_official_encrypt_ciphertext_account(
+    ciphertext: &AccountInfo,
+    encrypt_program: Pubkey,
+) -> Result<()> {
+    require_non_default_pubkey(ciphertext.key())?;
+    require!(
+        *ciphertext.owner == encrypt_program,
+        ErrorCode::InvalidEncryptPolicy
+    );
+    require!(
+        ciphertext.try_borrow_data()?.len() >= ENCRYPT_CIPHERTEXT_ACCOUNT_LEN,
+        ErrorCode::InvalidEncryptPolicy
+    );
+    Ok(())
+}
+
+fn set_encrypt_policy_ciphertexts(
+    wallet: &mut Wallet,
+    policy_commitment: [u8; 32],
+    max_per_run_ciphertext: Pubkey,
+    daily_cap_ciphertext: Pubkey,
+    daily_spent_ciphertext: Pubkey,
+) -> Result<()> {
+    require!(policy_commitment != [0u8; 32], ErrorCode::PolicyViolation);
+    require_non_default_pubkey(max_per_run_ciphertext)?;
+    require_non_default_pubkey(daily_cap_ciphertext)?;
+    require_non_default_pubkey(daily_spent_ciphertext)?;
+
+    wallet.confidential_policy.policy_commitment = policy_commitment;
+    wallet.confidential_policy.encrypt_ciphertexts = EncryptPolicyCiphertexts {
+        max_per_run: max_per_run_ciphertext,
+        daily_cap: daily_cap_ciphertext,
+        daily_spent: daily_spent_ciphertext,
+        pending_allowed_output: Pubkey::default(),
+        pending_daily_spent_output: Pubkey::default(),
+        pending_source_amount: Pubkey::default(),
+        pending_slot: 0,
+        pending_policy_seq: 0,
+        pending: false,
+        configured: true,
+    };
+    wallet.confidential_policy.enabled = true;
+    wallet.policy_commitment = policy_commitment;
+    wallet.policy_seq = wallet
+        .policy_seq
+        .checked_add(1)
+        .ok_or(ErrorCode::ArithmeticOverflow)?;
     Ok(())
 }
 
@@ -776,34 +879,58 @@ pub mod contract {
         daily_cap_ciphertext: Pubkey,
         daily_spent_ciphertext: Pubkey,
     ) -> Result<()> {
-        require!(policy_commitment != [0u8; 32], ErrorCode::PolicyViolation);
-        require_non_default_pubkey(max_per_run_ciphertext)?;
-        require_non_default_pubkey(daily_cap_ciphertext)?;
-        require_non_default_pubkey(daily_spent_ciphertext)?;
-
         let wallet = &mut ctx.accounts.wallet;
-        wallet.confidential_policy.policy_commitment = policy_commitment;
-        wallet.confidential_policy.encrypt_ciphertexts = EncryptPolicyCiphertexts {
-            max_per_run: max_per_run_ciphertext,
-            daily_cap: daily_cap_ciphertext,
-            daily_spent: daily_spent_ciphertext,
-            pending_allowed_output: Pubkey::default(),
-            pending_daily_spent_output: Pubkey::default(),
-            pending_source_amount: Pubkey::default(),
-            pending_slot: 0,
-            pending_policy_seq: 0,
-            pending: false,
-            configured: true,
-        };
-        wallet.confidential_policy.enabled = true;
-        wallet.policy_commitment = policy_commitment;
-        wallet.policy_seq = wallet
-            .policy_seq
-            .checked_add(1)
-            .ok_or(ErrorCode::ArithmeticOverflow)?;
+        set_encrypt_policy_ciphertexts(
+            wallet,
+            policy_commitment,
+            max_per_run_ciphertext,
+            daily_cap_ciphertext,
+            daily_spent_ciphertext,
+        )?;
 
         msg!(
             "Encrypt ciphertext policy updated, policy_seq={}",
+            wallet.policy_seq
+        );
+        Ok(())
+    }
+
+    pub fn set_official_encrypt_ciphertext_policy(
+        ctx: Context<SetOfficialEncryptCiphertextPolicy>,
+        policy_commitment: [u8; 32],
+    ) -> Result<()> {
+        require_official_encrypt_context_accounts(
+            ctx.accounts.encrypt_program.key(),
+            ctx.accounts.program.key(),
+            ctx.accounts.config.key(),
+            ctx.accounts.deposit.key(),
+            ctx.accounts.network_encryption_key.key(),
+            ctx.accounts.event_authority.key(),
+        )?;
+        require_official_encrypt_ciphertext_account(
+            &ctx.accounts.max_per_run_ciphertext.to_account_info(),
+            ctx.accounts.encrypt_program.key(),
+        )?;
+        require_official_encrypt_ciphertext_account(
+            &ctx.accounts.daily_cap_ciphertext.to_account_info(),
+            ctx.accounts.encrypt_program.key(),
+        )?;
+        require_official_encrypt_ciphertext_account(
+            &ctx.accounts.daily_spent_ciphertext.to_account_info(),
+            ctx.accounts.encrypt_program.key(),
+        )?;
+
+        let wallet = &mut ctx.accounts.wallet;
+        set_encrypt_policy_ciphertexts(
+            wallet,
+            policy_commitment,
+            ctx.accounts.max_per_run_ciphertext.key(),
+            ctx.accounts.daily_cap_ciphertext.key(),
+            ctx.accounts.daily_spent_ciphertext.key(),
+        )?;
+
+        msg!(
+            "Official Encrypt ciphertext policy accepted, policy_seq={}",
             wallet.policy_seq
         );
         Ok(())

@@ -17,21 +17,24 @@ This issue exists because the current codebase only partially implements the off
 ## Acceptance criteria
 
 - [x] Wallet policy state stores Encrypt ciphertext account identifiers for max-per-run, daily cap, daily spent, and any pending allow/block or updated daily-spend outputs as the official path.
-- [ ] The owner policy setup path creates or accepts official Encrypt ciphertext accounts using the devnet/pre-alpha config, deposit, network key, event authority, CPI authority, and payer accounts required by `EncryptContext`.
+- [x] The owner policy setup path creates or accepts official Encrypt ciphertext accounts using the devnet/pre-alpha config, deposit, network key, event authority, CPI authority, and payer accounts required by `EncryptContext`.
 - [x] The contract session path can run `polet_policy_guardrail_graph` through `encrypt_anchor::EncryptContext` and records pending output ciphertexts.
-- [ ] The Ika `approve_ika_message_as_session` path uses the same official Encrypt policy graph boundary before any Ika `approve_message` CPI, so blocked requests cannot emit dWallet or MessageApproval data.
+- [x] The Ika `approve_ika_message_as_session` path uses the same official Encrypt policy graph boundary before any Ika `approve_message` CPI, so blocked requests cannot emit dWallet or MessageApproval data.
 - [x] Contract, proxy, SDK, and frontend response types clearly distinguish `pending-encrypt-execution`, `encrypt-verified-allowed`, and `encrypt-verified-blocked` states without leaking private policy thresholds or witness bytes.
 - [ ] Tests use `encrypt-solana-test` / `EncryptTestContext` with `process_pending()` for deterministic mock execution, while existing masked-witness tests are either migrated, quarantined as legacy simulation coverage, or removed from the primary confidential path.
-- [ ] Documentation keeps the pre-alpha disclaimer explicit: Encrypt pre-alpha has no production privacy guarantee, data may be public/plaintext in the current network, and interfaces can reset or change.
+- [x] Documentation keeps the pre-alpha disclaimer explicit: Encrypt pre-alpha has no production privacy guarantee, data may be public/plaintext in the current network, and interfaces can reset or change.
 
 ## Implementation notes
 
 - Added `EncryptPolicyCiphertexts` to the wallet's confidential policy state so the contract stores official Encrypt ciphertext account identifiers for max-per-run, daily cap, daily spent, pending source amount, pending allow/block output, and pending updated daily-spend output.
 - Added owner instruction `set_encrypt_ciphertext_policy` for accepting pre-created Encrypt ciphertext accounts and session instruction `execute_encrypt_policy_graph_as_session` for submitting `polet_policy_guardrail_graph` through `encrypt_anchor::EncryptContext`.
+- Added owner instruction `set_official_encrypt_ciphertext_policy` for accepting real Encrypt-owned policy ciphertext accounts through the official Encrypt account surface: devnet/pre-alpha Encrypt program, config, deposit, CPI authority, caller program, network encryption key, payer, event authority, and system program. The legacy pubkey-only setter remains for compatibility and simulation scaffolding.
 - Fixed `NO_DNA=1 anchor build` by excluding native `mock_ika` from Anchor IDL generation and building it in a pre-build hook for LiteSVM tests.
 - Added proxy official Encrypt lifecycle handling for DCA and Ika. When wallet policy state has official Encrypt ciphertexts, guarded execution now returns `pending-encrypt-execution` until a resolver supplies verified graph output, carries `encrypt-verified-allowed` into DCA/Ika policy attestations, and suppresses DCA transactions, Ika signing metadata, MessageApproval data, and private witness/threshold data for pending or verified-blocked outcomes.
 - SDK blocked-trade normalization and frontend API types now understand the official Encrypt lifecycle status values.
-- Remaining work is to wire official Encrypt ciphertext account creation, migrate the on-chain Ika CPI instruction away from masked-witness enforcement, and add full `EncryptTestContext/process_pending()` coverage.
+- Issue `050-contract-official-encrypt-verified-ika-cpi-lifecycle` migrated the on-chain Ika CPI boundary: masked-witness Ika approval is rejected when official Encrypt ciphertext policy is configured, and verified Encrypt allowed output is required before Ika CPI.
+- Remaining work is to add full `EncryptTestContext/process_pending()` coverage.
+- Attempted direct `encrypt-solana-test` dev-dependency wiring for graph lifecycle tests on 2026-05-07. Both unpinned and `rev = "7a3c347f"` forms pulled Solana 4 beta/rc test-harness dependencies and failed before Polet tests compiled with `agave-votor-messages` `SchemaWrite` / `SchemaRead` errors caused by multiple `wincode` versions. The dependency was removed again so the contract workspace stays buildable. Smallest next action: add a compatibility-pinned standalone Encrypt lifecycle test crate or patch the Encrypt test harness dependency set so it matches this repo's Solana/Anchor dependency graph before enabling `EncryptTestContext` in Polet tests.
 
 Verification:
 
@@ -40,6 +43,7 @@ Verification:
 - `bun test` and `bun run build` pass in `proxy/`.
 - `bun test` and `bun run build` pass in `sdk/`.
 - `bun run build` passes in `frontend/`.
+- `NO_DNA=1 cargo test -p contract encrypt_policy_graph` was attempted after adding `encrypt-solana-test`, but failed during dependency compilation in `agave-votor-messages` before Polet tests ran because the Encrypt test harness currently resolves an incompatible Solana 4 beta/rc dependency set for this workspace.
 
 ## Blocked by
 

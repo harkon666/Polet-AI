@@ -1,7 +1,9 @@
 use {
     common::{
         encrypt_amount, execute_confidential_as_session, grant_session, initialize, read_wallet,
-        set_confidential_numeric_policy, set_encrypt_ciphertext_policy, setup_svm,
+        set_confidential_numeric_policy, set_encrypt_ciphertext_policy,
+        set_official_encrypt_ciphertext_policy, setup_svm, write_official_encrypt_ciphertext,
+        write_system_account,
     },
     solana_keypair::Keypair,
     solana_signer::Signer,
@@ -44,6 +46,109 @@ fn owner_can_record_official_encrypt_ciphertext_policy_identifiers() {
     );
     assert!(!wallet.confidential_policy.encrypt_ciphertexts.pending);
     assert_eq!(wallet.policy_seq, 1);
+}
+
+#[test]
+fn owner_can_accept_official_encrypt_ciphertext_accounts_with_encrypt_context_accounts() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let payer = Keypair::new();
+    let max_per_run_ciphertext = Keypair::new().pubkey();
+    let daily_cap_ciphertext = Keypair::new().pubkey();
+    let daily_spent_ciphertext = Keypair::new().pubkey();
+    let encrypt_program = contract::encrypt_prealpha::ENCRYPT_PREALPHA_PROGRAM_ID;
+    let config = Keypair::new().pubkey();
+    let deposit = Keypair::new().pubkey();
+    let network_encryption_key = Keypair::new().pubkey();
+    let event_authority = Keypair::new().pubkey();
+
+    svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    write_official_encrypt_ciphertext(&mut svm, max_per_run_ciphertext, encrypt_program);
+    write_official_encrypt_ciphertext(&mut svm, daily_cap_ciphertext, encrypt_program);
+    write_official_encrypt_ciphertext(&mut svm, daily_spent_ciphertext, encrypt_program);
+    write_system_account(&mut svm, config);
+    write_system_account(&mut svm, deposit);
+    write_system_account(&mut svm, network_encryption_key);
+    write_system_account(&mut svm, event_authority);
+
+    set_official_encrypt_ciphertext_policy(
+        &mut svm,
+        &owner,
+        &payer,
+        wallet_pda,
+        max_per_run_ciphertext,
+        daily_cap_ciphertext,
+        daily_spent_ciphertext,
+        encrypt_program,
+        config,
+        deposit,
+        network_encryption_key,
+        event_authority,
+    )
+    .expect("set official Encrypt ciphertext policy failed");
+
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert!(wallet.confidential_policy.enabled);
+    assert!(wallet.confidential_policy.encrypt_ciphertexts.configured);
+    assert_eq!(
+        wallet.confidential_policy.encrypt_ciphertexts.max_per_run,
+        max_per_run_ciphertext
+    );
+    assert_eq!(
+        wallet.confidential_policy.encrypt_ciphertexts.daily_cap,
+        daily_cap_ciphertext
+    );
+    assert_eq!(
+        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        daily_spent_ciphertext
+    );
+    assert_eq!(wallet.policy_seq, 1);
+}
+
+#[test]
+fn official_encrypt_policy_setup_rejects_non_encrypt_owned_ciphertext_accounts() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let payer = Keypair::new();
+    let max_per_run_ciphertext = Keypair::new().pubkey();
+    let daily_cap_ciphertext = Keypair::new().pubkey();
+    let daily_spent_ciphertext = Keypair::new().pubkey();
+    let encrypt_program = contract::encrypt_prealpha::ENCRYPT_PREALPHA_PROGRAM_ID;
+    let config = Keypair::new().pubkey();
+    let deposit = Keypair::new().pubkey();
+    let network_encryption_key = Keypair::new().pubkey();
+    let event_authority = Keypair::new().pubkey();
+
+    svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    write_system_account(&mut svm, max_per_run_ciphertext);
+    write_official_encrypt_ciphertext(&mut svm, daily_cap_ciphertext, encrypt_program);
+    write_official_encrypt_ciphertext(&mut svm, daily_spent_ciphertext, encrypt_program);
+    write_system_account(&mut svm, config);
+    write_system_account(&mut svm, deposit);
+    write_system_account(&mut svm, network_encryption_key);
+    write_system_account(&mut svm, event_authority);
+
+    let res = set_official_encrypt_ciphertext_policy(
+        &mut svm,
+        &owner,
+        &payer,
+        wallet_pda,
+        max_per_run_ciphertext,
+        daily_cap_ciphertext,
+        daily_spent_ciphertext,
+        encrypt_program,
+        config,
+        deposit,
+        network_encryption_key,
+        event_authority,
+    );
+
+    assert!(
+        res.is_err(),
+        "official Encrypt policy setup must reject ciphertext accounts not owned by Encrypt"
+    );
+    let wallet = read_wallet(&svm, wallet_pda);
+    assert!(!wallet.confidential_policy.encrypt_ciphertexts.configured);
 }
 
 #[test]
