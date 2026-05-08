@@ -49,6 +49,8 @@ Current hackathon integration decision:
 
 - `052-hackathon-ika-encrypt-prealpha-integration` — Reopened as the hackathon Ika x Encrypt umbrella. The corrected source of truth is official Encrypt pre-alpha ciphertext + graph lifecycle, not masked-witness XOR and not synthetic local evidence.
 - `059-official-encrypt-devnet-ciphertext-graph-e2e` — First executable correction issue for official Encrypt pre-alpha devnet evidence. Current status: `DONE (Polet-side) / BLOCKED (external Encrypt pre-alpha infra)`. Polet has ciphertext creation evidence, devnet policy registration, session grant, graph CPI attempt, exact blocker evidence, and local harness coverage for verified allowed/blocked consumption. Full live graph execution, executor verification, and verified-output Ika consume are waiting on Encrypt infra initialization/configuration.
+- `065-frontend-official-encrypt-prealpha-policy-setup` — New unblocked frontend vertical slice for the correct primary setup UX: user enters numeric USDC policy limits, the browser creates fresh official Encrypt pre-alpha ciphertext accounts through gRPC-Web, Polet registers those ciphertext refs via `set_official_encrypt_ciphertext_policy`, and the UI displays refs read-only after setup. This issue captures the May 8 debugging context: static sample ciphertext refs caused wallet `-32603` signing failures, while the numeric masked fallback is not official Encrypt.
+- `066-frontend-official-encrypt-policy-graph-execution` — New follow-up slice after `065`: frontend creates source/output ciphertext refs for each guarded run, builds/signs `execute_encrypt_policy_graph_as_session`, Polet CPIs into Encrypt through `EncryptContext.execute_graph`, and UI shows `pending-encrypt-execution` while suppressing Jupiter/Ika artifacts until verified output exists. Start with the assumption that no major smart contract rewrite is needed; only make narrow contract tweaks if live graph testing reveals account/order/validation mismatches.
 
 ## In Progress
 
@@ -69,7 +71,9 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-1. `055-official-encrypt-no-witness-manual-e2e-readiness`
+1. `065-frontend-official-encrypt-prealpha-policy-setup`
+2. `066-frontend-official-encrypt-policy-graph-execution`
+3. `055-official-encrypt-no-witness-manual-e2e-readiness`
 
 ### Stretch
 
@@ -79,6 +83,8 @@ Ralph execution queue. Pick the first incomplete unblocked issue:
 
 - Do not expose legacy public policy routes in the primary frontend demo. Legacy routes remain prior-foundation code only.
 - Frontend demo features should use safe transaction summaries, explicit user signing, devnet/localnet boundaries, and honest pre-alpha disclaimers.
+- For issue `065`, the primary policy setup must not accept manual ciphertext refs or send static sample ciphertext refs. The frontend should create fresh official Encrypt pre-alpha ciphertext inputs with `createEncryptWebClient`/`encryptValue`/`createInput`, then register those refs with Polet. The masked-witness numeric path may remain only as an explicitly labeled dev fallback.
+- For issue `066`, graph execution should call Polet's existing `execute_encrypt_policy_graph_as_session` path and surface `pending-encrypt-execution` safely. Do not claim verified allowed/blocked unless executor/decryption evidence exists.
 
 ## Dependency Graph
 
