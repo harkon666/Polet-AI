@@ -2,7 +2,7 @@
 
 Polet AI is a confidential Solana control layer for AI agents.
 
-Users deposit USDC/SOL into a Polet smart wallet PDA, save confidential numeric guardrails, grant an AI agent a temporary session key, and let the agent request guarded strategy actions. Polet blocks over-limit agent actions without revealing the user's private thresholds, allows in-limit USDC -> SOL DCA through a Jupiter route/build preview, and prepares Sui-primary Ika dWallet approvals only after the same policy gate passes.
+Users deposit USDC/SOL into a Polet smart wallet PDA, save confidential numeric guardrails, grant an AI agent a temporary session key, and let the agent request guarded strategy actions. Polet blocks over-limit agent actions without revealing the user's private thresholds, allows in-limit USDC -> SOL DCA through a Jupiter route/build preview, and prepares multi-chain Ika dWallet approvals only after the same policy gate passes.
 
 ## Target Users
 
@@ -24,7 +24,7 @@ Polet uses one Solana contract as the smart-wallet policy boundary for both loca
 - The owner grants a temporary session key to an AI agent.
 - The agent submits a DCA or multichain intent to the proxy.
 - For Jupiter, the proxy runs token/price/swap-build prechecks and builds an unsigned policy-gated transaction.
-- For Ika, the proxy prepares a Sui-primary bridgeless order and an unsigned Polet `approve_ika_message_as_session` transaction.
+- For Ika, the proxy prepares a multi-chain bridgeless order and an unsigned Polet `approve_ika_message_as_session` transaction.
 - The contract enforces the confidential policy path before smart-wallet execution or Ika `approve_message` approval.
 
 Demo constants:
@@ -34,7 +34,7 @@ Demo constants:
 - Confidential max per run: 10 USDC
 - Confidential daily cap: 20 USDC
 - Block scenario: 25 USDC DCA and 25 USDC-equivalent Ika request
-- Allow scenario: 5 USDC Jupiter DCA and 5 USDC-equivalent Sui Ika request
+- Allow scenario: 5 USDC Jupiter DCA and 5 USDC-equivalent multi-chain Ika request
 
 ## How Polet Uses Encrypt
 
@@ -75,8 +75,8 @@ Polet uses Ika as follows:
 
 - A Curve25519/Ed25519-compatible dWallet is created or imported through the official Ika Pre-Alpha flow.
 - The dWallet authority is transferred to Polet's CPI authority PDA derived from seed `__ika_cpi_authority` under the Polet program id.
-- The agent submits a Solana USDC -> Sui SUI intent; Sui/SUI is the primary destination shape and Ethereum/ETH remains optional.
-- For Sui, the proxy maps the approved canonical order into a devnet sign-only `zero-mist-transfer-proof` digest; for optional Ethereum, it maps into a Sepolia EIP-191 `zero-wei-transfer-proof` digest. These stay destination signing artifacts. The Ika MessageApproval lookup hash is a separate Keccak-256 hash over Polet's approval preimage.
+- The agent submits a Solana USDC -> multi-chain intent.
+- The proxy maps the approved canonical order into a destination-chain sign-only digest. These stay destination signing artifacts. The Ika MessageApproval lookup hash is a separate Keccak-256 hash over Polet's approval preimage.
 - Optional multisig-lite shared access can require M-of-N co-approver approval before Ika approval data is prepared and before the contract CPI-calls Ika; missing quorum returns `needs-approval` progress such as `1/2` without exposing confidential numeric thresholds.
 - Polet verifies session freshness, order expiry, policy sequence, and confidential numeric policy before CPI-calling Ika `approve_message`.
 - The resulting MessageApproval account can be fetched on devnet; when the Pre-Alpha mock signer writes a signature, the signature proof can be inspected.
@@ -190,7 +190,7 @@ cd frontend
 bun run dev
 ```
 
-Then open `http://localhost:3000`, connect a devnet wallet, initialize the Polet wallet, set up demo custody, save the confidential policy, grant an agent session key, and use the Demo tab to run the three core outcomes: 25 USDC blocked with no Ika approval, 5 USDC Jupiter DCA approved as a route/build preview, and 5 USDC-equivalent Sui Ika approval prepared as an unsigned Polet dWallet approval transaction.
+Then open `http://localhost:3000`, connect a devnet wallet, initialize the Polet wallet, set up demo custody, save the confidential policy, grant an agent session key, and use the Demo tab to run the three core outcomes: 25 USDC blocked with no Ika approval, 5 USDC Jupiter DCA approved as a route/build preview, and 5 USDC-equivalent multi-chain Ika approval prepared as an unsigned Polet dWallet approval transaction.
 
 ## Documentation
 

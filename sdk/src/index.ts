@@ -1163,7 +1163,7 @@ function buildPoletAgentKitTools(options: PoletAgentKitOptions, agent: PoletAgen
       data: await getPoletAgentKitStatus(options),
     })),
     tool('polet_trade', 'Submit a normalized Jupiter or Ika Polet trade request.', async (input) => tradeToolResult(await agent.trade(input as PoletTradeInput))),
-    tool('polet_ika_request', 'Submit a Sui-primary or Ethereum-optional Ika signed-intent request.', async (input) => tradeToolResult(await agent.trade({
+    tool('polet_ika_request', 'Submit a multi-chain Ika signed-intent request.', async (input) => tradeToolResult(await agent.trade({
       ...(input as Record<string, unknown>),
       rail: 'ika',
     } as PoletTradeInput))),
@@ -1418,7 +1418,7 @@ async function tradeWithIka(input: PoletTradeInput, options: PoletAgentOptions):
   const to = normalizeTradeAsset(input.to, 'sui');
 
   if (!isSupportedIkaDestination(from, to)) {
-    return notSupportedTradeResult('ika', 'Only Solana USDC -> Sui SUI or Ethereum ETH is supported on the Ika adapter in this MVP slice.');
+    return notSupportedTradeResult('ika', 'Only multi-chain asset movement is supported on the Ika adapter in this MVP slice.');
   }
 
   const witness = input.maskedWitnessDevFixture ?? options.maskedWitnessDevFixture;

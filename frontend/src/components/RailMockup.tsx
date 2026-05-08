@@ -117,7 +117,7 @@ const MOCKUPS: Record<RailMockupProps['variant'], { title: string; aria: string;
 
   ika: {
     title: 'POST /intent/multichain/run · executionRail = ika',
-    aria: 'Mock Ika dWallet approval response showing an approved bridgeless order, message hash, MessageApproval PDA, and signature scheme metadata for a Sui-side intent.',
+    aria: 'Mock Ika dWallet approval response showing an approved bridgeless order, message hash, MessageApproval PDA, and signature scheme metadata for a multi-chain intent.',
     lines: [
       [{ t: 'prompt', v: '$ ' }, { t: 'cmd', v: 'curl -X POST $PROXY/intent/multichain/run' }],
       'blank',
@@ -145,9 +145,9 @@ const MOCKUPS: Record<RailMockupProps['variant'], { title: string; aria: string;
         { t: 'plain', v: '    "' },
         { t: 'key', v: 'target' },
         { t: 'plain', v: '": { "chain": ' },
-        { t: 'str', v: '"sui"' },
+        { t: 'str', v: '"destination"' },
         { t: 'plain', v: ', "asset": ' },
-        { t: 'str', v: '"SUI"' },
+        { t: 'str', v: '"ASSET"' },
         { t: 'plain', v: ' },' },
       ],
       [

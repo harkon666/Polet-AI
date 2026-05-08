@@ -87,9 +87,9 @@ const RAILS = [
     n: '02',
     label: 'Ika dWallet',
     title: 'Bridgeless cross-chain signing',
-    body: 'After Polet policy approves, the contract CPI-calls Ika `approve_message` so a dWallet can sign Sui- or Ethereum-side intents. No bridge, no asset wrapping — pure cryptographic signing.',
+    body: 'After Polet policy approves, the contract CPI-calls Ika `approve_message` so a dWallet can sign multi-chain intents. No bridge, no asset wrapping — pure cryptographic signing.',
     bullets: [
-      'Sui-primary destination, Ethereum optional',
+      'Multi-chain support',
       'Official Ika Pre-Alpha SDK with CPI authority PDA',
       'MessageApproval PDA verification on devnet',
       'Shared M-of-N approval quorum supported',
@@ -406,7 +406,7 @@ export function HomePage() {
               <div className="flex items-start gap-3">
                 <span className="qe-pill qe-pill--success mt-0.5 flex-shrink-0">5 USDC</span>
                 <p className="text-sm leading-6 text-[var(--sea-ink-soft)]">
-                  In-limit Sui Ika — Polet approves and prepares an Ika dWallet approval transaction.
+                  In-limit multi-chain Ika — Polet approves and prepares an Ika dWallet approval transaction.
                 </p>
               </div>
               <div className="flex items-start gap-3">

@@ -144,13 +144,13 @@ export function LandingDemoWidget() {
           onClick={runIka}
           disabled={isBusy}
           className="qe-button qe-button--secondary justify-start text-left disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Run allowed 5 USDC Sui Ika scenario"
+          aria-label="Run allowed 5 USDC multi-chain Ika scenario"
         >
           <span className="flex flex-col items-start">
             <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--palm)]">
               {state.kind === 'running' && state.scenario === 'ika' ? 'running…' : 'allow'}
             </span>
-            <span className="text-sm font-semibold">5 USDC · Sui Ika</span>
+            <span className="text-sm font-semibold">5 USDC · Multi-chain Ika</span>
           </span>
         </button>
       </div>
@@ -238,8 +238,8 @@ export function LandingDemoWidget() {
               </button>
             </header>
             <p className="text-sm leading-6 text-[var(--sea-ink)]">
-              In-limit Sui Ika approved. Polet prepares an unsigned <code>approve_ika_message_as_session</code>{' '}
-              transaction and Sui-side digest. Settlement not executed.
+              In-limit multi-chain Ika approved. Polet prepares an unsigned <code>approve_ika_message_as_session</code>{' '}
+              transaction and destination-chain digest. Settlement not executed.
             </p>
             <dl className="space-y-1 font-mono text-[11px]">
               <div className="flex justify-between">
@@ -248,7 +248,7 @@ export function LandingDemoWidget() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-[var(--sea-ink-soft)]">target</dt>
-                <dd className="text-[var(--sea-ink)]">Sui · SUI</dd>
+                <dd className="text-[var(--sea-ink)]">Multi-chain</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-[var(--sea-ink-soft)]">message hash</dt>
