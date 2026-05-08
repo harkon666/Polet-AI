@@ -950,6 +950,114 @@
       "args": []
     },
     {
+      "name": "request_policy_value_decryption",
+      "discriminator": [
+        75,
+        33,
+        233,
+        172,
+        2,
+        35,
+        188,
+        163
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        },
+        {
+          "name": "request",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "ciphertext"
+        },
+        {
+          "name": "encrypt_program"
+        },
+        {
+          "name": "config",
+          "writable": true
+        },
+        {
+          "name": "deposit",
+          "writable": true
+        },
+        {
+          "name": "cpi_authority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  110,
+                  99,
+                  114,
+                  121,
+                  112,
+                  116,
+                  95,
+                  99,
+                  112,
+                  105,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        },
+        {
+          "name": "network_encryption_key"
+        },
+        {
+          "name": "payer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "event_authority"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "name": "cpi_authority_bump",
+          "type": "u8"
+        }
+      ]
+    },
+    {
       "name": "revoke_all_sessions",
       "discriminator": [
         18,
@@ -1702,6 +1810,27 @@
           {
             "name": "daily_spent",
             "type": "pubkey"
+          },
+          {
+            "name": "last_reveal_request",
+            "type": "pubkey"
+          },
+          {
+            "name": "last_reveal_ciphertext",
+            "type": "pubkey"
+          },
+          {
+            "name": "last_reveal_digest",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "last_reveal_kind",
+            "type": "u8"
           },
           {
             "name": "pending_allowed_output",

@@ -2,7 +2,12 @@ import { fireEvent, render, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
 import type { ComponentProps } from 'react';
 import { DemoTabContent } from './DemoTab';
-import type { ExecuteEncryptPolicyGraphInput, RunConfidentialDcaInput, RunMultichainIntentInput } from '../lib/api';
+import type {
+  ExecuteEncryptPolicyGraphInput,
+  RequestPolicyValueDecryptionInput,
+  RunConfidentialDcaInput,
+  RunMultichainIntentInput,
+} from '../lib/api';
 import type { OfficialEncryptExecutionCiphertexts, OfficialEncryptPolicyCiphertexts } from '../lib/official-encrypt-client';
 
 afterEach(() => {
@@ -14,6 +19,7 @@ afterEach(() => {
   recoveryAccessInputs = [];
   officialEncryptPolicyInputs = [];
   executeEncryptGraphInputs = [];
+  policyRevealInputs = [];
   createdPolicyCiphertextInputs = [];
   createdExecutionCiphertextInputs = [];
   encryptDcaMode = null;
@@ -29,6 +35,7 @@ let multichainInputs: RunMultichainIntentInput[] = [];
 let recoveryAccessInputs: Parameters<typeof api.recoverAccess>[0][] = [];
 let officialEncryptPolicyInputs: Parameters<typeof api.setOfficialEncryptCiphertextPolicy>[0][] = [];
 let executeEncryptGraphInputs: ExecuteEncryptPolicyGraphInput[] = [];
+let policyRevealInputs: RequestPolicyValueDecryptionInput[] = [];
 let createdPolicyCiphertextInputs: Array<{ maxPerRunUsdc: string; dailyCapUsdc: string }> = [];
 let createdExecutionCiphertextInputs: Array<{ amountUsdc: string }> = [];
 let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
@@ -57,6 +64,15 @@ const legacyInitialExecutionCiphertexts: OfficialEncryptExecutionCiphertexts = {
   dailySpentOutputCiphertext: '5sDPGQjGAgzJ6fmBjtyJUjW3pYLnEyEXN14NiHyBUXrz',
   grpcEndpoint: 'encrypt-grpc.polet.dev:443',
 };
+
+function mockDecryptionRequestData(usdc: bigint) {
+  const data = new Uint8Array(115);
+  const view = new DataView(data.buffer);
+  view.setUint32(99, 8, true);
+  view.setUint32(103, 8, true);
+  view.setBigUint64(107, usdc * 1_000_000n, true);
+  return data;
+}
 
 const encryptPolicyBase = {
   policySequence: 7,
@@ -233,6 +249,21 @@ const api = {
         dailySpentOutput: input.dailySpentOutputCiphertext,
       },
       suppressedUntilVerified: ['jupiterExecutionPayload', 'dwallet', 'messageApproval', 'destinationDigest', 'poletApprovalTransaction'],
+    };
+  },
+  requestPolicyValueDecryption: async (input: RequestPolicyValueDecryptionInput) => {
+    policyRevealInputs.push(input);
+    return {
+      transaction: 'policy-reveal-tx',
+      wallet: input.wallet,
+      request: input.request,
+      kind: input.kind,
+      ciphertext: input.ciphertext,
+      status: 'policy-reveal-requested' as const,
+      encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
+      grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+      boundary: 'owner-signed-public-decryption-request' as const,
+      warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext publicly after the decryptor responds.',
     };
   },
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
@@ -503,6 +534,7 @@ function renderDemo(options: {
       }}
       executeGraphBeforeRequests={options.executeGraphBeforeRequests ?? false}
       initialExecutionCiphertexts={options.initialExecutionCiphertexts ?? legacyInitialExecutionCiphertexts}
+      readDecryptionRequest={async () => mockDecryptionRequestData(10n)}
     />
   );
 }
@@ -542,6 +574,27 @@ describe('Consumer DCA demo frontend', () => {
       policyCommitment: freshOfficialCiphertexts.policyCommitment,
     });
     expect(JSON.stringify(officialEncryptPolicyInputs[0])).not.toContain('maskedWitnessDevFixture');
+  });
+
+  test('keeps policy masked by default, reveals one owner-selected value in memory, and hides it', async () => {
+    const view = renderDemo();
+    await setupCustodyAndPolicy(view);
+
+    expect(view.getAllByText('********').length).toBeGreaterThanOrEqual(3);
+    fireEvent.click(view.getAllByRole('button', { name: /reveal/i })[0]);
+    await waitFor(() => expect(view.getByText(/owner harus sign request reveal/i)).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+
+    await waitFor(() => expect(view.getByText('10 USDC')).toBeTruthy());
+    expect(policyRevealInputs).toHaveLength(1);
+    expect(policyRevealInputs[0].kind).toBe('max-per-run');
+    expect(signedTransactions).toContain('policy-reveal-tx');
+    expect(view.getByText(/policy reveal siap/i)).toBeTruthy();
+    expect(view.queryByText(/10 USDC.*sig/i)).toBeNull();
+
+    fireEvent.click(view.getAllByRole('button', { name: /hide/i })[0]);
+    await waitFor(() => expect(view.queryByText('10 USDC')).toBeNull());
+    expect(view.getAllByText('********').length).toBeGreaterThanOrEqual(3);
   });
 
   test('signs Encrypt deposit only when the setup route returns a transaction', async () => {

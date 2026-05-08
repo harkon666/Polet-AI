@@ -19,6 +19,7 @@ import {
   APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR,
   APPROVE_IKA_MESSAGE_WITH_VERIFIED_ENCRYPT_AS_SESSION_DISCRIMINATOR,
   EXECUTE_ENCRYPT_POLICY_GRAPH_AS_SESSION_DISCRIMINATOR,
+  REQUEST_POLICY_VALUE_DECRYPTION_DISCRIMINATOR,
   SET_OFFICIAL_ENCRYPT_CIPHERTEXT_POLICY_DISCRIMINATOR,
   buildApproveIkaMessageAsSessionAccounts,
   buildApproveIkaMessageAsSessionInstructionData,
@@ -32,6 +33,9 @@ import {
   buildExecuteEncryptPolicyGraphSessionTransaction,
   buildExecuteConfidentialTransferInstructionData,
   buildExecuteIntentData,
+  buildRequestPolicyValueDecryptionAccounts,
+  buildRequestPolicyValueDecryptionInstructionData,
+  buildRequestPolicyValueDecryptionTransaction,
   buildSetOfficialEncryptCiphertextPolicyAccounts,
   buildSetOfficialEncryptCiphertextPolicyInstructionData,
   buildSetOfficialEncryptCiphertextPolicyTransaction,
@@ -348,6 +352,42 @@ describe('Transaction Builder', () => {
       expect(metas[14].isSigner).toBe(true);
     });
 
+    test('encodes owner-only policy value decryption request args', () => {
+      const request = createPolicyRevealRequest();
+      const data = buildRequestPolicyValueDecryptionInstructionData(request);
+      const [, bump] = deriveEncryptCpiAuthority();
+
+      expect(data.subarray(0, 8)).toEqual(REQUEST_POLICY_VALUE_DECRYPTION_DISCRIMINATOR);
+      expect(data.readUInt8(8)).toBe(1);
+      expect(data.readUInt8(9)).toBe(bump);
+      expect(data.length).toBe(10);
+    });
+
+    test('defines owner-only policy value decryption account order', () => {
+      const request = createPolicyRevealRequest();
+      const metas = buildRequestPolicyValueDecryptionAccounts(request);
+
+      expect(metas.map((meta) => meta.pubkey.toString())).toEqual([
+        request.wallet,
+        request.owner,
+        request.request,
+        request.ciphertext,
+        request.encrypt.encryptProgram!,
+        request.encrypt.config,
+        request.encrypt.deposit,
+        deriveEncryptCpiAuthority()[0].toString(),
+        PROGRAM_ID_STRING,
+        request.encrypt.networkEncryptionKey,
+        request.encrypt.payer,
+        request.encrypt.eventAuthority,
+        SystemProgram.programId.toString(),
+      ]);
+      expect(metas[1].isSigner).toBe(true);
+      expect(metas[2].isSigner).toBe(true);
+      expect(metas[2].isWritable).toBe(true);
+      expect(metas[10].isSigner).toBe(true);
+    });
+
     test('encodes verified Encrypt Ika consume args without source amount or witness', () => {
       const user = Keypair.generate().publicKey;
       const request = createVerifiedEncryptIkaRequest({ userPubkey: user.toString() });
@@ -416,6 +456,13 @@ describe('Transaction Builder', () => {
       expect(verifiedBuilt.signers).toEqual([verifiedRequest.sessionKey]);
       expect(verifiedTx.feePayer?.toString()).toBe(verifiedRequest.sessionKey);
       expect(verifiedTx.instructions[0].data).toEqual(buildApproveIkaMessageWithVerifiedEncryptAsSessionInstructionData(verifiedRequest));
+
+      const revealRequest = createPolicyRevealRequest();
+      const revealBuilt = await buildRequestPolicyValueDecryptionTransaction(revealRequest);
+      const revealTx = Transaction.from(Buffer.from(revealBuilt.transaction, 'base64'));
+      expect(revealBuilt.signers).toEqual([revealRequest.owner, revealRequest.encrypt.payer, revealRequest.request]);
+      expect(revealTx.feePayer?.toString()).toBe(revealRequest.owner);
+      expect(revealTx.instructions[0].data).toEqual(buildRequestPolicyValueDecryptionInstructionData(revealRequest));
     });
 
     test('builds create_encrypt_deposit transaction with correct accounts and data', async () => {
@@ -642,6 +689,20 @@ function createExecuteEncryptGraphRequest(
     dailySpentOutputCiphertext: Keypair.generate().publicKey.toString(),
     attestationSlot: 123n,
     attestationPolicySeq: 7n,
+    encrypt: createEncryptContext(),
+    ...overrides,
+  };
+}
+
+function createPolicyRevealRequest(
+  overrides: Partial<Parameters<typeof buildRequestPolicyValueDecryptionInstructionData>[0]> = {}
+) {
+  return {
+    wallet: Keypair.generate().publicKey.toString(),
+    owner: Keypair.generate().publicKey.toString(),
+    request: Keypair.generate().publicKey.toString(),
+    kind: 'daily-cap' as const,
+    ciphertext: Keypair.generate().publicKey.toString(),
     encrypt: createEncryptContext(),
     ...overrides,
   };

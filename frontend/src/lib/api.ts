@@ -418,11 +418,54 @@ export interface ExecuteEncryptPolicyGraphResult extends WalletTransactionResult
   suppressedUntilVerified: string[];
 }
 
+export type PolicyRevealKind = 'max-per-run' | 'daily-cap' | 'daily-spent';
+
+export interface RequestPolicyValueDecryptionInput {
+  owner: string;
+  wallet: string;
+  request: string;
+  kind: PolicyRevealKind;
+  ciphertext: string;
+  encrypt: {
+    encryptProgram?: string;
+    config: string;
+    deposit: string;
+    networkEncryptionKey: string;
+    eventAuthority: string;
+    payer?: string;
+  };
+}
+
+export interface RequestPolicyValueDecryptionResult extends WalletTransactionResult {
+  request: string;
+  kind: PolicyRevealKind;
+  ciphertext: string;
+  status: 'policy-reveal-requested';
+  encryptProgram: string;
+  grpcEndpoint: string;
+  boundary: 'owner-signed-public-decryption-request';
+  warning: string;
+}
+
 export async function executeEncryptPolicyGraph(
   input: ExecuteEncryptPolicyGraphInput
 ): Promise<ExecuteEncryptPolicyGraphResult> {
   const data = await fetchJson<{ success: boolean; data: ExecuteEncryptPolicyGraphResult }>(
     `${PROXY_URL}/wallet/execute-encrypt-policy-graph`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function requestPolicyValueDecryption(
+  input: RequestPolicyValueDecryptionInput
+): Promise<RequestPolicyValueDecryptionResult> {
+  const data = await fetchJson<{ success: boolean; data: RequestPolicyValueDecryptionResult }>(
+    `${PROXY_URL}/wallet/request-policy-value-decryption`,
     {
       method: 'POST',
       body: JSON.stringify(input),

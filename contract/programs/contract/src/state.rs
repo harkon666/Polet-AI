@@ -25,6 +25,10 @@ pub struct EncryptPolicyCiphertexts {
     pub max_per_run: Pubkey,
     pub daily_cap: Pubkey,
     pub daily_spent: Pubkey,
+    pub last_reveal_request: Pubkey,
+    pub last_reveal_ciphertext: Pubkey,
+    pub last_reveal_digest: [u8; 32],
+    pub last_reveal_kind: u8,
     pub pending_allowed_output: Pubkey,
     pub pending_daily_spent_output: Pubkey,
     pub pending_source_amount: Pubkey,
@@ -109,7 +113,7 @@ impl ConfidentialNumericPolicy {
 }
 
 impl EncryptPolicyCiphertexts {
-    pub const SPACE: usize = 32 + 32 + 32 + 32 + 32 + 32 + 8 + 8 + 1 + 1;
+    pub const SPACE: usize = 32 + 32 + 32 + 32 + 32 + 32 + 1 + 32 + 32 + 32 + 8 + 8 + 1 + 1;
 }
 
 impl DemoTokenCustody {

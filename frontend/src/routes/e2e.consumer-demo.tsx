@@ -1,6 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { DemoTabContent } from '../components/DemoTab';
-import type { ExecuteEncryptPolicyGraphInput, RunConfidentialDcaInput, RunMultichainIntentInput } from '../lib/api';
+import type {
+  ExecuteEncryptPolicyGraphInput,
+  RequestPolicyValueDecryptionInput,
+  RunConfidentialDcaInput,
+  RunMultichainIntentInput,
+} from '../lib/api';
 
 export const Route = createFileRoute('/e2e/consumer-demo')({
   component: E2EConsumerDemoPage,
@@ -64,6 +69,18 @@ const e2eApi = {
       dailySpentOutput: input.dailySpentOutputCiphertext,
     },
     suppressedUntilVerified: ['jupiterExecutionPayload', 'dwallet', 'messageApproval', 'destinationDigest', 'poletApprovalTransaction'],
+  }),
+  requestPolicyValueDecryption: async (input: RequestPolicyValueDecryptionInput) => ({
+    transaction: 'policy-reveal-tx',
+    wallet: input.wallet,
+    request: input.request,
+    kind: input.kind,
+    ciphertext: input.ciphertext,
+    status: 'policy-reveal-requested' as const,
+    encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
+    grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+    boundary: 'owner-signed-public-decryption-request' as const,
+    warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext publicly after the decryptor responds.',
   }),
   setupDemoCustody: async () => ({
     transaction: 'custody-tx',

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
+import { Keypair, PublicKey, type Signer } from '@solana/web3.js';
 import {
   Activity,
   AlertTriangle,
@@ -33,6 +34,7 @@ import {
   broadcastIkaDestination,
   createEncryptDeposit,
   executeEncryptPolicyGraph,
+  requestPolicyValueDecryption,
   type RunConfidentialDcaResult,
   type RunMultichainIntentResult,
   type SharedIkaApproverConfigInput,
@@ -43,6 +45,9 @@ import {
   type WalletTransactionResult,
   type ExecuteEncryptPolicyGraphInput,
   type ExecuteEncryptPolicyGraphResult,
+  type PolicyRevealKind,
+  type RequestPolicyValueDecryptionInput,
+  type RequestPolicyValueDecryptionResult,
 } from '../lib/api';
 import { COPY, type Locale } from '../lib/i18n';
 import {
@@ -91,17 +96,19 @@ interface DemoApi {
   getWalletData: typeof getWalletData;
   createEncryptDeposit: typeof createEncryptDeposit;
   executeEncryptPolicyGraph: (input: ExecuteEncryptPolicyGraphInput) => Promise<ExecuteEncryptPolicyGraphResult>;
+  requestPolicyValueDecryption: (input: RequestPolicyValueDecryptionInput) => Promise<RequestPolicyValueDecryptionResult>;
 }
 
 interface DemoTabContentProps {
   owner: string | null;
   agentAddresses?: string[];
-  signAndConfirmTransaction: (transactionBase64: string) => Promise<string>;
+  signAndConfirmTransaction: (transactionBase64: string, extraSigners?: Signer[]) => Promise<string>;
   api?: DemoApi;
   createPolicyCiphertexts?: typeof createOfficialEncryptPolicyCiphertexts;
   createExecutionCiphertexts?: typeof createOfficialEncryptExecutionCiphertexts;
   executeGraphBeforeRequests?: boolean;
   initialExecutionCiphertexts?: OfficialEncryptExecutionCiphertexts | null;
+  readDecryptionRequest?: (request: string) => Promise<Uint8Array | null>;
 }
 
 const DEFAULT_API: DemoApi = {
@@ -120,6 +127,7 @@ const DEFAULT_API: DemoApi = {
   getWalletData,
   createEncryptDeposit,
   executeEncryptPolicyGraph,
+  requestPolicyValueDecryption,
 };
 
 const DEFAULT_CREATE_POLICY_CIPHERTEXTS = createOfficialEncryptPolicyCiphertexts;
@@ -148,8 +156,11 @@ export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) 
   const { publicKey, sendTransaction } = useWallet();
   const { connection } = useConnection();
 
-  const signAndConfirmTransaction = async (transactionBase64: string) => {
+  const signAndConfirmTransaction = async (transactionBase64: string, extraSigners: Signer[] = []) => {
     const { transaction, latestBlockhash } = await prepareFreshTransaction(transactionBase64, connection);
+    if (extraSigners.length > 0) {
+      transaction.partialSign(...extraSigners);
+    }
     const signature = await sendTransaction(transaction, connection);
     await confirmFreshTransaction(connection, signature, latestBlockhash);
     return signature;
@@ -160,6 +171,10 @@ export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) 
       owner={publicKey?.toBase58() ?? null}
       agentAddresses={agentAddresses}
       signAndConfirmTransaction={signAndConfirmTransaction}
+      readDecryptionRequest={async (request) => {
+        const info = await connection.getAccountInfo(new PublicKey(request));
+        return info?.data ?? null;
+      }}
     />
   );
 }
@@ -173,6 +188,7 @@ export function DemoTabContent({
   createExecutionCiphertexts = DEFAULT_CREATE_EXECUTION_CIPHERTEXTS,
   executeGraphBeforeRequests = true,
   initialExecutionCiphertexts = null,
+  readDecryptionRequest,
 }: DemoTabContentProps) {
   const [locale, setLocale] = useState<Locale>('id');
   const [policyDraft, setPolicyDraft] = useState({ maxPerRunUsdc: '10', dailyCapUsdc: '20' });
@@ -231,6 +247,7 @@ export function DemoTabContent({
     minLiquidityScore: 'medium' as 'low' | 'medium' | 'high',
     requireVerifiedRoute: true,
   });
+  const [revealedPolicyValues, setRevealedPolicyValues] = useState<Partial<Record<PolicyRevealKind, string>>>({});
 
   const t = COPY[locale];
   const hasAgent = Boolean(agentAddress.trim());
@@ -258,6 +275,7 @@ export function DemoTabContent({
   const canRunBlocked = Boolean(owner && custody && policySaved && hasAgent && strategyReady && !busy);
   const canRunAllowed = Boolean(canRunBlocked && hasBlockedRun);
   const canRequestIka = Boolean(owner && custody && policySaved && hasAgent && !busy);
+  const canRevealPolicy = Boolean(owner && officialEncryptPolicyRefs?.wallet && !busy);
 
   const checklist = [
     { label: t.stepWallet, done: Boolean(owner), next: t.nextWallet },
@@ -418,6 +436,111 @@ export function DemoTabContent({
     wallet: result.wallet,
     source: 'wallet',
   });
+
+  const revealCiphertextForKind = (kind: PolicyRevealKind, refs: OfficialEncryptPolicyRefs) => {
+    if (kind === 'max-per-run') return refs.maxPerRun;
+    if (kind === 'daily-cap') return refs.dailyCap;
+    return refs.dailySpent;
+  };
+
+  const revealLabel = (kind: PolicyRevealKind) => {
+    if (kind === 'max-per-run') return t.maxPerRun;
+    if (kind === 'daily-cap') return t.dailyCap;
+    return t.dailySpentCiphertext;
+  };
+
+  const decodePolicyRevealUsdc = (data: Uint8Array): string | null => {
+    if (data.length < 115) return null;
+    const totalLen = new DataView(data.buffer, data.byteOffset + 99, 4).getUint32(0, true);
+    const written = new DataView(data.buffer, data.byteOffset + 103, 4).getUint32(0, true);
+    if (totalLen < 8 || written < totalLen) return null;
+    const baseUnits = new DataView(data.buffer, data.byteOffset + 107, 8).getBigUint64(0, true);
+    const whole = baseUnits / 1_000_000n;
+    const fraction = (baseUnits % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '');
+    return fraction ? `${whole}.${fraction}` : whole.toString();
+  };
+
+  const pollPolicyReveal = async (request: string) => {
+    if (!readDecryptionRequest) return null;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const data = await readDecryptionRequest(request);
+      const decoded = data ? decodePolicyRevealUsdc(data) : null;
+      if (decoded) return decoded;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    return null;
+  };
+
+  const revealPolicyValue = async (kind: PolicyRevealKind) => {
+    if (!owner || !officialEncryptPolicyRefs?.wallet) {
+      recordError(t.policyRevealNeedsPolicy);
+      return;
+    }
+    const refs = officialEncryptPolicyRefs;
+    setPendingConfirm({
+      action: `${t.revealPolicy}: ${revealLabel(kind)}`,
+      description: t.confirmPolicyReveal,
+      onConfirm: async () => {
+        setBusy(`reveal-${kind}`);
+        setError(null);
+        try {
+          const requestKeypair = Keypair.generate();
+          const deposit = await api.createEncryptDeposit(owner);
+          if (deposit.transaction) {
+            await signAndConfirmTransaction(deposit.transaction);
+          }
+          const result = await api.requestPolicyValueDecryption({
+            owner,
+            wallet: refs.wallet!,
+            request: requestKeypair.publicKey.toBase58(),
+            kind,
+            ciphertext: revealCiphertextForKind(kind, refs),
+            encrypt: {
+              encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+              config: deposit.config || refs.config,
+              deposit: deposit.deposit,
+              networkEncryptionKey: refs.networkEncryptionKey,
+              eventAuthority: deposit.eventAuthority || refs.eventAuthority,
+              payer: owner,
+            },
+          });
+          const signature = await signAndConfirmTransaction(result.transaction, [requestKeypair]);
+          addActivity({
+            status: 'setup',
+            message: `${t.policyRevealRequested}: ${signature.slice(0, 8)}...`,
+            route: `Official Encrypt owner reveal request: ${kind}`,
+          });
+          const decoded = await pollPolicyReveal(result.request);
+          if (decoded) {
+            setRevealedPolicyValues((prev) => ({ ...prev, [kind]: decoded }));
+            addActivity({
+              status: 'setup',
+              message: t.policyRevealReady,
+              route: `Official Encrypt owner reveal ready: ${kind}`,
+            });
+          } else {
+            addActivity({
+              status: 'pending-encrypt-execution',
+              message: t.policyRevealPending,
+              route: `Official Encrypt owner reveal pending: ${kind}`,
+            });
+          }
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to request policy reveal');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
+  };
+
+  const hidePolicyValue = (kind: PolicyRevealKind) => {
+    setRevealedPolicyValues((prev) => {
+      const next = { ...prev };
+      delete next[kind];
+      return next;
+    });
+  };
 
   const savePolicy = async () => {
     if (!owner) {
@@ -1157,9 +1280,40 @@ export function DemoTabContent({
           ) : (
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
-                <PrivatePolicyTile label={t.encryptedMax} />
-                <PrivatePolicyTile label={t.encryptedDaily} />
+                <PrivatePolicyTile
+                  label={t.encryptedMax}
+                  value={revealedPolicyValues['max-per-run']}
+                  revealLabel={t.revealToOwner}
+                  hideLabel={t.hidePolicyValue}
+                  onReveal={() => revealPolicyValue('max-per-run')}
+                  onHide={() => hidePolicyValue('max-per-run')}
+                  disabled={!canRevealPolicy}
+                  busy={busy === 'reveal-max-per-run'}
+                />
+                <PrivatePolicyTile
+                  label={t.encryptedDaily}
+                  value={revealedPolicyValues['daily-cap']}
+                  revealLabel={t.revealToOwner}
+                  hideLabel={t.hidePolicyValue}
+                  onReveal={() => revealPolicyValue('daily-cap')}
+                  onHide={() => hidePolicyValue('daily-cap')}
+                  disabled={!canRevealPolicy}
+                  busy={busy === 'reveal-daily-cap'}
+                />
+                <PrivatePolicyTile
+                  label={t.dailySpentCiphertext}
+                  value={revealedPolicyValues['daily-spent']}
+                  revealLabel={t.revealToOwner}
+                  hideLabel={t.hidePolicyValue}
+                  onReveal={() => revealPolicyValue('daily-spent')}
+                  onHide={() => hidePolicyValue('daily-spent')}
+                  disabled={!canRevealPolicy}
+                  busy={busy === 'reveal-daily-spent'}
+                />
               </div>
+              <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs font-semibold text-amber-600">
+                {t.policyRevealBoundary}
+              </p>
               {officialEncryptPolicyRefs && (
                 <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

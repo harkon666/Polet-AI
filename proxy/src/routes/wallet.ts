@@ -7,6 +7,7 @@ import {
   buildApproveIkaMessageWithVerifiedEncryptSessionTransaction,
   buildCreateEncryptDepositTransaction,
   buildExecuteEncryptPolicyGraphSessionTransaction,
+  buildRequestPolicyValueDecryptionTransaction,
   buildSetOfficialEncryptCiphertextPolicyTransaction,
   deriveEncryptConfigPda,
   deriveEncryptDepositPda,
@@ -561,6 +562,57 @@ walletRouter.post('/execute-encrypt-policy-graph', async (c) => {
   } catch (error) {
     console.error('Execute official Encrypt policy graph error:', error);
     return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build official Encrypt graph transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/request-policy-value-decryption
+ * Builds an owner/payer/request-signed tx that asks Encrypt to decrypt one configured policy ciphertext.
+ */
+walletRouter.post('/request-policy-value-decryption', async (c) => {
+  try {
+    const {
+      wallet,
+      owner,
+      request,
+      kind,
+      ciphertext,
+      encrypt,
+    } = await c.req.json();
+    const transaction = await buildRequestPolicyValueDecryptionTransaction({
+      wallet: wallet || deriveWalletPda(parsePublicKey(owner, 'owner')).toString(),
+      owner,
+      request,
+      kind,
+      ciphertext,
+      encrypt: {
+        encryptProgram: encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+        config: encrypt?.config,
+        deposit: encrypt?.deposit,
+        networkEncryptionKey: encrypt?.networkEncryptionKey,
+        eventAuthority: encrypt?.eventAuthority,
+        payer: encrypt?.payer ?? owner,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...transaction,
+        wallet: wallet || deriveWalletPda(parsePublicKey(owner, 'owner')).toString(),
+        request,
+        kind,
+        ciphertext,
+        status: 'policy-reveal-requested',
+        encryptProgram: encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+        grpcEndpoint: ENCRYPT_PREALPHA_GRPC_URL,
+        boundary: 'owner-signed-public-decryption-request',
+        warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext publicly after the decryptor responds.',
+      },
+    });
+  } catch (error) {
+    console.error('Request policy value decryption error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build policy reveal transaction' }, 500);
   }
 });
 

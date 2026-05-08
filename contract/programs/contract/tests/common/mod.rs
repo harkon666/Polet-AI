@@ -606,6 +606,48 @@ pub fn execute_encrypt_policy_graph_as_session(
     send_ix(svm, payer, &[session_key], ix)
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn request_policy_value_decryption(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    payer: &Keypair,
+    request: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    ciphertext: anchor_lang::prelude::Pubkey,
+    kind: u8,
+    config: anchor_lang::prelude::Pubkey,
+    deposit: anchor_lang::prelude::Pubkey,
+    network_encryption_key: anchor_lang::prelude::Pubkey,
+    event_authority: anchor_lang::prelude::Pubkey,
+) -> Result<(), String> {
+    let (cpi_authority, cpi_authority_bump) = encrypt_cpi_authority();
+    let ix_data = contract::instruction::RequestPolicyValueDecryption {
+        kind,
+        cpi_authority_bump,
+    };
+    let ix_accounts = contract::accounts::RequestPolicyValueDecryption {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+        request: request.pubkey(),
+        ciphertext,
+        encrypt_program: mock_encrypt_id(),
+        config,
+        deposit,
+        cpi_authority,
+        program: contract::id(),
+        network_encryption_key,
+        payer: payer.pubkey(),
+        event_authority,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[payer, request], ix)
+}
+
 pub fn ika_cpi_authority() -> (anchor_lang::prelude::Pubkey, u8) {
     anchor_lang::solana_program::pubkey::Pubkey::find_program_address(
         &[IKA_CPI_AUTHORITY_SEED],

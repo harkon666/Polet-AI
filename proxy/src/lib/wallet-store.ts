@@ -140,6 +140,12 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
           maxPerRun: accountData.confidentialPolicy.encryptCiphertexts.maxPerRun.toString(),
           dailyCap: accountData.confidentialPolicy.encryptCiphertexts.dailyCap.toString(),
           dailySpent: accountData.confidentialPolicy.encryptCiphertexts.dailySpent.toString(),
+          lastRevealRequest: accountData.confidentialPolicy.encryptCiphertexts.lastRevealRequest?.toString(),
+          lastRevealCiphertext: accountData.confidentialPolicy.encryptCiphertexts.lastRevealCiphertext?.toString(),
+          lastRevealDigest: accountData.confidentialPolicy.encryptCiphertexts.lastRevealDigest
+            ? Array.from(accountData.confidentialPolicy.encryptCiphertexts.lastRevealDigest)
+            : undefined,
+          lastRevealKind: accountData.confidentialPolicy.encryptCiphertexts.lastRevealKind,
           pendingAllowedOutput: accountData.confidentialPolicy.encryptCiphertexts.pendingAllowedOutput.toString(),
           pendingDailySpentOutput: accountData.confidentialPolicy.encryptCiphertexts.pendingDailySpentOutput.toString(),
           pendingSourceAmount: accountData.confidentialPolicy.encryptCiphertexts.pendingSourceAmount.toString(),

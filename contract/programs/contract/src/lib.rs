@@ -114,6 +114,38 @@ pub struct SetOfficialEncryptCiphertextPolicy<'info> {
 }
 
 #[derive(Accounts)]
+pub struct RequestPolicyValueDecryption<'info> {
+    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+    /// CHECK: Fresh Encrypt decryption request keypair account.
+    #[account(mut)]
+    pub request: Signer<'info>,
+    /// CHECK: One configured official Encrypt policy ciphertext account.
+    pub ciphertext: UncheckedAccount<'info>,
+    /// CHECK: Encrypt pre-alpha program.
+    pub encrypt_program: UncheckedAccount<'info>,
+    /// CHECK: Encrypt config account.
+    #[account(mut)]
+    pub config: UncheckedAccount<'info>,
+    /// CHECK: Encrypt deposit account.
+    #[account(mut)]
+    pub deposit: UncheckedAccount<'info>,
+    /// CHECK: Polet Encrypt CPI authority PDA.
+    #[account(seeds = [ENCRYPT_CPI_AUTHORITY_SEED], bump)]
+    pub cpi_authority: UncheckedAccount<'info>,
+    /// CHECK: This program executable account, required by Encrypt CPI authority checks.
+    pub program: UncheckedAccount<'info>,
+    /// CHECK: Encrypt network encryption key account.
+    pub network_encryption_key: UncheckedAccount<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    /// CHECK: Encrypt event authority account.
+    pub event_authority: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct RegisterDemoCustody<'info> {
     #[account(
         mut,
@@ -451,6 +483,10 @@ fn set_encrypt_policy_ciphertexts(
         max_per_run: max_per_run_ciphertext,
         daily_cap: daily_cap_ciphertext,
         daily_spent: daily_spent_ciphertext,
+        last_reveal_request: Pubkey::default(),
+        last_reveal_ciphertext: Pubkey::default(),
+        last_reveal_digest: [0u8; 32],
+        last_reveal_kind: 255,
         pending_allowed_output: Pubkey::default(),
         pending_daily_spent_output: Pubkey::default(),
         pending_source_amount: Pubkey::default(),
@@ -480,6 +516,17 @@ fn require_encrypt_ciphertext_policy(wallet: &Wallet) -> Result<()> {
 fn require_expected_ciphertext(actual: Pubkey, expected: Pubkey) -> Result<()> {
     require!(actual == expected, ErrorCode::InvalidEncryptPolicy);
     Ok(())
+}
+
+fn expected_policy_reveal_ciphertext(wallet: &Wallet, kind: u8) -> Result<Pubkey> {
+    require_encrypt_ciphertext_policy(wallet)?;
+    let ciphertexts = &wallet.confidential_policy.encrypt_ciphertexts;
+    match kind {
+        0 => Ok(ciphertexts.max_per_run),
+        1 => Ok(ciphertexts.daily_cap),
+        2 => Ok(ciphertexts.daily_spent),
+        _ => err!(ErrorCode::InvalidEncryptPolicy),
+    }
 }
 
 fn read_verified_encrypt_allowed_output(
@@ -932,6 +979,58 @@ pub mod contract {
         msg!(
             "Official Encrypt ciphertext policy accepted, policy_seq={}",
             wallet.policy_seq
+        );
+        Ok(())
+    }
+
+    pub fn request_policy_value_decryption(
+        ctx: Context<RequestPolicyValueDecryption>,
+        kind: u8,
+        cpi_authority_bump: u8,
+    ) -> Result<()> {
+        require_official_encrypt_context_accounts(
+            ctx.accounts.encrypt_program.key(),
+            ctx.accounts.program.key(),
+            ctx.accounts.config.key(),
+            ctx.accounts.deposit.key(),
+            ctx.accounts.network_encryption_key.key(),
+            ctx.accounts.event_authority.key(),
+        )?;
+        require_official_encrypt_ciphertext_account(
+            &ctx.accounts.ciphertext.to_account_info(),
+            ctx.accounts.encrypt_program.key(),
+        )?;
+
+        let expected = expected_policy_reveal_ciphertext(&ctx.accounts.wallet, kind)?;
+        require_expected_ciphertext(ctx.accounts.ciphertext.key(), expected)?;
+
+        let encrypt_ctx = EncryptContext {
+            encrypt_program: ctx.accounts.encrypt_program.to_account_info(),
+            config: ctx.accounts.config.to_account_info(),
+            deposit: ctx.accounts.deposit.to_account_info(),
+            cpi_authority: ctx.accounts.cpi_authority.to_account_info(),
+            caller_program: ctx.accounts.program.to_account_info(),
+            network_encryption_key: ctx.accounts.network_encryption_key.to_account_info(),
+            payer: ctx.accounts.payer.to_account_info(),
+            event_authority: ctx.accounts.event_authority.to_account_info(),
+            system_program: ctx.accounts.system_program.to_account_info(),
+            cpi_authority_bump,
+        };
+        let digest = encrypt_ctx.request_decryption(
+            &ctx.accounts.request.to_account_info(),
+            &ctx.accounts.ciphertext.to_account_info(),
+        )?;
+
+        let ciphertexts = &mut ctx.accounts.wallet.confidential_policy.encrypt_ciphertexts;
+        ciphertexts.last_reveal_request = ctx.accounts.request.key();
+        ciphertexts.last_reveal_ciphertext = ctx.accounts.ciphertext.key();
+        ciphertexts.last_reveal_digest = digest;
+        ciphertexts.last_reveal_kind = kind;
+
+        msg!(
+            "Official Encrypt policy reveal requested, kind={}, policy_seq={}",
+            kind,
+            ctx.accounts.wallet.policy_seq
         );
         Ok(())
     }

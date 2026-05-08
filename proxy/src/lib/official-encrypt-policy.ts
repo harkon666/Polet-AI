@@ -9,6 +9,10 @@ export interface EncryptPolicyCiphertextState {
   maxPerRun: string;
   dailyCap: string;
   dailySpent: string;
+  lastRevealRequest?: string;
+  lastRevealCiphertext?: string;
+  lastRevealDigest?: number[];
+  lastRevealKind?: number;
   pendingAllowedOutput: string;
   pendingDailySpentOutput: string;
   pendingSourceAmount: string;

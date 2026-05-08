@@ -2,7 +2,8 @@ use {
     common::{
         approve_ika_message_with_verified_encrypt_as_session_with_coapprovers,
         execute_encrypt_policy_graph_as_session, grant_session, initialize, mock_encrypt_id,
-        read_mock_message_approval, read_wallet, set_official_encrypt_ciphertext_policy, setup_svm,
+        read_mock_message_approval, read_wallet, request_policy_value_decryption,
+        set_official_encrypt_ciphertext_policy, setup_svm,
         write_encrypt_bool_decryption_request_with_owner, write_encrypt_ciphertext_with_owner,
         write_mock_ika_account, write_official_encrypt_ciphertext, write_system_account,
     },
@@ -294,4 +295,122 @@ fn encrypt_harness_tests_document_pre_alpha_boundaries() {
     assert!(disclaimer.contains("pre-alpha"));
     assert!(disclaimer.contains("do not prove production privacy"));
     assert!(disclaimer.contains("production MPC"));
+}
+
+#[test]
+fn owner_can_request_each_policy_value_reveal_without_plaintext_storage() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    initialize(&mut svm, &owner, wallet_pda);
+    let fixture = setup_official_encrypt_harness(&mut svm, &owner, wallet_pda);
+
+    for (kind, ciphertext) in [
+        (0, fixture.max_per_run),
+        (1, fixture.daily_cap),
+        (2, fixture.daily_spent),
+    ] {
+        let request = Keypair::new();
+        let res = request_policy_value_decryption(
+            &mut svm,
+            &owner,
+            &owner,
+            &request,
+            wallet_pda,
+            ciphertext,
+            kind,
+            fixture.config,
+            fixture.deposit,
+            fixture.network_encryption_key,
+            fixture.event_authority,
+        );
+        assert!(res.is_ok(), "owner reveal request kind {kind} should pass");
+
+        let wallet = read_wallet(&svm, wallet_pda);
+        let refs = wallet.confidential_policy.encrypt_ciphertexts;
+        assert_eq!(refs.last_reveal_request, request.pubkey());
+        assert_eq!(refs.last_reveal_ciphertext, ciphertext);
+        assert_eq!(refs.last_reveal_kind, kind);
+        assert_eq!(
+            wallet.confidential_policy.encrypted_max_per_run, 0,
+            "official reveal must not write plaintext policy values"
+        );
+    }
+}
+
+#[test]
+fn policy_reveal_rejects_non_owner_and_ciphertext_mismatch() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    let attacker = Keypair::new();
+    svm.airdrop(&attacker.pubkey(), 1_000_000_000).unwrap();
+    initialize(&mut svm, &owner, wallet_pda);
+    let fixture = setup_official_encrypt_harness(&mut svm, &owner, wallet_pda);
+
+    let request = Keypair::new();
+    let non_owner = request_policy_value_decryption(
+        &mut svm,
+        &attacker,
+        &attacker,
+        &request,
+        wallet_pda,
+        fixture.max_per_run,
+        0,
+        fixture.config,
+        fixture.deposit,
+        fixture.network_encryption_key,
+        fixture.event_authority,
+    );
+    assert!(
+        non_owner.is_err(),
+        "non-owner must not request policy reveal"
+    );
+
+    let wrong_ciphertext = Keypair::new().pubkey();
+    write_official_encrypt_ciphertext(&mut svm, wrong_ciphertext, mock_encrypt_id());
+    let mismatch = request_policy_value_decryption(
+        &mut svm,
+        &owner,
+        &owner,
+        &Keypair::new(),
+        wallet_pda,
+        wrong_ciphertext,
+        0,
+        fixture.config,
+        fixture.deposit,
+        fixture.network_encryption_key,
+        fixture.event_authority,
+    );
+    assert!(mismatch.is_err(), "ciphertext mismatch must fail");
+}
+
+#[test]
+fn policy_reveal_requires_configured_official_encrypt_policy() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    initialize(&mut svm, &owner, wallet_pda);
+    let ciphertext = Keypair::new().pubkey();
+    let config = Keypair::new().pubkey();
+    let deposit = Keypair::new().pubkey();
+    let network_encryption_key = Keypair::new().pubkey();
+    let event_authority = Keypair::new().pubkey();
+    write_official_encrypt_ciphertext(&mut svm, ciphertext, mock_encrypt_id());
+    write_system_account(&mut svm, config);
+    write_system_account(&mut svm, deposit);
+    write_system_account(&mut svm, network_encryption_key);
+    write_system_account(&mut svm, event_authority);
+
+    let res = request_policy_value_decryption(
+        &mut svm,
+        &owner,
+        &owner,
+        &Keypair::new(),
+        wallet_pda,
+        ciphertext,
+        0,
+        config,
+        deposit,
+        network_encryption_key,
+        event_authority,
+    );
+    assert!(
+        res.is_err(),
+        "policy reveal needs configured Encrypt ciphertext refs"
+    );
 }
