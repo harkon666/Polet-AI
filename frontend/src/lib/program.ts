@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 
-export const POLET_PROGRAM_ID = 'F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p';
+export const POLET_PROGRAM_ID = '33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY';
 export const ENCRYPT_CPI_AUTHORITY_SEED = '__encrypt_cpi_authority';
 
 export function shortProgramId(programId: string = POLET_PROGRAM_ID): string {

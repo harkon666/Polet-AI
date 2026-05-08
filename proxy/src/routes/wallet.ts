@@ -65,6 +65,24 @@ const JUPITER_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwy
 const JUPITER_SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
 const ZERO_PUBLIC_KEY_STRING = '11111111111111111111111111111111';
 
+walletRouter.get('/encrypt-ciphertext/:ciphertext', async (c) => {
+  try {
+    const ciphertext = parsePublicKey(c.req.param('ciphertext'), 'ciphertext');
+    const encryptProgram = new PublicKey(c.req.query('encryptProgram') ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING);
+    const status = await readCiphertextStatus(getConnection(), ciphertext);
+    if (!status.exists || status.owner !== encryptProgram.toString()) {
+      return c.json({
+        success: false,
+        error: `Ciphertext ${ciphertext.toString()} is not a valid official Encrypt ciphertext account`,
+      }, 404);
+    }
+    return c.json({ success: true, data: status });
+  } catch (error) {
+    console.error('Read Encrypt ciphertext status error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to read Encrypt ciphertext status' }, 500);
+  }
+});
+
 function getProgram(): anchor.Program {
   const connection = getConnection();
   const dummyWallet = {
@@ -528,6 +546,24 @@ walletRouter.post('/execute-encrypt-policy-graph', async (c) => {
       attestationPolicySeq,
       encrypt,
     } = await c.req.json();
+    const encryptProgram = new PublicKey(encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING);
+    const graphPayer = parsePublicKey(encrypt?.payer ?? sessionKey, 'encrypt.payer');
+    const connection = getConnection();
+    const infraStatus = await readEncryptInfraStatus(connection, graphPayer, encryptProgram);
+    if (!infraStatus.readyForGraphCpi) {
+      return c.json({
+        success: false,
+        code: 'ENCRYPT_INFRA_BLOCKED',
+        error:
+          `Official Encrypt devnet infrastructure is not ready for graph execution: ${infraStatus.blockers.join(', ')}. ` +
+          `Deposit ${infraStatus.deposit.address}: lamports=${infraStatus.deposit.lamports}, ENC field=${infraStatus.deposit.encBalance}, gas field=${infraStatus.deposit.gasBalance}.`,
+        data: {
+          status: 'encrypt-infra-blocked',
+          infraStatus,
+          suppressedUntilVerified: ['jupiterExecutionPayload', 'dwallet', 'messageApproval', 'destinationDigest', 'poletApprovalTransaction'],
+        },
+      }, 409);
+    }
     const transaction = await buildExecuteEncryptPolicyGraphSessionTransaction({
       wallet,
       sessionKey,
@@ -540,7 +576,7 @@ walletRouter.post('/execute-encrypt-policy-graph', async (c) => {
       attestationSlot,
       attestationPolicySeq,
       encrypt: {
-        encryptProgram: encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+        encryptProgram: encryptProgram.toString(),
         config: encrypt?.config,
         deposit: encrypt?.deposit,
         networkEncryptionKey: encrypt?.networkEncryptionKey,
@@ -1060,6 +1096,44 @@ walletRouter.post('/recover-access', async (c) => {
     const message = error instanceof Error ? error.message : 'Failed to build recovery transaction';
     const status = message.includes('valid Solana public key') || message.includes('must be a Solana public key') ? 400 : 500;
     return c.json({ success: false, error: message }, status);
+  }
+});
+
+/**
+ * POST /wallet/revoke-session
+ * Builds an owner-signed transaction that revokes one temporal session key on-chain.
+ */
+walletRouter.post('/revoke-session', async (c) => {
+  try {
+    const { owner, sessionKey } = await c.req.json();
+    if (!owner || !sessionKey) {
+      return c.json({ success: false, error: 'owner and sessionKey are required' }, 400);
+    }
+
+    const ownerPubkey = parsePublicKey(owner, 'owner');
+    const sessionPubkey = parsePublicKey(sessionKey, 'sessionKey');
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const program = getProgram();
+
+    const ix = await program.methods.revokeSession(sessionPubkey)
+      .accounts({
+        wallet: walletPda,
+        owner: ownerPubkey,
+      })
+      .instruction();
+
+    const tx = new Transaction().add(ix);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(ownerPubkey, tx),
+        wallet: walletPda.toString(),
+        sessionKey: sessionPubkey.toString(),
+      },
+    });
+  } catch (error) {
+    console.error('Revoke session error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build revoke session transaction' }, 500);
   }
 });
 

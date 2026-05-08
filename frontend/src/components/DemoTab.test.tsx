@@ -20,7 +20,10 @@ afterEach(() => {
   recoveryAccessInputs = [];
   officialEncryptPolicyInputs = [];
   executeEncryptGraphInputs = [];
+  encryptCiphertextStatusInputs = [];
   policyRevealInputs = [];
+  grantKeyInputs = [];
+  existingSessionKeys = [];
   createdPolicyCiphertextInputs = [];
   createdExecutionCiphertextInputs = [];
   encryptDcaMode = null;
@@ -37,7 +40,10 @@ let multichainInputs: RunMultichainIntentInput[] = [];
 let recoveryAccessInputs: Parameters<typeof api.recoverAccess>[0][] = [];
 let officialEncryptPolicyInputs: Parameters<typeof api.setOfficialEncryptCiphertextPolicy>[0][] = [];
 let executeEncryptGraphInputs: ExecuteEncryptPolicyGraphInput[] = [];
+let encryptCiphertextStatusInputs: string[] = [];
 let policyRevealInputs: RequestPolicyValueDecryptionInput[] = [];
+let grantKeyInputs: Array<{ owner: string; sessionKey: string; expiresAt: number; dailyLimit: number }> = [];
+let existingSessionKeys: string[] = [];
 let createdPolicyCiphertextInputs: Array<{ maxPerRunUsdc: string; dailyCapUsdc: string }> = [];
 let createdExecutionCiphertextInputs: Array<{ amountUsdc: string }> = [];
 let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
@@ -184,6 +190,20 @@ const api = {
       walletPda: 'wallet-pda',
       policySeq: 7,
       lastRevokedSlot: 2,
+      sessions: [
+        ...existingSessionKeys.map((key) => ({
+          key,
+          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+          grantedSlot: 2,
+          authorized: true,
+        })),
+        ...grantKeyInputs.map((input) => ({
+          key: input.sessionKey,
+          expiresAt: input.expiresAt,
+          grantedSlot: 2,
+          authorized: true,
+        })),
+      ],
       confidentialPolicy: {
         enabled: Boolean(policyInput),
         encryptCiphertexts: {
@@ -229,6 +249,15 @@ const api = {
     recoveryAccessInputs.push(input);
     return { transaction: 'recover-tx', wallet: 'wallet-pda', authority: input.authority, compromisedSessions: input.compromisedSessions, sharedIkaThreshold: input.sharedIkaThreshold, sharedIkaApprovers: input.sharedIkaApprovers, pendingDwalletController: input.pendingDwalletController, activity: { type: 'recover', status: 'done', states: ['sessions-revoked'], privacy: 'redacted', boundary: 'mock' } };
   },
+  grantKey: async (input: { owner: string; sessionKey: string; expiresAt: number; dailyLimit: number }) => {
+    grantKeyInputs.push(input);
+    return { transaction: 'grant-key-tx' };
+  },
+  revokeSession: async (input: { sessionKey: string }) => ({
+    transaction: 'revoke-session-tx',
+    wallet: 'wallet-pda',
+    sessionKey: input.sessionKey,
+  }),
   requestPasskeyChallenge: async () => ({ challenge: Array.from(new Uint8Array(32)), publicKeyCredentialRequestOptions: { challenge: Array.from(new Uint8Array(32)), rpId: 'localhost', allowCredentials: [], userVerification: 'preferred' }, boundary: 'mock' }),
   verifyPasskeyAssertion: async () => ({ valid: false, approverPublicKey: '', challengeUsed: '', boundary: 'mock' }),
   createEncryptDeposit: async () => ({
@@ -239,6 +268,20 @@ const api = {
     eventAuthority: 'EncryptEventAuthority111111111111111111111',
     status: encryptDepositAlreadyExists ? 'existing-deposit' : 'pending-deposit-creation',
   }),
+  getEncryptCiphertextStatus: async (ciphertext: string) => {
+    encryptCiphertextStatusInputs.push(ciphertext);
+    return {
+      address: ciphertext,
+      exists: true,
+      owner: 'encrypt-program',
+      dataLength: 100,
+      status: 'verified' as const,
+      statusByte: 1,
+      fheType: 0,
+      digest: '11'.repeat(32),
+      authorized: 'polet-program',
+    };
+  },
   executeEncryptPolicyGraph: async (input: ExecuteEncryptPolicyGraphInput) => {
     executeEncryptGraphInputs.push(input);
     return {
@@ -666,6 +709,7 @@ describe('Consumer DCA demo frontend', () => {
   });
 
   test('submits official Encrypt graph before primary DCA and Ika requests when the wallet can sign the session', async () => {
+    existingSessionKeys = [coApproverA];
     const view = renderDemo({
       owner: coApproverA,
       agentAddresses: [coApproverA, coApproverB],
@@ -693,6 +737,9 @@ describe('Consumer DCA demo frontend', () => {
       attestationPolicySeq: 7,
     });
     expect(signedTransactions).toContain('encrypt-graph-tx');
+    expect(encryptCiphertextStatusInputs).toContain(freshExecutionCiphertexts.allowedOutputCiphertext);
+    expect(signedTransactions).toContain('allowed-output-decryption-tx');
+    expect(grantKeyInputs).toHaveLength(0);
     expect(dcaInputs).toHaveLength(0);
 
     const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
@@ -707,26 +754,31 @@ describe('Consumer DCA demo frontend', () => {
 
     fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
     await waitFor(() => expect(createdExecutionCiphertextInputs).toEqual([{ amountUsdc: '25' }, { amountUsdc: '5' }]));
+    await waitFor(() => expect(encryptCiphertextStatusInputs).toHaveLength(2));
     expect(executeEncryptGraphInputs).toHaveLength(2);
+    expect(encryptCiphertextStatusInputs).toEqual([
+      freshExecutionCiphertexts.allowedOutputCiphertext,
+      freshExecutionCiphertexts.allowedOutputCiphertext,
+    ]);
     expect(multichainInputs).toHaveLength(0);
   });
 
-  test('falls back to proxy DCA when the connected wallet cannot sign the session graph', async () => {
+  test('submits the official Encrypt graph from the connected wallet before proxy DCA', async () => {
+    existingSessionKeys = [connectedOwner];
     const view = renderDemo({ executeGraphBeforeRequests: true, initialExecutionCiphertexts: null });
 
     await setupCustodyAndPolicy(view);
 
     fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
-    await waitFor(() => expect(view.getByText('DIBLOKIR')).toBeTruthy());
+    await waitFor(() => expect(createdExecutionCiphertextInputs).toHaveLength(1));
 
-    expect(createdExecutionCiphertextInputs).toHaveLength(0);
-    expect(executeEncryptGraphInputs).toHaveLength(0);
-    expect(dcaInputs).toHaveLength(1);
-    expect(dcaInputs[0]).toMatchObject({
-      owner: connectedOwner,
-      sessionKey: coApproverA,
-      amountUsdc: '25',
+    expect(executeEncryptGraphInputs).toHaveLength(1);
+    expect(executeEncryptGraphInputs[0]).toMatchObject({
+      sessionKey: connectedOwner,
     });
+    expect(grantKeyInputs).toHaveLength(0);
+    expect(dcaInputs).toHaveLength(0);
+    expect(document.body.textContent).not.toContain('Official Encrypt policy graph must be executed before strategy payloads can be prepared.');
   });
 
   test('shows checklist progression and gates primary CTAs by prerequisites', async () => {
@@ -912,7 +964,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(logText).toContain('CPI authority');
     expect(logText).toContain('CpiAuth');
     expect(logText).toContain('Required signers');
-    expect(logText).toContain('BxW8ng8');
+    expect(logText).toContain('AxV7mf7p');
     expect(logText).toContain('Settlement');
     expect(logText).toContain('not-executed');
   });

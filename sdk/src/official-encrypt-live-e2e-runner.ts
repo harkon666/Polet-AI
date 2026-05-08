@@ -24,7 +24,7 @@ const env = (((globalThis as unknown as { Bun?: { env: RuntimeEnv }; process?: {
   ?? {}) as RuntimeEnv;
 
 const ENCRYPT_PROGRAM_ID = new PublicKey('4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8');
-const POLET_PROGRAM_ID = new PublicKey(env.POLET_PROGRAM_ID ?? 'F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p');
+const POLET_PROGRAM_ID = new PublicKey(env.POLET_PROGRAM_ID ?? '33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY');
 const SOLANA_RPC_URL = env.POLET_RPC_URL ?? 'https://api.devnet.solana.com';
 const NETWORK_ENCRYPTION_PUBLIC_KEY = Buffer.alloc(32, 0x55);
 const FHE_UINT64 = 4;
@@ -145,20 +145,25 @@ async function main() {
       [Buffer.from('encrypt_deposit'), owner.publicKey.toBuffer()],
       ENCRYPT_PROGRAM_ID
     );
-    const ENCRYPT_VAULT = new PublicKey('6DQ7zeNXRG3AtwNNPTrg9p44SfeB74hS49xcTZ9xRmhb');
-    const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+    const configInfo = await connection.getAccountInfo(config);
+    if (!configInfo) throw new Error('Encrypt config account not found on devnet');
+    const encVault = new PublicKey(configInfo.data.slice(100, 132));
+    const vault = encVault.equals(SystemProgram.programId) ? owner.publicKey : encVault;
     
     const createDepositIx = new TransactionInstruction({
       programId: ENCRYPT_PROGRAM_ID,
       keys: [
         { pubkey: ownerDeposit, isSigner: false, isWritable: true },
         { pubkey: config, isSigner: false, isWritable: false },
+        { pubkey: owner.publicKey, isSigner: true, isWritable: false },
         { pubkey: owner.publicKey, isSigner: true, isWritable: true },
-        { pubkey: ENCRYPT_VAULT, isSigner: false, isWritable: true },
+        { pubkey: owner.publicKey, isSigner: false, isWritable: true },
+        { pubkey: vault, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       data: Buffer.concat([
-        Buffer.from([13]), // CreateDeposit discriminator (per raw.md section Fees)
+        Buffer.from([14]), // create_deposit discriminator used by current pre-alpha program.
         Buffer.from([ownerDepositBump]),
         Buffer.alloc(8), // initialEncAmount (0)
         Buffer.alloc(8), // initialGasAmount (0)
@@ -203,20 +208,25 @@ async function main() {
   console.log('Ensuring session deposit exists...');
   const sessionDepositInfo = await connection.getAccountInfo(sessionDeposit);
   if (!sessionDepositInfo) {
-    const ENCRYPT_VAULT = new PublicKey('6DQ7zeNXRG3AtwNNPTrg9p44SfeB74hS49xcTZ9xRmhb');
-    const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+    const configInfo = await connection.getAccountInfo(config);
+    if (!configInfo) throw new Error('Encrypt config account not found on devnet');
+    const encVault = new PublicKey(configInfo.data.slice(100, 132));
+    const vault = encVault.equals(SystemProgram.programId) ? session.publicKey : encVault;
     
     const createDepositIx = new TransactionInstruction({
       programId: ENCRYPT_PROGRAM_ID,
       keys: [
         { pubkey: sessionDeposit, isSigner: false, isWritable: true },
         { pubkey: config, isSigner: false, isWritable: false },
+        { pubkey: session.publicKey, isSigner: true, isWritable: false },
         { pubkey: session.publicKey, isSigner: true, isWritable: true },
-        { pubkey: ENCRYPT_VAULT, isSigner: false, isWritable: true },
+        { pubkey: session.publicKey, isSigner: false, isWritable: true },
+        { pubkey: vault, isSigner: false, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       ],
       data: Buffer.concat([
-        Buffer.from([13]), // CreateDeposit discriminator (per raw.md section Fees)
+        Buffer.from([14]), // create_deposit discriminator used by current pre-alpha program.
         Buffer.from([sessionDepositBump]),
         Buffer.alloc(8), // initialEncAmount (0)
         Buffer.alloc(8), // initialGasAmount (0)
@@ -228,7 +238,7 @@ async function main() {
   }
 
   console.log('Executing policy graph as session...');
-  const walletState = await (program.account as any).Wallet.fetch(walletPda);
+  const walletState = await (program.account as any).wallet.fetch(walletPda);
   const currentSlot = await connection.getSlot('confirmed');
 
   const sessionProvider = new anchor.AnchorProvider(connection, new anchor.Wallet(session), { commitment: 'confirmed' });
@@ -263,7 +273,7 @@ async function main() {
   console.log('Graph execution successful!');
 
   // 9. Verify State
-  const finalState = await (program.account as any).Wallet.fetch(walletPda);
+  const finalState = await (program.account as any).wallet.fetch(walletPda);
   console.log('Final Wallet State:');
   console.log(`  Pending: ${finalState.confidentialPolicy.encryptCiphertexts.pending}`);
   console.log(`  Pending Slot: ${finalState.confidentialPolicy.encryptCiphertexts.pendingSlot.toString()}`);

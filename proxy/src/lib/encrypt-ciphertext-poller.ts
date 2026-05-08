@@ -18,6 +18,9 @@ export const CIPHERTEXT_FHE_TYPE_OFFSET = 98;
 export const ENCRYPT_CONFIG_ACCOUNT_MIN_SIZE = 132;
 export const ENCRYPT_CONFIG_ENC_MINT_OFFSET = 68;
 export const ENCRYPT_CONFIG_ENC_VAULT_OFFSET = 100;
+export const ENCRYPT_DEPOSIT_ACCOUNT_SIZE = 83;
+export const ENCRYPT_DEPOSIT_ENC_BALANCE_OFFSET = 34;
+export const ENCRYPT_DEPOSIT_GAS_BALANCE_OFFSET = 42;
 
 export const CiphertextStatus = {
   Pending: 0,
@@ -83,6 +86,9 @@ export interface EncryptInfraStatus {
     owner: string;
     ownedByEncryptProgram: boolean;
     dataLength: number;
+    encBalance: string;
+    gasBalance: string;
+    lamports: number;
   };
   readyForGraphCpi: boolean;
   blockers: string[];
@@ -228,19 +234,27 @@ export async function readEncryptInfraStatus(
   const encVault = configInfo && configInfo.data.length >= ENCRYPT_CONFIG_ENC_VAULT_OFFSET + 32
     ? new PublicKey(configInfo.data.slice(ENCRYPT_CONFIG_ENC_VAULT_OFFSET, ENCRYPT_CONFIG_ENC_VAULT_OFFSET + 32))
     : ZERO_PUBKEY;
+  const encBalance = depositInfo && depositInfo.data.length >= ENCRYPT_DEPOSIT_ENC_BALANCE_OFFSET + 8
+    ? depositInfo.data.readBigUInt64LE(ENCRYPT_DEPOSIT_ENC_BALANCE_OFFSET)
+    : 0n;
+  const gasBalance = depositInfo && depositInfo.data.length >= ENCRYPT_DEPOSIT_GAS_BALANCE_OFFSET + 8
+    ? depositInfo.data.readBigUInt64LE(ENCRYPT_DEPOSIT_GAS_BALANCE_OFFSET)
+    : 0n;
 
   const blockers: string[] = [];
   if (!configInfo) blockers.push('encrypt-config-missing');
   else {
     if (!configInfo.owner.equals(encryptProgram)) blockers.push('encrypt-config-owner-mismatch');
     if (configInfo.data.length < ENCRYPT_CONFIG_ACCOUNT_MIN_SIZE) blockers.push('encrypt-config-too-small');
-    if (encMint.equals(ZERO_PUBKEY)) blockers.push('encrypt-config-enc-mint-unconfigured');
     if (encVault.equals(ZERO_PUBKEY)) blockers.push('encrypt-config-enc-vault-unconfigured');
   }
-  if (!eventAuthorityInfo) blockers.push('encrypt-event-authority-missing');
-  else if (!eventAuthorityInfo.owner.equals(encryptProgram)) blockers.push('encrypt-event-authority-owner-mismatch');
+  if (eventAuthorityInfo && !eventAuthorityInfo.owner.equals(encryptProgram)) blockers.push('encrypt-event-authority-owner-mismatch');
   if (!depositInfo) blockers.push('encrypt-deposit-missing');
-  else if (!depositInfo.owner.equals(encryptProgram)) blockers.push('encrypt-deposit-owner-mismatch');
+  else {
+    if (!depositInfo.owner.equals(encryptProgram)) blockers.push('encrypt-deposit-owner-mismatch');
+    if (depositInfo.data.length < ENCRYPT_DEPOSIT_ACCOUNT_SIZE) blockers.push('encrypt-deposit-too-small');
+    if (depositInfo.lamports === 0) blockers.push('encrypt-deposit-lamports-empty');
+  }
 
   return {
     encryptProgram: encryptProgram.toString(),
@@ -268,6 +282,9 @@ export async function readEncryptInfraStatus(
       owner: depositInfo?.owner.toString() ?? '',
       ownedByEncryptProgram: depositInfo?.owner.equals(encryptProgram) ?? false,
       dataLength: depositInfo?.data.length ?? 0,
+      encBalance: encBalance.toString(),
+      gasBalance: gasBalance.toString(),
+      lamports: depositInfo?.lamports ?? 0,
     },
     readyForGraphCpi: blockers.length === 0,
     blockers,

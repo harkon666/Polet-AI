@@ -41,7 +41,9 @@ This issue closes the current UX gap where Official Encrypt setup and owner poli
 
 ## Implementation note
 
-Implemented the pending allowed-output resolver across contract, proxy, and frontend. The contract now permits the owner-signed Encrypt decryption request instruction to target kind `3` (`pending_allowed_output`) after a graph is pending. The proxy adds `/wallet/request-pending-allowed-output-decryption`, `/wallet/resolve-encrypt-policy-decision`, bool `DecryptionRequest` account decoding, pending ciphertext/digest/policy-sequence validation, and verified allowed/blocked lifecycle mapping. The frontend graph-first path now submits the graph, requests allowed-output decryption with a fresh request keypair, resolves the bool result, displays final lifecycle status, and only continues into Jupiter/Ika payload preparation for `encrypt-verified-allowed`.
+Implemented the pending allowed-output resolver across contract, proxy, and frontend. The contract now permits the owner-signed Encrypt decryption request instruction to target kind `3` (`pending_allowed_output`) after a graph is pending. The proxy adds `/wallet/request-pending-allowed-output-decryption`, `/wallet/resolve-encrypt-policy-decision`, bool `DecryptionRequest` account decoding, pending ciphertext/digest/policy-sequence validation, and verified allowed/blocked lifecycle mapping. The frontend graph-first path now submits the graph, waits for the allowed-output ciphertext status byte to become `1` (verified, not allowed), requests allowed-output decryption with a fresh request keypair, resolves the bool result from the `DecryptionRequest`, displays final lifecycle status, and only continues into Jupiter/Ika payload preparation for `encrypt-verified-allowed`.
+
+Follow-up live debugging in scripts `070` and `071` corrected an earlier misleading infra diagnosis: zero deposit `enc_balance` / `gas_balance` fields and absent readonly event-authority account data are not sufficient blockers. Deposit PDA lamports can pay graph/decryption gas, and a 25 USDC run decrypts to `false` while a 5 USDC run decrypts to `true`.
 
 Verification:
 

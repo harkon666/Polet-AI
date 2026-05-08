@@ -35,7 +35,7 @@ After official Encrypt policy setup exists in the frontend, wire the DCA/Ika exe
    - pending policy sequence.
 7. Frontend displays `pending-encrypt-execution` and suppresses Jupiter/Ika execution artifacts until a verified result is available.
 
-This issue should prove the live graph submission path from frontend to Polet to Encrypt. Verified allowed/blocked consumption can remain in existing mock/resolver paths if live executor verification is unavailable, but the issue must capture exact live blocker evidence rather than silently falling back.
+This issue proves the live graph submission path from frontend to Polet to Encrypt. Do not classify zero `enc_balance` / `gas_balance` fields or a missing readonly event-authority account as graph-infra blockers by themselves; live devnet runs showed graph execution and decryption can succeed with gas paid from deposit PDA lamports.
 
 ## Why this issue exists
 
@@ -144,17 +144,18 @@ Local docs/issues:
 
 ## Acceptance criteria
 
-- [ ] Requires an official Encrypt policy configured by issue `065`.
-- [ ] Creates a fresh `sourceAmountCiphertext` through gRPC-Web for each guarded run.
-- [ ] Creates or prepares output ciphertext accounts for allowed output and updated daily-spent output.
-- [ ] Builds `execute_encrypt_policy_graph_as_session` using the wallet's on-chain policy ciphertext refs.
-- [ ] Signs graph execution with the configured session signer/payer path.
-- [ ] Successful graph submission records pending output refs in wallet state.
-- [ ] Frontend displays `pending-encrypt-execution` with graph name, policy sequence, pending slot, and safe ciphertext refs.
-- [ ] Pending state suppresses Jupiter payloads, Ika dWallet data, MessageApproval data, destination digest, unsigned approval transactions, private thresholds, decrypted caps, and witness bytes.
-- [ ] If live Encrypt executor verification is unavailable, the UI and evidence report the exact blocker and retry step instead of claiming verified allowed/blocked.
-- [ ] Tests prove DCA/Ika requests use official Encrypt refs and do not pass `encryptionWitness` in the primary path.
-- [ ] Targeted frontend/proxy tests and builds pass.
+- [x] Requires an official Encrypt policy configured by issue `065`.
+- [x] Creates a fresh `sourceAmountCiphertext` through gRPC-Web for each guarded run.
+- [x] Creates or prepares output ciphertext accounts for allowed output and updated daily-spent output.
+- [x] Builds `execute_encrypt_policy_graph_as_session` using the wallet's on-chain policy ciphertext refs.
+- [x] Signs graph execution with the configured session signer/payer path.
+- [x] Successful graph submission records pending output refs in wallet state.
+- [x] Frontend displays `pending-encrypt-execution` with graph name, policy sequence, pending slot, and safe ciphertext refs.
+- [x] Pending state suppresses Jupiter payloads, Ika dWallet data, MessageApproval data, destination digest, unsigned approval transactions, private thresholds, decrypted caps, and witness bytes.
+- [x] Frontend waits for output ciphertext `statusByte=1` as verified, then requests allowed-output decryption and reads the bool from the `DecryptionRequest`.
+- [x] Proxy infra preflight no longer treats zero deposit balance fields or absent readonly event-authority data as blockers.
+- [x] Tests prove DCA/Ika requests use official Encrypt refs and do not pass `encryptionWitness` in the primary path.
+- [x] Targeted frontend/proxy tests pass.
 
 ## Out of scope
 
@@ -196,6 +197,10 @@ Use:
 
 > Polet submits its policy graph through official Encrypt pre-alpha. The graph produces pending encrypted allow/block and updated-spend outputs; execution artifacts remain suppressed until verified output is available.
 
+Use:
+
+> Ciphertext status byte `1` means the graph output is verified. The allowed/blocked decision comes only after requesting and reading the allowed-output `DecryptionRequest`.
+
 Avoid:
 
 > Polet has production FHE privacy.
@@ -203,3 +208,7 @@ Avoid:
 Avoid:
 
 > Pending Encrypt output is equivalent to allowed execution.
+
+Avoid:
+
+> Empty deposit `gas_balance` or `enc_balance` fields mean graph execution is blocked.

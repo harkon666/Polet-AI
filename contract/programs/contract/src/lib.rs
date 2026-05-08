@@ -15,11 +15,11 @@ pub mod execution_payload;
 pub mod ika_approval;
 pub mod state;
 
-declare_id!("F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p");
+declare_id!("33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY");
 
 use confidential_policy::enforce_confidential_numeric_policy;
 pub use constants::WALLET_SEED;
-use encrypt_policy_graph::polet_policy_guardrail_graph_bytes;
+use encrypt_policy_graph::polet_policy_guardrail_execute_graph_ix_data;
 use encrypt_prealpha::{ENCRYPT_CPI_AUTHORITY_SEED, ENCRYPT_PREALPHA_PROGRAM_ID};
 pub use error::ErrorCode;
 use execution_payload::parse_transfer_intent;
@@ -1369,7 +1369,7 @@ pub mod contract {
             cpi_authority_bump,
         };
         encrypt_ctx.execute_graph(
-            &polet_policy_guardrail_graph_bytes(),
+            &polet_policy_guardrail_execute_graph_ix_data(),
             &[
                 ctx.accounts.source_amount_ciphertext.to_account_info(),
                 ctx.accounts.max_per_run_ciphertext.to_account_info(),

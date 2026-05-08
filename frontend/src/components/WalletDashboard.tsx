@@ -4,7 +4,7 @@ import { WalletButton } from './WalletButton';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
 import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
-import { getWalletData, initializeWallet, grantKey } from '../lib/api';
+import { getWalletData, initializeWallet, grantKey, revokeSession } from '../lib/api';
 import { POLET_PROGRAM_ID, shortProgramId } from '../lib/program';
 import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
 
@@ -27,6 +27,7 @@ export function WalletDashboard() {
   const [temporalKeys, setTemporalKeys] = useState<TemporalKey[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [revokingSessionKey, setRevokingSessionKey] = useState<string | null>(null);
   const { sendTransaction } = useWallet();
   const { connection } = useConnection();
 
@@ -47,9 +48,10 @@ export function WalletDashboard() {
           setPoletWalletPda(data.walletPda);
         }
         // Map on-chain data to frontend state
-        if (data.temporalKeys) {
-          setTemporalKeys(data.temporalKeys.map((tk: any, i: number) => ({
-            id: `key-${i}`,
+        const sessions = data.temporalKeys ?? data.sessions ?? [];
+        if (sessions.length > 0) {
+          setTemporalKeys(sessions.map((tk: any) => ({
+            id: tk.key.toString(),
             sessionKey: tk.key.toString(),
             expiresAt: Number(tk.expiresAt) * 1000,
             authorized: tk.authorized,
@@ -57,6 +59,8 @@ export function WalletDashboard() {
             dailySpent: Number(tk.dailySpent || 0),
             createdAt: Number(tk.lastReset || Date.now() / 1000) * 1000,
           })));
+        } else {
+          setTemporalKeys([]);
         }
       }
     } catch (err) {
@@ -68,8 +72,31 @@ export function WalletDashboard() {
 
   const pubkeyStr = publicKey?.toBase58();
 
-  const handleRevokeKey = (keyId: string) => {
-    setTemporalKeys(prev => prev.map(k => k.id === keyId ? { ...k, authorized: false } : k));
+  const handleRevokeKey = async (sessionKey: string) => {
+    if (!publicKey) return;
+    setError(null);
+    setStatus('Preparing revoke transaction...');
+    setRevokingSessionKey(sessionKey);
+    try {
+      const result = await revokeSession({
+        owner: publicKey.toBase58(),
+        sessionKey,
+      });
+      setStatus('Waiting for owner signature...');
+      const { transaction, latestBlockhash } = await prepareFreshTransaction(result.transaction, connection);
+      const signature = await sendTransaction(transaction, connection);
+      setStatus('Confirming revoke on-chain...');
+      await confirmFreshTransaction(connection, signature, latestBlockhash);
+      console.log('Session revoked on-chain!', signature);
+      await refreshData();
+      setStatus('Agent access revoked on-chain.');
+    } catch (err) {
+      console.error('Revoke key failed:', err);
+      setError(err instanceof Error ? err.message : 'Revoke failed');
+    } finally {
+      setRevokingSessionKey(null);
+      setTimeout(() => setStatus(null), 3000);
+    }
   };
 
   const handleGrantKey = async (sessionKey: string, expiresAt: number, dailyLimit: number) => {
@@ -210,6 +237,22 @@ export function WalletDashboard() {
         </div>
       </div>
 
+      {error && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
+          <div>
+            <p className="text-sm font-semibold text-red-800">Transaction Failed</p>
+            <p className="text-xs text-red-700">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {status && !error && (
+        <div className="rounded-lg border border-[rgba(79,184,178,0.3)] bg-[rgba(79,184,178,0.1)] p-3 text-sm font-medium text-[var(--lagoon-deep)]">
+          {status}
+        </div>
+      )}
+
       {/* Tab Navigation */}
       <div className="flex gap-1 rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-1">
         {(['demo', 'temporal'] as const).map((tab) => (
@@ -234,6 +277,7 @@ export function WalletDashboard() {
             keys={temporalKeys}
             onRevoke={handleRevokeKey}
             onGrant={handleGrantKey}
+            revokingSessionKey={revokingSessionKey}
           />
         </div>
       )}

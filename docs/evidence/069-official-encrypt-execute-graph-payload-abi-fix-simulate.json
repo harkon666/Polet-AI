@@ -1,0 +1,81 @@
+{
+  "issue": "069-official-encrypt-execute-graph-payload-abi-fix",
+  "status": "blocked-devnet-program-upgrade-required",
+  "cluster": "devnet",
+  "solanaRpc": "https://api.devnet.solana.com",
+  "poletProgramId": "F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p",
+  "encryptProgramId": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+  "wallet": "HaWybF6CCGkaVRGmp8beo1T3rM8A23ywDN7tsqDvvmm8",
+  "owner": "5v8akfxPx4hTJDVg8Dnh8vFGfhHvHcPngYXYa6Nrk6o9",
+  "sessionKey": "ECFFvJe8yPaTSH2qdXP1CkQTxWfWy5B3fZ7HEcCQPhSn",
+  "policySequence": 6,
+  "graph": "polet_policy_guardrail_graph",
+  "safety": {
+    "simulateOnly": true,
+    "sigVerify": false,
+    "replaceRecentBlockhash": true,
+    "noPrivateKeysIncluded": true,
+    "noBroadcastAttempted": true
+  },
+  "localFix": {
+    "contractPayload": "[4 execute_graph discriminator] + [graph_len u16 LE] + [graph bytes] + [num_inputs u8]",
+    "numInputs": 4,
+    "localVerification": [
+      "cd contract && NO_DNA=1 anchor build",
+      "cd contract && NO_DNA=1 cargo test -p contract"
+    ]
+  },
+  "accountsChecked": {
+    "wallet": {
+      "address": "HaWybF6CCGkaVRGmp8beo1T3rM8A23ywDN7tsqDvvmm8",
+      "exists": true,
+      "owner": "F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p",
+      "dataLength": 1397
+    },
+    "sessionKey": {
+      "address": "ECFFvJe8yPaTSH2qdXP1CkQTxWfWy5B3fZ7HEcCQPhSn",
+      "exists": true,
+      "owner": "11111111111111111111111111111111",
+      "lamports": 3954268360
+    },
+    "sessionDeposit": {
+      "address": "A8BQhbgAD7GuQCG6jorUH52Kh6T3ijbdE58JqJqespBj",
+      "exists": false
+    },
+    "eventAuthority": {
+      "address": "6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ",
+      "exists": false
+    }
+  },
+  "programShow": {
+    "programDataAddress": "4Fr3PKsKWvEquMqyiVzn5TdXJcXySkyu1LQqFzR6Vu2s",
+    "authority": "2WdWUNeKibeX1hyC6CscJeUa1EruKYDHcHHSUhHeSFKf",
+    "lastDeployedInSlot": 460920402,
+    "dataLength": 398080
+  },
+  "simulateResult": {
+    "slot": 460987993,
+    "err": {
+      "InstructionError": [
+        0,
+        {
+          "Custom": 1
+        }
+      ]
+    },
+    "unitsConsumed": 17976,
+    "logs": [
+      "Program F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p invoke [1]",
+      "Program log: Instruction: ExecuteEncryptPolicyGraphAsSession",
+      "Program 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8 invoke [2]",
+      "Program 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8 consumed 186 of 182210 compute units",
+      "Program 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8 failed: custom program error: 0x1",
+      "Program F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p consumed 17976 of 200000 compute units",
+      "Program F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p failed: custom program error: 0x1"
+    ]
+  },
+  "classification": {
+    "summary": "Fresh simulate-only devnet evidence still hits the exact 186-CU Encrypt boundary. Local contract code is fixed, but the deployed devnet Polet program must be upgraded by authority 2WdWUNeKibeX1hyC6CscJeUa1EruKYDHcHHSUhHeSFKf before this acceptance criterion can be re-tested against live devnet.",
+    "smallestNextAction": "Deploy the rebuilt contract/programs/contract SBF to devnet using the Polet upgrade authority, then rerun this simulate-only graph transaction before any broadcast."
+  }
+}

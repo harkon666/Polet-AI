@@ -1,0 +1,74 @@
+{
+  "issue": "069-official-encrypt-execute-graph-payload-abi-fix",
+  "status": "live-devnet-graph-execution-succeeded",
+  "completedAt": "2026-05-08T17:56:15Z",
+  "cluster": "devnet",
+  "solanaRpc": "https://api.devnet.solana.com",
+  "encryptGrpc": "https://pre-alpha-dev-1.encrypt.ika-network.net:443",
+  "encryptProgramId": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+  "closedProgramId": "F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p",
+  "replacementPoletProgramId": "33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY",
+  "upgradeAuthority": "2WdWUNeKibeX1hyC6CscJeUa1EruKYDHcHHSUhHeSFKf",
+  "programClose": {
+    "requestedByUser": true,
+    "result": "closed",
+    "reclaimedSol": 2.77184088,
+    "sameProgramIdRedeployAttempt": {
+      "result": "failed",
+      "error": "Program F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p has been closed, use a new Program Id"
+    }
+  },
+  "replacementDeploy": {
+    "programId": "33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY",
+    "signature": "4WznhghcpHae7mbC7MhYd1k29iLiYkzQ4XxzyWP3zFaxrSgy6esHU1KG71tweZzynVa6ns8uZTpMCJ6ui95HwBAm",
+    "lastDeployedSlot": 460989361,
+    "dataLength": 398872,
+    "programDataAddress": "9iSBqdJDHaqaMa9e9TAAjHFNgKrWNaiwtTrnTExJLDHL"
+  },
+  "liveE2E": {
+    "runner": "sdk/src/official-encrypt-live-e2e-runner.ts",
+    "owner": "3wnedEpbwfmkRuJzYg2txeqv8Sjba5pFyWqcrpiFe5aN",
+    "sessionKey": "GLduygXh7aWDvmazPhNGrktsyYH9Ap9TVmCCRzeUECvR",
+    "fundingSignature": "2T16kXFWTbkie7Q5SYYQCwdkasFVwr9scs3eQfJqrf5EoLAuuvhiU7YFG36fJWaYx1S3orZ1t6YT443nBQGsnhcm",
+    "graph": "polet_policy_guardrail_graph",
+    "executeGraphResult": "success",
+    "walletPending": true,
+    "pendingSlot": 460989735,
+    "ciphertexts": {
+      "maxPerRun": "BWewqtyjqvyu9z4UkW9CKDczqtJrhV8Y6x9md22BVRsQ",
+      "dailyCap": "7HHQ9enJqtYTtJzgGg7EMfL44L9rmcuKgXSxwFpWBJkh",
+      "dailySpent": "27fin2SVrAXzXYKbPJs4SSgbXYC1nGeCEo2yAcmSKfVJ",
+      "sourceAmount": "D5jtUzMrCAcBsnnypBPBsCFxXT9mky6pwJv9acjHQwaJ",
+      "allowedOutput": "3ijxbPpdyu3y6YARE5Uzg6YAym7DoZdDtXV7cpX1EKfR",
+      "dailySpentOutput": "GTcbySXNveP1Jq3kqU1Y1kf2sgTv3ycER21ZfaMUcjZ3"
+    },
+    "outputCiphertextStatus": {
+      "allowedOutput": {
+        "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+        "dataLength": 100,
+        "fheType": 0,
+        "statusByte": 1,
+        "status": "verified"
+      },
+      "dailySpentOutput": {
+        "owner": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
+        "dataLength": 100,
+        "fheType": 4,
+        "statusByte": 1,
+        "status": "verified"
+      }
+    }
+  },
+  "classification": {
+    "summary": "The previous immediate 186-CU Encrypt custom error boundary is cleared on live devnet after deploying the fixed payload ABI binary to the replacement program id. The graph instruction reached success and both output ciphertext accounts are verified.",
+    "remainingBlocker": "The original F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p program id was closed as requested and cannot be redeployed by Solana CLI. Any existing wallet/session PDAs under F7X are not reusable; demos must use the replacement program id and fresh wallet/session state."
+  },
+  "safety": {
+    "noPrivateKeysIncluded": true,
+    "noSeedPhrasesIncluded": true,
+    "noWitnessBytesIncluded": true,
+    "noPlaintextThresholdsIncluded": true,
+    "devnetOnly": true,
+    "mainnetTransactions": false
+  }
+}

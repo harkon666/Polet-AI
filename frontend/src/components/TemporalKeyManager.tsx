@@ -13,11 +13,12 @@ interface TemporalKey {
 
 interface TemporalKeyManagerProps {
   keys: TemporalKey[];
-  onRevoke: (keyId: string) => void;
+  onRevoke: (sessionKey: string) => void;
   onGrant: (sessionKey: string, expiresAt: number, dailyLimit: number) => void;
+  revokingSessionKey?: string | null;
 }
 
-export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManagerProps) {
+export function TemporalKeyManager({ keys, onRevoke, onGrant, revokingSessionKey }: TemporalKeyManagerProps) {
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [newAgentAddress, setNewAgentAddress] = useState('');
   const [expiresIn, setExpiresIn] = useState(24); // hours
@@ -192,8 +193,9 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant }: TemporalKeyManag
                   </div>
                 </div>
                 <button
-                  onClick={() => onRevoke(key.id)}
-                  className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-600 transition hover:bg-red-100"
+                  onClick={() => onRevoke(key.sessionKey)}
+                  disabled={!key.authorized || revokingSessionKey === key.sessionKey}
+                  className="rounded-lg border border-red-200 bg-red-50 p-2 text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                   title="Revoke agent access"
                 >
                   <Trash2 className="h-4 w-4" />

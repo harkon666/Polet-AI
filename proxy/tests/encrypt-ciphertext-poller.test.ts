@@ -45,18 +45,23 @@ describe('Encrypt ciphertext and infrastructure utilities', () => {
     expect(status.config.encVault).toBe(encVault.toString());
     expect(status.eventAuthority.exists).toBe(false);
     expect(status.deposit.exists).toBe(false);
+    expect(status.deposit.encBalance).toBe('0');
+    expect(status.deposit.gasBalance).toBe('0');
+    expect(status.deposit.lamports).toBe(0);
     expect(status.readyForGraphCpi).toBe(false);
-    expect(status.blockers).toContain('encrypt-config-enc-mint-unconfigured');
-    expect(status.blockers).toContain('encrypt-event-authority-missing');
+    expect(status.blockers).not.toContain('encrypt-config-enc-mint-unconfigured');
+    expect(status.blockers).not.toContain('encrypt-event-authority-missing');
     expect(status.blockers).toContain('encrypt-deposit-missing');
   });
 
-  test('marks infra ready when config, event authority, and deposit accounts are present', async () => {
+  test('marks infra ready when config and deposit accounts are present even with zero balance fields', async () => {
     const payer = Keypair.generate().publicKey;
     const pdas = deriveEncryptInfraPdas(payer, ENCRYPT_PROGRAM);
     const configData = Buffer.alloc(132);
     Keypair.generate().publicKey.toBuffer().copy(configData, ENCRYPT_CONFIG_ENC_MINT_OFFSET);
     Keypair.generate().publicKey.toBuffer().copy(configData, ENCRYPT_CONFIG_ENC_VAULT_OFFSET);
+
+    const depositData = Buffer.alloc(83);
 
     const status = await readEncryptInfraStatus({
       getAccountInfo: async (pubkey: PublicKey) => {
@@ -67,7 +72,7 @@ describe('Encrypt ciphertext and infrastructure utilities', () => {
           return { data: Buffer.alloc(8), owner: ENCRYPT_PROGRAM, lamports: 1, executable: false } as never;
         }
         if (pubkey.equals(pdas.deposit)) {
-          return { data: Buffer.alloc(83), owner: ENCRYPT_PROGRAM, lamports: 1, executable: false } as never;
+          return { data: depositData, owner: ENCRYPT_PROGRAM, lamports: 1, executable: false } as never;
         }
         return null;
       },
@@ -75,5 +80,8 @@ describe('Encrypt ciphertext and infrastructure utilities', () => {
 
     expect(status.readyForGraphCpi).toBe(true);
     expect(status.blockers).toEqual([]);
+    expect(status.deposit.encBalance).toBe('0');
+    expect(status.deposit.gasBalance).toBe('0');
+    expect(status.deposit.lamports).toBe(1);
   });
 });

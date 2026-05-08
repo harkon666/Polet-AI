@@ -17,6 +17,10 @@ vi.mock('@solana/wallet-adapter-react', () => ({
 }));
 
 vi.mock('../lib/api', () => ({
+  initializeWallet: async () => ({
+    transaction: 'initialize-wallet-tx',
+    wallet: 'WalletPda11111111111111111111111111111111111',
+  }),
   getWalletData: async () => ({
     walletPda: 'WalletPda11111111111111111111111111111111111',
     temporalKeys: [
@@ -29,6 +33,14 @@ vi.mock('../lib/api', () => ({
         lastReset: 1_800_000_000,
       },
     ],
+  }),
+  grantKey: async () => ({
+    transaction: 'grant-key-tx',
+  }),
+  revokeSession: async () => ({
+    transaction: 'revoke-session-tx',
+    wallet: 'WalletPda11111111111111111111111111111111111',
+    sessionKey: 'Agent111111111111111111111111111111111111111',
   }),
 }));
 

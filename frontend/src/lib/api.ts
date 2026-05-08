@@ -17,7 +17,11 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error?.message || `HTTP ${res.status}`);
+    throw new Error(
+      typeof body?.error === 'string'
+        ? body.error
+        : body?.error?.message || body?.message || `HTTP ${res.status}`
+    );
   }
 
   return res.json();
@@ -151,6 +155,26 @@ export interface GrantKeyResult {
 export async function grantKey(input: GrantKeyInput): Promise<GrantKeyResult> {
   const data = await fetchJson<{ success: boolean; data: GrantKeyResult }>(
     `${PROXY_URL}/wallet/grant-key`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+  return data.data;
+}
+
+export interface RevokeSessionInput {
+  owner: string;
+  sessionKey: string;
+}
+
+export interface RevokeSessionResult extends WalletTransactionResult {
+  sessionKey: string;
+}
+
+export async function revokeSession(input: RevokeSessionInput): Promise<RevokeSessionResult> {
+  const data = await fetchJson<{ success: boolean; data: RevokeSessionResult }>(
+    `${PROXY_URL}/wallet/revoke-session`,
     {
       method: 'POST',
       body: JSON.stringify(input),
@@ -416,6 +440,30 @@ export interface ExecuteEncryptPolicyGraphResult extends WalletTransactionResult
     dailySpentOutput: string;
   };
   suppressedUntilVerified: string[];
+}
+
+export interface EncryptCiphertextStatus {
+  address: string;
+  exists: boolean;
+  owner: string;
+  dataLength: number;
+  status: 'pending' | 'verified' | 'unknown';
+  statusByte: number;
+  fheType: number;
+  digest: string;
+  authorized: string;
+}
+
+export async function getEncryptCiphertextStatus(
+  ciphertext: string,
+  encryptProgram?: string
+): Promise<EncryptCiphertextStatus> {
+  const params = encryptProgram ? `?encryptProgram=${encodeURIComponent(encryptProgram)}` : '';
+  const data = await fetchJson<{ success: boolean; data: EncryptCiphertextStatus }>(
+    `${PROXY_URL}/wallet/encrypt-ciphertext/${encodeURIComponent(ciphertext)}${params}`
+  );
+
+  return data.data;
 }
 
 export type PolicyRevealKind = 'max-per-run' | 'daily-cap' | 'daily-spent';

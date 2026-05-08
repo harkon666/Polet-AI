@@ -119,6 +119,86 @@ describe('wallet routes', () => {
     expect(body.data.deposit).toBe(deposit.toString());
     expect(body.data.config).toBe(config.toString());
   });
+
+  test('returns a structured 409 only for structural Encrypt infra blockers', async () => {
+    const [config] = deriveEncryptConfigPda();
+    const [deposit] = deriveEncryptDepositPda(owner);
+    const configData = Buffer.alloc(132);
+
+    setConnection({
+      getAccountInfo: async (pubkey: PublicKey) => {
+        if (pubkey.equals(config)) {
+          return accountInfo({ owner: encryptProgram, data: configData });
+        }
+        if (pubkey.equals(deposit)) {
+          return accountInfo({ owner: encryptProgram, data: Buffer.alloc(83) });
+        }
+        return null;
+      },
+      getLatestBlockhash: async () => ({ blockhash: PublicKey.unique().toString(), lastValidBlockHeight: 99 }),
+      getSlot: async () => 1,
+    } as never);
+
+    const response = await walletRouter.request('/execute-encrypt-policy-graph', {
+      method: 'POST',
+      body: JSON.stringify({
+        wallet: PublicKey.unique().toString(),
+        sessionKey: owner,
+        sourceAmountCiphertext: PublicKey.unique().toString(),
+        maxPerRunCiphertext: PublicKey.unique().toString(),
+        dailySpentCiphertext: PublicKey.unique().toString(),
+        dailyCapCiphertext: PublicKey.unique().toString(),
+        allowedOutputCiphertext: PublicKey.unique().toString(),
+        dailySpentOutputCiphertext: PublicKey.unique().toString(),
+        attestationSlot: 3,
+        attestationPolicySeq: 7,
+        encrypt: {
+          encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+          config: config.toString(),
+          deposit: deposit.toString(),
+          networkEncryptionKey: PublicKey.unique().toString(),
+          eventAuthority: PublicKey.unique().toString(),
+          payer: owner,
+        },
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.success).toBe(false);
+    expect(body.code).toBe('ENCRYPT_INFRA_BLOCKED');
+    expect(body.error).toContain('Official Encrypt devnet infrastructure is not ready');
+    expect(body.data.status).toBe('encrypt-infra-blocked');
+    expect(body.data.infraStatus.blockers).toContain('encrypt-config-enc-vault-unconfigured');
+    expect(body.data.infraStatus.blockers).not.toContain('encrypt-deposit-enc-balance-empty');
+    expect(body.data.infraStatus.blockers).not.toContain('encrypt-deposit-gas-balance-empty');
+  });
+
+  test('reads official Encrypt ciphertext status for frontend graph polling', async () => {
+    const ciphertext = PublicKey.unique();
+    const data = Buffer.alloc(100);
+    data[98] = 0;
+    data[99] = 1;
+
+    setConnection({
+      getAccountInfo: async (pubkey: PublicKey) => {
+        if (pubkey.equals(ciphertext)) {
+          return accountInfo({ owner: encryptProgram, data });
+        }
+        return null;
+      },
+    } as never);
+
+    const response = await walletRouter.request(`/encrypt-ciphertext/${ciphertext.toString()}?encryptProgram=${encryptProgram.toString()}`);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.address).toBe(ciphertext.toString());
+    expect(body.data.status).toBe('verified');
+    expect(body.data.statusByte).toBe(1);
+    expect(body.data.dataLength).toBe(100);
+  });
 });
 
 function accountInfo({ owner, data }: { owner: PublicKey; data: Buffer }) {

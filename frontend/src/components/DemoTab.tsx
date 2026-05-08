@@ -25,6 +25,8 @@ import {
   setupDemoCustody,
   configureSharedIkaApprovers,
   getWalletData,
+  getEncryptCiphertextStatus,
+  revokeSession,
   revokeSharedIkaApprover,
   runMultichainIntent,
   setRecoveryAuthority,
@@ -95,12 +97,14 @@ interface DemoApi {
   revokeSharedIkaApprover: (input: { owner: string; approver: string }) => Promise<WalletTransactionResult & { approver: string }>;
   setRecoveryAuthority: (input: { owner: string; recoveryAuthority: string }) => Promise<WalletTransactionResult & { recoveryAuthority: string; activity: { type: string; status: string; privacy: string } }>;
   recoverAccess: (input: { owner: string; authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string }) => Promise<WalletTransactionResult & { authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string; activity: { type: string; status: string; states: string[]; privacy: string; boundary: string } }>;
+  revokeSession: typeof revokeSession;
   requestPasskeyChallenge: (input: { owner: string; sessionKey: string; sharedApprovalChallenge: string; credentialId: string; rpId: string; expiresAtUnix: number }) => Promise<{ challenge: number[]; publicKeyCredentialRequestOptions: { challenge: number[]; rpId: string; allowCredentials: Array<{ type: string; id: string }>; userVerification: string }; boundary: string }>;
   verifyPasskeyAssertion: (input: { expectedChallenge: number[]; expectedOrigin: string; expectedRpId: string; expectedCredentialId: string; credentialPublicKeyJwk: Record<string, unknown>; assertion: { authenticatorData: string; clientDataJSON: string; signature: string; userHandle?: string }; requireUserVerification: boolean }) => Promise<{ valid: boolean; approverPublicKey: string; challengeUsed: string; boundary: string }>;
   broadcastIkaDestination: typeof import('../lib/api').broadcastIkaDestination;
   runConfidentialDca: typeof runConfidentialDca;
   runMultichainIntent: typeof runMultichainIntent;
   getWalletData: typeof getWalletData;
+  getEncryptCiphertextStatus: typeof getEncryptCiphertextStatus;
   createEncryptDeposit: typeof createEncryptDeposit;
   executeEncryptPolicyGraph: (input: ExecuteEncryptPolicyGraphInput) => Promise<ExecuteEncryptPolicyGraphResult>;
   requestPolicyValueDecryption: (input: RequestPolicyValueDecryptionInput) => Promise<RequestPolicyValueDecryptionResult>;
@@ -129,12 +133,14 @@ const DEFAULT_API: DemoApi = {
   revokeSharedIkaApprover,
   setRecoveryAuthority,
   recoverAccess,
+  revokeSession,
   requestPasskeyChallenge,
   verifyPasskeyAssertion,
   broadcastIkaDestination,
   runConfidentialDca,
   runMultichainIntent,
   getWalletData,
+  getEncryptCiphertextStatus,
   createEncryptDeposit,
   executeEncryptPolicyGraph,
   requestPolicyValueDecryption,
@@ -166,6 +172,11 @@ interface OfficialEncryptPolicyRefs {
   policySeq?: number;
   lastRevokedSlot?: number;
   source: 'wallet';
+}
+
+interface AuthorizedSessionOption {
+  key: string;
+  label: string;
 }
 
 export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) {
@@ -238,6 +249,7 @@ export function DemoTabContent({
   const [officialEncryptPolicyRefs, setOfficialEncryptPolicyRefs] = useState<OfficialEncryptPolicyRefs | null>(null);
   const [officialEncryptExecutionDraft, setOfficialEncryptExecutionDraft] = useState<OfficialEncryptExecutionCiphertexts | null>(initialExecutionCiphertexts);
   const [policySaved, setPolicySaved] = useState(false);
+  const [policyMode, setPolicyMode] = useState<'official' | 'legacy' | null>(null);
   const [editingPolicy, setEditingPolicy] = useState(true);
   const [custody, setCustody] = useState<{ usdcTokenAccount: string; solTokenAccount: string } | null>(null);
   const [sharedIkaApproval, setSharedIkaApproval] = useState<{ threshold: number; approvers: string[] } | null>(null);
@@ -246,7 +258,8 @@ export function DemoTabContent({
     approvers: agentAddresses.slice(0, 2).join('\n'),
   });
   const [sharedApprovalProofs, setSharedApprovalProofs] = useState('');
-  const [agentAddress, setAgentAddress] = useState(agentAddresses[0] ?? '');
+  const [agentAddress, setAgentAddress] = useState(owner ?? agentAddresses[0] ?? '');
+  const [authorizedSessionOptions, setAuthorizedSessionOptions] = useState<AuthorizedSessionOption[]>([]);
   const [strategy, setStrategy] = useState<DcaStrategy>({
     sourceChain: 'Solana',
     inputMint: 'USDC',
@@ -387,6 +400,50 @@ export function DemoTabContent({
     return api.getWalletData(owner!).catch(() => ({ walletPda: result.wallet }));
   };
 
+  const isSessionAuthorizedInWallet = (data: any, sessionKey: string) => {
+    const now = Math.floor(Date.now() / 1000);
+    return Boolean(data?.sessions?.some((session: any) =>
+      session?.key === sessionKey &&
+      session?.authorized !== false &&
+      Number(session?.expiresAt ?? 0) > now &&
+      Number(session?.grantedSlot ?? 0) >= Number(data?.lastRevokedSlot ?? 0)
+    ));
+  };
+
+  const readAuthorizedSessionOptions = (data: any): AuthorizedSessionOption[] => {
+    const now = Math.floor(Date.now() / 1000);
+    const sessionOptions = (data?.sessions ?? [])
+      .filter((session: any) =>
+        session?.key &&
+        session?.authorized !== false &&
+        Number(session?.expiresAt ?? 0) > now &&
+        Number(session?.grantedSlot ?? 0) >= Number(data?.lastRevokedSlot ?? 0)
+      )
+      .map((session: any) => ({
+        key: session.key,
+        label: `Session ${short(session.key)}`,
+      }));
+    return sessionOptions;
+  };
+
+  const requireExistingGraphSigner = (walletData: any, sessionKey: string) => {
+    if (isSessionAuthorizedInWallet(walletData, sessionKey)) return;
+    throw new Error('Select an existing authorized session key from the wallet. Graph execution will not create or grant a new session key.');
+  };
+
+  const refreshAgentSessions = async () => {
+    if (!owner) return;
+    const data = await api.getWalletData(owner);
+    const sessionOptions = readAuthorizedSessionOptions(data);
+    setAuthorizedSessionOptions(sessionOptions);
+    if (sessionOptions.length > 0 && !sessionOptions.some((session) => session.key === agentAddress.trim())) {
+      setAgentAddress(sessionOptions[0].key);
+    }
+    if (sessionOptions.length === 0) {
+      setAgentAddress('');
+    }
+  };
+
   useEffect(() => {
     if (owner) {
       api.getWalletData(owner).then((data) => {
@@ -399,10 +456,17 @@ export function DemoTabContent({
           }
           if (data.confidentialPolicy?.enabled) {
             setPolicySaved(true);
+            setPolicyMode('legacy');
             setEditingPolicy(false);
           }
           const encryptCiphertexts = data.confidentialPolicy?.encryptCiphertexts;
+          const sessionOptions = readAuthorizedSessionOptions(data);
+          setAuthorizedSessionOptions(sessionOptions);
+          if (sessionOptions.length > 0 && !sessionOptions.some((session) => session.key === agentAddress.trim())) {
+            setAgentAddress(sessionOptions[0].key);
+          }
           if (encryptCiphertexts?.configured) {
+            setPolicyMode('official');
             setOfficialEncryptPolicyRefs({
               maxPerRun: encryptCiphertexts.maxPerRun,
               dailyCap: encryptCiphertexts.dailyCap,
@@ -431,21 +495,29 @@ export function DemoTabContent({
               threshold: configuredShared.threshold.toString(),
               approvers: configuredShared.approvers.join('\n'),
             });
+          } else {
+            setSharedIkaApproval(null);
           }
           if (data.recoveryAuthority) {
             setRecoveryAuthorityState(data.recoveryAuthority);
           }
         } else {
           setPolicySaved(false);
+          setPolicyMode(null);
           setOfficialEncryptPolicyRefs(null);
+          setAuthorizedSessionOptions([]);
         }
       }).catch(() => {
         setPolicySaved(false);
+        setPolicyMode(null);
         setOfficialEncryptPolicyRefs(null);
+        setAuthorizedSessionOptions([]);
       });
     } else {
       setPolicySaved(false);
+      setPolicyMode(null);
       setOfficialEncryptPolicyRefs(null);
+      setAuthorizedSessionOptions([]);
     }
   }, [owner]);
 
@@ -674,6 +746,7 @@ export function DemoTabContent({
           const walletData = await api.getWalletData(owner).catch(() => null);
           setOfficialEncryptPolicyRefs(readOfficialEncryptRefsFromWallet(walletData) ?? fallbackOfficialEncryptRefs(ciphertexts, result));
           setPolicySaved(true);
+          setPolicyMode('official');
           setEditingPolicy(false);
           addActivity({
             status: 'setup',
@@ -710,6 +783,7 @@ export function DemoTabContent({
           });
           const signature = await signAndConfirmTransaction(result.transaction);
           setPolicySaved(true);
+          setPolicyMode('legacy');
           setEditingPolicy(false);
           addActivity({
             status: 'setup',
@@ -736,6 +810,8 @@ export function DemoTabContent({
         threshold: configuredShared.threshold.toString(),
         approvers: configuredShared.approvers.join('\n'),
       });
+    } else {
+      setSharedDraft((prev) => ({ ...prev, approvers: '' }));
     }
   };
 
@@ -795,14 +871,6 @@ export function DemoTabContent({
         try {
           const result = await api.revokeSharedIkaApprover({ owner, approver });
           const signature = await signAndConfirmTransaction(result.transaction);
-          setSharedIkaApproval((prev) => {
-            console.log(`Hasil Result: ${result}`);
-            if (!prev) return null;
-            const approvers = prev.approvers.filter((item) => item !== approver);
-            return approvers.length > 0
-              ? { threshold: Math.min(prev.threshold, approvers.length), approvers }
-              : null;
-          });
           await refreshSharedIkaApproval();
           addActivity({
             status: 'setup',
@@ -811,6 +879,36 @@ export function DemoTabContent({
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to revoke shared Ika approver');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
+  };
+
+  const revokeAgentSession = async (sessionKey: string) => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+
+    setPendingConfirm({
+      action: t.revokeSession,
+      description: `${t.confirmRevokeSession}: ${short(sessionKey)}.`,
+      onConfirm: async () => {
+        setBusy(`session-revoke-${sessionKey}`);
+        setError(null);
+        try {
+          const result = await api.revokeSession({ owner, sessionKey });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          await refreshAgentSessions();
+          addActivity({
+            status: 'setup',
+            message: `${t.revokeSession}: ${short(result.sessionKey)} ${signature.slice(0, 8)}...`,
+            route: 'Contract revoke_session',
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to revoke agent session');
         } finally {
           setBusy(null);
         }
@@ -968,6 +1066,7 @@ export function DemoTabContent({
       return null;
     }
     const walletData = await api.getWalletData(owner);
+    requireExistingGraphSigner(walletData, agentAddress.trim());
     const policyRefs = readOfficialEncryptRefsFromWallet(walletData) ?? officialEncryptPolicyRefs;
     if (!policyRefs?.wallet || policyRefs.policySeq === undefined || policyRefs.lastRevokedSlot === undefined) {
       recordError('Official Encrypt policy must be configured on-chain before graph execution.');
@@ -1032,6 +1131,8 @@ export function DemoTabContent({
       },
     });
 
+    await pollAllowedOutputVerified(pendingRefs.allowedOutputCiphertext);
+
     const requestKeypair = Keypair.generate();
     const decryption = await api.requestPendingAllowedOutputDecryption({
       owner,
@@ -1059,10 +1160,25 @@ export function DemoTabContent({
     return decision;
   };
 
+  const pollAllowedOutputVerified = async (
+    allowedOutputCiphertext: string,
+    attempts = 60,
+    intervalMs = 3_000
+  ) => {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const status = await api.getEncryptCiphertextStatus(allowedOutputCiphertext, ENCRYPT_PREALPHA_PROGRAM_ID);
+      if (status.status === 'verified') return status;
+      if (attempt < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+    }
+    throw new Error('Official Encrypt graph output is still pending executor verification. This is a pending executor/decryptor state, not an infrastructure blocker; retry resolve after the output ciphertext is verified.');
+  };
+
   const pollEncryptPolicyDecision = async (
     allowedDecryptionRequest: string,
     expectedPolicySeq: number,
-    attempts = 5,
+    attempts = 60,
     intervalMs = 3_000
   ): Promise<OfficialEncryptPolicyPreview> => {
     let last: OfficialEncryptPolicyPreview | null = null;
@@ -1093,7 +1209,12 @@ export function DemoTabContent({
     setBusy(`run-${amountUsdc}`);
     setError(null);
     try {
-      if (executeGraphBeforeRequests && officialEncryptPolicyRefs && canWalletSignSession(owner, agentAddress)) {
+      const shouldSubmitOfficialGraph = executeGraphBeforeRequests && policyMode === 'official';
+      if (shouldSubmitOfficialGraph && !canWalletSignSession(owner, agentAddress)) {
+        recordError('Official Encrypt graph execution needs the connected wallet as the demo agent signer. Set Agent / session wallet to the connected owner wallet, then run again.');
+        return;
+      }
+      if (shouldSubmitOfficialGraph) {
         const decision = await submitOfficialEncryptGraph(amountUsdc, 'USDC -> SOL', 'Official Encrypt graph / Jupiter gated');
         if (!decision || decision.status !== 'encrypt-verified-allowed') return;
       }
@@ -1157,7 +1278,12 @@ export function DemoTabContent({
     setBusy(isAllowedIkaTarget ? `ika-${target.chain}-${amount}` : 'ika-unsupported');
     setError(null);
     try {
-      if (executeGraphBeforeRequests && officialEncryptPolicyRefs && isAllowedIkaTarget && canWalletSignSession(owner, agentAddress)) {
+      const shouldSubmitOfficialGraph = executeGraphBeforeRequests && policyMode === 'official' && isAllowedIkaTarget;
+      if (shouldSubmitOfficialGraph && !canWalletSignSession(owner, agentAddress)) {
+        recordError('Official Encrypt graph execution needs the connected wallet as the demo agent signer. Set Agent / session wallet to the connected owner wallet, then run again.');
+        return;
+      }
+      if (shouldSubmitOfficialGraph) {
         const decision = await submitOfficialEncryptGraph(amount, `USDC -> ${target.asset}`, `Official Encrypt graph / Ika ${target.chain.toUpperCase()} gated`);
         if (!decision || decision.status !== 'encrypt-verified-allowed') return;
       }
@@ -1793,10 +1919,40 @@ export function DemoTabContent({
                 value={agentAddress}
                 onChange={(event) => setAgentAddress(event.target.value)}
                 placeholder={t.agentPlaceholder}
+                list="authorized-session-keys"
                 className="w-full rounded-lg px-3 py-2 text-sm font-mono"
               />
-              <span className="mt-1 block text-xs leading-5 text-[var(--sea-ink-soft)]">{t.agentHelp}</span>
+              <datalist id="authorized-session-keys">
+                {authorizedSessionOptions.map((session) => (
+                  <option key={session.key} value={session.key}>{session.label}</option>
+                ))}
+              </datalist>
             </label>
+            {authorizedSessionOptions.length > 0 && (
+              <div className="grid gap-2">
+                {authorizedSessionOptions.map((session) => (
+                  <div key={session.key} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-1">
+                    <button
+                      type="button"
+                      onClick={() => setAgentAddress(session.key)}
+                      className="font-mono text-[10px] font-semibold text-[var(--lagoon-deep)] hover:underline"
+                    >
+                      {session.label}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => revokeAgentSession(session.key)}
+                      disabled={Boolean(busy)}
+                      className="inline-flex items-center gap-1 rounded-md border border-red-500/30 px-2 py-1 text-[10px] font-bold text-red-500 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      {busy === `session-revoke-${session.key}` ? '...' : t.revokeSession}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <span className="block text-xs leading-5 text-[var(--sea-ink-soft)]">{t.agentHelp}</span>
 
             {/* Route Risk Guardrails */}
             <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">

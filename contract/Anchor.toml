@@ -15,7 +15,7 @@ exclude = [
 ]
 
 [programs.devnet]
-contract = "F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p"
+contract = "33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY"
 mock_ika = "CXHt5JcKMshPiW7HJUqyRnyUugQTnoWN3mbWm92sGLMw"
 mock_encrypt = "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8"
 

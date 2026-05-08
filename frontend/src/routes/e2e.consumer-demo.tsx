@@ -15,6 +15,7 @@ export const Route = createFileRoute('/e2e/consumer-demo')({
 const owner = 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2';
 const agent = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 let e2ePolicyConfigured = false;
+let e2eGrantedSession: { sessionKey: string; expiresAt: number } | null = null;
 
 const e2eApi = {
   initializeWallet: async () => ({
@@ -74,6 +75,17 @@ const e2eApi = {
       dailySpentOutput: input.dailySpentOutputCiphertext,
     },
     suppressedUntilVerified: ['jupiterExecutionPayload', 'dwallet', 'messageApproval', 'destinationDigest', 'poletApprovalTransaction'],
+  }),
+  getEncryptCiphertextStatus: async (ciphertext: string) => ({
+    address: ciphertext,
+    exists: true,
+    owner: 'encrypt-program',
+    dataLength: 100,
+    status: 'verified' as const,
+    statusByte: 1,
+    fheType: 0,
+    digest: '11'.repeat(32),
+    authorized: 'polet-program',
   }),
   requestPolicyValueDecryption: async (input: RequestPolicyValueDecryptionInput) => ({
     transaction: 'policy-reveal-tx',
@@ -149,6 +161,23 @@ const e2eApi = {
       boundary: 'e2e',
     },
   }),
+  grantKey: async (input: { sessionKey: string; expiresAt: number }) => {
+    e2eGrantedSession = {
+      sessionKey: input.sessionKey,
+      expiresAt: input.expiresAt,
+    };
+    return { transaction: 'grant-key-tx' };
+  },
+  revokeSession: async (input: { sessionKey: string }) => {
+    if (e2eGrantedSession?.sessionKey === input.sessionKey) {
+      e2eGrantedSession = null;
+    }
+    return {
+      transaction: 'revoke-session-tx',
+      wallet: 'wallet-pda',
+      sessionKey: input.sessionKey,
+    };
+  },
   requestPasskeyChallenge: async (input: { rpId: string }) => ({
     challenge: Array.from(new Uint8Array(32)),
     publicKeyCredentialRequestOptions: {
@@ -184,6 +213,12 @@ const e2eApi = {
     walletPda: 'wallet-pda',
     policySeq: 7,
     lastRevokedSlot: 2,
+    sessions: e2eGrantedSession ? [{
+      key: e2eGrantedSession.sessionKey,
+      expiresAt: e2eGrantedSession.expiresAt,
+      grantedSlot: 2,
+      authorized: true,
+    }] : [],
     confidentialPolicy: {
       enabled: true,
       encryptCiphertexts: {
