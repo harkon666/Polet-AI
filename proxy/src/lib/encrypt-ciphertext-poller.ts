@@ -36,6 +36,21 @@ export interface CiphertextAccountInfo {
   authorized: string;
 }
 
+export interface DecryptionRequestInfo {
+  address: string;
+  exists: boolean;
+  owner: string;
+  dataLength: number;
+  status: 'pending' | 'complete' | 'invalid';
+  ciphertext: string;
+  digest: string;
+  requester: string;
+  fheType: number;
+  totalLen: number;
+  bytesWritten: number;
+  boolValue?: boolean;
+}
+
 export interface EncryptInfraPdas {
   config: PublicKey;
   eventAuthority: PublicKey;
@@ -114,6 +129,65 @@ export async function readCiphertextStatus(
     fheType,
     digest,
     authorized,
+  };
+}
+
+export async function readBoolDecryptionRequest(
+  connection: Connection,
+  requestPubkey: PublicKey
+): Promise<DecryptionRequestInfo> {
+  const info = await connection.getAccountInfo(requestPubkey);
+  if (!info) {
+    return {
+      address: requestPubkey.toString(),
+      exists: false,
+      owner: '',
+      dataLength: 0,
+      status: 'invalid',
+      ciphertext: '',
+      digest: '',
+      requester: '',
+      fheType: -1,
+      totalLen: 0,
+      bytesWritten: 0,
+    };
+  }
+
+  if (info.data.length < 108) {
+    return {
+      address: requestPubkey.toString(),
+      exists: true,
+      owner: info.owner.toString(),
+      dataLength: info.data.length,
+      status: 'invalid',
+      ciphertext: '',
+      digest: '',
+      requester: '',
+      fheType: -1,
+      totalLen: 0,
+      bytesWritten: 0,
+    };
+  }
+
+  const totalLen = info.data.readUInt32LE(99);
+  const bytesWritten = info.data.readUInt32LE(103);
+  const fheType = info.data[98];
+  const complete = totalLen > 0 && bytesWritten === totalLen;
+  const validBool = fheType === 0 && totalLen === 1;
+
+  return {
+    address: requestPubkey.toString(),
+    exists: true,
+    owner: info.owner.toString(),
+    dataLength: info.data.length,
+    status: validBool ? complete ? 'complete' : 'pending' : 'invalid',
+    ciphertext: new PublicKey(info.data.slice(2, 34)).toString(),
+    digest: Buffer.from(info.data.slice(34, 66)).toString('hex'),
+    requester: new PublicKey(info.data.slice(66, 98)).toString(),
+    fheType,
+    totalLen,
+    bytesWritten,
+    ...(validBool && complete && { boolValue: info.data[107] !== 0 }),
   };
 }
 

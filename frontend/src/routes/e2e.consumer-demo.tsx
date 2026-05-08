@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { DemoTabContent } from '../components/DemoTab';
 import type {
   ExecuteEncryptPolicyGraphInput,
+  RequestPendingAllowedOutputDecryptionInput,
   RequestPolicyValueDecryptionInput,
   RunConfidentialDcaInput,
   RunMultichainIntentInput,
@@ -85,6 +86,29 @@ const e2eApi = {
     grpcEndpoint: 'encrypt-grpc.polet.dev:443',
     boundary: 'owner-signed-public-decryption-request' as const,
     warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext publicly after the decryptor responds.',
+  }),
+  requestPendingAllowedOutputDecryption: async (input: RequestPendingAllowedOutputDecryptionInput) => ({
+    transaction: 'allowed-output-decryption-tx',
+    wallet: input.wallet ?? 'wallet-pda',
+    request: input.request,
+    status: 'allowed-output-decryption-requested' as const,
+    graph: 'polet_policy_guardrail_graph' as const,
+    policySequence: 7,
+    allowedOutputCiphertext: 'FreshAllowedCiphertext11111111111111111111',
+    allowedOutputDigest: '11'.repeat(32),
+    encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
+    grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+    boundary: 'owner-signed-public-decryption-request' as const,
+    warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext output values publicly after the decryptor responds.',
+  }),
+  resolveEncryptPolicyDecision: async () => ({
+    status: 'encrypt-verified-blocked' as const,
+    policySequence: 7,
+    sourceAmountCiphertext: 'FreshSourceCiphertext1111111111111111111111',
+    allowedOutputCiphertext: 'FreshAllowedCiphertext11111111111111111111',
+    dailySpentOutputCiphertext: 'FreshDailyOutputCiphertext1111111111111111',
+    verifiedSlot: 101,
+    graph: 'polet_policy_guardrail_graph' as const,
   }),
   setupDemoCustody: async () => ({
     transaction: 'custody-tx',

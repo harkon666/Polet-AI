@@ -104,7 +104,7 @@ export interface ExecuteEncryptPolicyGraphTransactionRequest {
   encrypt: OfficialEncryptContextAccounts;
 }
 
-export type PolicyValueRevealKind = 'max-per-run' | 'daily-cap' | 'daily-spent';
+export type PolicyValueRevealKind = 'max-per-run' | 'daily-cap' | 'daily-spent' | 'pending-allowed-output';
 
 export interface RequestPolicyValueDecryptionTransactionRequest {
   wallet: string;
@@ -977,6 +977,8 @@ function policyRevealKindToU8(kind: PolicyValueRevealKind): number {
       return 1;
     case 'daily-spent':
       return 2;
+    case 'pending-allowed-output':
+      return 3;
     default:
       throw new Error(`Unsupported policy reveal kind: ${kind}`);
   }

@@ -4,6 +4,8 @@ Labels: `needs-triage`, `critical-path`, `privacy`, `frontend`, `proxy`
 
 Type: `AFK`
 
+Status: `DONE`
+
 ## Parent
 
 `docs/issues/052-hackathon-ika-encrypt-prealpha-integration.md`
@@ -27,15 +29,31 @@ This issue closes the current UX gap where Official Encrypt setup and owner poli
 
 ## Acceptance criteria
 
-- [ ] The proxy exposes a route or resolver that can request decryption for the wallet's current `pendingAllowedOutput` ciphertext without revealing policy thresholds.
-- [ ] The resolver validates that the pending allowed-output ciphertext belongs to the current wallet pending graph state and policy sequence.
-- [ ] The frontend can drive the full decision lifecycle for `Try 25 USDC via proxy`: submit graph, request allowed-output decryption, poll, and display `encrypt-verified-blocked`.
-- [ ] The frontend can drive the same lifecycle for an allowed amount such as `5 USDC` and display `encrypt-verified-allowed`.
-- [ ] `runConfidentialDcaExecution` and Ika request creation can consume a verified decision and only prepare Jupiter/Ika artifacts for verified allowed.
-- [ ] Pending or verified-blocked states never include Jupiter transactions, Ika dWallet data, MessageApproval data, destination digests, raw witnesses, decrypted policy thresholds, or remaining cap values.
-- [ ] If the session signer is unavailable to the connected wallet, the UI shows a signer-required state instead of a generic unexpected error.
-- [ ] Tests cover pending, verified blocked, verified allowed, mismatched pending ciphertext refs, stale policy sequence, and no-payload leakage.
-- [ ] Documentation states that Encrypt pre-alpha decryption request accounts can expose decrypted output values publicly and that this is not production privacy.
+- [x] The proxy exposes a route or resolver that can request decryption for the wallet's current `pendingAllowedOutput` ciphertext without revealing policy thresholds.
+- [x] The resolver validates that the pending allowed-output ciphertext belongs to the current wallet pending graph state and policy sequence.
+- [x] The frontend can drive the full decision lifecycle for `Try 25 USDC via proxy`: submit graph, request allowed-output decryption, poll, and display `encrypt-verified-blocked`.
+- [x] The frontend can drive the same lifecycle for an allowed amount such as `5 USDC` and display `encrypt-verified-allowed`.
+- [x] `runConfidentialDcaExecution` and Ika request creation can consume a verified decision and only prepare Jupiter/Ika artifacts for verified allowed.
+- [x] Pending or verified-blocked states never include Jupiter transactions, Ika dWallet data, MessageApproval data, destination digests, raw witnesses, decrypted policy thresholds, or remaining cap values.
+- [x] If the session signer is unavailable to the connected wallet, the UI shows a signer-required state instead of a generic unexpected error.
+- [x] Tests cover pending, verified blocked, verified allowed, mismatched pending ciphertext refs, stale policy sequence, and no-payload leakage.
+- [x] Documentation states that Encrypt pre-alpha decryption request accounts can expose decrypted output values publicly and that this is not production privacy.
+
+## Implementation note
+
+Implemented the pending allowed-output resolver across contract, proxy, and frontend. The contract now permits the owner-signed Encrypt decryption request instruction to target kind `3` (`pending_allowed_output`) after a graph is pending. The proxy adds `/wallet/request-pending-allowed-output-decryption`, `/wallet/resolve-encrypt-policy-decision`, bool `DecryptionRequest` account decoding, pending ciphertext/digest/policy-sequence validation, and verified allowed/blocked lifecycle mapping. The frontend graph-first path now submits the graph, requests allowed-output decryption with a fresh request keypair, resolves the bool result, displays final lifecycle status, and only continues into Jupiter/Ika payload preparation for `encrypt-verified-allowed`.
+
+Verification:
+
+- `cd proxy && bun test ./tests/official-encrypt-policy.test.ts ./tests/transaction-builder.test.ts ./tests/confidential-dca-execution.test.ts`
+- `cd proxy && bun run build`
+- `cd frontend && bun run test src/components/DemoTab.test.tsx`
+- `cd frontend && bun run typecheck`
+- `cd frontend && bun run build`
+- `cd contract && NO_DNA=1 cargo build`
+- `cd contract && NO_DNA=1 cargo test -p contract encrypt_harness`
+
+Boundary: Encrypt pre-alpha decryption request accounts may expose decrypted output values publicly after the decryptor responds. This resolver only decrypts the graph's boolean allowed output; it does not decrypt policy thresholds or remaining caps and does not claim production privacy.
 
 ## Blocked by
 

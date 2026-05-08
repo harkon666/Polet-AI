@@ -4,6 +4,7 @@ import type { ComponentProps } from 'react';
 import { DemoTabContent } from './DemoTab';
 import type {
   ExecuteEncryptPolicyGraphInput,
+  RequestPendingAllowedOutputDecryptionInput,
   RequestPolicyValueDecryptionInput,
   RunConfidentialDcaInput,
   RunMultichainIntentInput,
@@ -275,6 +276,27 @@ const api = {
       warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext publicly after the decryptor responds.',
     };
   },
+  requestPendingAllowedOutputDecryption: async (input: RequestPendingAllowedOutputDecryptionInput) => ({
+    transaction: 'allowed-output-decryption-tx',
+    wallet: input.wallet ?? 'wallet-pda',
+    request: input.request,
+    status: 'allowed-output-decryption-requested' as const,
+    graph: 'polet_policy_guardrail_graph' as const,
+    policySequence: 7,
+    allowedOutputCiphertext: freshExecutionCiphertexts.allowedOutputCiphertext,
+    allowedOutputDigest: '11'.repeat(32),
+    encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
+    grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+    boundary: 'owner-signed-public-decryption-request' as const,
+    warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext output values publicly after the decryptor responds.',
+  }),
+  resolveEncryptPolicyDecision: async () => ({
+    ...encryptPolicyBase,
+    status: encryptDcaMode === 'allowed' || encryptIkaMode === 'allowed'
+      ? 'encrypt-verified-allowed' as const
+      : 'encrypt-verified-blocked' as const,
+    verifiedSlot: 104,
+  }),
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
     dcaInputs.push(input);
     if (encryptDcaMode === 'pending') {

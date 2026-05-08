@@ -21,7 +21,11 @@ import { buildPolicyTree } from '../lib/merkle-tree';
 import { getWalletData } from '../lib/wallet-store';
 import { PROGRAM_ID, deriveWalletPda } from '../lib/program-identity';
 import { buildConfidentialNumericPolicySetup } from '../lib/confidential-numeric-policy';
-import { readCiphertextStatus, readEncryptInfraStatus } from '../lib/encrypt-ciphertext-poller';
+import { readBoolDecryptionRequest, readCiphertextStatus, readEncryptInfraStatus } from '../lib/encrypt-ciphertext-poller';
+import {
+  hasPendingOfficialEncryptPolicyOutputs,
+  resolveOfficialEncryptDecisionFromAllowedOutput,
+} from '../lib/official-encrypt-policy';
 import { toJsonSafe } from '../lib/json-safe';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -645,6 +649,152 @@ walletRouter.post('/request-policy-value-decryption', async (c) => {
   } catch (error) {
     console.error('Request policy value decryption error:', error);
     return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build policy reveal transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/request-pending-allowed-output-decryption
+ * Builds an owner/payer/request-signed tx that asks Encrypt to decrypt the
+ * current pending allowed-output bool for the wallet graph.
+ */
+walletRouter.post('/request-pending-allowed-output-decryption', async (c) => {
+  try {
+    const { owner, request, wallet, encrypt } = await c.req.json();
+    const ownerPubkey = parsePublicKey(owner, 'owner');
+    const walletData = await getWalletData(ownerPubkey.toString());
+    if (!walletData) throw new Error('Wallet not found');
+    if (wallet && wallet !== walletData.walletPda) {
+      throw new Error('wallet does not match owner PDA');
+    }
+    if (!hasPendingOfficialEncryptPolicyOutputs(walletData)) {
+      throw new Error('Official Encrypt policy graph has no pending allowed-output ciphertext for this wallet');
+    }
+
+    const ciphertext = walletData.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput;
+    const ciphertextPubkey = parsePublicKey(ciphertext, 'pendingAllowedOutput');
+    const encryptProgram = encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING;
+    const connection = getConnection();
+    const ciphertextStatus = await readCiphertextStatus(connection, ciphertextPubkey);
+    if (
+      !ciphertextStatus.exists
+      || ciphertextStatus.owner !== encryptProgram
+      || ciphertextStatus.dataLength < 100
+      || ciphertextStatus.fheType !== 0
+    ) {
+      throw new Error(`Pending allowed-output ${ciphertextPubkey.toString()} is not a valid official Encrypt bool ciphertext account`);
+    }
+
+    const transaction = await buildRequestPolicyValueDecryptionTransaction({
+      wallet: walletData.walletPda,
+      owner: ownerPubkey.toString(),
+      request,
+      kind: 'pending-allowed-output',
+      ciphertext,
+      encrypt: {
+        encryptProgram,
+        config: encrypt?.config,
+        deposit: encrypt?.deposit,
+        networkEncryptionKey: encrypt?.networkEncryptionKey,
+        eventAuthority: encrypt?.eventAuthority,
+        payer: encrypt?.payer ?? ownerPubkey.toString(),
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...transaction,
+        wallet: walletData.walletPda,
+        request,
+        status: 'allowed-output-decryption-requested',
+        graph: 'polet_policy_guardrail_graph',
+        policySequence: walletData.confidentialPolicy.encryptCiphertexts!.pendingPolicySeq || walletData.policySeq,
+        allowedOutputCiphertext: ciphertext,
+        allowedOutputDigest: ciphertextStatus.digest,
+        encryptProgram,
+        grpcEndpoint: ENCRYPT_PREALPHA_GRPC_URL,
+        boundary: 'owner-signed-public-decryption-request',
+        warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext output values publicly after the decryptor responds.',
+      },
+    });
+  } catch (error) {
+    console.error('Request pending allowed-output decryption error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build allowed-output decryption transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/resolve-encrypt-policy-decision
+ * Reads a bool decryption request and maps it to verified allowed/blocked.
+ */
+walletRouter.post('/resolve-encrypt-policy-decision', async (c) => {
+  try {
+    const { owner, allowedDecryptionRequest, expectedPolicySeq } = await c.req.json();
+    const ownerPubkey = parsePublicKey(owner, 'owner');
+    const requestPubkey = parsePublicKey(allowedDecryptionRequest, 'allowedDecryptionRequest');
+    const walletData = await getWalletData(ownerPubkey.toString());
+    if (!walletData) throw new Error('Wallet not found');
+    if (!hasPendingOfficialEncryptPolicyOutputs(walletData)) {
+      throw new Error('Official Encrypt policy graph has no pending allowed-output ciphertext for this wallet');
+    }
+    const state = walletData.confidentialPolicy.encryptCiphertexts!;
+    if (expectedPolicySeq !== undefined && Number(expectedPolicySeq) !== state.pendingPolicySeq) {
+      throw new Error('Encrypt policy execution policy sequence does not match wallet pending state');
+    }
+
+    const connection = getConnection();
+    const [requestInfo, ciphertextStatus, slot] = await Promise.all([
+      readBoolDecryptionRequest(connection, requestPubkey),
+      readCiphertextStatus(connection, parsePublicKey(state.pendingAllowedOutput, 'pendingAllowedOutput')),
+      connection.getSlot(),
+    ]);
+    if (!requestInfo.exists || requestInfo.status === 'invalid') {
+      throw new Error('Allowed-output decryption request account is invalid or missing');
+    }
+    if (requestInfo.ciphertext !== state.pendingAllowedOutput) {
+      throw new Error('Allowed-output decryption request does not match wallet pending graph state');
+    }
+    if (ciphertextStatus.digest && requestInfo.digest !== ciphertextStatus.digest) {
+      throw new Error('Allowed-output decryption digest does not match current ciphertext digest');
+    }
+    if (requestInfo.status === 'pending') {
+      return c.json({
+        success: true,
+        data: {
+          status: 'pending-encrypt-execution',
+          graph: 'polet_policy_guardrail_graph',
+          policySequence: state.pendingPolicySeq || walletData.policySeq,
+          sourceAmountCiphertext: state.pendingSourceAmount,
+          allowedOutputCiphertext: state.pendingAllowedOutput,
+          dailySpentOutputCiphertext: state.pendingDailySpentOutput,
+          allowedDecryptionRequest: requestPubkey.toString(),
+          suppressedUntilVerified: ['jupiterExecutionPayload', 'dwallet', 'messageApproval', 'destinationDigest', 'poletApprovalTransaction'],
+        },
+      });
+    }
+
+    const execution = resolveOfficialEncryptDecisionFromAllowedOutput(walletData, {
+      allowedDecryptionRequest: requestPubkey.toString(),
+      allowedOutputCiphertext: requestInfo.ciphertext,
+      allowedOutputDigest: requestInfo.digest,
+      allowed: requestInfo.boolValue === true,
+      verifiedSlot: slot,
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        ...execution,
+        boundary: 'public-output-decryption-result',
+        warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext output values publicly; this is not production privacy.',
+        ...(execution.status === 'encrypt-verified-blocked' && {
+          suppressedUntilVerified: ['jupiterExecutionPayload', 'dwallet', 'messageApproval', 'destinationDigest', 'poletApprovalTransaction'],
+        }),
+      },
+    });
+  } catch (error) {
+    console.error('Resolve Encrypt policy decision error:', error);
+    return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to resolve Encrypt policy decision' }, 500);
   }
 });
 

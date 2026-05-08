@@ -115,6 +115,36 @@ export function assertOfficialEncryptExecutionReference(
   }
 }
 
+export function resolveOfficialEncryptDecisionFromAllowedOutput(
+  wallet: WalletData,
+  input: {
+    allowedDecryptionRequest: string;
+    allowedOutputCiphertext: string;
+    allowedOutputDigest: string;
+    allowed: boolean;
+    verifiedSlot?: number;
+  }
+): OfficialEncryptPolicyVerifiedAllowed | OfficialEncryptPolicyVerifiedBlocked {
+  const state = wallet.confidentialPolicy.encryptCiphertexts;
+  if (!state || !hasPendingOfficialEncryptPolicyOutputs(wallet)) {
+    throw new Error('Official Encrypt policy graph has no pending output ciphertexts for this wallet');
+  }
+  if (input.allowedOutputCiphertext !== state.pendingAllowedOutput) {
+    throw new Error('Allowed-output decryption request does not match wallet pending graph state');
+  }
+  return {
+    status: input.allowed ? 'encrypt-verified-allowed' : 'encrypt-verified-blocked',
+    policySequence: state.pendingPolicySeq || wallet.policySeq,
+    sourceAmountCiphertext: state.pendingSourceAmount,
+    allowedOutputCiphertext: state.pendingAllowedOutput,
+    dailySpentOutputCiphertext: state.pendingDailySpentOutput,
+    ...(input.verifiedSlot !== undefined && { verifiedSlot: input.verifiedSlot }),
+    allowedDecryptionRequest: input.allowedDecryptionRequest,
+    allowedDecryptionResult: input.allowed ? 'true' : 'false',
+    graph: GRAPH_NAME,
+  };
+}
+
 export async function evaluateOfficialEncryptPolicyLifecycle(
   request: OfficialEncryptPolicyExecutionRequest,
   resolver?: OfficialEncryptPolicyResolver

@@ -475,6 +475,60 @@ export async function requestPolicyValueDecryption(
   return data.data;
 }
 
+export interface RequestPendingAllowedOutputDecryptionInput {
+  owner: string;
+  wallet?: string;
+  request: string;
+  encrypt: RequestPolicyValueDecryptionInput['encrypt'];
+}
+
+export interface RequestPendingAllowedOutputDecryptionResult extends WalletTransactionResult {
+  request: string;
+  status: 'allowed-output-decryption-requested';
+  graph: 'polet_policy_guardrail_graph';
+  policySequence: number;
+  allowedOutputCiphertext: string;
+  allowedOutputDigest: string;
+  encryptProgram: string;
+  grpcEndpoint: string;
+  boundary: 'owner-signed-public-decryption-request';
+  warning: string;
+}
+
+export async function requestPendingAllowedOutputDecryption(
+  input: RequestPendingAllowedOutputDecryptionInput
+): Promise<RequestPendingAllowedOutputDecryptionResult> {
+  const data = await fetchJson<{ success: boolean; data: RequestPendingAllowedOutputDecryptionResult }>(
+    `${PROXY_URL}/wallet/request-pending-allowed-output-decryption`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export interface ResolveEncryptPolicyDecisionInput {
+  owner: string;
+  allowedDecryptionRequest: string;
+  expectedPolicySeq?: number;
+}
+
+export async function resolveEncryptPolicyDecision(
+  input: ResolveEncryptPolicyDecisionInput
+): Promise<OfficialEncryptPolicyPreview> {
+  const data = await fetchJson<{ success: boolean; data: OfficialEncryptPolicyPreview }>(
+    `${PROXY_URL}/wallet/resolve-encrypt-policy-decision`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
 export interface PasskeyCoapprovalChallengeInput {
   owner: string;
   sessionKey: string;
@@ -602,6 +656,8 @@ export interface OfficialEncryptPolicyPreview {
   dailySpentOutputCiphertext: string;
   pendingSlot?: number;
   verifiedSlot?: number;
+  allowedDecryptionRequest?: string;
+  allowedDecryptionResult?: string;
   graph: 'polet_policy_guardrail_graph';
   encryptProgram?: string;
   grpcEndpoint?: string;

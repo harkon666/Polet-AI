@@ -530,6 +530,11 @@ fn expected_policy_reveal_ciphertext(wallet: &Wallet, kind: u8) -> Result<Pubkey
         0 => Ok(ciphertexts.max_per_run),
         1 => Ok(ciphertexts.daily_cap),
         2 => Ok(ciphertexts.daily_spent),
+        3 => {
+            require!(ciphertexts.pending, ErrorCode::EncryptPolicyPending);
+            require_non_default_pubkey(ciphertexts.pending_allowed_output)?;
+            Ok(ciphertexts.pending_allowed_output)
+        }
         _ => err!(ErrorCode::InvalidEncryptPolicy),
     }
 }

@@ -35,7 +35,9 @@ import {
   createEncryptDeposit,
   executeEncryptPolicyGraph,
   initializeWallet,
+  requestPendingAllowedOutputDecryption,
   requestPolicyValueDecryption,
+  resolveEncryptPolicyDecision,
   type RunConfidentialDcaResult,
   type RunMultichainIntentResult,
   type SharedIkaApproverConfigInput,
@@ -49,6 +51,9 @@ import {
   type PolicyRevealKind,
   type RequestPolicyValueDecryptionInput,
   type RequestPolicyValueDecryptionResult,
+  type RequestPendingAllowedOutputDecryptionInput,
+  type RequestPendingAllowedOutputDecryptionResult,
+  type OfficialEncryptPolicyPreview,
 } from '../lib/api';
 import { COPY, type Locale } from '../lib/i18n';
 import {
@@ -99,6 +104,8 @@ interface DemoApi {
   createEncryptDeposit: typeof createEncryptDeposit;
   executeEncryptPolicyGraph: (input: ExecuteEncryptPolicyGraphInput) => Promise<ExecuteEncryptPolicyGraphResult>;
   requestPolicyValueDecryption: (input: RequestPolicyValueDecryptionInput) => Promise<RequestPolicyValueDecryptionResult>;
+  requestPendingAllowedOutputDecryption: (input: RequestPendingAllowedOutputDecryptionInput) => Promise<RequestPendingAllowedOutputDecryptionResult>;
+  resolveEncryptPolicyDecision: typeof resolveEncryptPolicyDecision;
 }
 
 interface DemoTabContentProps {
@@ -131,6 +138,8 @@ const DEFAULT_API: DemoApi = {
   createEncryptDeposit,
   executeEncryptPolicyGraph,
   requestPolicyValueDecryption,
+  requestPendingAllowedOutputDecryption,
+  resolveEncryptPolicyDecision,
 };
 
 const DEFAULT_CREATE_POLICY_CIPHERTEXTS = createOfficialEncryptPolicyCiphertexts;
@@ -953,16 +962,16 @@ export function DemoTabContent({
     }
   };
 
-  const submitOfficialEncryptGraph = async (amountUsdc: string, routePair: string, route: string) => {
+  const submitOfficialEncryptGraph = async (amountUsdc: string, routePair: string, route: string): Promise<OfficialEncryptPolicyPreview | null> => {
     if (!owner || !agentAddress.trim()) {
       recordError(!owner ? t.missingOwner : t.missingAgent);
-      return false;
+      return null;
     }
     const walletData = await api.getWalletData(owner);
     const policyRefs = readOfficialEncryptRefsFromWallet(walletData) ?? officialEncryptPolicyRefs;
     if (!policyRefs?.wallet || policyRefs.policySeq === undefined || policyRefs.lastRevokedSlot === undefined) {
       recordError('Official Encrypt policy must be configured on-chain before graph execution.');
-      return false;
+      return null;
     }
 
     const executionCiphertexts = await createExecutionCiphertexts({ amountUsdc });
@@ -1022,7 +1031,53 @@ export function DemoTabContent({
         suppressedUntilVerified: graphResult.suppressedUntilVerified,
       },
     });
-    return true;
+
+    const requestKeypair = Keypair.generate();
+    const decryption = await api.requestPendingAllowedOutputDecryption({
+      owner,
+      wallet: policyRefs.wallet,
+      request: requestKeypair.publicKey.toBase58(),
+      encrypt: {
+        encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+        config: deposit.config || policyRefs.config,
+        deposit: deposit.deposit,
+        networkEncryptionKey: policyRefs.networkEncryptionKey,
+        eventAuthority: deposit.eventAuthority || policyRefs.eventAuthority,
+        payer: owner,
+      },
+    });
+    await signAndConfirmTransaction(decryption.transaction, [requestKeypair]);
+    const decision = await pollEncryptPolicyDecision(decryption.request, decryption.policySequence);
+    addActivity({
+      status: decision.status,
+      amountUsdc,
+      routePair,
+      message: encryptMessage(decision.status, t),
+      route: `${route}: allowed-output ${short(decision.allowedOutputCiphertext)}`,
+      encryptPolicy: decision,
+    });
+    return decision;
+  };
+
+  const pollEncryptPolicyDecision = async (
+    allowedDecryptionRequest: string,
+    expectedPolicySeq: number,
+    attempts = 5,
+    intervalMs = 3_000
+  ): Promise<OfficialEncryptPolicyPreview> => {
+    let last: OfficialEncryptPolicyPreview | null = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      last = await api.resolveEncryptPolicyDecision({
+        owner: owner!,
+        allowedDecryptionRequest,
+        expectedPolicySeq,
+      });
+      if (last.status !== 'pending-encrypt-execution') return last;
+      if (attempt < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+    }
+    return last!;
   };
 
   const runAgent = async (amountUsdc: string) => {
@@ -1039,8 +1094,8 @@ export function DemoTabContent({
     setError(null);
     try {
       if (executeGraphBeforeRequests && officialEncryptPolicyRefs && canWalletSignSession(owner, agentAddress)) {
-        await submitOfficialEncryptGraph(amountUsdc, 'USDC -> SOL', 'Official Encrypt graph / Jupiter gated');
-        return;
+        const decision = await submitOfficialEncryptGraph(amountUsdc, 'USDC -> SOL', 'Official Encrypt graph / Jupiter gated');
+        if (!decision || decision.status !== 'encrypt-verified-allowed') return;
       }
       const result: RunConfidentialDcaResult = await api.runConfidentialDca({
         owner,
@@ -1103,8 +1158,8 @@ export function DemoTabContent({
     setError(null);
     try {
       if (executeGraphBeforeRequests && officialEncryptPolicyRefs && isAllowedIkaTarget && canWalletSignSession(owner, agentAddress)) {
-        await submitOfficialEncryptGraph(amount, `USDC -> ${target.asset}`, `Official Encrypt graph / Ika ${target.chain.toUpperCase()} gated`);
-        return;
+        const decision = await submitOfficialEncryptGraph(amount, `USDC -> ${target.asset}`, `Official Encrypt graph / Ika ${target.chain.toUpperCase()} gated`);
+        if (!decision || decision.status !== 'encrypt-verified-allowed') return;
       }
       const result: RunMultichainIntentResult = await api.runMultichainIntent({
         owner,

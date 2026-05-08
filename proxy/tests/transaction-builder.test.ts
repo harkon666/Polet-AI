@@ -363,6 +363,14 @@ describe('Transaction Builder', () => {
       expect(data.length).toBe(10);
     });
 
+    test('encodes pending allowed-output decryption request kind', () => {
+      const request = createPolicyRevealRequest({ kind: 'pending-allowed-output' });
+      const data = buildRequestPolicyValueDecryptionInstructionData(request);
+
+      expect(data.subarray(0, 8)).toEqual(REQUEST_POLICY_VALUE_DECRYPTION_DISCRIMINATOR);
+      expect(data.readUInt8(8)).toBe(3);
+    });
+
     test('defines owner-only policy value decryption account order', () => {
       const request = createPolicyRevealRequest();
       const metas = buildRequestPolicyValueDecryptionAccounts(request);

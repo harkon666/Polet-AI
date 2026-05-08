@@ -52,7 +52,7 @@ Current hackathon integration decision:
 - `065-frontend-official-encrypt-prealpha-policy-setup` — Completed the frontend policy setup correction. Primary setup now accepts only numeric USDC limits, creates fresh official Encrypt pre-alpha ciphertext inputs in the browser through `@encrypt.xyz/pre-alpha-solana-client/grpc-web`, optionally signs `/wallet/create-encrypt-deposit`, registers those ciphertext refs through `/wallet/set-official-encrypt-ciphertext-policy`, and displays refs read-only after setup. Masked-witness setup remains only as an explicit dev fallback.
 - `066-frontend-official-encrypt-policy-graph-execution` — Completed the frontend graph-submission wiring. Primary DCA/Ika buttons now create fresh source/output official Encrypt pre-alpha ciphertext refs, build and sign `/wallet/execute-encrypt-policy-graph`, display `pending-encrypt-execution`, and suppress Jupiter/Ika artifacts until verified output exists. Final verified decision resolution is tracked in `068`.
 - `067-owner-only-official-encrypt-policy-reveal` — Completed owner-only "Reveal my policy" inspection path. Default policy values stay masked, agents cannot reveal them, and owner reveals are opt-in, wallet-signed, one value at a time, decoded in frontend memory only, and documented as potentially public on-chain once Encrypt pre-alpha decryptor responds.
-- `068-official-encrypt-verified-decision-resolver` — New critical path issue for turning pending graph outputs into final `encrypt-verified-allowed` / `encrypt-verified-blocked` decisions. This is the remaining gap behind `Try 25 USDC via proxy` showing `ENCRYPT_POLICY_GRAPH_NOT_EXECUTED` instead of a final blocked/allowed result.
+- `068-official-encrypt-verified-decision-resolver` — Completed the pending allowed-output resolver. The product can now request decryption for the current graph's `pendingAllowedOutput`, poll/read the bool decryption request, map it to `encrypt-verified-allowed` / `encrypt-verified-blocked`, and keep Jupiter/Ika artifacts suppressed unless the verified result is allowed.
 
 ## In Progress
 
@@ -60,7 +60,7 @@ Current hackathon integration decision:
 
 ## Blocked
 
-- None for the currently tracked local implementation queue. The remaining Official Encrypt decision UX is an unblocked product slice in `068`; it must still be implemented before `Try 25 USDC via proxy` can end in a verified blocked/allowed result.
+- None for the currently tracked local implementation queue.
 - GitHub Issues mirror: local issue specs exist in `docs/issues/`, but they have not yet been published to GitHub Issues.
 - Deleted legacy docs remain deleted in the working tree: `docs/GRILL-SESSION.md`, `docs/PRD-PRODUCTION.md`, `docs/PRD.md`.
 
@@ -70,7 +70,7 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-1. `068-official-encrypt-verified-decision-resolver`
+- None.
 
 ### Stretch
 
@@ -82,7 +82,7 @@ Ralph execution queue. Pick the first incomplete unblocked issue:
 - Frontend demo features should use safe transaction summaries, explicit user signing, devnet/localnet boundaries, and honest pre-alpha disclaimers.
 - For issue `065`, the primary policy setup must not accept manual ciphertext refs or send static sample ciphertext refs. The frontend should create fresh official Encrypt pre-alpha ciphertext inputs with `createEncryptWebClient`/`encryptValue`/`createInput`, then register those refs with Polet. The masked-witness numeric path may remain only as an explicitly labeled dev fallback.
 - For issue `066`, graph execution should call Polet's existing `execute_encrypt_policy_graph_as_session` path and surface `pending-encrypt-execution` safely. Do not claim verified allowed/blocked unless executor/decryption evidence exists.
-- For issue `068`, pending Official Encrypt graph outputs should be resolved into final decisions by decrypting/verifying the graph's `allowedOutputCiphertext`. Do not fall back to plaintext/local numeric evaluation while presenting the result as Official Encrypt verified.
+- Issue `068` completed pending Official Encrypt graph output resolution by decrypting/verifying the graph's `allowedOutputCiphertext`; future work must keep this path from falling back to plaintext/local numeric evaluation while presenting the result as Official Encrypt verified.
 
 ## Dependency Graph
 
@@ -174,6 +174,9 @@ Ralph execution queue. Pick the first incomplete unblocked issue:
 
 ### Current Roadmap
 
+- [x] `068-official-encrypt-verified-decision-resolver` — Added the final pending allowed-output decision resolver. The contract owner-signed decryption request path can now target the pending graph `allowedOutput` bool (kind `3`), the proxy can request and resolve that decryption request with pending ciphertext/digest/policy-sequence validation, and the frontend graph-first flow displays final `encrypt-verified-allowed` / `encrypt-verified-blocked` status before preparing strategy artifacts.
+  - Verification this pass: `cd proxy && bun test ./tests/official-encrypt-policy.test.ts ./tests/transaction-builder.test.ts ./tests/confidential-dca-execution.test.ts` ✅, `cd proxy && bun run build` ✅, `cd frontend && bun run test src/components/DemoTab.test.tsx` ✅, `cd frontend && bun run typecheck` ✅, `cd frontend && bun run build` ✅, `cd contract && NO_DNA=1 cargo build` ✅, `cd contract && NO_DNA=1 cargo test -p contract encrypt_harness` ✅.
+  - Note: Encrypt pre-alpha decryption request accounts may expose decrypted output values publicly after decryptor response. This implementation only resolves the boolean allowed output and does not reveal policy thresholds or remaining caps.
 - [x] `059-official-encrypt-devnet-ciphertext-graph-e2e` — Completed the corrected live-devnet Official Encrypt integration evidence for the parts Polet can execute today: official ciphertext creation, Encrypt-owned ciphertext verification, Polet policy registration, Encrypt deposit creation, owner-only policy reveal request, decryptor polling, and in-memory decode of a devnet daily-cap value. The previous infra diagnosis is no longer the active blocker for policy setup/reveal. Final strategy decision resolution from pending graph output is split into `068`.
   - Verification this pass: live devnet policy set transaction `2pUGKipfzyYox9tQH4xaVNVYSrwQLthMim4q4ykqbsjwYuNwiSqsQZumwje9Ldruep1hnGvMiD46HSBRt6woHTLn` confirmed; live owner reveal transaction `Lqwx8XNNgLZgs33DoVuzsMs65Chmj27NWrk4k7pkVB7SxKfGv5KLWX2bU9fbTMDPFTLFfK5d15ddwSG5zZirWin` confirmed; frontend/proxy tests for the fixed Encrypt policy reveal authorization and deposit builder passed.
   - Note: this does not claim final Official Encrypt strategy decisions are complete. `068` owns resolving pending graph allowed-output ciphertexts into `encrypt-verified-allowed` / `encrypt-verified-blocked`.
