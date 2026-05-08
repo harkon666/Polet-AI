@@ -80,6 +80,13 @@ Relevant docs path:
 
 - `docs/encrypt/raw.md`
 
+Official Encrypt voting example references:
+
+- https://docs.encrypt.xyz/examples/voting/02-program
+- https://docs.encrypt.xyz/examples/voting/03-testing
+- https://docs.encrypt.xyz/examples/voting/04-react
+- https://docs.encrypt.xyz/examples/voting/05-e2e
+
 Reference pattern from docs:
 
 ```ts
