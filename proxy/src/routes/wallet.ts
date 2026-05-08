@@ -16,6 +16,7 @@ import { buildPolicyTree } from '../lib/merkle-tree';
 import { getWalletData } from '../lib/wallet-store';
 import { PROGRAM_ID, deriveWalletPda } from '../lib/program-identity';
 import { buildConfidentialNumericPolicySetup } from '../lib/confidential-numeric-policy';
+import { toJsonSafe } from '../lib/json-safe';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -876,7 +877,7 @@ walletRouter.get('/:owner', async (c) => {
 
     return c.json({
       success: true,
-      data: walletData
+      data: toJsonSafe(walletData)
     });
   } catch (error) {
     console.error('Fetch wallet error:', error);
