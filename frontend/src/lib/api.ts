@@ -163,6 +163,28 @@ export async function grantKey(input: GrantKeyInput): Promise<GrantKeyResult> {
   return data.data;
 }
 
+export interface RegisterAgentInput {
+  owner: string;
+  expiresAt: number;
+  dailyLimit: number;
+}
+
+export interface RegisterAgentResult {
+  transaction: string;
+  sessionKey: string;
+}
+
+export async function registerAgent(input: RegisterAgentInput): Promise<RegisterAgentResult> {
+  const data = await fetchJson<{ success: boolean; data: RegisterAgentResult }>(
+    `${PROXY_URL}/agent/register`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+  return data.data;
+}
+
 export interface RevokeSessionInput {
   owner: string;
   sessionKey: string;
@@ -391,12 +413,12 @@ export interface CreateEncryptDepositResult {
   blockers?: string[];
 }
 
-export async function createEncryptDeposit(owner: string): Promise<CreateEncryptDepositResult> {
+export async function createEncryptDeposit(owner: string, feePayerOwner?: string): Promise<CreateEncryptDepositResult> {
   const data = await fetchJson<{ success: boolean; data: CreateEncryptDepositResult }>(
     `${PROXY_URL}/wallet/create-encrypt-deposit`,
     {
       method: 'POST',
-      body: JSON.stringify({ owner }),
+      body: JSON.stringify({ owner, ...(feePayerOwner && { feePayerOwner }) }),
     }
   );
 
@@ -404,6 +426,7 @@ export async function createEncryptDeposit(owner: string): Promise<CreateEncrypt
 }
 
 export interface ExecuteEncryptPolicyGraphInput {
+  owner?: string;
   wallet: string;
   sessionKey: string;
   sourceAmountCiphertext: string;

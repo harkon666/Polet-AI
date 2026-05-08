@@ -115,7 +115,7 @@ interface DemoApi {
 interface DemoTabContentProps {
   owner: string | null;
   agentAddresses?: string[];
-  signAndConfirmTransaction: (transactionBase64: string, extraSigners?: Signer[]) => Promise<string>;
+  signAndConfirmTransaction: (transactionBase64: string, extraSigners?: Signer[], options?: { preserveExistingSignatures?: boolean }) => Promise<string>;
   api?: DemoApi;
   createPolicyCiphertexts?: typeof createOfficialEncryptPolicyCiphertexts;
   createExecutionCiphertexts?: typeof createOfficialEncryptExecutionCiphertexts;
@@ -155,10 +155,6 @@ function short(value: string) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }
 
-function canWalletSignSession(owner: string | null, sessionKey: string) {
-  return Boolean(owner && sessionKey.trim() && owner === sessionKey.trim());
-}
-
 interface OfficialEncryptPolicyRefs {
   maxPerRun: string;
   dailyCap: string;
@@ -183,8 +179,12 @@ export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) 
   const { publicKey, sendTransaction, signTransaction } = useWallet();
   const { connection } = useConnection();
 
-  const signAndConfirmTransaction = async (transactionBase64: string, extraSigners: Signer[] = []) => {
-    const { transaction, latestBlockhash } = await prepareFreshTransaction(transactionBase64, connection);
+  const signAndConfirmTransaction = async (
+    transactionBase64: string,
+    extraSigners: Signer[] = [],
+    options: { preserveExistingSignatures?: boolean } = {}
+  ) => {
+    const { transaction, latestBlockhash } = await prepareFreshTransaction(transactionBase64, connection, options);
     if (extraSigners.length > 0) {
       if (!signTransaction) {
         throw new Error('Wallet does not support signing transactions with additional request signers.');
@@ -1074,11 +1074,12 @@ export function DemoTabContent({
     }
 
     const executionCiphertexts = await createExecutionCiphertexts({ amountUsdc });
-    const deposit = await api.createEncryptDeposit(agentAddress.trim());
+    const deposit = await api.createEncryptDeposit(agentAddress.trim(), owner);
     if (deposit.transaction) {
-      await signAndConfirmTransaction(deposit.transaction);
+      await signAndConfirmTransaction(deposit.transaction, [], { preserveExistingSignatures: true });
     }
     const graphResult = await api.executeEncryptPolicyGraph({
+      owner,
       wallet: policyRefs.wallet,
       sessionKey: agentAddress.trim(),
       sourceAmountCiphertext: executionCiphertexts.sourceAmountCiphertext,
@@ -1098,7 +1099,7 @@ export function DemoTabContent({
         payer: agentAddress.trim(),
       },
     });
-    const signature = await signAndConfirmTransaction(graphResult.transaction);
+    const signature = await signAndConfirmTransaction(graphResult.transaction, [], { preserveExistingSignatures: true });
     const pendingWallet = await api.getWalletData(owner).catch(() => null);
     const pendingState = pendingWallet?.confidentialPolicy?.encryptCiphertexts;
     const pendingRefs = {
@@ -1210,10 +1211,6 @@ export function DemoTabContent({
     setError(null);
     try {
       const shouldSubmitOfficialGraph = executeGraphBeforeRequests && policyMode === 'official';
-      if (shouldSubmitOfficialGraph && !canWalletSignSession(owner, agentAddress)) {
-        recordError('Official Encrypt graph execution needs the connected wallet as the demo agent signer. Set Agent / session wallet to the connected owner wallet, then run again.');
-        return;
-      }
       if (shouldSubmitOfficialGraph) {
         const decision = await submitOfficialEncryptGraph(amountUsdc, 'USDC -> SOL', 'Official Encrypt graph / Jupiter gated');
         if (!decision || decision.status !== 'encrypt-verified-allowed') return;
@@ -1279,10 +1276,6 @@ export function DemoTabContent({
     setError(null);
     try {
       const shouldSubmitOfficialGraph = executeGraphBeforeRequests && policyMode === 'official' && isAllowedIkaTarget;
-      if (shouldSubmitOfficialGraph && !canWalletSignSession(owner, agentAddress)) {
-        recordError('Official Encrypt graph execution needs the connected wallet as the demo agent signer. Set Agent / session wallet to the connected owner wallet, then run again.');
-        return;
-      }
       if (shouldSubmitOfficialGraph) {
         const decision = await submitOfficialEncryptGraph(amount, `USDC -> ${target.asset}`, `Official Encrypt graph / Ika ${target.chain.toUpperCase()} gated`);
         if (!decision || decision.status !== 'encrypt-verified-allowed') return;
@@ -1912,6 +1905,20 @@ export function DemoTabContent({
                 step="1"
                 className="w-full rounded-lg px-3 py-2 text-sm"
               />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.authorizedSessionKey}</span>
+              <select
+                value={authorizedSessionOptions.some((session) => session.key === agentAddress.trim()) ? agentAddress.trim() : ''}
+                onChange={(event) => setAgentAddress(event.target.value)}
+                disabled={authorizedSessionOptions.length === 0}
+                className="w-full rounded-lg px-3 py-2 text-sm font-mono disabled:opacity-60"
+              >
+                <option value="">{authorizedSessionOptions.length === 0 ? t.noAuthorizedSessions : t.selectAuthorizedSession}</option>
+                {authorizedSessionOptions.map((session) => (
+                  <option key={session.key} value={session.key}>{session.label}</option>
+                ))}
+              </select>
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.agentAddress}</span>

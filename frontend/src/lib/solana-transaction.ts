@@ -4,10 +4,20 @@ export function decodeBase64Transaction(transactionBase64: string) {
   return Transaction.from(Uint8Array.from(atob(transactionBase64), (char) => char.charCodeAt(0)));
 }
 
-export async function prepareFreshTransaction(transactionBase64: string, connection: Connection) {
+export async function prepareFreshTransaction(
+  transactionBase64: string,
+  connection: Connection,
+  options: { preserveExistingSignatures?: boolean } = {}
+) {
   const transaction = decodeBase64Transaction(transactionBase64);
-  const latestBlockhash = await connection.getLatestBlockhash('confirmed');
-  transaction.recentBlockhash = latestBlockhash.blockhash;
+  const existingBlockhash = transaction.recentBlockhash;
+  const hasExistingSignatures = transaction.signatures.some((signature) => signature.signature !== null);
+  const latestBlockhash = options.preserveExistingSignatures && hasExistingSignatures && existingBlockhash
+    ? { blockhash: existingBlockhash, lastValidBlockHeight: await connection.getBlockHeight('confirmed') + 150 }
+    : await connection.getLatestBlockhash('confirmed');
+  if (!options.preserveExistingSignatures || !hasExistingSignatures) {
+    transaction.recentBlockhash = latestBlockhash.blockhash;
+  }
   return { transaction, latestBlockhash };
 }
 

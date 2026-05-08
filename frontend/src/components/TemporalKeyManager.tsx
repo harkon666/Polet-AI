@@ -15,10 +15,17 @@ interface TemporalKeyManagerProps {
   keys: TemporalKey[];
   onRevoke: (sessionKey: string) => void;
   onGrant: (sessionKey: string, expiresAt: number, dailyLimit: number) => void;
+  onGenerateProxySession?: (expiresAt: number, dailyLimit: number) => void;
   revokingSessionKey?: string | null;
 }
 
-export function TemporalKeyManager({ keys, onRevoke, onGrant, revokingSessionKey }: TemporalKeyManagerProps) {
+export function TemporalKeyManager({
+  keys,
+  onRevoke,
+  onGrant,
+  onGenerateProxySession,
+  revokingSessionKey,
+}: TemporalKeyManagerProps) {
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [newAgentAddress, setNewAgentAddress] = useState('');
   const [expiresIn, setExpiresIn] = useState(24); // hours
@@ -29,6 +36,14 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant, revokingSessionKey
     if (!newAgentAddress.trim()) return;
     const expiresAt = Date.now() + expiresIn * 60 * 60 * 1000;
     onGrant(newAgentAddress.trim(), expiresAt, dailyLimit * 1_000_000_000);
+    setShowGrantForm(false);
+    setNewAgentAddress('');
+  };
+
+  const handleGenerateProxySession = () => {
+    if (!onGenerateProxySession) return;
+    const expiresAt = Date.now() + expiresIn * 60 * 60 * 1000;
+    onGenerateProxySession(expiresAt, dailyLimit * 1_000_000_000);
     setShowGrantForm(false);
     setNewAgentAddress('');
   };
@@ -133,6 +148,14 @@ export function TemporalKeyManager({ keys, onRevoke, onGrant, revokingSessionKey
             >
               Authorize Agent
             </button>
+            {onGenerateProxySession && (
+              <button
+                onClick={handleGenerateProxySession}
+                className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] py-2.5 text-sm font-semibold text-[var(--lagoon-deep)] transition hover:-translate-y-0.5"
+              >
+                Generate Proxy Session
+              </button>
+            )}
             <button
               onClick={() => setShowGrantForm(false)}
               className="rounded-full border border-[var(--line)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--sea-ink)] transition hover:-translate-y-0.5"

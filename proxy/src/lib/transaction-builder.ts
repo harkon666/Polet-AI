@@ -360,7 +360,8 @@ export async function buildSetOfficialEncryptCiphertextPolicyTransaction(
 
 export async function buildExecuteEncryptPolicyGraphSessionTransaction(
   request: ExecuteEncryptPolicyGraphTransactionRequest,
-  programId = PROGRAM_ID_STRING
+  programId = PROGRAM_ID_STRING,
+  options: { feePayer?: string; partialSigners?: Signer[] } = {}
 ): Promise<BuiltTransaction> {
   const sessionKeyPubkey = new PublicKey(request.sessionKey);
   const transaction = new Transaction().add(new TransactionInstruction({
@@ -369,7 +370,12 @@ export async function buildExecuteEncryptPolicyGraphSessionTransaction(
     data: buildExecuteEncryptPolicyGraphAsSessionInstructionData(request, programId),
   }));
   const signerSet = new Set([request.sessionKey, request.encrypt.payer]);
-  return serializeBuiltTransaction(transaction, sessionKeyPubkey, Array.from(signerSet));
+  return serializeBuiltTransaction(
+    transaction,
+    options.feePayer ? new PublicKey(options.feePayer) : sessionKeyPubkey,
+    Array.from(signerSet),
+    options.partialSigners
+  );
 }
 
 export async function buildRequestPolicyValueDecryptionTransaction(
@@ -640,9 +646,11 @@ export interface CreateEncryptDepositResult extends BuiltTransaction {
  */
 export async function buildCreateEncryptDepositTransaction(
   ownerPubkey: string,
-  encryptProgramId = ENCRYPT_PREALPHA_PROGRAM_ID_STRING
+  encryptProgramId = ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+  options: { feePayer?: string; partialSigners?: Signer[] } = {}
 ): Promise<CreateEncryptDepositResult> {
   const owner = new PublicKey(ownerPubkey);
+  const payer = options.feePayer ? new PublicKey(options.feePayer) : owner;
   const encryptProgram = new PublicKey(encryptProgramId);
 
   // Derive PDAs
@@ -672,7 +680,7 @@ export async function buildCreateEncryptDepositTransaction(
       { pubkey: depositPda, isSigner: false, isWritable: true },        // 0. deposit PDA
       { pubkey: configPda, isSigner: false, isWritable: false },        // 1. config
       { pubkey: owner, isSigner: true, isWritable: false },             // 2. user/owner (signer)
-      { pubkey: owner, isSigner: true, isWritable: true },              // 3. payer (signer, writable)
+      { pubkey: payer, isSigner: true, isWritable: true },              // 3. payer (signer, writable)
       { pubkey: owner, isSigner: true, isWritable: true },              // 4. user_ata placeholder in pre-alpha
       { pubkey: vault, isSigner: vault.equals(owner), isWritable: true }, // 5. vault from config, or payer placeholder
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // 6. token_program placeholder
@@ -683,7 +691,8 @@ export async function buildCreateEncryptDepositTransaction(
   const transaction = new Transaction();
   transaction.add(ix);
 
-  const built = await serializeBuiltTransaction(transaction, owner, [ownerPubkey]);
+  const signerSet = new Set([ownerPubkey, payer.toString()]);
+  const built = await serializeBuiltTransaction(transaction, payer, Array.from(signerSet), options.partialSigners);
 
   return {
     ...built,
@@ -911,7 +920,8 @@ export async function buildIntentTransaction(
 async function serializeBuiltTransaction(
   transaction: Transaction,
   feePayer: PublicKey,
-  signers: string[]
+  signers: string[],
+  partialSigners: Signer[] = []
 ): Promise<BuiltTransaction> {
   const connection = getConnection();
   const { blockhash } = await connection.getLatestBlockhash();
@@ -919,6 +929,9 @@ async function serializeBuiltTransaction(
 
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = feePayer;
+  if (partialSigners.length > 0) {
+    transaction.partialSign(...partialSigners);
+  }
 
   return {
     transaction: transaction.serialize({

@@ -37,6 +37,10 @@ vi.mock('../lib/api', () => ({
   grantKey: async () => ({
     transaction: 'grant-key-tx',
   }),
+  registerAgent: async () => ({
+    transaction: 'register-agent-tx',
+    sessionKey: 'Agent111111111111111111111111111111111111111',
+  }),
   revokeSession: async () => ({
     transaction: 'revoke-session-tx',
     wallet: 'WalletPda11111111111111111111111111111111111',
