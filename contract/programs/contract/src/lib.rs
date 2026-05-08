@@ -1,4 +1,8 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::{
+    instruction::{AccountMeta, Instruction},
+    program::invoke_signed,
+};
 use encrypt_anchor::EncryptContext;
 use encrypt_types::encrypted::{Bool, EncryptedType};
 
@@ -30,6 +34,7 @@ const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
     95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
 ];
 const ENCRYPT_CIPHERTEXT_ACCOUNT_LEN: usize = 100;
+const ENCRYPT_REQUEST_DECRYPTION_DISC: u8 = 10;
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -529,6 +534,53 @@ fn expected_policy_reveal_ciphertext(wallet: &Wallet, kind: u8) -> Result<Pubkey
     }
 }
 
+fn request_encrypt_decryption_compat<'info>(
+    encrypt_ctx: &EncryptContext<'info>,
+    request_acct: &AccountInfo<'info>,
+    ciphertext: &AccountInfo<'info>,
+) -> Result<[u8; 32]> {
+    let ct_data = ciphertext.try_borrow_data()?;
+    let digest = *encrypt_anchor::accounts::ciphertext_digest(&ct_data)
+        .map_err(|_| error!(ErrorCode::InvalidEncryptPolicy))?;
+    drop(ct_data);
+
+    let ix = Instruction {
+        program_id: encrypt_ctx.encrypt_program.key(),
+        accounts: vec![
+            AccountMeta::new_readonly(encrypt_ctx.config.key(), false),
+            AccountMeta::new(encrypt_ctx.deposit.key(), false),
+            AccountMeta::new(request_acct.key(), false),
+            AccountMeta::new_readonly(encrypt_ctx.caller_program.key(), false),
+            AccountMeta::new_readonly(encrypt_ctx.cpi_authority.key(), true),
+            AccountMeta::new_readonly(ciphertext.key(), false),
+            AccountMeta::new(encrypt_ctx.payer.key(), true),
+            AccountMeta::new_readonly(encrypt_ctx.system_program.key(), false),
+            AccountMeta::new_readonly(encrypt_ctx.event_authority.key(), false),
+            AccountMeta::new_readonly(encrypt_ctx.encrypt_program.key(), false),
+        ],
+        data: vec![ENCRYPT_REQUEST_DECRYPTION_DISC],
+    };
+
+    let account_infos = vec![
+        encrypt_ctx.config.clone(),
+        encrypt_ctx.deposit.clone(),
+        request_acct.clone(),
+        encrypt_ctx.caller_program.clone(),
+        encrypt_ctx.cpi_authority.clone(),
+        ciphertext.clone(),
+        encrypt_ctx.payer.clone(),
+        encrypt_ctx.system_program.clone(),
+        encrypt_ctx.event_authority.clone(),
+        encrypt_ctx.encrypt_program.clone(),
+    ];
+    let seeds = &[
+        ENCRYPT_CPI_AUTHORITY_SEED,
+        &[encrypt_ctx.cpi_authority_bump],
+    ];
+    invoke_signed(&ix, &account_infos, &[seeds])?;
+    Ok(digest)
+}
+
 fn read_verified_encrypt_allowed_output(
     allowed_output_ciphertext: &AccountInfo,
     allowed_decryption_request: &AccountInfo,
@@ -1016,7 +1068,8 @@ pub mod contract {
             system_program: ctx.accounts.system_program.to_account_info(),
             cpi_authority_bump,
         };
-        let digest = encrypt_ctx.request_decryption(
+        let digest = request_encrypt_decryption_compat(
+            &encrypt_ctx,
             &ctx.accounts.request.to_account_info(),
             &ctx.accounts.ciphertext.to_account_info(),
         )?;
