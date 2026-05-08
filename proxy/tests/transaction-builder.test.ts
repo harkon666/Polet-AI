@@ -467,8 +467,6 @@ describe('Transaction Builder', () => {
 
     test('builds create_encrypt_deposit transaction with correct accounts and data', async () => {
       const ENCRYPT_PROGRAM = '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8';
-      const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
-
       // Create a mock vault pubkey (will be bytes 100-132 of config data)
       const mockVault = Keypair.generate().publicKey;
 
@@ -513,17 +511,18 @@ describe('Transaction Builder', () => {
       // Verify program ID is the Encrypt program
       expect(ix.programId.toString()).toBe(ENCRYPT_PROGRAM);
 
-      // Verify instruction data: 17 bytes (bump + 2x u64 LE zeros)
-      expect(ix.data.length).toBe(17);
+      // Verify instruction data: discriminator + bump + 2x u64 LE zeros.
+      expect(ix.data.length).toBe(18);
 
-      // Verify the bump is at position 0
+      // Verify create_deposit discriminator and bump.
       const [expectedDepositPda, expectedBump] = deriveEncryptDepositPda(owner.toString(), ENCRYPT_PROGRAM);
-      expect(ix.data[0]).toBe(expectedBump);
+      expect(ix.data[0]).toBe(14);
+      expect(ix.data[1]).toBe(expectedBump);
 
-      // Verify initial_enc_amount (bytes 1-8) is zero
-      expect(ix.data.readBigUInt64LE(1)).toBe(0n);
-      // Verify initial_gas_amount (bytes 9-16) is zero
-      expect(ix.data.readBigUInt64LE(9)).toBe(0n);
+      // Verify initial_enc_amount (bytes 2-9) is zero
+      expect(ix.data.readBigUInt64LE(2)).toBe(0n);
+      // Verify initial_gas_amount (bytes 10-17) is zero
+      expect(ix.data.readBigUInt64LE(10)).toBe(0n);
 
       // Verify that the expected account pubkeys appear in the instruction.
       // Note: Solana's compiled message format deduplicates accounts, so duplicate
@@ -537,7 +536,6 @@ describe('Transaction Builder', () => {
       expect(keyStrings).toContain(configPda.toString());
       expect(keyStrings).toContain(owner.toString());
       expect(keyStrings).toContain(mockVault.toString());
-      expect(keyStrings).toContain(TOKEN_PROGRAM);
       expect(keyStrings).toContain(SystemProgram.programId.toString());
 
       // After deduplication, the merged owner entry should be signer+writable
@@ -545,9 +543,9 @@ describe('Transaction Builder', () => {
       expect(ownerMeta.isSigner).toBe(true);
       expect(ownerMeta.isWritable).toBe(true);
 
-      // After deduplication, the merged SystemProgram entry should be writable (from user_ata)
+      // SystemProgram placeholders should stay read-only; user_ata is the payer placeholder.
       const sysMeta = ix.keys.find((k) => k.pubkey.equals(SystemProgram.programId))!;
-      expect(sysMeta.isWritable).toBe(true);
+      expect(sysMeta.isWritable).toBe(false);
       expect(sysMeta.isSigner).toBe(false);
 
       // Deposit PDA should be writable, not signer
@@ -565,10 +563,10 @@ describe('Transaction Builder', () => {
       expect(vaultMeta.isWritable).toBe(true);
       expect(vaultMeta.isSigner).toBe(false);
 
-      // Token program should be read-only
-      const tokenMeta = ix.keys.find((k) => k.pubkey.toString() === TOKEN_PROGRAM)!;
-      expect(tokenMeta.isWritable).toBe(false);
-      expect(tokenMeta.isSigner).toBe(false);
+      // Token and system program placeholders should remain read-only.
+      const sysMetas = ix.keys.filter((k) => k.pubkey.equals(SystemProgram.programId));
+      expect(sysMetas).toHaveLength(2);
+      expect(sysMetas.every((meta) => !meta.isWritable && !meta.isSigner)).toBe(true);
 
       // Verify returned metadata
       expect(result.deposit).toBe(expectedDepositPda.toString());

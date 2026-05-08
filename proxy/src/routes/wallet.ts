@@ -224,7 +224,12 @@ walletRouter.post('/create-encrypt-deposit', async (c) => {
     }
 
     const infraStatus = await readEncryptInfraStatus(connection, ownerPubkey, encryptProgram);
-    const nonDepositBlockers = infraStatus.blockers.filter((blocker) => blocker !== 'encrypt-deposit-missing');
+    const nonDepositBlockers = infraStatus.blockers.filter(
+      (blocker) =>
+        blocker !== 'encrypt-deposit-missing'
+        && blocker !== 'encrypt-event-authority-missing'
+        && blocker !== 'encrypt-config-enc-mint-unconfigured'
+    );
     if (nonDepositBlockers.length > 0) {
       return c.json({
         success: true,
@@ -593,13 +598,17 @@ walletRouter.post('/request-policy-value-decryption', async (c) => {
       throw new Error(`Policy ciphertext ${ciphertextPubkey.toString()} is not a valid official Encrypt ciphertext account`);
     }
     const [encryptCpiAuthority] = deriveEncryptCpiAuthority();
+    if (ciphertextStatus.authorized === encryptCpiAuthority.toString()) {
+      throw new Error(
+        `Policy ciphertext ${ciphertextPubkey.toString()} is authorized to the Encrypt CPI authority ${encryptCpiAuthority.toString()}, but Encrypt decryption requests expect the caller program ${PROGRAM_ID.toString()}. Re-save the official Encrypt policy so new ciphertexts are authorized to the Polet program ID.`
+      );
+    }
     if (
       ciphertextStatus.authorized !== PROGRAM_ID.toString()
-      && ciphertextStatus.authorized !== encryptCpiAuthority.toString()
       && ciphertextStatus.authorized !== ZERO_PUBLIC_KEY_STRING
     ) {
       throw new Error(
-        `Policy ciphertext ${ciphertextPubkey.toString()} is authorized to ${ciphertextStatus.authorized}, not current Polet program ${PROGRAM_ID.toString()} or Encrypt CPI authority ${encryptCpiAuthority.toString()}. Save policy again after restarting frontend/proxy so new ciphertexts are authorized to the redeployed program.`
+        `Policy ciphertext ${ciphertextPubkey.toString()} is authorized to ${ciphertextStatus.authorized}, not current Polet program ${PROGRAM_ID.toString()}. Re-save the official Encrypt policy so new ciphertexts are authorized to the Polet program ID.`
       );
     }
     const transaction = await buildRequestPolicyValueDecryptionTransaction({

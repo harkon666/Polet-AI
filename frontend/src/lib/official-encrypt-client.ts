@@ -1,6 +1,6 @@
 import bs58 from 'bs58';
 import { Chain, createEncryptWebClient, encryptValue } from '@encrypt.xyz/pre-alpha-solana-client/grpc-web';
-import { derivePoletEncryptCpiAuthority } from './program';
+import { POLET_PROGRAM_ID } from './program';
 
 export const ENCRYPT_PREALPHA_GRPC_ENDPOINT = 'https://pre-alpha-dev-1.encrypt.ika-network.net:443';
 export const ENCRYPT_PREALPHA_PROGRAM_ID = '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8';
@@ -53,7 +53,6 @@ export async function createOfficialEncryptPolicyCiphertexts(
 
   const grpcEndpoint = input.grpcEndpoint ?? ENCRYPT_PREALPHA_GRPC_ENDPOINT;
   const client = createEncryptWebClient(grpcEndpoint);
-  const [encryptCpiAuthority] = derivePoletEncryptCpiAuthority();
   const ciphertextIds = await client.createInput({
     chain: Chain.SOLANA,
     inputs: [
@@ -61,7 +60,7 @@ export async function createOfficialEncryptPolicyCiphertexts(
       { ciphertextBytes: encryptValue(dailyCap, FHE_UINT64), fheType: FHE_UINT64 },
       { ciphertextBytes: encryptValue(0n, FHE_UINT64), fheType: FHE_UINT64 },
     ],
-    authorized: encryptCpiAuthority.toBytes(),
+    authorized: bs58.decode(POLET_PROGRAM_ID),
     networkEncryptionPublicKey: bs58.decode(ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY),
   });
 
@@ -96,7 +95,6 @@ export async function createOfficialEncryptExecutionCiphertexts(
 
   const grpcEndpoint = input.grpcEndpoint ?? ENCRYPT_PREALPHA_GRPC_ENDPOINT;
   const client = createEncryptWebClient(grpcEndpoint);
-  const [encryptCpiAuthority] = derivePoletEncryptCpiAuthority();
   const ciphertextIds = await client.createInput({
     chain: Chain.SOLANA,
     inputs: [
@@ -104,7 +102,7 @@ export async function createOfficialEncryptExecutionCiphertexts(
       { ciphertextBytes: encryptValue(0n, FHE_BOOL), fheType: FHE_BOOL },
       { ciphertextBytes: encryptValue(0n, FHE_UINT64), fheType: FHE_UINT64 },
     ],
-    authorized: encryptCpiAuthority.toBytes(),
+    authorized: bs58.decode(POLET_PROGRAM_ID),
     networkEncryptionPublicKey: bs58.decode(ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY),
   });
 
