@@ -40,9 +40,16 @@ import {
   type SetOfficialEncryptCiphertextPolicyResult,
   type SetupDemoCustodyInput,
   type WalletTransactionResult,
-  type CreateEncryptDepositResult,
 } from '../lib/api';
 import { COPY, type Locale } from '../lib/i18n';
+import {
+  ENCRYPT_PREALPHA_CONFIG,
+  ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+  ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+  ENCRYPT_PREALPHA_PROGRAM_ID,
+  createOfficialEncryptPolicyCiphertexts,
+  type OfficialEncryptPolicyCiphertexts,
+} from '../lib/official-encrypt-client';
 import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
 import { Panel } from './ui/Panel';
 import { InfoTile } from './ui/InfoTile';
@@ -84,6 +91,7 @@ interface DemoTabContentProps {
   agentAddresses?: string[];
   signAndConfirmTransaction: (transactionBase64: string) => Promise<string>;
   api?: DemoApi;
+  createPolicyCiphertexts?: typeof createOfficialEncryptPolicyCiphertexts;
 }
 
 const DEFAULT_API: DemoApi = {
@@ -103,6 +111,8 @@ const DEFAULT_API: DemoApi = {
   createEncryptDeposit,
 };
 
+const DEFAULT_CREATE_POLICY_CIPHERTEXTS = createOfficialEncryptPolicyCiphertexts;
+
 function short(value: string) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }
@@ -119,10 +129,6 @@ interface OfficialEncryptPolicyRefs {
   source: 'wallet';
 }
 
-const ENCRYPT_PREALPHA_PROGRAM_ID = '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8';
-const ENCRYPT_PREALPHA_CONFIG = 'EyqsEJaq86kqAbF3bNKQ3ydzAFXJZ5e8tuNr89CcmcH3';
-const ENCRYPT_PREALPHA_EVENT_AUTHORITY = '6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ';
-const ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY = '2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur';
 const SAMPLE_ENCRYPT_CIPHERTEXTS = {
   sourceAmount: 'Hn3nScX1Sx4q84ZKQ4TjHEujc75QfYmAHp1ko6ehWZ4s',
   allowedOutput: '9a5UcaYhLd64bY31K2vufX4yyJPxi8xDd83j3M8YtHfP',
@@ -154,6 +160,7 @@ export function DemoTabContent({
   agentAddresses = [],
   signAndConfirmTransaction,
   api = DEFAULT_API,
+  createPolicyCiphertexts = DEFAULT_CREATE_POLICY_CIPHERTEXTS,
 }: DemoTabContentProps) {
   const [locale, setLocale] = useState<Locale>('id');
   const [policyDraft, setPolicyDraft] = useState({ maxPerRunUsdc: '10', dailyCapUsdc: '20' });
@@ -367,6 +374,35 @@ export function DemoTabContent({
     });
   };
 
+  const readOfficialEncryptRefsFromWallet = (data: any): OfficialEncryptPolicyRefs | null => {
+    const encryptCiphertexts = data?.confidentialPolicy?.encryptCiphertexts;
+    if (!encryptCiphertexts?.configured) return null;
+    return {
+      maxPerRun: encryptCiphertexts.maxPerRun,
+      dailyCap: encryptCiphertexts.dailyCap,
+      dailySpent: encryptCiphertexts.dailySpent,
+      config: ENCRYPT_PREALPHA_CONFIG,
+      networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+      eventAuthority: ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+      source: 'wallet',
+    };
+  };
+
+  const fallbackOfficialEncryptRefs = (
+    ciphertexts: OfficialEncryptPolicyCiphertexts,
+    result: SetOfficialEncryptCiphertextPolicyResult
+  ): OfficialEncryptPolicyRefs => ({
+    maxPerRun: result.ciphertexts.maxPerRun,
+    dailyCap: result.ciphertexts.dailyCap,
+    dailySpent: result.ciphertexts.dailySpent,
+    config: ENCRYPT_PREALPHA_CONFIG,
+    networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+    eventAuthority: ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+    graph: result.graph,
+    grpcEndpoint: ciphertexts.grpcEndpoint,
+    source: 'wallet',
+  });
+
   const savePolicy = async () => {
     if (!owner) {
       recordError(t.missingOwner);
@@ -379,23 +415,41 @@ export function DemoTabContent({
         setBusy('policy');
         setError(null);
         try {
-          const result = await api.setConfidentialPolicy({
-            owner,
+          const ciphertexts = await createPolicyCiphertexts({
             maxPerRunUsdc: policyDraft.maxPerRunUsdc,
             dailyCapUsdc: policyDraft.dailyCapUsdc,
-            maskedWitnessDevFixture: Array.from({ length: 32 }, () => 7),
+          });
+          const deposit = await api.createEncryptDeposit(owner);
+          if (deposit.transaction) {
+            await signAndConfirmTransaction(deposit.transaction);
+          }
+          const result = await api.setOfficialEncryptCiphertextPolicy({
+            owner,
+            maxPerRunCiphertext: ciphertexts.maxPerRunCiphertext,
+            dailyCapCiphertext: ciphertexts.dailyCapCiphertext,
+            dailySpentCiphertext: ciphertexts.dailySpentCiphertext,
+            policyCommitment: ciphertexts.policyCommitment,
+            encrypt: {
+              encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+              config: deposit.config || ENCRYPT_PREALPHA_CONFIG,
+              deposit: deposit.deposit,
+              networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+              eventAuthority: deposit.eventAuthority || ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+              payer: owner,
+            },
           });
           const signature = await signAndConfirmTransaction(result.transaction);
-          setOfficialEncryptPolicyRefs(null);
+          const walletData = await api.getWalletData(owner).catch(() => null);
+          setOfficialEncryptPolicyRefs(readOfficialEncryptRefsFromWallet(walletData) ?? fallbackOfficialEncryptRefs(ciphertexts, result));
           setPolicySaved(true);
           setEditingPolicy(false);
           addActivity({
             status: 'setup',
             message: `${t.policySaved}: ${signature.slice(0, 8)}...`,
-            route: 'Numeric policy setup; official Encrypt refs stay read-only when configured on-chain',
+            route: 'Official Encrypt pre-alpha ciphertext policy registration',
           });
         } catch (err) {
-          recordError(err instanceof Error ? err.message : 'Failed to save confidential policy');
+          recordError(err instanceof Error ? `Official Encrypt pre-alpha setup failed: ${err.message}` : 'Official Encrypt pre-alpha setup failed');
         } finally {
           setBusy(null);
         }
@@ -985,14 +1039,24 @@ export function DemoTabContent({
                 <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.encryptPrealphaStatus}</p>
                 <p className="mt-1 text-xs leading-5 text-[var(--sea-ink-soft)]">{t.encryptPrealphaStatusHelp}</p>
               </div>
-              <button
-                onClick={savePolicy}
-                disabled={!canSavePolicy}
-                className="rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                title={!canSavePolicy && !busy ? t.custodyRequired : undefined}
-              >
-                {busy === 'policy' ? 'Signing...' : t.savePolicy}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={savePolicy}
+                  disabled={!canSavePolicy}
+                  className="rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  title={!canSavePolicy && !busy ? t.custodyRequired : undefined}
+                >
+                  {busy === 'policy' ? 'Signing...' : t.savePolicy}
+                </button>
+                <button
+                  onClick={saveLegacyDevPolicy}
+                  disabled={!canSavePolicy}
+                  className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink)] disabled:opacity-50"
+                  title={t.confirmLegacyPolicy}
+                >
+                  {busy === 'policy-legacy' ? 'Signing...' : t.saveLegacyPolicy}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">

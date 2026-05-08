@@ -1,7 +1,9 @@
 import { fireEvent, render, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
+import type { ComponentProps } from 'react';
 import { DemoTabContent } from './DemoTab';
 import type { RunConfidentialDcaInput, RunMultichainIntentInput } from '../lib/api';
+import type { OfficialEncryptPolicyCiphertexts } from '../lib/official-encrypt-client';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -11,6 +13,7 @@ afterEach(() => {
   multichainInputs = [];
   recoveryAccessInputs = [];
   officialEncryptPolicyInputs = [];
+  createdPolicyCiphertextInputs = [];
   encryptDcaMode = null;
   encryptIkaMode = null;
   encryptDepositAlreadyExists = false;
@@ -23,6 +26,7 @@ let dcaInputs: RunConfidentialDcaInput[] = [];
 let multichainInputs: RunMultichainIntentInput[] = [];
 let recoveryAccessInputs: Parameters<typeof api.recoverAccess>[0][] = [];
 let officialEncryptPolicyInputs: Parameters<typeof api.setOfficialEncryptCiphertextPolicy>[0][] = [];
+let createdPolicyCiphertextInputs: Array<{ maxPerRunUsdc: string; dailyCapUsdc: string }> = [];
 let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptIkaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptDepositAlreadyExists = false;
@@ -30,6 +34,13 @@ let signedTransactions: string[] = [];
 const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 const coApproverB = 'CxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR5';
 const connectedOwner = 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2';
+const freshOfficialCiphertexts: OfficialEncryptPolicyCiphertexts = {
+  maxPerRunCiphertext: 'FreshMaxCiphertext111111111111111111111111',
+  dailyCapCiphertext: 'FreshCapCiphertext111111111111111111111111',
+  dailySpentCiphertext: 'FreshSpentCiphertext11111111111111111111',
+  policyCommitment: Array.from({ length: 32 }, (_, index) => index),
+  grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+};
 
 const encryptPolicyBase = {
   policySequence: 7,
@@ -405,7 +416,7 @@ const api = {
   },
 };
 
-function renderDemo() {
+function renderDemo(options: { createPolicyCiphertexts?: ComponentProps<typeof DemoTabContent>['createPolicyCiphertexts'] } = {}) {
   return render(
     <DemoTabContent
       owner={connectedOwner}
@@ -415,6 +426,10 @@ function renderDemo() {
         return 'sig111111';
       }}
       api={api}
+      createPolicyCiphertexts={options.createPolicyCiphertexts ?? (async (input) => {
+        createdPolicyCiphertextInputs.push(input);
+        return freshOfficialCiphertexts;
+      })}
     />
   );
 }
@@ -428,7 +443,7 @@ async function setupCustodyAndPolicy(view: ReturnType<typeof renderDemo>) {
   await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
   fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
   await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
-  expect(signedTransactions).toContain('policy-tx');
+  expect(signedTransactions).toContain('official-encrypt-policy-tx');
 }
 
 describe('Consumer DCA demo frontend', () => {
@@ -443,19 +458,50 @@ describe('Consumer DCA demo frontend', () => {
 
     await setupCustodyAndPolicy(view);
 
-    expect(view.queryByText(/referensi teknis encrypt/i)).toBeNull();
-    expect(officialEncryptPolicyInputs).toHaveLength(0);
+    expect(view.getByText(/referensi teknis encrypt/i)).toBeTruthy();
+    expect(createdPolicyCiphertextInputs).toEqual([{ maxPerRunUsdc: '10', dailyCapUsdc: '20' }]);
+    expect(officialEncryptPolicyInputs).toHaveLength(1);
+    expect(officialEncryptPolicyInputs[0]).toMatchObject({
+      owner: connectedOwner,
+      maxPerRunCiphertext: freshOfficialCiphertexts.maxPerRunCiphertext,
+      dailyCapCiphertext: freshOfficialCiphertexts.dailyCapCiphertext,
+      dailySpentCiphertext: freshOfficialCiphertexts.dailySpentCiphertext,
+      policyCommitment: freshOfficialCiphertexts.policyCommitment,
+    });
+    expect(JSON.stringify(officialEncryptPolicyInputs[0])).not.toContain('maskedWitnessDevFixture');
   });
 
-  test('does not sign Encrypt deposit transactions for the numeric policy form', async () => {
+  test('signs Encrypt deposit only when the setup route returns a transaction', async () => {
     encryptDepositAlreadyExists = true;
     const view = renderDemo();
 
     await setupCustodyAndPolicy(view);
 
-    expect(officialEncryptPolicyInputs).toHaveLength(0);
+    expect(officialEncryptPolicyInputs).toHaveLength(1);
     expect(signedTransactions).toContain('custody-tx');
-    expect(signedTransactions).toContain('policy-tx');
+    expect(signedTransactions).toContain('official-encrypt-policy-tx');
+    expect(signedTransactions).not.toContain('encrypt-deposit-tx');
+  });
+
+  test('shows Encrypt createInput failure and does not register Polet policy', async () => {
+    const view = renderDemo({
+      createPolicyCiphertexts: async (input) => {
+        createdPolicyCiphertextInputs.push(input);
+        throw new Error('gRPC createInput unavailable');
+      },
+    });
+
+    fireEvent.click(view.getByRole('button', { name: /setup custody pda/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(view.getByText(/custody siap/i)).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+
+    await waitFor(() => expect(view.getAllByText(/official encrypt pre-alpha setup failed: grpc createinput unavailable/i).length).toBeGreaterThan(0));
+    expect(createdPolicyCiphertextInputs).toEqual([{ maxPerRunUsdc: '10', dailyCapUsdc: '20' }]);
+    expect(officialEncryptPolicyInputs).toHaveLength(0);
     expect(signedTransactions).not.toContain('official-encrypt-policy-tx');
     expect(signedTransactions).not.toContain('encrypt-deposit-tx');
   });

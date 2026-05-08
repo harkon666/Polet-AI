@@ -16,6 +16,32 @@ const e2eApi = {
     policyCommitment: Array.from({ length: 32 }, () => 1),
     encryptionWitnessHash: Array.from({ length: 32 }, () => 2),
   }),
+  setOfficialEncryptCiphertextPolicy: async (input: {
+    maxPerRunCiphertext: string;
+    dailyCapCiphertext: string;
+    dailySpentCiphertext: string;
+    encrypt: { encryptProgram?: string };
+  }) => ({
+    transaction: 'official-encrypt-policy-tx',
+    wallet: 'wallet-pda',
+    encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
+    grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+    ciphertexts: {
+      maxPerRun: input.maxPerRunCiphertext,
+      dailyCap: input.dailyCapCiphertext,
+      dailySpent: input.dailySpentCiphertext,
+    },
+    graph: 'polet_policy_guardrail_graph' as const,
+    boundary: 'unsigned-official-encrypt-policy-registration' as const,
+  }),
+  createEncryptDeposit: async () => ({
+    transaction: null,
+    signers: [],
+    deposit: 'EncryptDeposit111111111111111111111111111111',
+    config: 'EncryptConfig1111111111111111111111111111111',
+    eventAuthority: 'EncryptEventAuthority111111111111111111111',
+    status: 'existing-deposit',
+  }),
   setupDemoCustody: async () => ({
     transaction: 'custody-tx',
     wallet: 'wallet-pda',
@@ -195,6 +221,13 @@ function E2EConsumerDemoPage() {
         agentAddresses={[agent]}
         signAndConfirmTransaction={async () => 'sig111111'}
         api={e2eApi}
+        createPolicyCiphertexts={async () => ({
+          maxPerRunCiphertext: 'FreshMaxCiphertext111111111111111111111111',
+          dailyCapCiphertext: 'FreshCapCiphertext111111111111111111111111',
+          dailySpentCiphertext: 'FreshSpentCiphertext11111111111111111111',
+          policyCommitment: Array.from({ length: 32 }, (_, index) => index),
+          grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+        })}
       />
     </main>
   );
