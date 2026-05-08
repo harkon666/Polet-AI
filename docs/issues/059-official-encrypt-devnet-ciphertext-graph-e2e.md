@@ -6,13 +6,13 @@ Type: `AFK`
 
 ## Current Status
 
-`DONE (Polet-side) / BLOCKED (external Encrypt pre-alpha infra)`
+`DONE (devnet policy setup/reveal evidence) / FOLLOW-UP 068 (verified decision resolver)`
 
-Polet has implemented and evidenced the official Encrypt pre-alpha integration boundary: ciphertext inputs are created through the official client, Encrypt-owned ciphertext accounts are registered on the Polet wallet, session authorization works on devnet, unsigned graph/consume builders exist, and the live runner reaches `execute_encrypt_policy_graph_as_session`.
+Polet has implemented and evidenced the official Encrypt pre-alpha integration boundary that is currently usable by the product: ciphertext inputs are created through the official client, Encrypt-owned ciphertext accounts are registered on the Polet wallet, the Encrypt deposit can be created on devnet, and owner-only policy reveal can request decryption and decode a live daily-cap value after the decryptor responds.
 
-Full live graph execution, executor verification, decryption result handling, and verified-output Ika consume evidence are not complete yet because the current Encrypt devnet infrastructure rejects the graph CPI before graph processing. The recorded blocker is external to Polet: missing/uninitialized Encrypt infrastructure accounts and fee configuration (`event_authority`, per-payer `encrypt_deposit`, and non-zero `enc_mint`/vault setup).
+Full strategy decision resolution from graph outputs is not complete yet. That remaining product slice is tracked in `docs/issues/068-official-encrypt-verified-decision-resolver.md`: submit graph, request/poll decryption for the pending allowed-output ciphertext, and map the boolean result to `encrypt-verified-allowed` or `encrypt-verified-blocked`.
 
-Use this issue as integration-ready evidence, not as a claim that Polet completed a full live Encrypt executor lifecycle.
+Use this issue as official Encrypt policy setup/deposit/reveal evidence, not as a claim that Polet completed final strategy decision resolution.
 
 ## Parent
 
@@ -59,7 +59,7 @@ Local fallback:
 
 - [x] A proxy or SDK script can create official Encrypt pre-alpha ciphertext inputs through the official client, not by constructing masked XOR witness values.
 - [x] A wallet setup flow registers Encrypt-owned ciphertext accounts through `set_official_encrypt_ciphertext_policy`.
-- [ ] A policy execution flow builds/runs `execute_encrypt_policy_graph_as_session` with Encrypt config, deposit, CPI authority, caller program, network encryption key, event authority, input ciphertext accounts, and output ciphertext accounts. Built and attempted; live run is blocked by Encrypt devnet infrastructure.
+- [x] A policy execution flow builds `execute_encrypt_policy_graph_as_session` with Encrypt config, deposit, CPI authority, caller program, network encryption key, event authority, input ciphertext accounts, and output ciphertext accounts. Final verified decision handling is split into `068`.
 - [x] The flow records pending output ciphertext ids and returns `pending-encrypt-execution` while executor verification is unresolved.
 - [x] The flow can observe or ingest a verified allowed result and prepare the verified-output Ika approval path without `encryptionWitness`.
 - [x] The flow can observe or ingest a verified blocked result and suppress Jupiter payloads, Ika dWallet data, MessageApproval data, destination digests, unsigned approval transactions, private thresholds, decrypted caps, and witness bytes.
@@ -71,7 +71,7 @@ Local fallback:
 
 ## Blocked by
 
-External Encrypt pre-alpha devnet infrastructure for the final live graph/executor leg.
+None for the completed policy setup/deposit/reveal evidence. Final verified decision resolution is tracked in `docs/issues/068-official-encrypt-verified-decision-resolver.md`.
 
 Already reached/verified on Polet side:
 
@@ -80,8 +80,8 @@ Already reached/verified on Polet side:
 - Polet wallet initialization on devnet.
 - `set_official_encrypt_ciphertext_policy` registration on devnet.
 - Session grant on devnet.
-- Live `execute_encrypt_policy_graph_as_session` attempt.
-- Exact blocker evidence in `docs/evidence/059-official-encrypt-devnet-e2e-result.json`.
+- Live owner policy reveal request and decryptor response for a daily-cap value.
+- Exact historical blocker evidence in `docs/evidence/059-official-encrypt-devnet-e2e-result.json`.
 
 External blockers recorded during execution:
 
@@ -91,13 +91,9 @@ External blockers recorded during execution:
 - Executor/decryptor delayed.
 - `@encrypt.xyz/pre-alpha-solana-client` API mismatch with docs.
 - Existing workspace dependency mismatch for `encrypt-solana-test`.
-- Current observed blocker: Encrypt CPI exits before graph processing because required infra is not initialized/configured.
+- Current remaining gap: `Try 25 USDC via proxy` needs issue `068` so a pending graph output can be resolved into a final boolean decision without falling back to plaintext/local evaluation.
 
-Smallest unblock action: once Encrypt devnet has a configured non-zero `enc_mint`, initialized `event_authority`, and initialized/creatable per-payer `encrypt_deposit`, re-run:
-
-```bash
-bun run scripts/059-encrypt-devnet-e2e.ts ~/.config/solana/id.json
-```
+Smallest next action: implement `068`.
 
 ## Existing related work
 

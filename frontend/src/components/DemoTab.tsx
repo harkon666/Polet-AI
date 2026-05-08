@@ -140,6 +140,10 @@ function short(value: string) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }
 
+function canWalletSignSession(owner: string | null, sessionKey: string) {
+  return Boolean(owner && sessionKey.trim() && owner === sessionKey.trim());
+}
+
 interface OfficialEncryptPolicyRefs {
   maxPerRun: string;
   dailyCap: string;
@@ -1034,7 +1038,7 @@ export function DemoTabContent({
     setBusy(`run-${amountUsdc}`);
     setError(null);
     try {
-      if (executeGraphBeforeRequests && officialEncryptPolicyRefs) {
+      if (executeGraphBeforeRequests && officialEncryptPolicyRefs && canWalletSignSession(owner, agentAddress)) {
         await submitOfficialEncryptGraph(amountUsdc, 'USDC -> SOL', 'Official Encrypt graph / Jupiter gated');
         return;
       }
@@ -1098,7 +1102,7 @@ export function DemoTabContent({
     setBusy(isAllowedIkaTarget ? `ika-${target.chain}-${amount}` : 'ika-unsupported');
     setError(null);
     try {
-      if (executeGraphBeforeRequests && officialEncryptPolicyRefs && isAllowedIkaTarget) {
+      if (executeGraphBeforeRequests && officialEncryptPolicyRefs && isAllowedIkaTarget && canWalletSignSession(owner, agentAddress)) {
         await submitOfficialEncryptGraph(amount, `USDC -> ${target.asset}`, `Official Encrypt graph / Ika ${target.chain.toUpperCase()} gated`);
         return;
       }

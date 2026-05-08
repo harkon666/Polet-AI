@@ -523,11 +523,13 @@ function renderDemo(options: {
   createPolicyCiphertexts?: ComponentProps<typeof DemoTabContent>['createPolicyCiphertexts'];
   executeGraphBeforeRequests?: boolean;
   initialExecutionCiphertexts?: OfficialEncryptExecutionCiphertexts | null;
+  owner?: string;
+  agentAddresses?: string[];
 } = {}) {
   return render(
     <DemoTabContent
-      owner={connectedOwner}
-      agentAddresses={[coApproverA, coApproverB]}
+      owner={options.owner ?? connectedOwner}
+      agentAddresses={options.agentAddresses ?? [coApproverA, coApproverB]}
       signAndConfirmTransaction={async (transaction) => {
         signedTransactions.push(transaction);
         return 'sig111111';
@@ -641,8 +643,13 @@ describe('Consumer DCA demo frontend', () => {
     expect(signedTransactions).not.toContain('encrypt-deposit-tx');
   });
 
-  test('submits official Encrypt graph before primary DCA and Ika requests', async () => {
-    const view = renderDemo({ executeGraphBeforeRequests: true, initialExecutionCiphertexts: null });
+  test('submits official Encrypt graph before primary DCA and Ika requests when the wallet can sign the session', async () => {
+    const view = renderDemo({
+      owner: coApproverA,
+      agentAddresses: [coApproverA, coApproverB],
+      executeGraphBeforeRequests: true,
+      initialExecutionCiphertexts: null,
+    });
 
     await setupCustodyAndPolicy(view);
 
@@ -680,6 +687,24 @@ describe('Consumer DCA demo frontend', () => {
     await waitFor(() => expect(createdExecutionCiphertextInputs).toEqual([{ amountUsdc: '25' }, { amountUsdc: '5' }]));
     expect(executeEncryptGraphInputs).toHaveLength(2);
     expect(multichainInputs).toHaveLength(0);
+  });
+
+  test('falls back to proxy DCA when the connected wallet cannot sign the session graph', async () => {
+    const view = renderDemo({ executeGraphBeforeRequests: true, initialExecutionCiphertexts: null });
+
+    await setupCustodyAndPolicy(view);
+
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText('DIBLOKIR')).toBeTruthy());
+
+    expect(createdExecutionCiphertextInputs).toHaveLength(0);
+    expect(executeEncryptGraphInputs).toHaveLength(0);
+    expect(dcaInputs).toHaveLength(1);
+    expect(dcaInputs[0]).toMatchObject({
+      owner: connectedOwner,
+      sessionKey: coApproverA,
+      amountUsdc: '25',
+    });
   });
 
   test('shows checklist progression and gates primary CTAs by prerequisites', async () => {
