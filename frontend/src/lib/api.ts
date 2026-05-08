@@ -358,7 +358,7 @@ export async function recoverAccess(input: RecoverAccessInput): Promise<RecoverA
 }
 
 export interface CreateEncryptDepositResult {
-  transaction: string;
+  transaction: string | null;
   signers: string[];
   deposit: string;
   config: string;

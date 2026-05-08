@@ -13,6 +13,8 @@ afterEach(() => {
   officialEncryptPolicyInputs = [];
   encryptDcaMode = null;
   encryptIkaMode = null;
+  encryptDepositAlreadyExists = false;
+  signedTransactions = [];
 });
 
 let sharedConfig: { threshold: number; approvers: string[] } | null = null;
@@ -23,6 +25,8 @@ let recoveryAccessInputs: Parameters<typeof api.recoverAccess>[0][] = [];
 let officialEncryptPolicyInputs: Parameters<typeof api.setOfficialEncryptCiphertextPolicy>[0][] = [];
 let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptIkaMode: 'pending' | 'allowed' | 'blocked' | null = null;
+let encryptDepositAlreadyExists = false;
+let signedTransactions: string[] = [];
 const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 const coApproverB = 'CxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR5';
 const connectedOwner = 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2';
@@ -150,12 +154,12 @@ const api = {
   requestPasskeyChallenge: async () => ({ challenge: Array.from(new Uint8Array(32)), publicKeyCredentialRequestOptions: { challenge: Array.from(new Uint8Array(32)), rpId: 'localhost', allowCredentials: [], userVerification: 'preferred' }, boundary: 'mock' }),
   verifyPasskeyAssertion: async () => ({ valid: false, approverPublicKey: '', challengeUsed: '', boundary: 'mock' }),
   createEncryptDeposit: async () => ({
-    transaction: 'encrypt-deposit-tx',
+    transaction: encryptDepositAlreadyExists ? null : 'encrypt-deposit-tx',
     signers: [connectedOwner],
     deposit: 'EncryptDeposit111111111111111111111111111111',
     config: 'EncryptConfig1111111111111111111111111111111',
     eventAuthority: 'EncryptEventAuthority111111111111111111111',
-    status: 'pending-deposit-creation',
+    status: encryptDepositAlreadyExists ? 'existing-deposit' : 'pending-deposit-creation',
   }),
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
     dcaInputs.push(input);
@@ -406,7 +410,10 @@ function renderDemo() {
     <DemoTabContent
       owner={connectedOwner}
       agentAddresses={[coApproverA, coApproverB]}
-      signAndConfirmTransaction={async () => 'sig111111'}
+      signAndConfirmTransaction={async (transaction) => {
+        signedTransactions.push(transaction);
+        return 'sig111111';
+      }}
       api={api}
     />
   );
@@ -421,12 +428,38 @@ async function setupCustodyAndPolicy(view: ReturnType<typeof renderDemo>) {
   await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
   fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
   await waitFor(() => expect(view.getAllByText(/policy on-chain tersimpan/i)[0]).toBeTruthy());
-  expect(officialEncryptPolicyInputs).toHaveLength(1);
-  expect(JSON.stringify(officialEncryptPolicyInputs[0])).not.toContain('maskedWitnessDevFixture');
-  expect(officialEncryptPolicyInputs[0].encrypt.deposit).toContain('EncryptDeposit');
+  expect(signedTransactions).toContain('policy-tx');
 }
 
 describe('Consumer DCA demo frontend', () => {
+  test('keeps Encrypt ciphertext refs out of the primary policy form', async () => {
+    const view = renderDemo();
+
+    expect(view.getAllByText(/encrypt pre-alpha/i).length).toBeGreaterThan(0);
+    expect(view.getByText(/maks per run/i)).toBeTruthy();
+    expect(view.getByText(/batas harian/i)).toBeTruthy();
+    expect(view.queryByDisplayValue('hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd')).toBeNull();
+    expect(view.queryByDisplayValue('C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi')).toBeNull();
+
+    await setupCustodyAndPolicy(view);
+
+    expect(view.queryByText(/referensi teknis encrypt/i)).toBeNull();
+    expect(officialEncryptPolicyInputs).toHaveLength(0);
+  });
+
+  test('does not sign Encrypt deposit transactions for the numeric policy form', async () => {
+    encryptDepositAlreadyExists = true;
+    const view = renderDemo();
+
+    await setupCustodyAndPolicy(view);
+
+    expect(officialEncryptPolicyInputs).toHaveLength(0);
+    expect(signedTransactions).toContain('custody-tx');
+    expect(signedTransactions).toContain('policy-tx');
+    expect(signedTransactions).not.toContain('official-encrypt-policy-tx');
+    expect(signedTransactions).not.toContain('encrypt-deposit-tx');
+  });
+
   test('shows checklist progression and gates primary CTAs by prerequisites', async () => {
     const view = renderDemo();
 
@@ -485,7 +518,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getAllByText(/solana usdc/i).length).toBeGreaterThan(0);
     expect(view.getAllByText(/solana sol/i).length).toBeGreaterThan(0);
     expect(view.getByText(/jupiter strategy rail/i)).toBeTruthy();
-    expect(view.getByText(/sui\/sui primary destination/i)).toBeTruthy();
+    expect(view.getByText(/multi-chain support/i)).toBeTruthy();
     expect(view.getByText(/ethereum\/eth optional allowed route/i)).toBeTruthy();
     expect(view.getByText(/official encrypt execution refs/i)).toBeTruthy();
     expect(view.getByText('Jupiter')).toBeTruthy();

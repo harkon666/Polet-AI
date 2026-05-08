@@ -8,6 +8,9 @@ import {
   buildCreateEncryptDepositTransaction,
   buildExecuteEncryptPolicyGraphSessionTransaction,
   buildSetOfficialEncryptCiphertextPolicyTransaction,
+  deriveEncryptConfigPda,
+  deriveEncryptDepositPda,
+  deriveEncryptEventAuthorityPda,
   getConnection,
 } from '../lib/transaction-builder';
 import idl from '../lib/idl.json' with { type: "json" };
@@ -195,6 +198,25 @@ walletRouter.post('/create-encrypt-deposit', async (c) => {
     }
 
     const ownerPubkey = parsePublicKey(owner, 'owner');
+    const [depositPda] = deriveEncryptDepositPda(ownerPubkey.toString());
+    const connection = getConnection();
+    const depositInfo = await connection.getAccountInfo(depositPda);
+
+    if (depositInfo) {
+      const [configPda] = deriveEncryptConfigPda();
+      const [eventAuthority] = deriveEncryptEventAuthorityPda();
+      return c.json({
+        success: true,
+        data: {
+          transaction: null,
+          signers: [],
+          deposit: depositPda.toString(),
+          config: configPda.toString(),
+          eventAuthority: eventAuthority.toString(),
+          status: 'existing-deposit',
+        },
+      });
+    }
 
     const result = await buildCreateEncryptDepositTransaction(ownerPubkey.toString());
 

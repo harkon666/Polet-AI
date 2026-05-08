@@ -107,14 +107,23 @@ function short(value: string) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }
 
+interface OfficialEncryptPolicyRefs {
+  maxPerRun: string;
+  dailyCap: string;
+  dailySpent: string;
+  config: string;
+  networkEncryptionKey: string;
+  eventAuthority: string;
+  graph?: string;
+  grpcEndpoint?: string;
+  source: 'wallet';
+}
+
 const ENCRYPT_PREALPHA_PROGRAM_ID = '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8';
 const ENCRYPT_PREALPHA_CONFIG = 'EyqsEJaq86kqAbF3bNKQ3ydzAFXJZ5e8tuNr89CcmcH3';
 const ENCRYPT_PREALPHA_EVENT_AUTHORITY = '6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ';
 const ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY = '2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur';
 const SAMPLE_ENCRYPT_CIPHERTEXTS = {
-  maxPerRun: 'hiVdhhKSpVoN8rMf5rXtaU43LTXRH97Xc2E3odhbqmd',
-  dailyCap: 'C1p8HE5Pn9CUd4S3ui15XPGGSCc2c8A6mQsJhpp9yrLi',
-  dailySpent: 'AX9BKeQgSDXJcWh9EBEZnYJCr7wjwt7sM2pv945NNCVt',
   sourceAmount: 'Hn3nScX1Sx4q84ZKQ4TjHEujc75QfYmAHp1ko6ehWZ4s',
   allowedOutput: '9a5UcaYhLd64bY31K2vufX4yyJPxi8xDd83j3M8YtHfP',
   dailySpentOutput: '5sDPGQjGAgzJ6fmBjtyJUjW3pYLnEyEXN14NiHyBUXrz',
@@ -148,14 +157,7 @@ export function DemoTabContent({
 }: DemoTabContentProps) {
   const [locale, setLocale] = useState<Locale>('id');
   const [policyDraft, setPolicyDraft] = useState({ maxPerRunUsdc: '10', dailyCapUsdc: '20' });
-  const [officialEncryptDraft, setOfficialEncryptDraft] = useState({
-    maxPerRunCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.maxPerRun,
-    dailyCapCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.dailyCap,
-    dailySpentCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.dailySpent,
-    config: ENCRYPT_PREALPHA_CONFIG,
-    eventAuthority: ENCRYPT_PREALPHA_EVENT_AUTHORITY,
-    networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
-  });
+  const [officialEncryptPolicyRefs, setOfficialEncryptPolicyRefs] = useState<OfficialEncryptPolicyRefs | null>(null);
   const [officialEncryptExecutionDraft, setOfficialEncryptExecutionDraft] = useState({
     sourceAmountCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.sourceAmount,
     allowedOutputCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.allowedOutput,
@@ -234,7 +236,10 @@ export function DemoTabContent({
   );
   const hasRouteRiskBlock = activity.some((entry) => entry.route?.includes('IKA_RISK_GUARDRAIL_BLOCKED'));
   const strategyReady = strategy.inputMint === 'USDC' && strategy.outputMint === 'SOL' && Boolean(strategy.amountUsdc);
-  const canSavePolicy = Boolean(owner && custody && hasAgent && !busy);
+  const maxPerRun = Number(policyDraft.maxPerRunUsdc);
+  const dailyCap = Number(policyDraft.dailyCapUsdc);
+  const policyNumbersReady = Number.isFinite(maxPerRun) && Number.isFinite(dailyCap) && maxPerRun > 0 && dailyCap >= maxPerRun;
+  const canSavePolicy = Boolean(owner && custody && hasAgent && policyNumbersReady && !busy);
   const canRunBlocked = Boolean(owner && custody && policySaved && hasAgent && strategyReady && !busy);
   const canRunAllowed = Boolean(canRunBlocked && hasBlockedRun);
   const canRequestIka = Boolean(owner && custody && policySaved && hasAgent && !busy);
@@ -282,6 +287,25 @@ export function DemoTabContent({
           if (data.confidentialPolicy?.enabled) {
             setPolicySaved(true);
             setEditingPolicy(false);
+          }
+          const encryptCiphertexts = data.confidentialPolicy?.encryptCiphertexts;
+          if (encryptCiphertexts?.configured) {
+            setOfficialEncryptPolicyRefs({
+              maxPerRun: encryptCiphertexts.maxPerRun,
+              dailyCap: encryptCiphertexts.dailyCap,
+              dailySpent: encryptCiphertexts.dailySpent,
+              config: ENCRYPT_PREALPHA_CONFIG,
+              networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+              eventAuthority: ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+              source: 'wallet',
+            });
+            if (encryptCiphertexts.pending) {
+              setOfficialEncryptExecutionDraft({
+                sourceAmountCiphertext: encryptCiphertexts.pendingSourceAmount,
+                allowedOutputCiphertext: encryptCiphertexts.pendingAllowedOutput,
+                dailySpentOutputCiphertext: encryptCiphertexts.pendingDailySpentOutput,
+              });
+            }
           }
           const configuredShared = normalizeSharedIkaApproval(data.sharedIkaApprovals);
           if (configuredShared) {
@@ -355,30 +379,20 @@ export function DemoTabContent({
         setBusy('policy');
         setError(null);
         try {
-          const deposit = await api.createEncryptDeposit(owner);
-          const depositSignature = await signAndConfirmTransaction(deposit.transaction);
-          const result = await api.setOfficialEncryptCiphertextPolicy({
+          const result = await api.setConfidentialPolicy({
             owner,
-            maxPerRunCiphertext: officialEncryptDraft.maxPerRunCiphertext.trim(),
-            dailyCapCiphertext: officialEncryptDraft.dailyCapCiphertext.trim(),
-            dailySpentCiphertext: officialEncryptDraft.dailySpentCiphertext.trim(),
-            policyCommitment: Array.from({ length: 32 }, () => 0),
-            encrypt: {
-              encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
-              config: officialEncryptDraft.config.trim(),
-              deposit: deposit.deposit,
-              networkEncryptionKey: officialEncryptDraft.networkEncryptionKey.trim(),
-              eventAuthority: officialEncryptDraft.eventAuthority.trim(),
-              payer: owner,
-            },
+            maxPerRunUsdc: policyDraft.maxPerRunUsdc,
+            dailyCapUsdc: policyDraft.dailyCapUsdc,
+            maskedWitnessDevFixture: Array.from({ length: 32 }, () => 7),
           });
           const signature = await signAndConfirmTransaction(result.transaction);
+          setOfficialEncryptPolicyRefs(null);
           setPolicySaved(true);
           setEditingPolicy(false);
           addActivity({
             status: 'setup',
             message: `${t.policySaved}: ${signature.slice(0, 8)}...`,
-            route: `Official Encrypt policy registration (${result.graph}) deposit ${depositSignature.slice(0, 8)}...`,
+            route: 'Numeric policy setup; official Encrypt refs stay read-only when configured on-chain',
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to save confidential policy');
@@ -943,88 +957,33 @@ export function DemoTabContent({
           <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.policyBody}</p>
           {editingPolicy ? (
             <div className="space-y-3">
-              <div className="grid gap-3 lg:grid-cols-3">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.maxPerRunCiphertext}</span>
-                  <input
-                    value={officialEncryptDraft.maxPerRunCiphertext}
-                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, maxPerRunCiphertext: event.target.value }))}
-                    className="w-full rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.dailyCapCiphertext}</span>
-                  <input
-                    value={officialEncryptDraft.dailyCapCiphertext}
-                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, dailyCapCiphertext: event.target.value }))}
-                    className="w-full rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.dailySpentCiphertext}</span>
-                  <input
-                    value={officialEncryptDraft.dailySpentCiphertext}
-                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, dailySpentCiphertext: event.target.value }))}
-                    className="w-full rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-              </div>
-              <div className="grid gap-3 lg:grid-cols-3">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.encryptConfig}</span>
-                  <input
-                    value={officialEncryptDraft.config}
-                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, config: event.target.value }))}
-                    className="w-full rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.encryptNetworkKey}</span>
-                  <input
-                    value={officialEncryptDraft.networkEncryptionKey}
-                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, networkEncryptionKey: event.target.value }))}
-                    className="w-full rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.encryptEventAuthority}</span>
-                  <input
-                    value={officialEncryptDraft.eventAuthority}
-                    onChange={(event) => setOfficialEncryptDraft((prev) => ({ ...prev, eventAuthority: event.target.value }))}
-                    className="w-full rounded-lg px-3 py-2 text-sm"
-                  />
-                </label>
-              </div>
-              <div className="flex flex-wrap items-end gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
                   <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.maxPerRun} (USDC)</span>
-                <input
-                  value={policyDraft.maxPerRunUsdc}
-                  onChange={(event) => setPolicyDraft((prev) => ({ ...prev, maxPerRunUsdc: event.target.value }))}
-                  type="number"
-                  min="0"
-                  step="1"
-                    className="w-32 rounded-lg px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.dailyCap} (USDC)</span>
-                <input
-                  value={policyDraft.dailyCapUsdc}
-                  onChange={(event) => setPolicyDraft((prev) => ({ ...prev, dailyCapUsdc: event.target.value }))}
-                  type="number"
-                  min="0"
-                  step="1"
-                    className="w-32 rounded-lg px-3 py-2 text-sm"
-                />
-              </label>
-                <button
-                  onClick={saveLegacyDevPolicy}
-                  disabled={!canSavePolicy}
-                  className="rounded-lg border border-[var(--line)] px-4 py-2 text-sm font-semibold text-[var(--sea-ink)] disabled:opacity-50"
-                >
-                  {busy === 'policy-legacy' ? 'Signing...' : t.saveLegacyPolicy}
-                </button>
+                  <input
+                    value={policyDraft.maxPerRunUsdc}
+                    onChange={(event) => setPolicyDraft((prev) => ({ ...prev, maxPerRunUsdc: event.target.value }))}
+                    type="number"
+                    min="0"
+                    step="1"
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.dailyCap} (USDC)</span>
+                  <input
+                    value={policyDraft.dailyCapUsdc}
+                    onChange={(event) => setPolicyDraft((prev) => ({ ...prev, dailyCapUsdc: event.target.value }))}
+                    type="number"
+                    min="0"
+                    step="1"
+                    className="w-full rounded-lg px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+              <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.encryptPrealphaStatus}</p>
+                <p className="mt-1 text-xs leading-5 text-[var(--sea-ink-soft)]">{t.encryptPrealphaStatusHelp}</p>
               </div>
               <button
                 onClick={savePolicy}
@@ -1041,6 +1000,24 @@ export function DemoTabContent({
                 <PrivatePolicyTile label={t.encryptedMax} />
                 <PrivatePolicyTile label={t.encryptedDaily} />
               </div>
+              {officialEncryptPolicyRefs && (
+                <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.encryptTechnicalRefs}</p>
+                    <span className="rounded-full border border-[var(--line)] px-2 py-1 text-[11px] font-semibold text-[var(--sea-ink-soft)]">{t.encryptRefsFromWallet}</span>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <InfoRow label={t.maxPerRunCiphertext} value={short(officialEncryptPolicyRefs.maxPerRun)} />
+                    <InfoRow label={t.dailyCapCiphertext} value={short(officialEncryptPolicyRefs.dailyCap)} />
+                    <InfoRow label={t.dailySpentCiphertext} value={short(officialEncryptPolicyRefs.dailySpent)} />
+                    <InfoRow label={t.encryptConfig} value={short(officialEncryptPolicyRefs.config)} />
+                    <InfoRow label={t.encryptNetworkKey} value={short(officialEncryptPolicyRefs.networkEncryptionKey)} />
+                    <InfoRow label={t.encryptEventAuthority} value={short(officialEncryptPolicyRefs.eventAuthority)} />
+                    {officialEncryptPolicyRefs.graph && <InfoRow label={t.encryptGraph} value={officialEncryptPolicyRefs.graph} />}
+                    {officialEncryptPolicyRefs.grpcEndpoint && <InfoRow label={t.encryptGrpcEndpoint} value={officialEncryptPolicyRefs.grpcEndpoint} />}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
                 <div>
                   <p className="text-sm font-semibold text-[var(--sea-ink)]">{t.policySaved}</p>
@@ -1440,33 +1417,10 @@ export function DemoTabContent({
             <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
               <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.encryptExecutionRefs}</p>
               <p className="mt-1 text-xs leading-5 text-[var(--sea-ink-soft)]">{t.encryptExecutionRefsHelp}</p>
-              <div className="mt-3 grid gap-3">
-                <label className="block">
-                  <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.encryptSourceAmountCiphertext}</span>
-                  <input
-                    value={officialEncryptExecutionDraft.sourceAmountCiphertext}
-                    onChange={(event) => setOfficialEncryptExecutionDraft((prev) => ({ ...prev, sourceAmountCiphertext: event.target.value.trim() }))}
-                    className="w-full rounded-lg px-2 py-1 font-mono text-xs"
-                  />
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.encryptAllowedOutput}</span>
-                    <input
-                      value={officialEncryptExecutionDraft.allowedOutputCiphertext}
-                      onChange={(event) => setOfficialEncryptExecutionDraft((prev) => ({ ...prev, allowedOutputCiphertext: event.target.value.trim() }))}
-                      className="w-full rounded-lg px-2 py-1 font-mono text-xs"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="mb-1 block text-xs text-[var(--sea-ink-soft)]">{t.encryptDailyOutput}</span>
-                    <input
-                      value={officialEncryptExecutionDraft.dailySpentOutputCiphertext}
-                      onChange={(event) => setOfficialEncryptExecutionDraft((prev) => ({ ...prev, dailySpentOutputCiphertext: event.target.value.trim() }))}
-                      className="w-full rounded-lg px-2 py-1 font-mono text-xs"
-                    />
-                  </label>
-                </div>
+              <div className="mt-3 grid gap-2">
+                <InfoRow label={t.encryptSourceAmountCiphertext} value={short(officialEncryptExecutionDraft.sourceAmountCiphertext)} />
+                <InfoRow label={t.encryptAllowedOutput} value={short(officialEncryptExecutionDraft.allowedOutputCiphertext)} />
+                <InfoRow label={t.encryptDailyOutput} value={short(officialEncryptExecutionDraft.dailySpentOutputCiphertext)} />
               </div>
             </div>
           </div>
