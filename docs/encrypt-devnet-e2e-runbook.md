@@ -27,7 +27,7 @@ export POLET_ENCRYPT_GRPC_URL="https://pre-alpha-dev-1.encrypt.ika-network.net:4
 export POLET_ENCRYPT_PROGRAM_ID="4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8"
 
 # Optional (defaults shown)
-export POLET_PROGRAM_ID="fyXZDXLNmygJ7FeXYW8uae4V1kiZJojsS9YoRE2VW1Q"
+export POLET_PROGRAM_ID="33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY"
 export POLET_ENCRYPT_MAX_PER_RUN_USDC="10"
 export POLET_ENCRYPT_DAILY_CAP_USDC="20"
 export POLET_ENCRYPT_DAILY_SPENT_USDC="0"
