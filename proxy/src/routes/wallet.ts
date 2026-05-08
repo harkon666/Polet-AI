@@ -19,6 +19,7 @@ import { buildPolicyTree } from '../lib/merkle-tree';
 import { getWalletData } from '../lib/wallet-store';
 import { PROGRAM_ID, deriveWalletPda } from '../lib/program-identity';
 import { buildConfidentialNumericPolicySetup } from '../lib/confidential-numeric-policy';
+import { readEncryptInfraStatus } from '../lib/encrypt-ciphertext-poller';
 import { toJsonSafe } from '../lib/json-safe';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -199,12 +200,13 @@ walletRouter.post('/create-encrypt-deposit', async (c) => {
 
     const ownerPubkey = parsePublicKey(owner, 'owner');
     const [depositPda] = deriveEncryptDepositPda(ownerPubkey.toString());
+    const encryptProgram = new PublicKey(ENCRYPT_PREALPHA_PROGRAM_ID_STRING);
     const connection = getConnection();
     const depositInfo = await connection.getAccountInfo(depositPda);
 
     if (depositInfo) {
-      const [configPda] = deriveEncryptConfigPda();
-      const [eventAuthority] = deriveEncryptEventAuthorityPda();
+      const [configPda] = deriveEncryptConfigPda(ENCRYPT_PREALPHA_PROGRAM_ID_STRING);
+      const [eventAuthority] = deriveEncryptEventAuthorityPda(ENCRYPT_PREALPHA_PROGRAM_ID_STRING);
       return c.json({
         success: true,
         data: {
@@ -214,6 +216,23 @@ walletRouter.post('/create-encrypt-deposit', async (c) => {
           config: configPda.toString(),
           eventAuthority: eventAuthority.toString(),
           status: 'existing-deposit',
+        },
+      });
+    }
+
+    const infraStatus = await readEncryptInfraStatus(connection, ownerPubkey, encryptProgram);
+    const nonDepositBlockers = infraStatus.blockers.filter((blocker) => blocker !== 'encrypt-deposit-missing');
+    if (nonDepositBlockers.length > 0) {
+      return c.json({
+        success: true,
+        data: {
+          transaction: null,
+          signers: [],
+          deposit: depositPda.toString(),
+          config: infraStatus.config.address,
+          eventAuthority: infraStatus.eventAuthority.address,
+          status: 'encrypt-infra-blocked',
+          blockers: nonDepositBlockers,
         },
       });
     }
@@ -236,11 +255,6 @@ walletRouter.post('/create-encrypt-deposit', async (c) => {
     return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build Encrypt deposit creation transaction' }, 500);
   }
 });
-
-function deriveEncryptConfigPda(encryptProgram: PublicKey): string {
-  const [pda] = PublicKey.findProgramAddressSync([Buffer.from('encrypt_config')], encryptProgram);
-  return pda.toString();
-}
 
 /**
  * POST /wallet/legacy/set-policy

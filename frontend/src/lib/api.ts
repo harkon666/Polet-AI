@@ -363,7 +363,8 @@ export interface CreateEncryptDepositResult {
   deposit: string;
   config: string;
   eventAuthority: string;
-  status: string;
+  status: 'existing-deposit' | 'pending-deposit-creation' | 'encrypt-infra-blocked' | string;
+  blockers?: string[];
 }
 
 export async function createEncryptDeposit(owner: string): Promise<CreateEncryptDepositResult> {
