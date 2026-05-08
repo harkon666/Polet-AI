@@ -34,6 +34,7 @@ import {
   broadcastIkaDestination,
   createEncryptDeposit,
   executeEncryptPolicyGraph,
+  initializeWallet,
   requestPolicyValueDecryption,
   type RunConfidentialDcaResult,
   type RunMultichainIntentResult,
@@ -81,6 +82,7 @@ interface DcaStrategy {
 }
 
 interface DemoApi {
+  initializeWallet: typeof initializeWallet;
   setConfidentialPolicy: (input: SetConfidentialPolicyInput) => Promise<WalletTransactionResult>;
   setOfficialEncryptCiphertextPolicy: (input: SetOfficialEncryptCiphertextPolicyInput) => Promise<SetOfficialEncryptCiphertextPolicyResult>;
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
@@ -112,6 +114,7 @@ interface DemoTabContentProps {
 }
 
 const DEFAULT_API: DemoApi = {
+  initializeWallet,
   setConfidentialPolicy,
   setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
@@ -175,11 +178,20 @@ export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) 
       await confirmFreshTransaction(connection, signature, latestBlockhash);
       return signature;
     }
-    const signature = await sendTransaction(
-      transaction,
-      connection,
-      undefined
-    );
+    if (signTransaction) {
+      const signedTransaction = await signTransaction(transaction);
+      const simulation = await connection.simulateTransaction(signedTransaction);
+      if (simulation.value.err) {
+        throw new Error(`Transaction simulation failed: ${JSON.stringify(simulation.value.err)} / ${(simulation.value.logs ?? []).join(' | ')}`);
+      }
+      const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+      });
+      await confirmFreshTransaction(connection, signature, latestBlockhash);
+      return signature;
+    }
+    const signature = await sendTransaction(transaction, connection, undefined);
     await confirmFreshTransaction(connection, signature, latestBlockhash);
     return signature;
   };
@@ -348,6 +360,20 @@ export function DemoTabContent({
     return details.length > 0 ? `${err.message}: ${details.join(' / ')}` : err.message;
   };
 
+  const ensureWalletInitialized = async () => {
+    const existing = await api.getWalletData(owner!).catch(() => null);
+    if (existing?.walletPda) return existing;
+
+    const result = await api.initializeWallet(owner!);
+    const signature = await signAndConfirmTransaction(result.transaction);
+    addActivity({
+      status: 'setup',
+      message: `${t.initialized}: ${signature.slice(0, 8)}...`,
+      route: 'Polet wallet PDA initialized for current program id',
+    });
+    return api.getWalletData(owner!).catch(() => ({ walletPda: result.wallet }));
+  };
+
   useEffect(() => {
     if (owner) {
       api.getWalletData(owner).then((data) => {
@@ -396,8 +422,17 @@ export function DemoTabContent({
           if (data.recoveryAuthority) {
             setRecoveryAuthorityState(data.recoveryAuthority);
           }
+        } else {
+          setPolicySaved(false);
+          setOfficialEncryptPolicyRefs(null);
         }
-      }).catch(console.error);
+      }).catch(() => {
+        setPolicySaved(false);
+        setOfficialEncryptPolicyRefs(null);
+      });
+    } else {
+      setPolicySaved(false);
+      setOfficialEncryptPolicyRefs(null);
     }
   }, [owner]);
 
@@ -422,6 +457,7 @@ export function DemoTabContent({
         setBusy('custody');
         setError(null);
         try {
+          await ensureWalletInitialized();
           const result = await api.setupDemoCustody({
             owner,
             usdcMint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
@@ -545,12 +581,14 @@ export function DemoTabContent({
               payer: owner,
             },
           });
+          console.log(`Hasil Result: ${JSON.stringify(result)}`);
           const signature = await signAndConfirmTransaction(result.transaction, [requestKeypair]);
           addActivity({
             status: 'setup',
             message: `${t.policyRevealRequested}: ${signature.slice(0, 8)}...`,
             route: `Official Encrypt owner reveal request: ${kind}`,
           });
+          console.log(`Hasil Signature: ${signature}`);
           const decoded = await pollPolicyReveal(result.request);
           if (decoded) {
             setRevealedPolicyValues((prev) => ({ ...prev, [kind]: decoded }));
@@ -595,6 +633,7 @@ export function DemoTabContent({
         setBusy('policy');
         setError(null);
         try {
+          await ensureWalletInitialized();
           const ciphertexts = await createPolicyCiphertexts({
             maxPerRunUsdc: policyDraft.maxPerRunUsdc,
             dailyCapUsdc: policyDraft.dailyCapUsdc,
@@ -649,6 +688,7 @@ export function DemoTabContent({
         setBusy('policy-legacy');
         setError(null);
         try {
+          await ensureWalletInitialized();
           const result = await api.setConfidentialPolicy({
             owner,
             maxPerRunUsdc: policyDraft.maxPerRunUsdc,
@@ -743,6 +783,7 @@ export function DemoTabContent({
           const result = await api.revokeSharedIkaApprover({ owner, approver });
           const signature = await signAndConfirmTransaction(result.transaction);
           setSharedIkaApproval((prev) => {
+            console.log(`Hasil Result: ${result}`);
             if (!prev) return null;
             const approvers = prev.approvers.filter((item) => item !== approver);
             return approvers.length > 0
@@ -1024,10 +1065,10 @@ export function DemoTabContent({
         transactionSigners: result.allowed ? result.transaction?.signers : undefined,
         unsignedTransaction: result.allowed && result.transaction
           ? {
-              transaction: result.transaction.transaction,
-              signers: result.transaction.signers,
-              kind: 'jupiter-dca',
-            }
+            transaction: result.transaction.transaction,
+            signers: result.transaction.signers,
+            kind: 'jupiter-dca',
+          }
           : undefined,
         smartWalletAuthority: result.allowed ? result.smartWalletAuthority : undefined,
       });
@@ -1111,10 +1152,10 @@ export function DemoTabContent({
         sharedApprovers: result.allowed ? sharedApproversFromResult(result) : result.approval?.approvedApprovers,
         unsignedTransaction: result.allowed && result.ikaRequest?.poletApprovalTransaction?.transaction
           ? {
-              transaction: result.ikaRequest.poletApprovalTransaction.transaction,
-              signers: result.ikaRequest.poletApprovalTransaction.signers ?? [],
-              kind: 'ika-approval',
-            }
+            transaction: result.ikaRequest.poletApprovalTransaction.transaction,
+            signers: result.ikaRequest.poletApprovalTransaction.signers ?? [],
+            kind: 'ika-approval',
+          }
           : undefined,
         smartWalletAuthority: result.allowed ? result.ikaRequest?.sessionContext.smartWalletAuthority : undefined,
       });
@@ -1181,9 +1222,8 @@ export function DemoTabContent({
               <button
                 key={option}
                 onClick={() => setLocale(option)}
-                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${
-                  locale === option ? 'bg-[var(--lagoon-deep)] text-white' : 'text-[var(--sea-ink-soft)] hover:bg-[var(--link-bg-hover)]'
-                }`}
+                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold ${locale === option ? 'bg-[var(--lagoon-deep)] text-white' : 'text-[var(--sea-ink-soft)] hover:bg-[var(--link-bg-hover)]'
+                  }`}
               >
                 <Languages className="h-4 w-4" />
                 {COPY[option].language}
@@ -1214,18 +1254,16 @@ export function DemoTabContent({
           {checklist.map((step, index) => (
             <div
               key={step.label}
-              className={`flex min-h-16 items-center gap-3 rounded-lg border p-3 transition-all ${
-                step.done
-                  ? 'border-green-500/20 bg-green-500/5 text-green-500'
-                  : index === checklist.findIndex((candidate) => !candidate.done)
-                    ? 'border-[var(--lagoon)]/30 bg-[var(--lagoon)]/5 text-[var(--sea-ink)] ring-1 ring-[var(--lagoon)]/20'
-                    : 'border-[var(--line)] bg-[var(--surface-strong)] text-[var(--sea-ink-soft)]'
-              }`}
+              className={`flex min-h-16 items-center gap-3 rounded-lg border p-3 transition-all ${step.done
+                ? 'border-green-500/20 bg-green-500/5 text-green-500'
+                : index === checklist.findIndex((candidate) => !candidate.done)
+                  ? 'border-[var(--lagoon)]/30 bg-[var(--lagoon)]/5 text-[var(--sea-ink)] ring-1 ring-[var(--lagoon)]/20'
+                  : 'border-[var(--line)] bg-[var(--surface-strong)] text-[var(--sea-ink-soft)]'
+                }`}
             >
               <span
-                className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${
-                  step.done ? 'bg-green-600 text-white' : 'bg-white text-[var(--sea-ink-soft)]'
-                }`}
+                className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black ${step.done ? 'bg-green-600 text-white' : 'bg-white text-[var(--sea-ink-soft)]'
+                  }`}
               >
                 {step.done ? <Check className="h-4 w-4" /> : index + 1}
               </span>

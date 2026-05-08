@@ -15,7 +15,7 @@ pub mod execution_payload;
 pub mod ika_approval;
 pub mod state;
 
-declare_id!("33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY");
+declare_id!("F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p");
 
 use confidential_policy::enforce_confidential_numeric_policy;
 pub use constants::WALLET_SEED;
@@ -34,7 +34,7 @@ const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
     95, 91, 55, 145, 58, 140, 245, 133, 126, 255, 0, 169,
 ];
 const ENCRYPT_CIPHERTEXT_ACCOUNT_LEN: usize = 100;
-const ENCRYPT_REQUEST_DECRYPTION_DISC: u8 = 10;
+const ENCRYPT_REQUEST_DECRYPTION_DISC: u8 = 11;
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -549,7 +549,7 @@ fn request_encrypt_decryption_compat<'info>(
         accounts: vec![
             AccountMeta::new_readonly(encrypt_ctx.config.key(), false),
             AccountMeta::new(encrypt_ctx.deposit.key(), false),
-            AccountMeta::new(request_acct.key(), false),
+            AccountMeta::new(request_acct.key(), true),
             AccountMeta::new_readonly(encrypt_ctx.caller_program.key(), false),
             AccountMeta::new_readonly(encrypt_ctx.cpi_authority.key(), true),
             AccountMeta::new_readonly(ciphertext.key(), false),

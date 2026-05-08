@@ -12,7 +12,7 @@ import { PublicKey } from '@solana/web3.js';
  * The wallet PDA is derived from [WALLET_SEED, owner]
  */
 export const WALLET_SEED = 'polet_wallet';
-export const PROGRAM_ID = '33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY';
+export const PROGRAM_ID = 'F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p';
 
 /**
  * Derive a wallet PDA address from an owner public key

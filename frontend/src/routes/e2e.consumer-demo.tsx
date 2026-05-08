@@ -16,6 +16,10 @@ const agent = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 let e2ePolicyConfigured = false;
 
 const e2eApi = {
+  initializeWallet: async () => ({
+    transaction: 'initialize-wallet-tx',
+    wallet: 'wallet-pda',
+  }),
   setConfidentialPolicy: async () => ({
     transaction: 'policy-tx',
     wallet: 'wallet-pda',

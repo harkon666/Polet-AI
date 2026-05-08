@@ -25,6 +25,7 @@ afterEach(() => {
   encryptDcaMode = null;
   encryptIkaMode = null;
   encryptDepositAlreadyExists = false;
+  initializedWallet = false;
   signedTransactions = [];
 });
 
@@ -41,6 +42,7 @@ let createdExecutionCiphertextInputs: Array<{ amountUsdc: string }> = [];
 let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptIkaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptDepositAlreadyExists = false;
+let initializedWallet = false;
 let signedTransactions: string[] = [];
 const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 const coApproverB = 'CxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR5';
@@ -100,6 +102,13 @@ const encryptPolicyBase = {
 };
 
 const api = {
+  initializeWallet: async () => {
+    initializedWallet = true;
+    return {
+      transaction: 'initialize-wallet-tx',
+      wallet: 'wallet-pda',
+    };
+  },
   setConfidentialPolicy: async () => ({
     transaction: 'policy-tx',
     wallet: 'wallet-pda',
@@ -170,17 +179,17 @@ const api = {
   getWalletData: async () => {
     const policyInput = officialEncryptPolicyInputs.at(-1);
     const graphInput = executeEncryptGraphInputs.at(-1);
-    const walletData = policyInput ? {
+    const walletData = (initializedWallet || policyInput) ? {
       walletPda: 'wallet-pda',
       policySeq: 7,
       lastRevokedSlot: 2,
       confidentialPolicy: {
-        enabled: true,
+        enabled: Boolean(policyInput),
         encryptCiphertexts: {
-          configured: true,
-          maxPerRun: policyInput.maxPerRunCiphertext,
-          dailyCap: policyInput.dailyCapCiphertext,
-          dailySpent: policyInput.dailySpentCiphertext,
+          configured: Boolean(policyInput),
+          maxPerRun: policyInput?.maxPerRunCiphertext ?? '',
+          dailyCap: policyInput?.dailyCapCiphertext ?? '',
+          dailySpent: policyInput?.dailySpentCiphertext ?? '',
           pending: Boolean(graphInput),
           pendingSourceAmount: graphInput?.sourceAmountCiphertext ?? '',
           pendingAllowedOutput: graphInput?.allowedOutputCiphertext ?? '',

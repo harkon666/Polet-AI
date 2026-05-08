@@ -10,6 +10,7 @@ import {
   buildRequestPolicyValueDecryptionTransaction,
   buildSetOfficialEncryptCiphertextPolicyTransaction,
   deriveEncryptConfigPda,
+  deriveEncryptCpiAuthority,
   deriveEncryptDepositPda,
   deriveEncryptEventAuthorityPda,
   getConnection,
@@ -20,7 +21,7 @@ import { buildPolicyTree } from '../lib/merkle-tree';
 import { getWalletData } from '../lib/wallet-store';
 import { PROGRAM_ID, deriveWalletPda } from '../lib/program-identity';
 import { buildConfidentialNumericPolicySetup } from '../lib/confidential-numeric-policy';
-import { readEncryptInfraStatus } from '../lib/encrypt-ciphertext-poller';
+import { readCiphertextStatus, readEncryptInfraStatus } from '../lib/encrypt-ciphertext-poller';
 import { toJsonSafe } from '../lib/json-safe';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -58,6 +59,7 @@ const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ
 const SYSTEM_PROGRAM_ID = anchor.web3.SystemProgram.programId;
 const JUPITER_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 const JUPITER_SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
+const ZERO_PUBLIC_KEY_STRING = '11111111111111111111111111111111';
 
 function getProgram(): anchor.Program {
   const connection = getConnection();
@@ -579,14 +581,35 @@ walletRouter.post('/request-policy-value-decryption', async (c) => {
       ciphertext,
       encrypt,
     } = await c.req.json();
+    const ciphertextPubkey = parsePublicKey(ciphertext, 'ciphertext');
+    const encryptProgram = encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING;
+    const connection = getConnection();
+    const ciphertextStatus = await readCiphertextStatus(connection, ciphertextPubkey);
+    if (
+      !ciphertextStatus.exists
+      || ciphertextStatus.owner !== encryptProgram
+      || ciphertextStatus.dataLength < 100
+    ) {
+      throw new Error(`Policy ciphertext ${ciphertextPubkey.toString()} is not a valid official Encrypt ciphertext account`);
+    }
+    const [encryptCpiAuthority] = deriveEncryptCpiAuthority();
+    if (
+      ciphertextStatus.authorized !== PROGRAM_ID.toString()
+      && ciphertextStatus.authorized !== encryptCpiAuthority.toString()
+      && ciphertextStatus.authorized !== ZERO_PUBLIC_KEY_STRING
+    ) {
+      throw new Error(
+        `Policy ciphertext ${ciphertextPubkey.toString()} is authorized to ${ciphertextStatus.authorized}, not current Polet program ${PROGRAM_ID.toString()} or Encrypt CPI authority ${encryptCpiAuthority.toString()}. Save policy again after restarting frontend/proxy so new ciphertexts are authorized to the redeployed program.`
+      );
+    }
     const transaction = await buildRequestPolicyValueDecryptionTransaction({
       wallet: wallet || deriveWalletPda(parsePublicKey(owner, 'owner')).toString(),
       owner,
       request,
       kind,
-      ciphertext,
+      ciphertext: ciphertextPubkey.toString(),
       encrypt: {
-        encryptProgram: encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+        encryptProgram,
         config: encrypt?.config,
         deposit: encrypt?.deposit,
         networkEncryptionKey: encrypt?.networkEncryptionKey,
@@ -602,9 +625,9 @@ walletRouter.post('/request-policy-value-decryption', async (c) => {
         wallet: wallet || deriveWalletPda(parsePublicKey(owner, 'owner')).toString(),
         request,
         kind,
-        ciphertext,
+        ciphertext: ciphertextPubkey.toString(),
         status: 'policy-reveal-requested',
-        encryptProgram: encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
+        encryptProgram,
         grpcEndpoint: ENCRYPT_PREALPHA_GRPC_URL,
         boundary: 'owner-signed-public-decryption-request',
         warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext publicly after the decryptor responds.',

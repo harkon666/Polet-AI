@@ -13,6 +13,7 @@ import { Connection, PublicKey } from '@solana/web3.js';
 export const CIPHERTEXT_ACCOUNT_SIZE = 100;
 export const CIPHERTEXT_STATUS_OFFSET = 99;
 export const CIPHERTEXT_DIGEST_OFFSET = 2;
+export const CIPHERTEXT_AUTHORIZED_OFFSET = 34;
 export const CIPHERTEXT_FHE_TYPE_OFFSET = 98;
 export const ENCRYPT_CONFIG_ACCOUNT_MIN_SIZE = 132;
 export const ENCRYPT_CONFIG_ENC_MINT_OFFSET = 68;
@@ -32,6 +33,7 @@ export interface CiphertextAccountInfo {
   statusByte: number;
   fheType: number;
   digest: string;
+  authorized: string;
 }
 
 export interface EncryptInfraPdas {
@@ -91,12 +93,16 @@ export async function readCiphertextStatus(
       statusByte: -1,
       fheType: -1,
       digest: '',
+      authorized: '',
     };
   }
   const statusByte = info.data.length > CIPHERTEXT_STATUS_OFFSET ? info.data[CIPHERTEXT_STATUS_OFFSET] : -1;
   const fheType = info.data.length > CIPHERTEXT_FHE_TYPE_OFFSET ? info.data[CIPHERTEXT_FHE_TYPE_OFFSET] : -1;
   const digest = info.data.length >= CIPHERTEXT_DIGEST_OFFSET + 32
     ? Buffer.from(info.data.slice(CIPHERTEXT_DIGEST_OFFSET, CIPHERTEXT_DIGEST_OFFSET + 32)).toString('hex')
+    : '';
+  const authorized = info.data.length >= CIPHERTEXT_AUTHORIZED_OFFSET + 32
+    ? new PublicKey(info.data.slice(CIPHERTEXT_AUTHORIZED_OFFSET, CIPHERTEXT_AUTHORIZED_OFFSET + 32)).toString()
     : '';
   return {
     address: ciphertextPubkey.toString(),
@@ -107,6 +113,7 @@ export async function readCiphertextStatus(
     statusByte,
     fheType,
     digest,
+    authorized,
   };
 }
 

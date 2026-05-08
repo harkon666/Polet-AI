@@ -94,7 +94,7 @@ The proxy builds the chain-specific digest artifact and unsigned Polet `approve_
 ## Program And URLs
 
 - Solana cluster: devnet
-- Program ID: `33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY`
+- Program ID: `F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p`
 - Default proxy URL: `http://localhost:3001`
 - Default frontend URL: `http://localhost:3000`
 - Public deployment links: not configured in this repo yet.

@@ -45,7 +45,7 @@ import {
 
 // ─── Constants ──────────────────────────────────────────────────────
 const RPC_URL = 'https://api.devnet.solana.com';
-const PROGRAM_ID = new PublicKey('33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY');
+const PROGRAM_ID = new PublicKey('F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p');
 const WALLET_SEED = 'polet_wallet';
 const ENCRYPT_PROGRAM_ID = new PublicKey('4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8');
 const ENCRYPT_CPI_AUTHORITY_SEED = '__encrypt_cpi_authority';

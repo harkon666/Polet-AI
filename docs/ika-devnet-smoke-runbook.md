@@ -22,7 +22,7 @@ Solana cluster: devnet
 Solana RPC: https://api.devnet.solana.com
 Ika dWallet gRPC: https://pre-alpha-dev-1.ika.ika-network.net:443
 Ika dWallet program id: 87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY
-Polet program id: 33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY
+Polet program id: F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p
 Polet wallet PDA seed: polet_wallet
 Polet Ika CPI authority seed: __ika_cpi_authority
 Sui-compatible signature scheme: EddsaSha512 / index 5
@@ -148,7 +148,7 @@ Use this checklist for issue `059` and follow-up issue `055` evidence before any
 Cluster: devnet
 Encrypt gRPC: https://pre-alpha-dev-1.encrypt.ika-network.net:443
 Encrypt program id: 4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8
-Polet program id: 33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY
+Polet program id: F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p
 Polet wallet PDA:
 Policy ciphertexts: max_per_run, daily_cap, daily_spent
 Pending output ciphertexts: source_amount, allowed_output, daily_spent_output
@@ -255,7 +255,7 @@ Imported dWallet path is optional. If used, record that the key-import trust mod
 
 ## Step 3: Transfer dWallet Authority To Polet
 
-Derive Polet's CPI authority PDA with seed `__ika_cpi_authority` and Polet program id `33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY`.
+Derive Polet's CPI authority PDA with seed `__ika_cpi_authority` and Polet program id `F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p`.
 
 The owner/current dWallet authority must transfer the dWallet authority to this PDA using the official Ika `TransferOwnership` flow. The proxy must not become dWallet authority.
 
