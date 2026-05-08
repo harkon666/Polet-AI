@@ -153,15 +153,33 @@ interface OfficialEncryptPolicyRefs {
 }
 
 export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) {
-  const { publicKey, sendTransaction } = useWallet();
+  const { publicKey, sendTransaction, signTransaction } = useWallet();
   const { connection } = useConnection();
 
   const signAndConfirmTransaction = async (transactionBase64: string, extraSigners: Signer[] = []) => {
     const { transaction, latestBlockhash } = await prepareFreshTransaction(transactionBase64, connection);
     if (extraSigners.length > 0) {
+      if (!signTransaction) {
+        throw new Error('Wallet does not support signing transactions with additional request signers.');
+      }
       transaction.partialSign(...extraSigners);
+      const signedTransaction = await signTransaction(transaction);
+      const simulation = await connection.simulateTransaction(signedTransaction);
+      if (simulation.value.err) {
+        throw new Error(`Transaction simulation failed: ${JSON.stringify(simulation.value.err)} / ${(simulation.value.logs ?? []).join(' | ')}`);
+      }
+      const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: 'confirmed',
+      });
+      await confirmFreshTransaction(connection, signature, latestBlockhash);
+      return signature;
     }
-    const signature = await sendTransaction(transaction, connection);
+    const signature = await sendTransaction(
+      transaction,
+      connection,
+      undefined
+    );
     await confirmFreshTransaction(connection, signature, latestBlockhash);
     return signature;
   };
@@ -305,6 +323,29 @@ export function DemoTabContent({
   const recordError = (message: string) => {
     setError(message);
     addActivity({ status: 'error', message, route: 'Proxy / contract setup' });
+  };
+
+  const formatError = (err: unknown, fallback: string) => {
+    if (!(err instanceof Error)) return fallback;
+    const details: string[] = [];
+    const anyErr = err as Error & {
+      logs?: string[];
+      error?: { message?: string; code?: number };
+      cause?: unknown;
+    };
+    if (anyErr.error?.message && anyErr.error.message !== err.message) {
+      details.push(anyErr.error.message);
+    }
+    if (typeof anyErr.error?.code === 'number') {
+      details.push(`code ${anyErr.error.code}`);
+    }
+    if (Array.isArray(anyErr.logs) && anyErr.logs.length > 0) {
+      details.push(anyErr.logs.join(' | '));
+    }
+    if (anyErr.cause instanceof Error) {
+      details.push(anyErr.cause.message);
+    }
+    return details.length > 0 ? `${err.message}: ${details.join(' / ')}` : err.message;
   };
 
   useEffect(() => {
@@ -526,7 +567,7 @@ export function DemoTabContent({
             });
           }
         } catch (err) {
-          recordError(err instanceof Error ? err.message : 'Failed to request policy reveal');
+          recordError(formatError(err, 'Failed to request policy reveal'));
         } finally {
           setBusy(null);
         }
