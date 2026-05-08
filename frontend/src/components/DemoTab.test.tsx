@@ -2,8 +2,8 @@ import { fireEvent, render, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
 import type { ComponentProps } from 'react';
 import { DemoTabContent } from './DemoTab';
-import type { RunConfidentialDcaInput, RunMultichainIntentInput } from '../lib/api';
-import type { OfficialEncryptPolicyCiphertexts } from '../lib/official-encrypt-client';
+import type { ExecuteEncryptPolicyGraphInput, RunConfidentialDcaInput, RunMultichainIntentInput } from '../lib/api';
+import type { OfficialEncryptExecutionCiphertexts, OfficialEncryptPolicyCiphertexts } from '../lib/official-encrypt-client';
 
 afterEach(() => {
   document.body.innerHTML = '';
@@ -13,7 +13,9 @@ afterEach(() => {
   multichainInputs = [];
   recoveryAccessInputs = [];
   officialEncryptPolicyInputs = [];
+  executeEncryptGraphInputs = [];
   createdPolicyCiphertextInputs = [];
+  createdExecutionCiphertextInputs = [];
   encryptDcaMode = null;
   encryptIkaMode = null;
   encryptDepositAlreadyExists = false;
@@ -26,7 +28,9 @@ let dcaInputs: RunConfidentialDcaInput[] = [];
 let multichainInputs: RunMultichainIntentInput[] = [];
 let recoveryAccessInputs: Parameters<typeof api.recoverAccess>[0][] = [];
 let officialEncryptPolicyInputs: Parameters<typeof api.setOfficialEncryptCiphertextPolicy>[0][] = [];
+let executeEncryptGraphInputs: ExecuteEncryptPolicyGraphInput[] = [];
 let createdPolicyCiphertextInputs: Array<{ maxPerRunUsdc: string; dailyCapUsdc: string }> = [];
+let createdExecutionCiphertextInputs: Array<{ amountUsdc: string }> = [];
 let encryptDcaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptIkaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptDepositAlreadyExists = false;
@@ -39,6 +43,18 @@ const freshOfficialCiphertexts: OfficialEncryptPolicyCiphertexts = {
   dailyCapCiphertext: 'FreshCapCiphertext111111111111111111111111',
   dailySpentCiphertext: 'FreshSpentCiphertext11111111111111111111',
   policyCommitment: Array.from({ length: 32 }, (_, index) => index),
+  grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+};
+const freshExecutionCiphertexts: OfficialEncryptExecutionCiphertexts = {
+  sourceAmountCiphertext: 'FreshSourceCiphertext1111111111111111111111',
+  allowedOutputCiphertext: 'FreshAllowedCiphertext11111111111111111111',
+  dailySpentOutputCiphertext: 'FreshDailyOutputCiphertext1111111111111111',
+  grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+};
+const legacyInitialExecutionCiphertexts: OfficialEncryptExecutionCiphertexts = {
+  sourceAmountCiphertext: 'Hn3nScX1Sx4q84ZKQ4TjHEujc75QfYmAHp1ko6ehWZ4s',
+  allowedOutputCiphertext: '9a5UcaYhLd64bY31K2vufX4yyJPxi8xDd83j3M8YtHfP',
+  dailySpentOutputCiphertext: '5sDPGQjGAgzJ6fmBjtyJUjW3pYLnEyEXN14NiHyBUXrz',
   grpcEndpoint: 'encrypt-grpc.polet.dev:443',
 };
 
@@ -135,13 +151,38 @@ const api = {
       approver: input.approver,
     };
   },
-  getWalletData: async () => sharedConfig ? ({
-    sharedIkaApprovals: {
-      enabled: true,
-      threshold: sharedConfig.threshold,
-      approvers: sharedConfig.approvers.map((key) => ({ key, authorized: true })),
-    },
-  }) : null,
+  getWalletData: async () => {
+    const policyInput = officialEncryptPolicyInputs.at(-1);
+    const graphInput = executeEncryptGraphInputs.at(-1);
+    const walletData = policyInput ? {
+      walletPda: 'wallet-pda',
+      policySeq: 7,
+      lastRevokedSlot: 2,
+      confidentialPolicy: {
+        enabled: true,
+        encryptCiphertexts: {
+          configured: true,
+          maxPerRun: policyInput.maxPerRunCiphertext,
+          dailyCap: policyInput.dailyCapCiphertext,
+          dailySpent: policyInput.dailySpentCiphertext,
+          pending: Boolean(graphInput),
+          pendingSourceAmount: graphInput?.sourceAmountCiphertext ?? '',
+          pendingAllowedOutput: graphInput?.allowedOutputCiphertext ?? '',
+          pendingDailySpentOutput: graphInput?.dailySpentOutputCiphertext ?? '',
+          pendingSlot: graphInput ? 101 : 0,
+          pendingPolicySeq: graphInput ? 7 : 0,
+        },
+      },
+    } : null;
+    const shared = sharedConfig ? {
+      sharedIkaApprovals: {
+        enabled: true,
+        threshold: sharedConfig.threshold,
+        approvers: sharedConfig.approvers.map((key) => ({ key, authorized: true })),
+      },
+    } : {};
+    return walletData ? { ...walletData, ...shared } : sharedConfig ? shared : null;
+  },
   broadcastIkaDestination: async () => ({
     ok: false,
     status: 'broadcast-disabled' as const,
@@ -172,6 +213,28 @@ const api = {
     eventAuthority: 'EncryptEventAuthority111111111111111111111',
     status: encryptDepositAlreadyExists ? 'existing-deposit' : 'pending-deposit-creation',
   }),
+  executeEncryptPolicyGraph: async (input: ExecuteEncryptPolicyGraphInput) => {
+    executeEncryptGraphInputs.push(input);
+    return {
+      transaction: 'encrypt-graph-tx',
+      wallet: input.wallet,
+      status: 'pending-encrypt-execution' as const,
+      encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
+      grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+      graph: 'polet_policy_guardrail_graph' as const,
+      inputCiphertexts: {
+        sourceAmount: input.sourceAmountCiphertext,
+        maxPerRun: input.maxPerRunCiphertext,
+        dailySpent: input.dailySpentCiphertext,
+        dailyCap: input.dailyCapCiphertext,
+      },
+      pendingOutputCiphertexts: {
+        allowedOutput: input.allowedOutputCiphertext,
+        dailySpentOutput: input.dailySpentOutputCiphertext,
+      },
+      suppressedUntilVerified: ['jupiterExecutionPayload', 'dwallet', 'messageApproval', 'destinationDigest', 'poletApprovalTransaction'],
+    };
+  },
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
     dcaInputs.push(input);
     if (encryptDcaMode === 'pending') {
@@ -416,7 +479,11 @@ const api = {
   },
 };
 
-function renderDemo(options: { createPolicyCiphertexts?: ComponentProps<typeof DemoTabContent>['createPolicyCiphertexts'] } = {}) {
+function renderDemo(options: {
+  createPolicyCiphertexts?: ComponentProps<typeof DemoTabContent>['createPolicyCiphertexts'];
+  executeGraphBeforeRequests?: boolean;
+  initialExecutionCiphertexts?: OfficialEncryptExecutionCiphertexts | null;
+} = {}) {
   return render(
     <DemoTabContent
       owner={connectedOwner}
@@ -430,6 +497,12 @@ function renderDemo(options: { createPolicyCiphertexts?: ComponentProps<typeof D
         createdPolicyCiphertextInputs.push(input);
         return freshOfficialCiphertexts;
       })}
+      createExecutionCiphertexts={async (input) => {
+        createdExecutionCiphertextInputs.push(input);
+        return freshExecutionCiphertexts;
+      }}
+      executeGraphBeforeRequests={options.executeGraphBeforeRequests ?? false}
+      initialExecutionCiphertexts={options.initialExecutionCiphertexts ?? legacyInitialExecutionCiphertexts}
     />
   );
 }
@@ -504,6 +577,47 @@ describe('Consumer DCA demo frontend', () => {
     expect(officialEncryptPolicyInputs).toHaveLength(0);
     expect(signedTransactions).not.toContain('official-encrypt-policy-tx');
     expect(signedTransactions).not.toContain('encrypt-deposit-tx');
+  });
+
+  test('submits official Encrypt graph before primary DCA and Ika requests', async () => {
+    const view = renderDemo({ executeGraphBeforeRequests: true, initialExecutionCiphertexts: null });
+
+    await setupCustodyAndPolicy(view);
+
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(view.getByText(/encrypt pending/i)).toBeTruthy());
+
+    expect(createdExecutionCiphertextInputs).toEqual([{ amountUsdc: '25' }]);
+    expect(executeEncryptGraphInputs).toHaveLength(1);
+    expect(executeEncryptGraphInputs[0]).toMatchObject({
+      wallet: 'wallet-pda',
+      sessionKey: coApproverA,
+      sourceAmountCiphertext: freshExecutionCiphertexts.sourceAmountCiphertext,
+      maxPerRunCiphertext: freshOfficialCiphertexts.maxPerRunCiphertext,
+      dailySpentCiphertext: freshOfficialCiphertexts.dailySpentCiphertext,
+      dailyCapCiphertext: freshOfficialCiphertexts.dailyCapCiphertext,
+      allowedOutputCiphertext: freshExecutionCiphertexts.allowedOutputCiphertext,
+      dailySpentOutputCiphertext: freshExecutionCiphertexts.dailySpentOutputCiphertext,
+      attestationSlot: 3,
+      attestationPolicySeq: 7,
+    });
+    expect(signedTransactions).toContain('encrypt-graph-tx');
+    expect(dcaInputs).toHaveLength(0);
+
+    const logText = view.getByText(/activity log/i).closest('div')?.textContent ?? '';
+    expect(logText).toContain('pending-encrypt-execution');
+    expect(logText).toContain('polet_policy_guardrail_graph');
+    expect(logText).toContain('101');
+    expect(logText).toContain('jupiterE');
+    expect(logText).toContain('messageA');
+    expect(logText).not.toContain('Jupiter route siap');
+    expect(logText).not.toContain('MessageApproval');
+    expect(JSON.stringify(executeEncryptGraphInputs)).not.toContain('maskedWitnessDevFixture');
+
+    fireEvent.click(view.getByRole('button', { name: /approve 5 usdc-equivalent ika/i }));
+    await waitFor(() => expect(createdExecutionCiphertextInputs).toEqual([{ amountUsdc: '25' }, { amountUsdc: '5' }]));
+    expect(executeEncryptGraphInputs).toHaveLength(2);
+    expect(multichainInputs).toHaveLength(0);
   });
 
   test('shows checklist progression and gates primary CTAs by prerequisites', async () => {

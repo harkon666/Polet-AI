@@ -378,6 +378,59 @@ export async function createEncryptDeposit(owner: string): Promise<CreateEncrypt
   return data.data;
 }
 
+export interface ExecuteEncryptPolicyGraphInput {
+  wallet: string;
+  sessionKey: string;
+  sourceAmountCiphertext: string;
+  maxPerRunCiphertext: string;
+  dailySpentCiphertext: string;
+  dailyCapCiphertext: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
+  attestationSlot: number;
+  attestationPolicySeq: number;
+  encrypt: {
+    encryptProgram?: string;
+    config: string;
+    deposit: string;
+    networkEncryptionKey: string;
+    eventAuthority: string;
+    payer?: string;
+  };
+}
+
+export interface ExecuteEncryptPolicyGraphResult extends WalletTransactionResult {
+  status: 'pending-encrypt-execution';
+  encryptProgram: string;
+  grpcEndpoint: string;
+  graph: 'polet_policy_guardrail_graph';
+  inputCiphertexts: {
+    sourceAmount: string;
+    maxPerRun: string;
+    dailySpent: string;
+    dailyCap: string;
+  };
+  pendingOutputCiphertexts: {
+    allowedOutput: string;
+    dailySpentOutput: string;
+  };
+  suppressedUntilVerified: string[];
+}
+
+export async function executeEncryptPolicyGraph(
+  input: ExecuteEncryptPolicyGraphInput
+): Promise<ExecuteEncryptPolicyGraphResult> {
+  const data = await fetchJson<{ success: boolean; data: ExecuteEncryptPolicyGraphResult }>(
+    `${PROXY_URL}/wallet/execute-encrypt-policy-graph`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
 export interface PasskeyCoapprovalChallengeInput {
   owner: string;
   sessionKey: string;

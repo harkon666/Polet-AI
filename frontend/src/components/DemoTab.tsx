@@ -32,6 +32,7 @@ import {
   verifyPasskeyAssertion,
   broadcastIkaDestination,
   createEncryptDeposit,
+  executeEncryptPolicyGraph,
   type RunConfidentialDcaResult,
   type RunMultichainIntentResult,
   type SharedIkaApproverConfigInput,
@@ -40,14 +41,19 @@ import {
   type SetOfficialEncryptCiphertextPolicyResult,
   type SetupDemoCustodyInput,
   type WalletTransactionResult,
+  type ExecuteEncryptPolicyGraphInput,
+  type ExecuteEncryptPolicyGraphResult,
 } from '../lib/api';
 import { COPY, type Locale } from '../lib/i18n';
 import {
   ENCRYPT_PREALPHA_CONFIG,
   ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+  ENCRYPT_PREALPHA_GRPC_ENDPOINT,
   ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
   ENCRYPT_PREALPHA_PROGRAM_ID,
+  createOfficialEncryptExecutionCiphertexts,
   createOfficialEncryptPolicyCiphertexts,
+  type OfficialEncryptExecutionCiphertexts,
   type OfficialEncryptPolicyCiphertexts,
 } from '../lib/official-encrypt-client';
 import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
@@ -84,6 +90,7 @@ interface DemoApi {
   runMultichainIntent: typeof runMultichainIntent;
   getWalletData: typeof getWalletData;
   createEncryptDeposit: typeof createEncryptDeposit;
+  executeEncryptPolicyGraph: (input: ExecuteEncryptPolicyGraphInput) => Promise<ExecuteEncryptPolicyGraphResult>;
 }
 
 interface DemoTabContentProps {
@@ -92,6 +99,9 @@ interface DemoTabContentProps {
   signAndConfirmTransaction: (transactionBase64: string) => Promise<string>;
   api?: DemoApi;
   createPolicyCiphertexts?: typeof createOfficialEncryptPolicyCiphertexts;
+  createExecutionCiphertexts?: typeof createOfficialEncryptExecutionCiphertexts;
+  executeGraphBeforeRequests?: boolean;
+  initialExecutionCiphertexts?: OfficialEncryptExecutionCiphertexts | null;
 }
 
 const DEFAULT_API: DemoApi = {
@@ -109,9 +119,11 @@ const DEFAULT_API: DemoApi = {
   runMultichainIntent,
   getWalletData,
   createEncryptDeposit,
+  executeEncryptPolicyGraph,
 };
 
 const DEFAULT_CREATE_POLICY_CIPHERTEXTS = createOfficialEncryptPolicyCiphertexts;
+const DEFAULT_CREATE_EXECUTION_CIPHERTEXTS = createOfficialEncryptExecutionCiphertexts;
 
 function short(value: string) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
@@ -126,14 +138,11 @@ interface OfficialEncryptPolicyRefs {
   eventAuthority: string;
   graph?: string;
   grpcEndpoint?: string;
+  wallet?: string;
+  policySeq?: number;
+  lastRevokedSlot?: number;
   source: 'wallet';
 }
-
-const SAMPLE_ENCRYPT_CIPHERTEXTS = {
-  sourceAmount: 'Hn3nScX1Sx4q84ZKQ4TjHEujc75QfYmAHp1ko6ehWZ4s',
-  allowedOutput: '9a5UcaYhLd64bY31K2vufX4yyJPxi8xDd83j3M8YtHfP',
-  dailySpentOutput: '5sDPGQjGAgzJ6fmBjtyJUjW3pYLnEyEXN14NiHyBUXrz',
-};
 
 export function DemoTab({ agentAddresses = [] }: { agentAddresses?: string[] }) {
   const { publicKey, sendTransaction } = useWallet();
@@ -161,15 +170,14 @@ export function DemoTabContent({
   signAndConfirmTransaction,
   api = DEFAULT_API,
   createPolicyCiphertexts = DEFAULT_CREATE_POLICY_CIPHERTEXTS,
+  createExecutionCiphertexts = DEFAULT_CREATE_EXECUTION_CIPHERTEXTS,
+  executeGraphBeforeRequests = true,
+  initialExecutionCiphertexts = null,
 }: DemoTabContentProps) {
   const [locale, setLocale] = useState<Locale>('id');
   const [policyDraft, setPolicyDraft] = useState({ maxPerRunUsdc: '10', dailyCapUsdc: '20' });
   const [officialEncryptPolicyRefs, setOfficialEncryptPolicyRefs] = useState<OfficialEncryptPolicyRefs | null>(null);
-  const [officialEncryptExecutionDraft, setOfficialEncryptExecutionDraft] = useState({
-    sourceAmountCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.sourceAmount,
-    allowedOutputCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.allowedOutput,
-    dailySpentOutputCiphertext: SAMPLE_ENCRYPT_CIPHERTEXTS.dailySpentOutput,
-  });
+  const [officialEncryptExecutionDraft, setOfficialEncryptExecutionDraft] = useState<OfficialEncryptExecutionCiphertexts | null>(initialExecutionCiphertexts);
   const [policySaved, setPolicySaved] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState(true);
   const [custody, setCustody] = useState<{ usdcTokenAccount: string; solTokenAccount: string } | null>(null);
@@ -304,6 +312,9 @@ export function DemoTabContent({
               config: ENCRYPT_PREALPHA_CONFIG,
               networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
               eventAuthority: ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+              wallet: data.walletPda,
+              policySeq: data.policySeq,
+              lastRevokedSlot: data.lastRevokedSlot,
               source: 'wallet',
             });
             if (encryptCiphertexts.pending) {
@@ -311,6 +322,7 @@ export function DemoTabContent({
                 sourceAmountCiphertext: encryptCiphertexts.pendingSourceAmount,
                 allowedOutputCiphertext: encryptCiphertexts.pendingAllowedOutput,
                 dailySpentOutputCiphertext: encryptCiphertexts.pendingDailySpentOutput,
+                grpcEndpoint: ENCRYPT_PREALPHA_GRPC_ENDPOINT,
               });
             }
           }
@@ -384,6 +396,9 @@ export function DemoTabContent({
       config: ENCRYPT_PREALPHA_CONFIG,
       networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
       eventAuthority: ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+      wallet: data.walletPda,
+      policySeq: data.policySeq,
+      lastRevokedSlot: data.lastRevokedSlot,
       source: 'wallet',
     };
   };
@@ -400,6 +415,7 @@ export function DemoTabContent({
     eventAuthority: ENCRYPT_PREALPHA_EVENT_AUTHORITY,
     graph: result.graph,
     grpcEndpoint: ciphertexts.grpcEndpoint,
+    wallet: result.wallet,
     source: 'wallet',
   });
 
@@ -728,6 +744,78 @@ export function DemoTabContent({
     }
   };
 
+  const submitOfficialEncryptGraph = async (amountUsdc: string, routePair: string, route: string) => {
+    if (!owner || !agentAddress.trim()) {
+      recordError(!owner ? t.missingOwner : t.missingAgent);
+      return false;
+    }
+    const walletData = await api.getWalletData(owner);
+    const policyRefs = readOfficialEncryptRefsFromWallet(walletData) ?? officialEncryptPolicyRefs;
+    if (!policyRefs?.wallet || policyRefs.policySeq === undefined || policyRefs.lastRevokedSlot === undefined) {
+      recordError('Official Encrypt policy must be configured on-chain before graph execution.');
+      return false;
+    }
+
+    const executionCiphertexts = await createExecutionCiphertexts({ amountUsdc });
+    const deposit = await api.createEncryptDeposit(agentAddress.trim());
+    if (deposit.transaction) {
+      await signAndConfirmTransaction(deposit.transaction);
+    }
+    const graphResult = await api.executeEncryptPolicyGraph({
+      wallet: policyRefs.wallet,
+      sessionKey: agentAddress.trim(),
+      sourceAmountCiphertext: executionCiphertexts.sourceAmountCiphertext,
+      maxPerRunCiphertext: policyRefs.maxPerRun,
+      dailySpentCiphertext: policyRefs.dailySpent,
+      dailyCapCiphertext: policyRefs.dailyCap,
+      allowedOutputCiphertext: executionCiphertexts.allowedOutputCiphertext,
+      dailySpentOutputCiphertext: executionCiphertexts.dailySpentOutputCiphertext,
+      attestationSlot: policyRefs.lastRevokedSlot + 1,
+      attestationPolicySeq: policyRefs.policySeq,
+      encrypt: {
+        encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+        config: deposit.config || policyRefs.config,
+        deposit: deposit.deposit,
+        networkEncryptionKey: policyRefs.networkEncryptionKey,
+        eventAuthority: deposit.eventAuthority || policyRefs.eventAuthority,
+        payer: agentAddress.trim(),
+      },
+    });
+    const signature = await signAndConfirmTransaction(graphResult.transaction);
+    const pendingWallet = await api.getWalletData(owner).catch(() => null);
+    const pendingState = pendingWallet?.confidentialPolicy?.encryptCiphertexts;
+    const pendingRefs = {
+      sourceAmountCiphertext: pendingState?.pendingSourceAmount || executionCiphertexts.sourceAmountCiphertext,
+      allowedOutputCiphertext: pendingState?.pendingAllowedOutput || executionCiphertexts.allowedOutputCiphertext,
+      dailySpentOutputCiphertext: pendingState?.pendingDailySpentOutput || executionCiphertexts.dailySpentOutputCiphertext,
+      grpcEndpoint: executionCiphertexts.grpcEndpoint,
+    };
+    setOfficialEncryptExecutionDraft(pendingRefs);
+    setOfficialEncryptPolicyRefs(policyRefs);
+    addActivity({
+      status: 'pending-encrypt-execution',
+      amountUsdc,
+      routePair,
+      message: t.encryptGraphSubmitted,
+      route: `${route}: ${signature.slice(0, 8)}...`,
+      encryptPolicy: {
+        status: 'pending-encrypt-execution',
+        policySequence: pendingState?.pendingPolicySeq || policyRefs.policySeq,
+        sourceAmountCiphertext: pendingRefs.sourceAmountCiphertext,
+        allowedOutputCiphertext: pendingRefs.allowedOutputCiphertext,
+        dailySpentOutputCiphertext: pendingRefs.dailySpentOutputCiphertext,
+        ...(pendingState?.pendingSlot && { pendingSlot: pendingState.pendingSlot }),
+        graph: graphResult.graph,
+        encryptProgram: graphResult.encryptProgram,
+        grpcEndpoint: graphResult.grpcEndpoint,
+        inputCiphertexts: graphResult.inputCiphertexts,
+        pendingOutputCiphertexts: graphResult.pendingOutputCiphertexts,
+        suppressedUntilVerified: graphResult.suppressedUntilVerified,
+      },
+    });
+    return true;
+  };
+
   const runAgent = async (amountUsdc: string) => {
     if (!owner) {
       recordError(t.missingOwner);
@@ -741,12 +829,16 @@ export function DemoTabContent({
     setBusy(`run-${amountUsdc}`);
     setError(null);
     try {
+      if (executeGraphBeforeRequests && officialEncryptPolicyRefs) {
+        await submitOfficialEncryptGraph(amountUsdc, 'USDC -> SOL', 'Official Encrypt graph / Jupiter gated');
+        return;
+      }
       const result: RunConfidentialDcaResult = await api.runConfidentialDca({
         owner,
         sessionKey: agentAddress.trim(),
         amountUsdc,
         slippageBps: 100,
-        officialEncrypt: officialEncryptExecutionDraft,
+        ...(officialEncryptExecutionDraft && { officialEncrypt: officialEncryptExecutionDraft }),
       });
       const encryptStatus = getEncryptStatus(result.status, result.encryptPolicy);
       addActivity({
@@ -801,6 +893,10 @@ export function DemoTabContent({
     setBusy(isAllowedIkaTarget ? `ika-${target.chain}-${amount}` : 'ika-unsupported');
     setError(null);
     try {
+      if (executeGraphBeforeRequests && officialEncryptPolicyRefs && isAllowedIkaTarget) {
+        await submitOfficialEncryptGraph(amount, `USDC -> ${target.asset}`, `Official Encrypt graph / Ika ${target.chain.toUpperCase()} gated`);
+        return;
+      }
       const result: RunMultichainIntentResult = await api.runMultichainIntent({
         owner,
         sessionKey: agentAddress.trim(),
@@ -815,7 +911,7 @@ export function DemoTabContent({
         routeRisk: { priceImpactBps: routeRiskDraft.maxPriceImpactBps, liquidityScore: routeRiskDraft.minLiquidityScore, verifiedRoute: routeRiskDraft.requireVerifiedRoute, provider: 'polet-demo-precheck' },
         riskGuardrails: { mode: 'bridgeless-route-risk', maxSlippageBps: 150, maxPriceImpactBps: 300, minLiquidityScore: routeRiskDraft.minLiquidityScore, requireVerifiedRoute: routeRiskDraft.requireVerifiedRoute },
         sharedAccess: buildSharedAccess(sharedIkaApproval, sharedApprovalProofs, t.invalidSharedProofs),
-        officialEncrypt: officialEncryptExecutionDraft,
+        ...(officialEncryptExecutionDraft && { officialEncrypt: officialEncryptExecutionDraft }),
         routeGuardrails: {
           mode: 'chain-asset-allowlist',
           allowedSourceChains: ['solana'],
@@ -1482,9 +1578,9 @@ export function DemoTabContent({
               <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.encryptExecutionRefs}</p>
               <p className="mt-1 text-xs leading-5 text-[var(--sea-ink-soft)]">{t.encryptExecutionRefsHelp}</p>
               <div className="mt-3 grid gap-2">
-                <InfoRow label={t.encryptSourceAmountCiphertext} value={short(officialEncryptExecutionDraft.sourceAmountCiphertext)} />
-                <InfoRow label={t.encryptAllowedOutput} value={short(officialEncryptExecutionDraft.allowedOutputCiphertext)} />
-                <InfoRow label={t.encryptDailyOutput} value={short(officialEncryptExecutionDraft.dailySpentOutputCiphertext)} />
+                <InfoRow label={t.encryptSourceAmountCiphertext} value={officialEncryptExecutionDraft ? short(officialEncryptExecutionDraft.sourceAmountCiphertext) : t.notPrepared} />
+                <InfoRow label={t.encryptAllowedOutput} value={officialEncryptExecutionDraft ? short(officialEncryptExecutionDraft.allowedOutputCiphertext) : t.notPrepared} />
+                <InfoRow label={t.encryptDailyOutput} value={officialEncryptExecutionDraft ? short(officialEncryptExecutionDraft.dailySpentOutputCiphertext) : t.notPrepared} />
               </div>
             </div>
           </div>

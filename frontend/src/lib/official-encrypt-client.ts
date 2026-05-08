@@ -9,6 +9,7 @@ export const ENCRYPT_PREALPHA_CONFIG = 'EyqsEJaq86kqAbF3bNKQ3ydzAFXJZ5e8tuNr89Cc
 export const ENCRYPT_PREALPHA_EVENT_AUTHORITY = '6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ';
 export const ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY = '2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur';
 
+const FHE_BOOL = 0;
 const FHE_UINT64 = 4;
 const USDC_DECIMALS = 6n;
 const USDC_SCALE = 10n ** USDC_DECIMALS;
@@ -24,6 +25,18 @@ export interface OfficialEncryptPolicyCiphertexts {
 export interface OfficialEncryptPolicyInput {
   maxPerRunUsdc: string;
   dailyCapUsdc: string;
+  grpcEndpoint?: string;
+}
+
+export interface OfficialEncryptExecutionCiphertexts {
+  sourceAmountCiphertext: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
+  grpcEndpoint: string;
+}
+
+export interface OfficialEncryptExecutionInput {
+  amountUsdc: string;
   grpcEndpoint?: string;
 }
 
@@ -69,6 +82,40 @@ export async function createOfficialEncryptPolicyCiphertexts(
     dailyCapCiphertext,
     dailySpentCiphertext,
     policyCommitment,
+    grpcEndpoint,
+  };
+}
+
+export async function createOfficialEncryptExecutionCiphertexts(
+  input: OfficialEncryptExecutionInput
+): Promise<OfficialEncryptExecutionCiphertexts> {
+  const sourceAmount = parseUsdcBaseUnits(input.amountUsdc, 'amountUsdc');
+  if (sourceAmount <= 0n) {
+    throw new Error('Amount must be greater than zero.');
+  }
+
+  const grpcEndpoint = input.grpcEndpoint ?? ENCRYPT_PREALPHA_GRPC_ENDPOINT;
+  const client = createEncryptWebClient(grpcEndpoint);
+  const ciphertextIds = await client.createInput({
+    chain: Chain.SOLANA,
+    inputs: [
+      { ciphertextBytes: encryptValue(sourceAmount, FHE_UINT64), fheType: FHE_UINT64 },
+      { ciphertextBytes: encryptValue(0n, FHE_BOOL), fheType: FHE_BOOL },
+      { ciphertextBytes: encryptValue(0n, FHE_UINT64), fheType: FHE_UINT64 },
+    ],
+    authorized: new PublicKey(POLET_PROGRAM_ID).toBytes(),
+    networkEncryptionPublicKey: bs58.decode(ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY),
+  });
+
+  if (ciphertextIds.length !== 3) {
+    throw new Error(`Encrypt createInput returned ${ciphertextIds.length} ciphertext ids, expected 3.`);
+  }
+
+  const [sourceAmountCiphertext, allowedOutputCiphertext, dailySpentOutputCiphertext] = ciphertextIds.map((id) => bs58.encode(id));
+  return {
+    sourceAmountCiphertext,
+    allowedOutputCiphertext,
+    dailySpentOutputCiphertext,
     grpcEndpoint,
   };
 }

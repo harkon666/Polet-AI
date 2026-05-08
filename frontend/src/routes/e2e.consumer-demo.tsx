@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { DemoTabContent } from '../components/DemoTab';
-import type { RunConfidentialDcaInput, RunMultichainIntentInput } from '../lib/api';
+import type { ExecuteEncryptPolicyGraphInput, RunConfidentialDcaInput, RunMultichainIntentInput } from '../lib/api';
 
 export const Route = createFileRoute('/e2e/consumer-demo')({
   component: E2EConsumerDemoPage,
@@ -8,6 +8,7 @@ export const Route = createFileRoute('/e2e/consumer-demo')({
 
 const owner = 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2';
 const agent = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
+let e2ePolicyConfigured = false;
 
 const e2eApi = {
   setConfidentialPolicy: async () => ({
@@ -21,19 +22,22 @@ const e2eApi = {
     dailyCapCiphertext: string;
     dailySpentCiphertext: string;
     encrypt: { encryptProgram?: string };
-  }) => ({
-    transaction: 'official-encrypt-policy-tx',
-    wallet: 'wallet-pda',
-    encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
-    grpcEndpoint: 'encrypt-grpc.polet.dev:443',
-    ciphertexts: {
-      maxPerRun: input.maxPerRunCiphertext,
-      dailyCap: input.dailyCapCiphertext,
-      dailySpent: input.dailySpentCiphertext,
-    },
-    graph: 'polet_policy_guardrail_graph' as const,
-    boundary: 'unsigned-official-encrypt-policy-registration' as const,
-  }),
+  }) => {
+    e2ePolicyConfigured = true;
+    return {
+      transaction: 'official-encrypt-policy-tx',
+      wallet: 'wallet-pda',
+      encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
+      grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+      ciphertexts: {
+        maxPerRun: input.maxPerRunCiphertext,
+        dailyCap: input.dailyCapCiphertext,
+        dailySpent: input.dailySpentCiphertext,
+      },
+      graph: 'polet_policy_guardrail_graph' as const,
+      boundary: 'unsigned-official-encrypt-policy-registration' as const,
+    };
+  },
   createEncryptDeposit: async () => ({
     transaction: null,
     signers: [],
@@ -41,6 +45,25 @@ const e2eApi = {
     config: 'EncryptConfig1111111111111111111111111111111',
     eventAuthority: 'EncryptEventAuthority111111111111111111111',
     status: 'existing-deposit',
+  }),
+  executeEncryptPolicyGraph: async (input: ExecuteEncryptPolicyGraphInput) => ({
+    transaction: 'encrypt-graph-tx',
+    wallet: input.wallet,
+    status: 'pending-encrypt-execution' as const,
+    encryptProgram: input.encrypt.encryptProgram ?? 'encrypt-program',
+    grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+    graph: 'polet_policy_guardrail_graph' as const,
+    inputCiphertexts: {
+      sourceAmount: input.sourceAmountCiphertext,
+      maxPerRun: input.maxPerRunCiphertext,
+      dailySpent: input.dailySpentCiphertext,
+      dailyCap: input.dailyCapCiphertext,
+    },
+    pendingOutputCiphertexts: {
+      allowedOutput: input.allowedOutputCiphertext,
+      dailySpentOutput: input.dailySpentOutputCiphertext,
+    },
+    suppressedUntilVerified: ['jupiterExecutionPayload', 'dwallet', 'messageApproval', 'destinationDigest', 'poletApprovalTransaction'],
   }),
   setupDemoCustody: async () => ({
     transaction: 'custody-tx',
@@ -112,7 +135,21 @@ const e2eApi = {
       productionSettlement: false as const,
     },
   }),
-  getWalletData: async () => null,
+  getWalletData: async () => e2ePolicyConfigured ? ({
+    walletPda: 'wallet-pda',
+    policySeq: 7,
+    lastRevokedSlot: 2,
+    confidentialPolicy: {
+      enabled: true,
+      encryptCiphertexts: {
+        configured: true,
+        maxPerRun: 'FreshMaxCiphertext111111111111111111111111',
+        dailyCap: 'FreshCapCiphertext111111111111111111111111',
+        dailySpent: 'FreshSpentCiphertext11111111111111111111',
+        pending: false,
+      },
+    },
+  }) : null,
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
     if (input.amountUsdc === '25') {
       return {
@@ -226,6 +263,12 @@ function E2EConsumerDemoPage() {
           dailyCapCiphertext: 'FreshCapCiphertext111111111111111111111111',
           dailySpentCiphertext: 'FreshSpentCiphertext11111111111111111111',
           policyCommitment: Array.from({ length: 32 }, (_, index) => index),
+          grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+        })}
+        createExecutionCiphertexts={async () => ({
+          sourceAmountCiphertext: 'FreshSourceCiphertext1111111111111111111111',
+          allowedOutputCiphertext: 'FreshAllowedCiphertext11111111111111111111',
+          dailySpentOutputCiphertext: 'FreshDailyOutputCiphertext1111111111111111',
           grpcEndpoint: 'encrypt-grpc.polet.dev:443',
         })}
       />
