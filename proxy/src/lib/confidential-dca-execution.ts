@@ -52,7 +52,7 @@ export interface ConfidentialDcaRunAllowed {
   executionPath: 'recurring' | 'swap-build-fallback';
   smartWalletAuthority: string;
   jupiterPlan: JupiterDcaStrategyPlan;
-  transaction: BuiltTransaction;
+  transaction?: BuiltTransaction;
   encryptPolicy?: Extract<OfficialEncryptPolicyExecution, { status: 'encrypt-verified-allowed' }>;
 }
 
@@ -142,19 +142,21 @@ export async function runConfidentialDcaExecution(
         buildAllowed: async ({ wallet, prepared, encryptPolicy }) => {
           const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
           const destinationTokenAccount = request.destinationTokenAccount ?? wallet.demoCustody.solTokenAccount;
-          const txRequest: ConfidentialTransferTransactionRequest = {
-            wallet: smartWalletAuthority,
-            sessionKey: request.sessionKey,
-            destination: destinationTokenAccount,
-            amount: amountBaseUnits,
-            attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
-            attestationPolicySeq: wallet.policySeq,
-            maskedWitnessDevFixture: request.maskedWitnessDevFixture ?? [],
-          };
-          const transaction = await (deps.buildTransaction ?? buildConfidentialTransferSessionTransaction)(
-            txRequest,
-            PROGRAM_ID_STRING
-          );
+          const shouldBuildLegacyWitnessTransaction = encryptPolicy?.status !== 'encrypt-verified-allowed';
+          const transaction = shouldBuildLegacyWitnessTransaction
+            ? await (deps.buildTransaction ?? buildConfidentialTransferSessionTransaction)(
+              {
+                wallet: smartWalletAuthority,
+                sessionKey: request.sessionKey,
+                destination: destinationTokenAccount,
+                amount: amountBaseUnits,
+                attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
+                attestationPolicySeq: wallet.policySeq,
+                maskedWitnessDevFixture: request.maskedWitnessDevFixture ?? [],
+              },
+              PROGRAM_ID_STRING
+            )
+            : undefined;
 
           return {
             allowed: true,
@@ -164,7 +166,7 @@ export async function runConfidentialDcaExecution(
             executionPath: prepared.executionPath,
             smartWalletAuthority,
             jupiterPlan: prepared,
-            transaction,
+            ...(transaction && { transaction }),
             ...(encryptPolicy?.status === 'encrypt-verified-allowed' && {
               encryptPolicy,
             }),

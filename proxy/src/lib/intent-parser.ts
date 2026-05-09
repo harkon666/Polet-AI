@@ -198,6 +198,9 @@ function validateMultichainStrategyParams(params: Record<string, unknown>): void
         throw new Error(`Multichain params officialEncrypt.${key} must be a string`);
       }
     }
+    if (officialEncrypt.allowedDecryptionRequest !== undefined && (typeof officialEncrypt.allowedDecryptionRequest !== 'string' || !officialEncrypt.allowedDecryptionRequest)) {
+      throw new Error('Multichain params officialEncrypt.allowedDecryptionRequest must be a string when provided');
+    }
   }
 }
 

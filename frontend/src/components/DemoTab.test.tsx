@@ -333,11 +333,22 @@ const api = {
     boundary: 'owner-signed-public-decryption-request' as const,
     warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext output values publicly after the decryptor responds.',
   }),
-  resolveEncryptPolicyDecision: async () => ({
-    ...encryptPolicyBase,
+  resolveEncryptPolicyDecision: async (input: { allowedDecryptionRequest: string }) => ({
+    ...(executeEncryptGraphInputs.at(-1)
+      ? {
+          policySequence: 7,
+          sourceAmountCiphertext: executeEncryptGraphInputs.at(-1)!.sourceAmountCiphertext,
+          allowedOutputCiphertext: executeEncryptGraphInputs.at(-1)!.allowedOutputCiphertext,
+          dailySpentOutputCiphertext: executeEncryptGraphInputs.at(-1)!.dailySpentOutputCiphertext,
+          graph: 'polet_policy_guardrail_graph' as const,
+          encryptProgram: 'EncryptProGram1111111111111111111111111111111',
+          grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+        }
+      : encryptPolicyBase),
     status: encryptDcaMode === 'allowed' || encryptIkaMode === 'allowed'
       ? 'encrypt-verified-allowed' as const
       : 'encrypt-verified-blocked' as const,
+    allowedDecryptionRequest: input.allowedDecryptionRequest,
     verifiedSlot: 104,
   }),
   runConfidentialDca: async (input: RunConfidentialDcaInput) => {
@@ -720,7 +731,7 @@ describe('Consumer DCA demo frontend', () => {
     await setupCustodyAndPolicy(view);
 
     fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
-    await waitFor(() => expect(view.getByText(/encrypt pending/i)).toBeTruthy());
+    await waitFor(() => expect(view.getAllByText(/encrypt pending/i).length).toBeGreaterThan(0));
 
     expect(createdExecutionCiphertextInputs).toEqual([{ amountUsdc: '25' }]);
     expect(executeEncryptGraphInputs).toHaveLength(1);
@@ -779,6 +790,38 @@ describe('Consumer DCA demo frontend', () => {
     expect(grantKeyInputs).toHaveLength(0);
     expect(dcaInputs).toHaveLength(0);
     expect(document.body.textContent).not.toContain('Official Encrypt policy graph must be executed before strategy payloads can be prepared.');
+  });
+
+  test('uses freshly verified official Encrypt refs for the same DCA request after graph execution', async () => {
+    existingSessionKeys = [connectedOwner];
+    encryptDcaMode = 'allowed';
+    const staleExecutionRefs: OfficialEncryptExecutionCiphertexts = {
+      sourceAmountCiphertext: 'StaleSourceCiphertext111111111111111111111',
+      allowedOutputCiphertext: 'StaleAllowedCiphertext1111111111111111111',
+      dailySpentOutputCiphertext: 'StaleDailyOutputCiphertext11111111111111',
+      grpcEndpoint: 'encrypt-grpc.polet.dev:443',
+    };
+    const view = renderDemo({
+      executeGraphBeforeRequests: true,
+      initialExecutionCiphertexts: staleExecutionRefs,
+      agentAddresses: [connectedOwner],
+    });
+
+    await setupCustodyAndPolicy(view);
+
+    fireEvent.click(view.getByRole('button', { name: /try 25 usdc via proxy/i }));
+    await waitFor(() => expect(dcaInputs).toHaveLength(1));
+
+    fireEvent.click(view.getByRole('button', { name: /run 5 usdc via proxy/i }));
+    await waitFor(() => expect(dcaInputs).toHaveLength(2));
+
+    expect(dcaInputs[1].officialEncrypt).toMatchObject({
+      sourceAmountCiphertext: freshExecutionCiphertexts.sourceAmountCiphertext,
+      allowedOutputCiphertext: freshExecutionCiphertexts.allowedOutputCiphertext,
+      dailySpentOutputCiphertext: freshExecutionCiphertexts.dailySpentOutputCiphertext,
+      allowedDecryptionRequest: expect.any(String),
+    });
+    expect(dcaInputs[1].officialEncrypt).not.toMatchObject(staleExecutionRefs);
   });
 
   test('shows checklist progression and gates primary CTAs by prerequisites', async () => {

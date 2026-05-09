@@ -149,6 +149,7 @@ export async function executeGuardedStrategy<TPrepared, TPayload>(
         owner: request.owner,
         sessionKey: request.sessionKey,
         amountBaseUnits: request.amountBaseUnits,
+        officialEncrypt: request.officialEncrypt,
       },
       deps.resolveEncryptPolicyExecution
     );

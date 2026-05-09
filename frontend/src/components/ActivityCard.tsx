@@ -1,4 +1,4 @@
-import { Check, AlertTriangle, X, Landmark, Clipboard } from 'lucide-react';
+import { Check, AlertTriangle, X, Landmark, Clipboard, ExternalLink } from 'lucide-react';
 import { InfoPill } from './ui/InfoPill';
 import type { ActivityEntry } from './activity-log';
 import type { COPY } from '../lib/i18n';
@@ -77,6 +77,17 @@ export function ActivityCard({ entry, labels }: ActivityCardProps) {
           <Landmark className="h-3.5 w-3.5" />
           {entry.route}
         </p>
+        {entry.signature && (
+          <a
+            href={`https://solscan.io/tx/${entry.signature}?cluster=devnet`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-1 text-xs font-semibold text-[var(--lagoon-deep)] hover:bg-[var(--link-bg-hover)]"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Solscan
+          </a>
+        )}
       </div>
       {entry.jupiterPlan && <JupiterRoutePreview entry={entry} labels={labels} />}
       {entry.encryptPolicy && <EncryptPolicyStatusCard policy={entry.encryptPolicy} labels={labels} />}
@@ -99,7 +110,7 @@ function UnsignedTransactionCard({ entry }: { entry: ActivityEntry }) {
     <div className="mt-3 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)]">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="font-semibold uppercase text-[var(--sea-ink-soft)]">Unsigned transaction</p>
+          <p className="font-semibold uppercase text-[var(--sea-ink-soft)]">Agent transaction payload</p>
           <p className="mt-1 text-[var(--sea-ink-soft)]">
             Agent signer required: {payload.signers.map(short).join(', ') || 'session signer'}
           </p>
@@ -110,9 +121,12 @@ function UnsignedTransactionCard({ entry }: { entry: ActivityEntry }) {
           className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-[var(--lagoon-deep)] hover:bg-[var(--link-bg-hover)]"
         >
           <Clipboard className="h-3.5 w-3.5" />
-          Copy base64
+          Copy agent tx
         </button>
       </div>
+      <p className="mt-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1 text-[10px] font-semibold text-amber-600">
+        This is not a Solscan tx yet. Paste it into the AI agent/session signer to sign and broadcast.
+      </p>
       <p className="mt-2 break-all rounded-md bg-[var(--surface)] p-2 font-mono text-[10px] leading-5 text-[var(--sea-ink-soft)]">
         {payload.transaction.slice(0, 96)}...
       </p>
@@ -130,6 +144,17 @@ function EncryptPolicyStatusCard({
   const isPending = policy.status === 'pending-encrypt-execution';
   const isBlocked = policy.status === 'encrypt-verified-blocked';
   const isAllowed = policy.status === 'encrypt-verified-allowed';
+  const copyRefs = () => {
+    const refs = {
+      sourceAmountCiphertext: policy.sourceAmountCiphertext,
+      allowedOutputCiphertext: policy.allowedOutputCiphertext,
+      dailySpentOutputCiphertext: policy.dailySpentOutputCiphertext,
+      allowedDecryptionRequest: policy.allowedDecryptionRequest,
+      status: policy.status,
+      policySequence: policy.policySequence,
+    };
+    void navigator.clipboard?.writeText(JSON.stringify(refs, null, 2));
+  };
 
   const inputCt = policy.inputCiphertexts;
   const outputCt = policy.pendingOutputCiphertexts;
@@ -187,8 +212,16 @@ function EncryptPolicyStatusCard({
         </div>
       )}
       {isAllowed && (
-        <div className="sm:col-span-2 mt-1 rounded-md bg-green-500/5 border border-green-500/20 px-2 py-1">
+        <div className="sm:col-span-2 mt-1 flex flex-wrap items-center justify-between gap-2 rounded-md bg-green-500/5 border border-green-500/20 px-2 py-1">
           <p className="text-xs font-bold text-green-500">{labels.encryptApprovalPreparation}</p>
+          <button
+            type="button"
+            onClick={copyRefs}
+            className="inline-flex items-center gap-1.5 rounded-md border border-green-500/30 bg-[var(--surface)] px-2 py-1 text-[10px] font-bold uppercase text-green-600 hover:bg-green-500/10"
+          >
+            <Clipboard className="h-3.5 w-3.5" />
+            Copy refs
+          </button>
         </div>
       )}
     </div>

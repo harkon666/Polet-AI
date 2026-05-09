@@ -16,6 +16,7 @@ export interface ActivityEntry {
   status: ActivityStatus;
   message: string;
   route?: string;
+  signature?: string;
   amountUsdc?: string;
   routePair?: string;
   encryptPolicy?: OfficialEncryptPolicyPreview;

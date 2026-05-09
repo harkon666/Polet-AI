@@ -49,7 +49,7 @@ describe('Confidential DCA execution path', () => {
       expect(result.smartWalletAuthority).toBe(fixture.wallet.walletPda);
       expect(result.jupiterPlan.executionPath).toBe('swap-build-fallback');
       expect(result.jupiterPlan.build?.swapInstruction.accounts[0].pubkey).toBe(fixture.wallet.walletPda);
-      expect(result.transaction.signers).toEqual([fixture.sessionKey]);
+      expect(result.transaction?.signers).toEqual([fixture.sessionKey]);
     }
 
     expect(requestedUrls.some((url) => url.includes('/tokens/v2/search'))).toBe(true);
@@ -168,7 +168,7 @@ describe('Confidential DCA execution path', () => {
     }
   });
 
-  test('builds a DCA transaction only after Encrypt verification allows the graph output', async () => {
+  test('returns an Official Encrypt DCA route preview after verification without building a legacy witness transaction', async () => {
     const fixture = createFixture({ officialEncrypt: 'pending' });
 
     const result = await runConfidentialDcaExecution(
@@ -190,14 +190,17 @@ describe('Confidential DCA execution path', () => {
           verifiedSlot: 999,
           graph: 'polet_policy_guardrail_graph',
         }),
-        buildTransaction: async () => mockBuiltTransaction(fixture.sessionKey),
+        buildTransaction: async () => {
+          throw new Error('Official Encrypt verified DCA must not build legacy masked-witness transactions');
+        },
       }
     );
 
     expect(result.allowed).toBe(true);
     if (result.allowed) {
       expect(result.encryptPolicy?.status).toBe('encrypt-verified-allowed');
-      expect(result.transaction.signers).toEqual([fixture.sessionKey]);
+      expect(result.transaction).toBeUndefined();
+      expect(result.jupiterPlan.executionPath).toBe('swap-build-fallback');
     }
   });
 
@@ -222,13 +225,16 @@ describe('Confidential DCA execution path', () => {
           verifiedSlot: 999,
           graph: 'polet_policy_guardrail_graph',
         }),
-        buildTransaction: async () => mockBuiltTransaction(fixture.sessionKey),
+        buildTransaction: async () => {
+          throw new Error('Official Encrypt verified DCA must not build legacy masked-witness transactions');
+        },
       }
     );
 
     expect(result.allowed).toBe(true);
     if (result.allowed) {
       expect(result.encryptPolicy?.status).toBe('encrypt-verified-allowed');
+      expect(result.transaction).toBeUndefined();
       expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
     }
   });

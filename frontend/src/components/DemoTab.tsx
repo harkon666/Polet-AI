@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { Keypair, PublicKey, type Signer } from '@solana/web3.js';
 import {
@@ -50,6 +50,7 @@ import {
   type WalletTransactionResult,
   type ExecuteEncryptPolicyGraphInput,
   type ExecuteEncryptPolicyGraphResult,
+  type OfficialEncryptExecutionRefs,
   type PolicyRevealKind,
   type RequestPolicyValueDecryptionInput,
   type RequestPolicyValueDecryptionResult,
@@ -270,6 +271,7 @@ export function DemoTabContent({
     cadence: 'Manual demo run',
   });
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const activitySeq = useRef(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recoveryAuthority, setRecoveryAuthorityState] = useState<string | null>(null);
@@ -352,8 +354,11 @@ export function DemoTabContent({
   const nextAction = nextStep?.next ?? t.nextComplete;
 
   const addActivity = (entry: Omit<ActivityEntry, 'id' | 'timestamp'>) => {
+    activitySeq.current += 1;
+    const timestamp = Date.now();
+    const idSuffix = globalThis.crypto?.randomUUID?.() ?? `${timestamp}-${activitySeq.current}-${Math.random().toString(36).slice(2)}`;
     setActivity((prev) => [
-      { ...entry, id: `${entry.status}-${Date.now()}`, timestamp: Date.now() },
+      { ...entry, id: `${entry.status}-${idSuffix}`, timestamp },
       ...prev.slice(0, 7),
     ]);
   };
@@ -361,6 +366,13 @@ export function DemoTabContent({
   const recordError = (message: string) => {
     setError(message);
     addActivity({ status: 'error', message, route: 'Proxy / contract setup' });
+  };
+
+  const recordSignedActivity = (
+    signature: string,
+    entry: Omit<ActivityEntry, 'id' | 'timestamp' | 'signature'>
+  ) => {
+    addActivity({ ...entry, signature });
   };
 
   const formatError = (err: unknown, fallback: string) => {
@@ -396,6 +408,7 @@ export function DemoTabContent({
       status: 'setup',
       message: `${t.initialized}: ${signature.slice(0, 8)}...`,
       route: 'Polet wallet PDA initialized for current program id',
+      signature,
     });
     return api.getWalletData(owner!).catch(() => ({ walletPda: result.wallet }));
   };
@@ -556,6 +569,7 @@ export function DemoTabContent({
             status: 'setup',
             message: `${t.custodyReady}: ${signature.slice(0, 8)}...`,
             route: 'Contract register_demo_custody',
+            signature,
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to set up demo custody');
@@ -649,7 +663,12 @@ export function DemoTabContent({
           const requestKeypair = Keypair.generate();
           const deposit = await api.createEncryptDeposit(owner);
           if (deposit.transaction) {
-            await signAndConfirmTransaction(deposit.transaction);
+            const depositSignature = await signAndConfirmTransaction(deposit.transaction);
+            recordSignedActivity(depositSignature, {
+              status: 'setup',
+              message: `Encrypt deposit created: ${depositSignature.slice(0, 8)}...`,
+              route: 'Official Encrypt create_deposit',
+            });
           }
           const result = await api.requestPolicyValueDecryption({
             owner,
@@ -672,6 +691,7 @@ export function DemoTabContent({
             status: 'setup',
             message: `${t.policyRevealRequested}: ${signature.slice(0, 8)}...`,
             route: `Official Encrypt owner reveal request: ${kind}`,
+            signature,
           });
           console.log(`Hasil Signature: ${signature}`);
           const decoded = await pollPolicyReveal(result.request);
@@ -725,7 +745,12 @@ export function DemoTabContent({
           });
           const deposit = await api.createEncryptDeposit(owner);
           if (deposit.transaction) {
-            await signAndConfirmTransaction(deposit.transaction);
+            const depositSignature = await signAndConfirmTransaction(deposit.transaction);
+            recordSignedActivity(depositSignature, {
+              status: 'setup',
+              message: `Encrypt deposit created: ${depositSignature.slice(0, 8)}...`,
+              route: 'Official Encrypt create_deposit',
+            });
           }
           const result = await api.setOfficialEncryptCiphertextPolicy({
             owner,
@@ -752,6 +777,7 @@ export function DemoTabContent({
             status: 'setup',
             message: `${t.policySaved}: ${signature.slice(0, 8)}...`,
             route: 'Official Encrypt pre-alpha ciphertext policy registration',
+            signature,
           });
         } catch (err) {
           recordError(err instanceof Error ? `Official Encrypt pre-alpha setup failed: ${err.message}` : 'Official Encrypt pre-alpha setup failed');
@@ -789,6 +815,7 @@ export function DemoTabContent({
             status: 'setup',
             message: `${t.policySaved}: ${signature.slice(0, 8)}...`,
             route: 'Legacy dev masked-witness fallback',
+            signature,
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to save legacy dev policy');
@@ -846,6 +873,7 @@ export function DemoTabContent({
             status: 'setup',
             message: `${t.sharedReady}: ${signature.slice(0, 8)}...`,
             route: 'Contract configure_shared_ika_approvers',
+            signature,
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to configure shared Ika approval');
@@ -876,6 +904,7 @@ export function DemoTabContent({
             status: 'setup',
             message: `${t.revokeShared}: ${short(result.approver)} ${signature.slice(0, 8)}...`,
             route: 'Contract revoke_shared_ika_approver',
+            signature,
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to revoke shared Ika approver');
@@ -906,6 +935,7 @@ export function DemoTabContent({
             status: 'setup',
             message: `${t.revokeSession}: ${short(result.sessionKey)} ${signature.slice(0, 8)}...`,
             route: 'Contract revoke_session',
+            signature,
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to revoke agent session');
@@ -934,6 +964,7 @@ export function DemoTabContent({
             status: 'setup',
             message: `${t.recoveryReady}: ${signature.slice(0, 8)}...`,
             route: 'Contract set_recovery_authority',
+            signature,
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to set recovery authority');
@@ -975,6 +1006,7 @@ export function DemoTabContent({
             status: 'setup',
             message: `Recovery: ${signature.slice(0, 8)}...`,
             route: `Contract recover_wallet_access: ${result.activity.states.join(', ')}`,
+            signature,
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to recover access');
@@ -1076,7 +1108,12 @@ export function DemoTabContent({
     const executionCiphertexts = await createExecutionCiphertexts({ amountUsdc });
     const deposit = await api.createEncryptDeposit(agentAddress.trim(), owner);
     if (deposit.transaction) {
-      await signAndConfirmTransaction(deposit.transaction, [], { preserveExistingSignatures: true });
+      const depositSignature = await signAndConfirmTransaction(deposit.transaction, [], { preserveExistingSignatures: true });
+      recordSignedActivity(depositSignature, {
+        status: 'setup',
+        message: `Session Encrypt deposit created: ${depositSignature.slice(0, 8)}...`,
+        route: 'Official Encrypt create_deposit',
+      });
     }
     const graphResult = await api.executeEncryptPolicyGraph({
       owner,
@@ -1116,6 +1153,7 @@ export function DemoTabContent({
       routePair,
       message: t.encryptGraphSubmitted,
       route: `${route}: ${signature.slice(0, 8)}...`,
+      signature,
       encryptPolicy: {
         status: 'pending-encrypt-execution',
         policySequence: pendingState?.pendingPolicySeq || policyRefs.policySeq,
@@ -1148,7 +1186,14 @@ export function DemoTabContent({
         payer: owner,
       },
     });
-    await signAndConfirmTransaction(decryption.transaction, [requestKeypair]);
+    const decryptionSignature = await signAndConfirmTransaction(decryption.transaction, [requestKeypair]);
+    recordSignedActivity(decryptionSignature, {
+      status: 'pending-encrypt-execution',
+      amountUsdc,
+      routePair,
+      message: `Allowed-output decryption requested: ${decryptionSignature.slice(0, 8)}...`,
+      route: `${route}: request allowed-output decrypt`,
+    });
     const decision = await pollEncryptPolicyDecision(decryption.request, decryption.policySequence);
     addActivity({
       status: decision.status,
@@ -1159,6 +1204,18 @@ export function DemoTabContent({
       encryptPolicy: decision,
     });
     return decision;
+  };
+
+  const officialEncryptRefsFromDecision = (
+    decision: OfficialEncryptPolicyPreview | null
+  ): OfficialEncryptExecutionRefs | null => {
+    if (!decision || decision.status !== 'encrypt-verified-allowed') return null;
+    return {
+      sourceAmountCiphertext: decision.sourceAmountCiphertext,
+      allowedOutputCiphertext: decision.allowedOutputCiphertext,
+      dailySpentOutputCiphertext: decision.dailySpentOutputCiphertext,
+      ...(decision.allowedDecryptionRequest && { allowedDecryptionRequest: decision.allowedDecryptionRequest }),
+    };
   };
 
   const pollAllowedOutputVerified = async (
@@ -1211,16 +1268,18 @@ export function DemoTabContent({
     setError(null);
     try {
       const shouldSubmitOfficialGraph = executeGraphBeforeRequests && policyMode === 'official';
+      let officialEncryptForRequest: OfficialEncryptExecutionRefs | null = officialEncryptExecutionDraft;
       if (shouldSubmitOfficialGraph) {
         const decision = await submitOfficialEncryptGraph(amountUsdc, 'USDC -> SOL', 'Official Encrypt graph / Jupiter gated');
         if (!decision || decision.status !== 'encrypt-verified-allowed') return;
+        officialEncryptForRequest = officialEncryptRefsFromDecision(decision);
       }
       const result: RunConfidentialDcaResult = await api.runConfidentialDca({
         owner,
         sessionKey: agentAddress.trim(),
         amountUsdc,
         slippageBps: 100,
-        ...(officialEncryptExecutionDraft && { officialEncrypt: officialEncryptExecutionDraft }),
+        ...(officialEncryptForRequest && { officialEncrypt: officialEncryptForRequest }),
       });
       const encryptStatus = getEncryptStatus(result.status, result.encryptPolicy);
       addActivity({
@@ -1276,9 +1335,11 @@ export function DemoTabContent({
     setError(null);
     try {
       const shouldSubmitOfficialGraph = executeGraphBeforeRequests && policyMode === 'official' && isAllowedIkaTarget;
+      let officialEncryptForRequest: OfficialEncryptExecutionRefs | null = officialEncryptExecutionDraft;
       if (shouldSubmitOfficialGraph) {
         const decision = await submitOfficialEncryptGraph(amount, `USDC -> ${target.asset}`, `Official Encrypt graph / Ika ${target.chain.toUpperCase()} gated`);
         if (!decision || decision.status !== 'encrypt-verified-allowed') return;
+        officialEncryptForRequest = officialEncryptRefsFromDecision(decision);
       }
       const result: RunMultichainIntentResult = await api.runMultichainIntent({
         owner,
@@ -1294,7 +1355,7 @@ export function DemoTabContent({
         routeRisk: { priceImpactBps: routeRiskDraft.maxPriceImpactBps, liquidityScore: routeRiskDraft.minLiquidityScore, verifiedRoute: routeRiskDraft.requireVerifiedRoute, provider: 'polet-demo-precheck' },
         riskGuardrails: { mode: 'bridgeless-route-risk', maxSlippageBps: 150, maxPriceImpactBps: 300, minLiquidityScore: routeRiskDraft.minLiquidityScore, requireVerifiedRoute: routeRiskDraft.requireVerifiedRoute },
         sharedAccess: buildSharedAccess(sharedIkaApproval, sharedApprovalProofs, t.invalidSharedProofs),
-        ...(officialEncryptExecutionDraft && { officialEncrypt: officialEncryptExecutionDraft }),
+        ...(officialEncryptForRequest && { officialEncrypt: officialEncryptForRequest }),
         routeGuardrails: {
           mode: 'chain-asset-allowlist',
           allowedSourceChains: ['solana'],

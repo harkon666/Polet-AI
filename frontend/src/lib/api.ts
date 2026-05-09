@@ -681,6 +681,7 @@ export interface OfficialEncryptExecutionRefs {
   sourceAmountCiphertext: string;
   allowedOutputCiphertext: string;
   dailySpentOutputCiphertext: string;
+  allowedDecryptionRequest?: string;
 }
 
 export interface JupiterPlanPreview {

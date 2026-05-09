@@ -1,3 +1,6 @@
+import { PublicKey } from '@solana/web3.js';
+import { getConnection } from './transaction-builder';
+import { readBoolDecryptionRequest, readCiphertextStatus } from './encrypt-ciphertext-poller';
 import type { WalletData } from './wallet-store';
 
 export type OfficialEncryptPolicyStatus =
@@ -70,12 +73,14 @@ export interface OfficialEncryptPolicyExecutionRequest {
   owner: string;
   sessionKey: string;
   amountBaseUnits: bigint;
+  officialEncrypt?: OfficialEncryptPolicyExecutionReference;
 }
 
 export interface OfficialEncryptPolicyExecutionReference {
   sourceAmountCiphertext: string;
   allowedOutputCiphertext: string;
   dailySpentOutputCiphertext: string;
+  allowedDecryptionRequest?: string;
 }
 
 export type OfficialEncryptPolicyResolver = (
@@ -152,6 +157,9 @@ export async function evaluateOfficialEncryptPolicyLifecycle(
   const resolved = await resolver?.(request);
   if (resolved) return assertSafeExecution(request.wallet, resolved);
 
+  const verifiedFromReference = await resolveVerifiedReference(request);
+  if (verifiedFromReference) return assertSafeExecution(request.wallet, verifiedFromReference);
+
   const state = request.wallet.confidentialPolicy.encryptCiphertexts;
   if (state?.pending && hasPendingOfficialEncryptPolicyOutputs(request.wallet)) {
     return {
@@ -166,6 +174,38 @@ export async function evaluateOfficialEncryptPolicyLifecycle(
   }
 
   throw new Error('Official Encrypt policy graph has no pending output ciphertexts for this wallet');
+}
+
+async function resolveVerifiedReference(
+  request: OfficialEncryptPolicyExecutionRequest
+): Promise<OfficialEncryptPolicyExecution | null> {
+  const decryptionRequest = request.officialEncrypt?.allowedDecryptionRequest;
+  if (!decryptionRequest) return null;
+
+  const connection = getConnection();
+  const [requestInfo, ciphertextStatus, slot] = await Promise.all([
+    readBoolDecryptionRequest(connection, new PublicKey(decryptionRequest)),
+    readCiphertextStatus(connection, new PublicKey(request.officialEncrypt!.allowedOutputCiphertext)),
+    connection.getSlot(),
+  ]);
+  if (!requestInfo.exists || requestInfo.status === 'invalid') {
+    throw new Error('Allowed-output decryption request account is invalid or missing');
+  }
+  if (requestInfo.ciphertext !== request.officialEncrypt.allowedOutputCiphertext) {
+    throw new Error('Allowed-output decryption request does not match requested Official Encrypt refs');
+  }
+  if (ciphertextStatus.digest && requestInfo.digest !== ciphertextStatus.digest) {
+    throw new Error('Allowed-output decryption digest does not match current ciphertext digest');
+  }
+  if (requestInfo.status === 'pending') return null;
+
+  return resolveOfficialEncryptDecisionFromAllowedOutput(request.wallet, {
+    allowedDecryptionRequest: decryptionRequest,
+    allowedOutputCiphertext: requestInfo.ciphertext,
+    allowedOutputDigest: requestInfo.digest,
+    allowed: requestInfo.boolValue === true,
+    verifiedSlot: slot,
+  });
 }
 
 function assertSafeExecution(
