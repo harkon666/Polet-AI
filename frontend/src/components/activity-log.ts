@@ -25,6 +25,7 @@ export interface ActivityEntry {
   approval?: RunMultichainIntentResult['approval'];
   sharedApprovers?: string[];
   transactionSigners?: string[];
+  sessionKey?: string;
   unsignedTransaction?: {
     transaction: string;
     signers: string[];

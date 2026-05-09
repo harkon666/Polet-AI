@@ -739,6 +739,7 @@ export type PoletTradeStatus =
   | 'encrypt-verified-allowed'
   | 'encrypt-verified-blocked'
   | 'needs-approval'
+  | 'revoked-session'
   | 'blocked'
   | 'not-supported';
 export type PoletSettlementStatus = 'not-executed';
@@ -894,6 +895,7 @@ export type PoletAgentToolStatus =
   | 'ok'
   | 'not-executed'
   | 'submitted'
+  | 'revoked-session'
   | 'simulation-failed'
   | 'failed'
   | 'signer-required';
@@ -920,7 +922,7 @@ export interface PoletSignAndSendInput {
 }
 
 export interface PoletSignAndSendResult {
-  status: 'submitted' | 'signer-required' | 'failed';
+  status: 'submitted' | 'signer-required' | 'revoked-session' | 'failed';
   ok: boolean;
   requiredSigners: string[];
   signature?: string;
@@ -935,11 +937,11 @@ export type PoletAutoExecuteInput = PoletTradeInput & {
 };
 
 export interface PoletAutoExecuteResult {
-  status: 'not-executed' | 'signer-required' | 'simulation-failed' | 'submitted' | 'failed';
+  status: 'not-executed' | 'signer-required' | 'revoked-session' | 'simulation-failed' | 'submitted' | 'failed';
   ok: boolean;
   trade: PoletTradeResult;
   outcome: {
-    decision: 'allowed' | 'blocked' | 'pending' | 'needs-approval' | 'not-supported' | 'submitted' | 'failed';
+    decision: 'allowed' | 'blocked' | 'revoked-session' | 'pending' | 'needs-approval' | 'not-supported' | 'submitted' | 'failed';
     status: PoletTradeStatus | PoletAutoExecuteResult['status'];
     signature?: string;
     reason?: string;
@@ -1287,6 +1289,15 @@ async function autoExecutePoletTrade(
   }
 
   if (!simulation.ok) {
+    if (isRevokedSessionFailure(simulation)) {
+      return revokedSessionAutoResult(
+        trade,
+        requiredSigners,
+        agentSigner,
+        simulation,
+        'Session revoked or no longer authorized; broadcast stopped.'
+      );
+    }
     return {
       status: 'simulation-failed',
       ok: false,
@@ -1304,16 +1315,39 @@ async function autoExecutePoletTrade(
     };
   }
 
-  const send = await signAndSendPoletTransaction({
-    transaction,
-    skipPreflight: input.skipPreflight,
-    commitment: input.commitment,
-  }, {
-    ...options,
-    signers: [signer],
-  });
+  let send: PoletSignAndSendResult;
+  try {
+    send = await signAndSendPoletTransaction({
+      transaction,
+      skipPreflight: input.skipPreflight,
+      commitment: input.commitment,
+    }, {
+      ...options,
+      signers: [signer],
+    });
+  } catch (error) {
+    if (isRevokedSessionFailure(error)) {
+      return revokedSessionAutoResult(
+        trade,
+        requiredSigners,
+        agentSigner,
+        simulation,
+        'Session revoked or no longer authorized; broadcast stopped.'
+      );
+    }
+    return failedAutoResult(trade, requiredSigners, [], agentSigner, error instanceof Error ? error.message : 'Polet transaction broadcast failed.');
+  }
 
   if (!send.ok || !send.signature) {
+    if (send.status === 'revoked-session') {
+      return revokedSessionAutoResult(
+        trade,
+        send.requiredSigners,
+        agentSigner,
+        simulation,
+        send.reason ?? 'Session revoked or no longer authorized; broadcast stopped.'
+      );
+    }
     return {
       status: send.status === 'signer-required' ? 'signer-required' : 'failed',
       ok: false,
@@ -1381,8 +1415,26 @@ async function signAndSendPoletTransaction(
   if (transaction instanceof VersionedTransaction) transaction.sign(signers);
   else transaction.partialSign(...signers);
 
-  const signature = await connection.sendRawTransaction(transaction.serialize(), { skipPreflight: input.skipPreflight });
-  await connection.confirmTransaction?.(signature, input.commitment);
+  let signature: string;
+  try {
+    signature = await connection.sendRawTransaction(transaction.serialize(), { skipPreflight: input.skipPreflight });
+    await connection.confirmTransaction?.(signature, input.commitment);
+  } catch (error) {
+    if (isRevokedSessionFailure(error)) {
+      return {
+        status: 'revoked-session',
+        ok: false,
+        requiredSigners,
+        reason: 'Session revoked or no longer authorized; broadcast stopped.',
+      };
+    }
+    return {
+      status: 'failed',
+      ok: false,
+      requiredSigners,
+      reason: error instanceof Error ? error.message : 'Polet transaction broadcast failed.',
+    };
+  }
   return {
     status: 'submitted',
     ok: true,
@@ -1556,6 +1608,7 @@ function isPoletUnsignedTransactionLike(value: unknown): value is PoletUnsignedT
 function normalizeNonExecutableDecision(status: PoletTradeStatus): PoletAutoExecuteResult['outcome']['decision'] {
   if (status === 'pending-encrypt-execution') return 'pending';
   if (status === 'needs-approval') return 'needs-approval';
+  if (status === 'revoked-session') return 'revoked-session';
   if (status === 'not-supported') return 'not-supported';
   if (status === 'blocked' || status === 'encrypt-verified-blocked') return 'blocked';
   return 'failed';
@@ -1600,6 +1653,30 @@ function signerRequiredAutoResult(
     requiredSigners,
     missingSigners,
     ...(agentSigner && { agentSigner }),
+    reason,
+  };
+}
+
+function revokedSessionAutoResult(
+  trade: PoletTradeResult,
+  requiredSigners: string[],
+  agentSigner: string | undefined,
+  simulation: SimulatePoletTransactionResult | undefined,
+  reason: string
+): PoletAutoExecuteResult {
+  return {
+    status: 'revoked-session',
+    ok: false,
+    trade,
+    outcome: {
+      decision: 'revoked-session',
+      status: 'revoked-session',
+      reason,
+    },
+    requiredSigners,
+    missingSigners: [],
+    ...(agentSigner && { agentSigner }),
+    ...(simulation && { simulation }),
     reason,
   };
 }
@@ -1894,10 +1971,11 @@ function blockedTradeResult(
   const encryptStatus = data?.status === 'pending-encrypt-execution' || data?.status === 'encrypt-verified-blocked'
     ? data.status
     : 'blocked';
+  const status = isSessionStopCode(code) ? 'revoked-session' : encryptStatus;
   return {
     allowed: false,
     rail,
-    status: encryptStatus,
+    status,
     settlement: 'not-executed',
     policy: {
       allowed: false,
@@ -1996,6 +2074,47 @@ function isBlockingProxyCode(code: string | undefined): boolean {
     || code === 'TOKEN_CUSTODY_NOT_CONFIGURED'
     || code === 'IKA_ROUTE_NOT_ALLOWED'
     || code === 'IKA_RISK_GUARDRAIL_BLOCKED';
+}
+
+function isSessionStopCode(code: string | undefined): boolean {
+  return code === 'SESSION_NOT_AUTHORIZED'
+    || code === 'SESSION_EXPIRED'
+    || code === 'SESSION_STALE';
+}
+
+function isRevokedSessionFailure(value: unknown): boolean {
+  const haystack = collectFailureText(value).toLowerCase();
+  return haystack.includes('sessionnotauthorized')
+    || haystack.includes('session not authorized')
+    || haystack.includes('session key is not authorized')
+    || haystack.includes('sessiongloballyrevoked')
+    || haystack.includes('session globally revoked')
+    || haystack.includes('session key was granted before')
+    || haystack.includes('session_expired')
+    || haystack.includes('sessionexpired')
+    || haystack.includes('session key has expired');
+}
+
+function collectFailureText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value instanceof Error) return `${value.message} ${collectFailureText((value as Error & { cause?: unknown }).cause)}`;
+  if (!value || typeof value !== 'object') return '';
+  const candidate = value as {
+    err?: unknown;
+    logs?: unknown;
+    reason?: unknown;
+    message?: unknown;
+    code?: unknown;
+    raw?: unknown;
+  };
+  return [
+    typeof candidate.code === 'string' ? candidate.code : '',
+    typeof candidate.reason === 'string' ? candidate.reason : '',
+    typeof candidate.message === 'string' ? candidate.message : '',
+    candidate.err ? JSON.stringify(candidate.err) : '',
+    Array.isArray(candidate.logs) ? candidate.logs.join(' ') : '',
+    candidate.raw ? collectFailureText(candidate.raw) : '',
+  ].join(' ');
 }
 
 function isSupportedIkaDestination(from: ChainAsset, to: ChainAsset): boolean {

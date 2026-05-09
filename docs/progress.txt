@@ -77,8 +77,10 @@ Current hackathon integration decision:
 - `076-agent-auto-execute-runtime` — Completed the SDK/runtime auto-execute slice. `createPoletAgentKit` now exposes `autoExecuteTrade` with an explicit external `agentSigner`, validates that the unsigned transaction requires exactly that configured agent signer, simulates before signing, broadcasts only after successful simulation, records the submitted signature, and normalizes blocked, pending, needs-approval, not-supported, signer-required, simulation-failed, and failed outcomes. The local scripted runtime now exposes `runDcaAutoExecuteScenario` so the frontend is not part of the execution loop.
   - Verification this pass: `cd sdk && bun run build` ✅.
   - Note: SDK tests were added for happy-path auto-execute, signer-required failure, simulation failure, blocked policy response, revoked session response, and runtime wiring, but were not run per operator instruction to avoid non-smart-contract test execution.
-- `077-session-revoke-invalidates-pending-tx` — Security invariant slice, blocked by `075`.
-- `078-frontend-production-readiness-command-center` — Production command center slice, blocked by `071`, `072`, `073`, `076`, and `077`.
+- `077-session-revoke-invalidates-pending-tx` — Completed the revoked-session safety invariant slice. The custody execution path already re-reads current on-chain session state at submit time through `validate_session_and_attestation`, so an unsigned transaction built before individual revoke fails after the owner revokes that session. SDK auto-execute now normalizes proxy `SESSION_*`, simulation, and broadcast session authorization failures as explicit `revoked-session` safe-stop outcomes. Frontend activity now shows the session key for revoke events plus Jupiter/Ika trade attempts when available.
+  - Verification this pass: `cd sdk && bun run build` ✅, `cd frontend && bun run typecheck` ✅.
+  - Note: tests were not added or run per operator instruction.
+- `078-frontend-production-readiness-command-center` — Production command center slice, now unblocked by `071`, `072`, `073`, `076`, and `077`.
 - `079-production-copy-and-docs-alignment` — Copy/docs alignment slice, blocked by `074`, `075`, and `076`.
 - `052-hackathon-ika-encrypt-prealpha-integration` — Reopened as the hackathon Ika x Encrypt umbrella. The corrected source of truth is official Encrypt pre-alpha ciphertext + graph lifecycle, not masked-witness XOR and not synthetic local evidence.
 - `059-official-encrypt-devnet-ciphertext-graph-e2e` — Completed the official Encrypt devnet integration evidence that is currently usable by the product: ciphertext creation through the official client, Encrypt deposit creation, devnet policy registration, owner-only policy value decryption/reveal, and safe pending lifecycle handling. The old event-authority/deposit blocker is no longer the active product blocker for policy setup/reveal. Final strategy decision resolution after graph output is now tracked separately in `068`.
@@ -103,12 +105,10 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-- `077-session-revoke-invalidates-pending-tx` — Start after `075`; this verifies revoked sessions invalidate pending unsigned transactions through current on-chain checks.
+- `078-frontend-production-readiness-command-center` — Production command center slice now unblocked after `071`, `072`, `073`, `076`, and `077`.
 
 ### Stretch
 
-- `077-session-revoke-invalidates-pending-tx` after `075`.
-- `078-frontend-production-readiness-command-center` after `071`, `072`, `073`, `076`, and `077`.
 - `079-production-copy-and-docs-alignment` after `074`, `075`, and `076`.
 
 ### Frontend Demo Scope

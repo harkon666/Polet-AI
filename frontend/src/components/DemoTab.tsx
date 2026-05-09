@@ -1135,6 +1135,7 @@ export function DemoTabContent({
             message: `${t.revokeSession}: ${short(result.sessionKey)} ${signature.slice(0, 8)}...`,
             route: 'Contract revoke_session',
             signature,
+            sessionKey: result.sessionKey,
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to revoke agent session');
@@ -1498,6 +1499,7 @@ export function DemoTabContent({
         encryptPolicy: result.encryptPolicy,
         jupiterPlan: result.allowed || result.code === 'QUOTE_STALE' ? result.jupiterPlan : undefined,
         transactionSigners: result.allowed ? result.transaction?.signers : undefined,
+        sessionKey: agentAddress.trim(),
         unsignedTransaction: result.allowed && result.transaction
           ? {
             transaction: result.transaction.transaction,
@@ -1588,6 +1590,7 @@ export function DemoTabContent({
         ikaRequest: result.allowed ? result.ikaRequest : undefined,
         approval: result.approval,
         sharedApprovers: result.allowed ? sharedApproversFromResult(result) : result.approval?.approvedApprovers,
+        sessionKey: result.allowed ? result.ikaRequest?.sessionContext.sessionKey : agentAddress.trim(),
         unsignedTransaction: result.allowed && result.ikaRequest?.poletApprovalTransaction?.transaction
           ? {
             transaction: result.ikaRequest.poletApprovalTransaction.transaction,

@@ -72,6 +72,11 @@ export function ActivityCard({ entry, labels }: ActivityCardProps) {
         )}
       </div>
       <p className="text-sm leading-6 text-[var(--sea-ink)]">{entry.message}</p>
+      {entry.sessionKey && (
+        <div className="mt-3">
+          <InfoPill label="Session" value={short(entry.sessionKey)} />
+        </div>
+      )}
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="inline-flex items-center gap-2 rounded-md bg-[var(--surface-strong)] px-2 py-1 text-xs font-semibold text-[var(--sea-ink-soft)]">
           <Landmark className="h-3.5 w-3.5" />
