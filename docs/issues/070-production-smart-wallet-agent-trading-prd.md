@@ -4,7 +4,7 @@ Labels: `needs-triage`, `product`, `smart-wallet`, `custody`, `agent-runtime`, `
 
 Type: `HITL`
 
-Status: `TODO`
+Status: `IN PROGRESS`
 
 ## Problem Statement
 

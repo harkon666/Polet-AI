@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { PublicKey, Transaction } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import * as anchor from '@coral-xyz/anchor';
 import {
   ENCRYPT_PREALPHA_GRPC_URL,
@@ -64,6 +64,10 @@ const SYSTEM_PROGRAM_ID = anchor.web3.SystemProgram.programId;
 const JUPITER_USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 const JUPITER_SOL_MINT = new PublicKey('So11111111111111111111111111111111111111112');
 const ZERO_PUBLIC_KEY_STRING = '11111111111111111111111111111111';
+const USDC_DECIMALS = 6;
+const SOL_DECIMALS = 9;
+const MIN_NATIVE_SOL_RESERVE_LAMPORTS = 50_000_000n;
+const U64_MAX = (1n << 64n) - 1n;
 
 walletRouter.get('/encrypt-ciphertext/:ciphertext', async (c) => {
   try {
@@ -114,6 +118,57 @@ function createAtaInstruction(payer: PublicKey, ata: PublicKey, owner: PublicKey
     ],
     data: Buffer.alloc(0),
   });
+}
+
+function createTransferCheckedInstruction(
+  source: PublicKey,
+  mint: PublicKey,
+  destination: PublicKey,
+  authority: PublicKey,
+  amount: bigint,
+  decimals: number,
+  tokenProgram = TOKEN_PROGRAM_ID
+) {
+  const data = Buffer.alloc(10);
+  data[0] = 12;
+  data.writeBigUInt64LE(amount, 1);
+  data[9] = decimals;
+  return new anchor.web3.TransactionInstruction({
+    programId: tokenProgram,
+    keys: [
+      { pubkey: source, isSigner: false, isWritable: true },
+      { pubkey: mint, isSigner: false, isWritable: false },
+      { pubkey: destination, isSigner: false, isWritable: true },
+      { pubkey: authority, isSigner: true, isWritable: false },
+    ],
+    data,
+  });
+}
+
+function parsePositiveAmount(value: unknown, decimals: number, label: string): bigint {
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    throw new Error(`${label} must be a positive amount`);
+  }
+  const raw = String(value).trim();
+  if (!/^\d+(\.\d+)?$/.test(raw)) throw new Error(`${label} must be a positive amount`);
+  const [whole, fraction = ''] = raw.split('.');
+  if (fraction.length > decimals) throw new Error(`${label} supports at most ${decimals} decimals`);
+  const baseUnits = BigInt(whole) * (10n ** BigInt(decimals)) + BigInt((fraction + '0'.repeat(decimals)).slice(0, decimals));
+  if (baseUnits <= 0n) throw new Error(`${label} must be positive`);
+  if (baseUnits > U64_MAX) throw new Error(`${label} exceeds u64 transfer limit`);
+  return baseUnits;
+}
+
+function readTokenAmount(data: Buffer | Uint8Array | undefined): bigint {
+  if (!data || data.length < 72) return 0n;
+  return Buffer.from(data).readBigUInt64LE(64);
+}
+
+function formatBaseUnits(amount: bigint, decimals: number): string {
+  const scale = 10n ** BigInt(decimals);
+  const whole = amount / scale;
+  const fraction = (amount % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  return fraction ? `${whole}.${fraction}` : whole.toString();
 }
 
 async function serializeUnsigned(ownerPubkey: PublicKey, tx: Transaction) {
@@ -1247,6 +1302,81 @@ walletRouter.post('/setup-demo-custody', async (c) => {
     return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build demo custody transaction' }, 500);
   }
 });
+
+/**
+ * POST /wallet/deposit-custody
+ * Builds an owner-signed deposit transfer into Polet smart-wallet custody.
+ */
+walletRouter.post('/deposit-custody', async (c) => {
+  try {
+    const body = await c.req.json();
+    const ownerPubkey = parsePublicKey(body.owner, 'owner');
+    const asset = body.asset;
+    if (asset !== 'USDC' && asset !== 'SOL') {
+      return c.json({ success: false, error: 'asset must be USDC or SOL' }, 400);
+    }
+
+    const connection = getConnection();
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const instructions: anchor.web3.TransactionInstruction[] = [];
+    const tokenProgram = body.tokenProgram ? parsePublicKey(body.tokenProgram, 'tokenProgram') : TOKEN_PROGRAM_ID;
+    let source: PublicKey = ownerPubkey;
+    let destination = walletPda;
+    let amountBaseUnits: bigint;
+    let createdCustodyAccount = false;
+
+    if (asset === 'USDC') {
+      const usdcMint = body.usdcMint ? parsePublicKey(body.usdcMint, 'usdcMint') : JUPITER_USDC_MINT;
+      const sourceTokenAccount = body.sourceTokenAccount
+        ? parsePublicKey(body.sourceTokenAccount, 'sourceTokenAccount')
+        : deriveAta(ownerPubkey, usdcMint, tokenProgram);
+      const custodyTokenAccount = body.custodyTokenAccount
+        ? parsePublicKey(body.custodyTokenAccount, 'custodyTokenAccount')
+        : deriveAta(walletPda, usdcMint, tokenProgram);
+      amountBaseUnits = parsePositiveAmount(body.amount, USDC_DECIMALS, 'USDC amount');
+      const custodyInfo = await connection.getAccountInfo(custodyTokenAccount);
+      if (!custodyInfo) {
+        instructions.push(createAtaInstruction(ownerPubkey, custodyTokenAccount, walletPda, usdcMint, tokenProgram));
+        createdCustodyAccount = true;
+      }
+      instructions.push(createTransferCheckedInstruction(sourceTokenAccount, usdcMint, custodyTokenAccount, ownerPubkey, amountBaseUnits, USDC_DECIMALS, tokenProgram));
+      source = sourceTokenAccount;
+      destination = custodyTokenAccount;
+    } else {
+      amountBaseUnits = parsePositiveAmount(body.amount, SOL_DECIMALS, 'SOL amount');
+      if (amountBaseUnits > BigInt(Number.MAX_SAFE_INTEGER)) {
+        return c.json({ success: false, error: 'SOL amount exceeds safe lamport transfer limit' }, 400);
+      }
+      instructions.push(SystemProgram.transfer({
+        fromPubkey: ownerPubkey,
+        toPubkey: walletPda,
+        lamports: Number(amountBaseUnits),
+      }));
+    }
+
+    const tx = new Transaction().add(...instructions);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(ownerPubkey, tx),
+        wallet: walletPda.toString(),
+        asset,
+        amount: String(body.amount),
+        amountBaseUnits: amountBaseUnits.toString(),
+        source: source.toString(),
+        destination: destination.toString(),
+        createdCustodyAccount,
+        custodyAddress: walletPda.toString(),
+        boundary: 'owner-signed-smart-wallet-custody-deposit',
+      },
+    });
+  } catch (error) {
+    console.error('Deposit custody error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to build custody deposit transaction';
+    const status = message.includes('must be') || message.includes('supports at most') ? 400 : 500;
+    return c.json({ success: false, error: message }, status);
+  }
+});
 /**
  * GET /wallet/:owner
  * Fetches the current on-chain state of a wallet.
@@ -1262,10 +1392,40 @@ walletRouter.get('/:owner', async (c) => {
 
     return c.json({
       success: true,
-      data: toJsonSafe(walletData)
+      data: toJsonSafe(await withCustodyBalances(walletData))
     });
   } catch (error) {
     console.error('Fetch wallet error:', error);
     return c.json({ success: false, error: 'Failed to fetch wallet data' }, 500);
   }
 });
+
+async function withCustodyBalances(walletData: Awaited<ReturnType<typeof getWalletData>>) {
+  if (!walletData) return walletData;
+  const connection = getConnection();
+  const walletPda = new PublicKey(walletData.walletPda);
+  const usdcAccount = walletData.demoCustody.configured
+    ? await connection.getAccountInfo(new PublicKey(walletData.demoCustody.usdcTokenAccount))
+    : null;
+  const nativeLamports = BigInt(await connection.getBalance(walletPda));
+  const tradableLamports = nativeLamports > MIN_NATIVE_SOL_RESERVE_LAMPORTS
+    ? nativeLamports - MIN_NATIVE_SOL_RESERVE_LAMPORTS
+    : 0n;
+  const usdcBaseUnits = readTokenAmount(usdcAccount?.data);
+  return {
+    ...walletData,
+    custodyBalances: {
+      usdcBaseUnits,
+      usdcUi: formatBaseUnits(usdcBaseUnits, USDC_DECIMALS),
+      nativeSolLamports,
+      nativeSolUi: formatBaseUnits(nativeLamports, SOL_DECIMALS),
+      minNativeSolReserveLamports: MIN_NATIVE_SOL_RESERVE_LAMPORTS,
+      minNativeSolReserveUi: formatBaseUnits(MIN_NATIVE_SOL_RESERVE_LAMPORTS, SOL_DECIMALS),
+      tradableNativeSolLamports: tradableLamports,
+      tradableNativeSolUi: formatBaseUnits(tradableLamports, SOL_DECIMALS),
+      nativeCustodyAddress: walletData.walletPda,
+      configured: walletData.demoCustody.configured,
+      funded: usdcBaseUnits > 0n || nativeLamports > MIN_NATIVE_SOL_RESERVE_LAMPORTS,
+    },
+  };
+}

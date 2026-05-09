@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, Transaction } from '@solana/web3.js';
 import { walletRouter } from '../src/routes/wallet';
 import {
   ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
@@ -198,6 +198,53 @@ describe('wallet routes', () => {
     expect(body.data.status).toBe('verified');
     expect(body.data.statusByte).toBe(1);
     expect(body.data.dataLength).toBe(100);
+  });
+
+  test('builds USDC custody deposit with ATA creation when custody account is missing', async () => {
+    const latestBlockhash = PublicKey.unique().toString();
+
+    setConnection({
+      getAccountInfo: async () => null,
+      getLatestBlockhash: async () => ({ blockhash: latestBlockhash, lastValidBlockHeight: 99 }),
+      getSlot: async () => 1,
+    } as never);
+
+    const response = await walletRouter.request('/deposit-custody', {
+      method: 'POST',
+      body: JSON.stringify({ owner, asset: 'USDC', amount: '5' }),
+    });
+    const body = await response.json();
+    const tx = Transaction.from(Buffer.from(body.data.transaction, 'base64'));
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.asset).toBe('USDC');
+    expect(body.data.amountBaseUnits).toBe('5000000');
+    expect(body.data.createdCustodyAccount).toBe(true);
+    expect(tx.instructions).toHaveLength(2);
+    expect(tx.instructions[1].data[0]).toBe(12);
+  });
+
+  test('builds native SOL custody deposit into wallet PDA', async () => {
+    setConnection({
+      getAccountInfo: async () => null,
+      getLatestBlockhash: async () => ({ blockhash: PublicKey.unique().toString(), lastValidBlockHeight: 99 }),
+      getSlot: async () => 1,
+    } as never);
+
+    const response = await walletRouter.request('/deposit-custody', {
+      method: 'POST',
+      body: JSON.stringify({ owner, asset: 'SOL', amount: '0.1' }),
+    });
+    const body = await response.json();
+    const tx = Transaction.from(Buffer.from(body.data.transaction, 'base64'));
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data.asset).toBe('SOL');
+    expect(body.data.amountBaseUnits).toBe('100000000');
+    expect(body.data.destination).toBe(body.data.wallet);
+    expect(tx.instructions).toHaveLength(1);
   });
 });
 

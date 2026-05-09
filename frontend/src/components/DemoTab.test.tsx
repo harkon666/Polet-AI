@@ -31,6 +31,7 @@ afterEach(() => {
   encryptDepositAlreadyExists = false;
   initializedWallet = false;
   signedTransactions = [];
+  custodyFunded = false;
 });
 
 let sharedConfig: { threshold: number; approvers: string[] } | null = null;
@@ -51,6 +52,7 @@ let encryptIkaMode: 'pending' | 'allowed' | 'blocked' | null = null;
 let encryptDepositAlreadyExists = false;
 let initializedWallet = false;
 let signedTransactions: string[] = [];
+let custodyFunded = false;
 const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 const coApproverB = 'CxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR5';
 const connectedOwner = 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2';
@@ -158,6 +160,21 @@ const api = {
     usdcTokenAccount: 'USDC111111111111111111111111111111111111111',
     solTokenAccount: 'SOL1111111111111111111111111111111111111111',
   }),
+  depositCustody: async (input: { asset: 'USDC' | 'SOL'; amount: string }) => {
+    custodyFunded = true;
+    return {
+      transaction: `deposit-${input.asset.toLowerCase()}-tx`,
+      wallet: 'wallet-pda',
+      asset: input.asset,
+      amount: input.amount,
+      amountBaseUnits: input.asset === 'USDC' ? '5000000' : '100000000',
+      source: input.asset === 'USDC' ? 'OwnerUsdcAta111111111111111111111111111111' : connectedOwner,
+      destination: input.asset === 'USDC' ? 'USDC111111111111111111111111111111111111111' : 'wallet-pda',
+      createdCustodyAccount: false,
+      custodyAddress: 'wallet-pda',
+      boundary: 'owner-signed-smart-wallet-custody-deposit' as const,
+    };
+  },
   configureSharedIkaApprovers: async (input: { threshold: number; approvers: string[] }) => {
     sharedConfig = {
       threshold: input.threshold,
@@ -218,6 +235,19 @@ const api = {
           pendingSlot: graphInput ? 101 : 0,
           pendingPolicySeq: graphInput ? 7 : 0,
         },
+      },
+      demoCustody: {
+        configured: initializedWallet,
+        usdcTokenAccount: 'USDC111111111111111111111111111111111111111',
+        solTokenAccount: 'SOL1111111111111111111111111111111111111111',
+      },
+      custodyBalances: {
+        usdcUi: custodyFunded ? '5' : '0',
+        nativeSolUi: custodyFunded ? '0.15' : '0',
+        minNativeSolReserveUi: '0.05',
+        tradableNativeSolUi: custodyFunded ? '0.1' : '0',
+        nativeCustodyAddress: 'wallet-pda',
+        funded: custodyFunded,
       },
     } : null;
     const shared = sharedConfig ? {
@@ -704,10 +734,10 @@ describe('Consumer DCA demo frontend', () => {
       },
     });
 
-    fireEvent.click(view.getByRole('button', { name: /setup custody pda/i }));
+    fireEvent.click(view.getByRole('button', { name: /(set up pda custody|setup custody pda)/i }));
     await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
-    await waitFor(() => expect(view.getByText(/custody siap/i)).toBeTruthy());
+    await waitFor(() => expect(view.getByText(/(custody ready|custody siap)/i)).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
     await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
@@ -833,7 +863,7 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByRole('button', { name: /try 25 usdc via proxy/i }).hasAttribute('disabled')).toBe(true);
     expect(view.getByRole('button', { name: /run 5 usdc via proxy/i }).hasAttribute('disabled')).toBe(true);
 
-    fireEvent.click(view.getByRole('button', { name: /setup custody pda/i }));
+    fireEvent.click(view.getByRole('button', { name: /(set up pda custody|setup custody pda)/i }));
     await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
     await waitFor(() => expect(view.getByText(/custody siap/i)).toBeTruthy());
@@ -1206,10 +1236,10 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getAllByText(/safe log/i).length).toBeGreaterThan(0);
     expect(view.getByText(/agent wallet public key/i)).toBeTruthy();
 
-    fireEvent.click(view.getByRole('button', { name: /set up pda custody/i }));
+    fireEvent.click(view.getByRole('button', { name: /(set up pda custody|setup custody pda)/i }));
     await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
-    await waitFor(() => expect(view.getByText(/custody ready/i)).toBeTruthy());
+    await waitFor(() => expect(view.getByText(/(custody ready|custody siap)/i)).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & save policy/i }));
     await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
     fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
@@ -1221,6 +1251,27 @@ describe('Consumer DCA demo frontend', () => {
       expect(activityLog).toBeTruthy();
       expect(within(activityLog as HTMLElement).getByText('BLOCKED')).toBeTruthy();
     });
+  });
+
+  test('shows custody balances separately from setup and signs a smart-wallet deposit', async () => {
+    const view = renderDemo();
+
+    fireEvent.click(view.getByRole('button', { name: /(set up pda custody|setup custody pda)/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(view.getByText(/(custody ready|custody siap)/i)).toBeTruthy());
+
+    expect(view.getByText(/0 USDC/i)).toBeTruthy();
+    expect(view.getByText(/0\.05 SOL/i)).toBeTruthy();
+    expect(view.getByText(/berbeda dari funding gas wallet agent/i)).toBeTruthy();
+
+    fireEvent.click(view.getByRole('button', { name: /^deposit ke smart wallet$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+
+    await waitFor(() => expect(view.getAllByText(/^5 USDC$/i).length).toBeGreaterThan(0));
+    expect(signedTransactions).toContain('deposit-usdc-tx');
+    expect(view.getByText(/0\.1 SOL/i)).toBeTruthy();
   });
 
   test('official Encrypt policy state displays ciphertext ids and suppresses pending artifacts', async () => {

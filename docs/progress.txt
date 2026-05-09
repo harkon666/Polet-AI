@@ -60,11 +60,11 @@ Current hackathon integration decision:
 ## Umbrella Tracking
 
 - `070-production-smart-wallet-agent-trading-prd` — New production epic. Source of truth for moving Polet from a guardrail demo/control layer into a production smart-wallet custody and agent auto-execution product. Breakdowns are `071` through `079`.
-- `071-deposit-and-balance-readiness` — First unblocked production custody slice. Adds USDC/native SOL deposit UX, custody balance readiness, native SOL reserve/tradable split, and explicit separation between custody-account setup and funded balances.
-- `072-owner-withdraw-from-smart-wallet-custody` — Owner-only withdraw slice, blocked by `071`.
+- `071-deposit-and-balance-readiness` — Completed the first production custody slice. Adds USDC/native SOL deposit UX, custody balance readiness, native SOL reserve/tradable split, and explicit separation between custody-account setup and funded balances.
+- `072-owner-withdraw-from-smart-wallet-custody` — Owner-only withdraw slice, unblocked by completed `071`.
 - `073-agent-gas-wallet-funding` — Unblocked setup slice. Adds separate agent gas wallet balance/funding flow so the agent can pay auto-execution fees without receiving custody principal/profit.
-- `074-quote-based-policy-valuation` — Jupiter quote-based trade valuation slice, blocked by `071`.
-- `075-policy-gated-custody-trade-execution` — Critical HITL production execution slice, blocked by `071` and `074`. Owns the actual smart-wallet custody spend path, quote-bound execution, atomic daily-spent update, min SOL reserve enforcement, and concurrency behavior.
+- `074-quote-based-policy-valuation` — Jupiter quote-based trade valuation slice, unblocked by completed `071`.
+- `075-policy-gated-custody-trade-execution` — Critical HITL production execution slice, blocked by `074`. Owns the actual smart-wallet custody spend path, quote-bound execution, atomic daily-spent update, min SOL reserve enforcement, and concurrency behavior.
 - `076-agent-auto-execute-runtime` — SDK/runtime auto-execute slice, blocked by `075`.
 - `077-session-revoke-invalidates-pending-tx` — Security invariant slice, blocked by `075`.
 - `078-frontend-production-readiness-command-center` — Production command center slice, blocked by `071`, `072`, `073`, `076`, and `077`.
@@ -79,7 +79,7 @@ Current hackathon integration decision:
 
 ## In Progress
 
-- None.
+- `070-production-smart-wallet-agent-trading-prd` — Production epic is now underway. First child slice `071` is complete; remaining production slices continue under `072` through `079`.
 
 ## Blocked
 
@@ -92,14 +92,13 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-- `071-deposit-and-balance-readiness` — Start here for production smart-wallet work. It creates the real user-facing custody deposit and balance foundation.
 - `073-agent-gas-wallet-funding` — Can run in parallel with `071` if another agent is available; it is independent and establishes the gas-only agent wallet setup.
-- `074-quote-based-policy-valuation` — Start after `071`; it prepares Jupiter quote valuation for custody execution.
+- `072-owner-withdraw-from-smart-wallet-custody` — Now unblocked by `071`; owner-only withdraw can build on custody balances and reserve semantics.
+- `074-quote-based-policy-valuation` — Now unblocked by `071`; it prepares Jupiter quote valuation for custody execution.
 - `075-policy-gated-custody-trade-execution` — Start after `071` and `074`; this is the main HITL smart-wallet execution slice.
 
 ### Stretch
 
-- `072-owner-withdraw-from-smart-wallet-custody` after `071`.
 - `076-agent-auto-execute-runtime` after `075`.
 - `077-session-revoke-invalidates-pending-tx` after `075`.
 - `078-frontend-production-readiness-command-center` after `071`, `072`, `073`, `076`, and `077`.
@@ -220,6 +219,9 @@ Ralph execution queue. Pick the first incomplete unblocked issue:
 
 ### Current Roadmap
 
+- [x] `071-deposit-and-balance-readiness` — Added owner-signed smart-wallet custody deposits and balance readiness. Proxy now builds USDC `TransferChecked` deposits into the PDA-owned USDC ATA, creates the custody ATA when missing, builds native SOL deposits into the wallet PDA, and returns balance readiness with USDC, total native SOL, 0.05 SOL reserve, and tradable SOL. Frontend now shows Deposit to Smart Wallet as a funding flow separate from custody account setup and separate from future agent gas funding.
+  - Verification this pass: `cd proxy && bun test ./tests/wallet-routes.test.ts` ✅, `cd proxy && bun run build` ✅, `cd frontend && bun run test src/components/DemoTab.test.tsx` ✅, `cd frontend && bun run typecheck` ✅, `cd frontend && bun run build` ✅.
+  - Note: native SOL custody address for this slice is the smart-wallet PDA. Agent gas wallet funding remains separate and tracked in `073`; owner withdrawal/reserve enforcement remains `072`.
 - [x] `069-official-encrypt-execute-graph-payload-abi-fix` — Completed the live devnet payload ABI fix. The old Polet program id `F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p` was closed as requested, reclaiming `2.77184088 SOL`; Solana CLI then refused redeploying the closed id, so the current devnet program id is replacement `33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY`. The rebuilt fixed binary was deployed there at slot `460989361`, live E2E submitted the official Encrypt graph successfully, wallet state entered pending at slot `460989735`, and both output ciphertext accounts reached `verified`.
   - Evidence this pass: `docs/evidence/069-official-encrypt-execute-graph-payload-abi-fix-redeploy-live-e2e.json`; old failing simulate evidence remains at `docs/evidence/069-official-encrypt-execute-graph-payload-abi-fix-simulate.json`.
   - Verification this pass: `cd contract && NO_DNA=1 anchor build` ✅, `cd contract && NO_DNA=1 cargo test -p contract` ✅, `cd proxy && bun test ./tests/transaction-builder.test.ts ./tests/wallet-routes.test.ts ./tests/encrypt-ciphertext-poller.test.ts` ✅, `cd proxy && bun run build` ✅, `cd sdk && bun test ./tests/session.test.ts ./tests/intent-builder.test.ts` ✅, `cd sdk && bun run build` ✅, `cd frontend && bun run test src/components/DemoTab.test.tsx` ✅, `cd frontend && bun run typecheck` ✅, `cd frontend && bun run build` ✅.

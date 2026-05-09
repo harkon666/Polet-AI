@@ -238,6 +238,16 @@ export interface SetupDemoCustodyInput {
   tokenProgram?: string;
 }
 
+export interface DepositCustodyInput {
+  owner: string;
+  asset: 'USDC' | 'SOL';
+  amount: string;
+  usdcMint?: string;
+  sourceTokenAccount?: string;
+  custodyTokenAccount?: string;
+  tokenProgram?: string;
+}
+
 export interface WalletTransactionResult {
   transaction: string;
   wallet: string;
@@ -245,6 +255,17 @@ export interface WalletTransactionResult {
   solTokenAccount?: string;
   policyCommitment?: number[];
   encryptionWitnessHash?: number[];
+}
+
+export interface DepositCustodyResult extends WalletTransactionResult {
+  asset: 'USDC' | 'SOL';
+  amount: string;
+  amountBaseUnits: string;
+  source: string;
+  destination: string;
+  createdCustodyAccount: boolean;
+  custodyAddress: string;
+  boundary: 'owner-signed-smart-wallet-custody-deposit';
 }
 
 export interface SetOfficialEncryptCiphertextPolicyResult extends WalletTransactionResult {
@@ -346,6 +367,18 @@ export async function setOfficialEncryptCiphertextPolicy(
 export async function setupDemoCustody(input: SetupDemoCustodyInput): Promise<WalletTransactionResult> {
   const data = await fetchJson<{ success: boolean; data: WalletTransactionResult }>(
     `${PROXY_URL}/wallet/setup-demo-custody`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function depositCustody(input: DepositCustodyInput): Promise<DepositCustodyResult> {
+  const data = await fetchJson<{ success: boolean; data: DepositCustodyResult }>(
+    `${PROXY_URL}/wallet/deposit-custody`,
     {
       method: 'POST',
       body: JSON.stringify(input),

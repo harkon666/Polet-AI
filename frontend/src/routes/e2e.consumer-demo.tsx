@@ -128,6 +128,18 @@ const e2eApi = {
     usdcTokenAccount: 'USDC111111111111111111111111111111111111111',
     solTokenAccount: 'SOL1111111111111111111111111111111111111111',
   }),
+  depositCustody: async (input: { asset: 'USDC' | 'SOL'; amount: string }) => ({
+    transaction: `deposit-${input.asset.toLowerCase()}-tx`,
+    wallet: 'wallet-pda',
+    asset: input.asset,
+    amount: input.amount,
+    amountBaseUnits: input.asset === 'USDC' ? '5000000' : '100000000',
+    source: input.asset === 'USDC' ? 'OwnerUsdcAta111111111111111111111111111111' : owner,
+    destination: input.asset === 'USDC' ? 'USDC111111111111111111111111111111111111111' : 'wallet-pda',
+    createdCustodyAccount: false,
+    custodyAddress: 'wallet-pda',
+    boundary: 'owner-signed-smart-wallet-custody-deposit' as const,
+  }),
   configureSharedIkaApprovers: async (input: { threshold: number; approvers: string[] }) => ({
     transaction: 'shared-config-tx',
     wallet: 'wallet-pda',

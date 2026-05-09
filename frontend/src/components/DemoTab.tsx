@@ -23,6 +23,7 @@ import {
   setConfidentialPolicy,
   setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
+  depositCustody,
   configureSharedIkaApprovers,
   getWalletData,
   getEncryptCiphertextStatus,
@@ -48,6 +49,8 @@ import {
   type SetOfficialEncryptCiphertextPolicyResult,
   type SetupDemoCustodyInput,
   type WalletTransactionResult,
+  type DepositCustodyInput,
+  type DepositCustodyResult,
   type ExecuteEncryptPolicyGraphInput,
   type ExecuteEncryptPolicyGraphResult,
   type OfficialEncryptExecutionRefs,
@@ -94,6 +97,7 @@ interface DemoApi {
   setConfidentialPolicy: (input: SetConfidentialPolicyInput) => Promise<WalletTransactionResult>;
   setOfficialEncryptCiphertextPolicy: (input: SetOfficialEncryptCiphertextPolicyInput) => Promise<SetOfficialEncryptCiphertextPolicyResult>;
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
+  depositCustody: (input: DepositCustodyInput) => Promise<DepositCustodyResult>;
   configureSharedIkaApprovers: (input: SharedIkaApproverConfigInput) => Promise<WalletTransactionResult & { threshold: number; approvers: string[] }>;
   revokeSharedIkaApprover: (input: { owner: string; approver: string }) => Promise<WalletTransactionResult & { approver: string }>;
   setRecoveryAuthority: (input: { owner: string; recoveryAuthority: string }) => Promise<WalletTransactionResult & { recoveryAuthority: string; activity: { type: string; status: string; privacy: string } }>;
@@ -130,6 +134,7 @@ const DEFAULT_API: DemoApi = {
   setConfidentialPolicy,
   setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
+  depositCustody,
   configureSharedIkaApprovers,
   revokeSharedIkaApprover,
   setRecoveryAuthority,
@@ -253,6 +258,15 @@ export function DemoTabContent({
   const [policyMode, setPolicyMode] = useState<'official' | 'legacy' | null>(null);
   const [editingPolicy, setEditingPolicy] = useState(true);
   const [custody, setCustody] = useState<{ usdcTokenAccount: string; solTokenAccount: string } | null>(null);
+  const [custodyBalances, setCustodyBalances] = useState<{
+    usdcUi: string;
+    nativeSolUi: string;
+    minNativeSolReserveUi: string;
+    tradableNativeSolUi: string;
+    nativeCustodyAddress: string;
+    funded: boolean;
+  } | null>(null);
+  const [depositDraft, setDepositDraft] = useState({ asset: 'USDC' as 'USDC' | 'SOL', amount: '5' });
   const [sharedIkaApproval, setSharedIkaApproval] = useState<{ threshold: number; approvers: string[] } | null>(null);
   const [sharedDraft, setSharedDraft] = useState({
     threshold: Math.max(1, Math.min(2, agentAddresses.length || 1)).toString(),
@@ -467,6 +481,16 @@ export function DemoTabContent({
               solTokenAccount: data.demoCustody.solTokenAccount,
             });
           }
+          if (data.custodyBalances) {
+            setCustodyBalances({
+              usdcUi: data.custodyBalances.usdcUi ?? '0',
+              nativeSolUi: data.custodyBalances.nativeSolUi ?? '0',
+              minNativeSolReserveUi: data.custodyBalances.minNativeSolReserveUi ?? '0.05',
+              tradableNativeSolUi: data.custodyBalances.tradableNativeSolUi ?? '0',
+              nativeCustodyAddress: data.custodyBalances.nativeCustodyAddress ?? data.walletPda,
+              funded: Boolean(data.custodyBalances.funded),
+            });
+          }
           if (data.confidentialPolicy?.enabled) {
             setPolicySaved(true);
             setPolicyMode('legacy');
@@ -519,20 +543,38 @@ export function DemoTabContent({
           setPolicyMode(null);
           setOfficialEncryptPolicyRefs(null);
           setAuthorizedSessionOptions([]);
+          setCustodyBalances(null);
         }
       }).catch(() => {
         setPolicySaved(false);
         setPolicyMode(null);
         setOfficialEncryptPolicyRefs(null);
         setAuthorizedSessionOptions([]);
+        setCustodyBalances(null);
       });
     } else {
       setPolicySaved(false);
       setPolicyMode(null);
       setOfficialEncryptPolicyRefs(null);
       setAuthorizedSessionOptions([]);
+      setCustodyBalances(null);
     }
   }, [owner]);
+
+  const refreshCustodyBalances = async () => {
+    if (!owner) return;
+    const data = await api.getWalletData(owner);
+    if (data?.custodyBalances) {
+      setCustodyBalances({
+        usdcUi: data.custodyBalances.usdcUi ?? '0',
+        nativeSolUi: data.custodyBalances.nativeSolUi ?? '0',
+        minNativeSolReserveUi: data.custodyBalances.minNativeSolReserveUi ?? '0.05',
+        tradableNativeSolUi: data.custodyBalances.tradableNativeSolUi ?? '0',
+        nativeCustodyAddress: data.custodyBalances.nativeCustodyAddress ?? data.walletPda,
+        funded: Boolean(data.custodyBalances.funded),
+      });
+    }
+  };
 
   useEffect(() => {
     if (!agentAddress && agentAddresses[0]) {
@@ -565,6 +607,7 @@ export function DemoTabContent({
             usdcTokenAccount: result.usdcTokenAccount ?? 'registered',
             solTokenAccount: result.solTokenAccount ?? 'registered',
           });
+          await refreshCustodyBalances();
           addActivity({
             status: 'setup',
             message: `${t.custodyReady}: ${signature.slice(0, 8)}...`,
@@ -573,6 +616,44 @@ export function DemoTabContent({
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to set up demo custody');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
+  };
+
+  const depositToCustody = async () => {
+    if (!owner || !custody) {
+      recordError('Set up custody before depositing funds.');
+      return;
+    }
+    const asset = depositDraft.asset;
+    const amount = depositDraft.amount.trim();
+    setPendingConfirm({
+      action: `${t.depositToSmartWallet} ${asset}`,
+      description: `${t.confirmDeposit} ${amount} ${asset}`,
+      onConfirm: async () => {
+        setBusy('deposit-custody');
+        setError(null);
+        try {
+          const result = await api.depositCustody({
+            owner,
+            asset,
+            amount,
+            usdcMint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+            custodyTokenAccount: custody.usdcTokenAccount,
+          });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          await refreshCustodyBalances();
+          addActivity({
+            status: 'setup',
+            message: `${asset} ${t.depositConfirmed}: ${signature.slice(0, 8)}...`,
+            route: 'Owner deposit to smart-wallet custody',
+            signature,
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to build custody deposit');
         } finally {
           setBusy(null);
         }
@@ -1529,6 +1610,12 @@ export function DemoTabContent({
             <InfoTile label={t.usdcAccount} value={custody?.usdcTokenAccount ? short(custody.usdcTokenAccount) : 'Not registered'} />
             <InfoTile label={t.solAccount} value={custody?.solTokenAccount ? short(custody.solTokenAccount) : 'Not registered'} />
           </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-4">
+            <InfoTile label={t.usdcBalance} value={`${custodyBalances?.usdcUi ?? '0'} USDC`} tone={custodyBalances?.funded ? 'green' : undefined} />
+            <InfoTile label={t.totalSolCustody} value={`${custodyBalances?.nativeSolUi ?? '0'} SOL`} />
+            <InfoTile label={t.solReserve} value={`${custodyBalances?.minNativeSolReserveUi ?? '0.05'} SOL`} />
+            <InfoTile label={t.tradableSol} value={`${custodyBalances?.tradableNativeSolUi ?? '0'} SOL`} tone={Number(custodyBalances?.tradableNativeSolUi ?? 0) > 0 ? 'green' : undefined} />
+          </div>
           {!custody && (
             <button
               onClick={setupCustodyAccounts}
@@ -1539,8 +1626,39 @@ export function DemoTabContent({
             </button>
           )}
           <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
-            <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.deposit}</p>
-            <p className="mt-1 text-sm text-[var(--sea-ink)]">Deposit demo USDC into the PDA-owned USDC account after custody setup confirms.</p>
+            <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.depositToSmartWallet}</p>
+            <p className="mt-1 text-sm text-[var(--sea-ink)]">{t.depositHelp}</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-[120px_1fr_auto]">
+              <select
+                value={depositDraft.asset}
+                onChange={(event) => setDepositDraft((prev) => ({ ...prev, asset: event.target.value as 'USDC' | 'SOL' }))}
+                className="rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="USDC">USDC</option>
+                <option value="SOL">SOL</option>
+              </select>
+              <input
+                value={depositDraft.amount}
+                onChange={(event) => setDepositDraft((prev) => ({ ...prev, amount: event.target.value }))}
+                type="number"
+                min="0"
+                step={depositDraft.asset === 'USDC' ? '0.000001' : '0.000000001'}
+                className="rounded-lg px-3 py-2 text-sm"
+                aria-label={t.depositAmount}
+              />
+              <button
+                onClick={depositToCustody}
+                disabled={!owner || !custody || !depositDraft.amount || Boolean(busy)}
+                className="rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {busy === 'deposit-custody' ? 'Signing...' : t.depositToSmartWallet}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
+              {t.depositDestination}: {depositDraft.asset === 'USDC'
+                ? (custody?.usdcTokenAccount ? short(custody.usdcTokenAccount) : t.notPrepared)
+                : (custodyBalances?.nativeCustodyAddress ? short(custodyBalances.nativeCustodyAddress) : t.notPrepared)}
+            </p>
           </div>
         </Panel>
 
