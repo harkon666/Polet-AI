@@ -26,6 +26,7 @@ import {
   depositCustody,
   withdrawCustody,
   fundAgentGas,
+  grantKey,
   configureSharedIkaApprovers,
   getWalletData,
   getEncryptCiphertextStatus,
@@ -98,6 +99,7 @@ interface DcaStrategy {
 
 interface DemoApi {
   initializeWallet: typeof initializeWallet;
+  grantKey: typeof grantKey;
   setConfidentialPolicy: (input: SetConfidentialPolicyInput) => Promise<WalletTransactionResult>;
   setOfficialEncryptCiphertextPolicy: (input: SetOfficialEncryptCiphertextPolicyInput) => Promise<SetOfficialEncryptCiphertextPolicyResult>;
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
@@ -146,6 +148,7 @@ async function readAgentGasBalanceFromRpc(agentWallet: string): Promise<number> 
 
 const DEFAULT_API: DemoApi = {
   initializeWallet,
+  grantKey,
   setConfidentialPolicy,
   setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
@@ -275,6 +278,7 @@ export function DemoTabContent({
   const [policySaved, setPolicySaved] = useState(false);
   const [policyMode, setPolicyMode] = useState<'official' | 'legacy' | null>(null);
   const [editingPolicy, setEditingPolicy] = useState(true);
+  const [walletPda, setWalletPda] = useState<string | null>(null);
   const [custody, setCustody] = useState<{ usdcTokenAccount: string; solTokenAccount: string } | null>(null);
   const [custodyBalances, setCustodyBalances] = useState<{
     usdcUi: string;
@@ -288,6 +292,10 @@ export function DemoTabContent({
   const [withdrawDraft, setWithdrawDraft] = useState({ asset: 'USDC' as 'USDC' | 'SOL', amount: '1' });
   const [agentGasBalance, setAgentGasBalance] = useState<string | null>(null);
   const [fundAgentGasDraft, setFundAgentGasDraft] = useState('0.1');
+  const [sessionDraft, setSessionDraft] = useState(() => ({
+    sessionKey: agentAddresses[0] ?? owner ?? '',
+    hours: '24',
+  }));
   const [sharedIkaApproval, setSharedIkaApproval] = useState<{ threshold: number; approvers: string[] } | null>(null);
   const [sharedDraft, setSharedDraft] = useState({
     threshold: Math.max(1, Math.min(2, agentAddresses.length || 1)).toString(),
@@ -349,6 +357,10 @@ export function DemoTabContent({
 
   const t = COPY[locale];
   const hasAgent = Boolean(agentAddress.trim());
+  const hasActiveAgentSession = authorizedSessionOptions.some((session) => session.key === agentAddress.trim());
+  const custodyFunded = Boolean(custodyBalances?.funded);
+  const solReserveSatisfied = Number(custodyBalances?.nativeSolUi ?? 0) >= Number(custodyBalances?.minNativeSolReserveUi ?? 0.05);
+  const autoExecutionReady = Boolean(walletPda && custodyFunded && policySaved && hasActiveAgentSession && agentGasReady && solReserveSatisfied);
   const hasBlockedRun = activity.some((entry) => isBlockedStatus(entry.status) && entry.amountUsdc === '25');
   const hasAllowedRun = activity.some(
     (entry) => isAllowedStatus(entry.status) && entry.amountUsdc === (strategy.amountUsdc || '5')
@@ -376,10 +388,12 @@ export function DemoTabContent({
   const canRevealPolicy = Boolean(owner && officialEncryptPolicyRefs?.wallet && !busy);
 
   const checklist = [
-    { label: t.stepWallet, done: Boolean(owner), next: t.nextWallet },
-    { label: t.stepCustody, done: Boolean(custody), next: t.nextCustody },
-    { label: t.stepAgent, done: hasAgent, next: t.nextAgent },
+    { label: t.stepWallet, done: Boolean(walletPda), next: t.nextWallet },
+    { label: t.stepCustody, done: custodyFunded, next: t.nextCustody },
     { label: t.stepPolicy, done: policySaved, next: t.nextPolicy },
+    { label: t.stepAgent, done: hasActiveAgentSession, next: t.nextAgent },
+    { label: t.stepAgentGas, done: agentGasReady, next: t.nextAgentGas },
+    { label: t.stepSolReserve, done: solReserveSatisfied, next: t.nextSolReserve },
     { label: t.stepSharedAccess, done: Boolean(sharedIkaApproval), next: t.nextSharedAccess },
     { label: t.stepRecovery, done: Boolean(recoveryAuthority), next: t.nextRecovery },
     { label: t.stepStrategy, done: strategyReady, next: t.nextBlocked },
@@ -440,10 +454,14 @@ export function DemoTabContent({
 
   const ensureWalletInitialized = async () => {
     const existing = await api.getWalletData(owner!).catch(() => null);
-    if (existing?.walletPda) return existing;
+    if (existing?.walletPda) {
+      setWalletPda(existing.walletPda);
+      return existing;
+    }
 
     const result = await api.initializeWallet(owner!);
     const signature = await signAndConfirmTransaction(result.transaction);
+    setWalletPda(result.wallet);
     addActivity({
       status: 'setup',
       message: `${t.initialized}: ${signature.slice(0, 8)}...`,
@@ -451,6 +469,28 @@ export function DemoTabContent({
       signature,
     });
     return api.getWalletData(owner!).catch(() => ({ walletPda: result.wallet }));
+  };
+
+  const initializeSmartWallet = async () => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+    setPendingConfirm({
+      action: t.initializeSmartWallet,
+      description: t.confirmInitializeWallet,
+      onConfirm: async () => {
+        setBusy('initialize-wallet');
+        setError(null);
+        try {
+          await ensureWalletInitialized();
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to initialize smart wallet');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
   };
 
   const isSessionAuthorizedInWallet = (data: any, sessionKey: string) => {
@@ -501,6 +541,7 @@ export function DemoTabContent({
     if (owner) {
       api.getWalletData(owner).then((data) => {
         if (data) {
+          setWalletPda(data.walletPda ?? null);
           if (data.demoCustody?.configured) {
             setCustody({
               usdcTokenAccount: data.demoCustody.usdcTokenAccount,
@@ -565,6 +606,7 @@ export function DemoTabContent({
             setRecoveryAuthorityState(data.recoveryAuthority);
           }
         } else {
+          setWalletPda(null);
           setPolicySaved(false);
           setPolicyMode(null);
           setOfficialEncryptPolicyRefs(null);
@@ -572,6 +614,7 @@ export function DemoTabContent({
           setCustodyBalances(null);
         }
       }).catch(() => {
+        setWalletPda(null);
         setPolicySaved(false);
         setPolicyMode(null);
         setOfficialEncryptPolicyRefs(null);
@@ -579,6 +622,7 @@ export function DemoTabContent({
         setCustodyBalances(null);
       });
     } else {
+      setWalletPda(null);
       setPolicySaved(false);
       setPolicyMode(null);
       setOfficialEncryptPolicyRefs(null);
@@ -606,7 +650,10 @@ export function DemoTabContent({
     if (!agentAddress && agentAddresses[0]) {
       setAgentAddress(agentAddresses[0]);
     }
-  }, [agentAddresses, agentAddress]);
+    if (!sessionDraft.sessionKey && (agentAddresses[0] || owner)) {
+      setSessionDraft((prev) => ({ ...prev, sessionKey: agentAddresses[0] ?? owner ?? '' }));
+    }
+  }, [agentAddresses, agentAddress, owner, sessionDraft.sessionKey]);
 
   useEffect(() => {
     refreshAgentGasBalance();
@@ -757,6 +804,52 @@ export function DemoTabContent({
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to build agent gas funding transaction');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
+  };
+
+  const grantAgentSession = async () => {
+    if (!owner) {
+      recordError(t.missingOwner);
+      return;
+    }
+    const sessionKey = sessionDraft.sessionKey.trim();
+    if (!sessionKey) {
+      recordError(t.missingAgent);
+      return;
+    }
+    const hours = Number(sessionDraft.hours);
+    const expiresAt = Math.floor(Date.now() / 1000) + Math.max(1, Number.isFinite(hours) ? hours : 24) * 60 * 60;
+    setPendingConfirm({
+      action: t.authorizeAgentSession,
+      description: `${t.confirmAuthorizeAgentSession}: ${short(sessionKey)}`,
+      onConfirm: async () => {
+        setBusy('grant-session');
+        setError(null);
+        try {
+          await ensureWalletInitialized();
+          const result = await api.grantKey({
+            owner,
+            sessionKey,
+            expiresAt,
+            dailyLimit: 0,
+          });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          setAgentAddress(sessionKey);
+          await refreshAgentSessions();
+          await refreshAgentGasBalance();
+          addActivity({
+            status: 'setup',
+            message: `${t.authorizeAgentSession}: ${short(sessionKey)} ${signature.slice(0, 8)}...`,
+            route: 'Contract grant_temporal_key',
+            signature,
+            sessionKey,
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to grant agent session');
         } finally {
           setBusy(null);
         }
@@ -1690,6 +1783,10 @@ export function DemoTabContent({
             <span className="font-semibold text-[var(--sea-ink)]">{t.checklistNext}: </span>
             <span className="text-[var(--sea-ink-soft)]">{nextAction}</span>
           </div>
+          <div className={`rounded-lg border px-3 py-2 text-sm ${autoExecutionReady ? 'border-green-500/20 bg-green-500/5 text-green-600' : 'border-amber-500/20 bg-amber-500/5 text-amber-600'}`}>
+            <span className="font-semibold">{t.autoExecutionReadiness}: </span>
+            <span>{autoExecutionReady ? t.autoExecutionReady : t.autoExecutionNotReady}</span>
+          </div>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {checklist.map((step, index) => (
@@ -1728,6 +1825,7 @@ export function DemoTabContent({
           <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.walletBody}</p>
           <div className="grid gap-3 sm:grid-cols-3">
             <InfoTile label="Owner" value={owner ? short(owner) : t.missingOwner} tone={owner ? 'green' : undefined} />
+            <InfoTile label={t.smartWalletPda} value={walletPda ? short(walletPda) : t.notPrepared} tone={walletPda ? 'green' : undefined} />
             <InfoTile label={t.usdcAccount} value={custody?.usdcTokenAccount ? short(custody.usdcTokenAccount) : 'Not registered'} />
             <InfoTile label={t.solAccount} value={custody?.solTokenAccount ? short(custody.solTokenAccount) : 'Not registered'} />
           </div>
@@ -1737,6 +1835,15 @@ export function DemoTabContent({
             <InfoTile label={t.solReserve} value={`${custodyBalances?.minNativeSolReserveUi ?? '0.05'} SOL`} />
             <InfoTile label={t.tradableSol} value={`${custodyBalances?.tradableNativeSolUi ?? '0'} SOL`} tone={Number(custodyBalances?.tradableNativeSolUi ?? 0) > 0 ? 'green' : undefined} />
           </div>
+          {!walletPda && (
+            <button
+              onClick={initializeSmartWallet}
+              disabled={!owner || Boolean(busy)}
+              className="mt-4 mr-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {busy === 'initialize-wallet' ? 'Signing...' : t.initializeSmartWallet}
+            </button>
+          )}
           {!custody && (
             <button
               onClick={setupCustodyAccounts}
@@ -1824,7 +1931,7 @@ export function DemoTabContent({
               <div className="mt-3 grid gap-3 sm:grid-cols-3">
                 <InfoTile label={t.fundAgentGasDestination} value={short(agentAddress.trim())} small />
                 <InfoTile
-                  label="Agent SOL balance"
+                  label={t.agentGasWalletSol}
                   value={agentGasBalance ? `${agentGasBalance} SOL` : '—'}
                   tone={agentGasReady ? 'green' : agentGasBalance ? 'amber' : undefined}
                 />
@@ -2336,6 +2443,36 @@ export function DemoTabContent({
               </div>
             )}
             <span className="block text-xs leading-5 text-[var(--sea-ink-soft)]">{t.agentHelp}</span>
+            <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+              <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.authorizeAgentSession}</p>
+              <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">{t.authorizeAgentSessionHelp}</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_120px_auto]">
+                <input
+                  value={sessionDraft.sessionKey}
+                  onChange={(event) => setSessionDraft((prev) => ({ ...prev, sessionKey: event.target.value }))}
+                  placeholder={t.agentPlaceholder}
+                  className="rounded-lg px-3 py-2 text-sm font-mono"
+                  aria-label={t.agentAddress}
+                />
+                <input
+                  value={sessionDraft.hours}
+                  onChange={(event) => setSessionDraft((prev) => ({ ...prev, hours: event.target.value }))}
+                  type="number"
+                  min="1"
+                  step="1"
+                  className="rounded-lg px-3 py-2 text-sm"
+                  aria-label={t.sessionDurationHours}
+                />
+                <button
+                  type="button"
+                  onClick={grantAgentSession}
+                  disabled={!owner || !sessionDraft.sessionKey.trim() || Boolean(busy)}
+                  className="rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {busy === 'grant-session' ? 'Signing...' : t.authorizeAgentSession}
+                </button>
+              </div>
+            </div>
 
             {/* Route Risk Guardrails */}
             <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">

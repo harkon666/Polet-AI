@@ -23,6 +23,7 @@ afterEach(() => {
   encryptCiphertextStatusInputs = [];
   policyRevealInputs = [];
   grantKeyInputs = [];
+  revokedSessionKeys = [];
   existingSessionKeys = [];
   createdPolicyCiphertextInputs = [];
   createdExecutionCiphertextInputs = [];
@@ -45,6 +46,7 @@ let executeEncryptGraphInputs: ExecuteEncryptPolicyGraphInput[] = [];
 let encryptCiphertextStatusInputs: string[] = [];
 let policyRevealInputs: RequestPolicyValueDecryptionInput[] = [];
 let grantKeyInputs: Array<{ owner: string; sessionKey: string; expiresAt: number; dailyLimit: number }> = [];
+let revokedSessionKeys: string[] = [];
 let existingSessionKeys: string[] = [];
 let createdPolicyCiphertextInputs: Array<{ maxPerRunUsdc: string; dailyCapUsdc: string }> = [];
 let createdExecutionCiphertextInputs: Array<{ amountUsdc: string }> = [];
@@ -119,6 +121,10 @@ const api = {
       transaction: 'initialize-wallet-tx',
       wallet: 'wallet-pda',
     };
+  },
+  grantKey: async (input: { owner: string; sessionKey: string; expiresAt: number; dailyLimit: number }) => {
+    grantKeyInputs.push(input);
+    return { transaction: 'grant-key-tx' };
   },
   setConfidentialPolicy: async () => ({
     transaction: 'policy-tx',
@@ -234,13 +240,13 @@ const api = {
       policySeq: 7,
       lastRevokedSlot: 2,
       sessions: [
-        ...existingSessionKeys.map((key) => ({
+        ...existingSessionKeys.filter((key) => !revokedSessionKeys.includes(key)).map((key) => ({
           key,
           expiresAt: Math.floor(Date.now() / 1000) + 3600,
           grantedSlot: 2,
           authorized: true,
         })),
-        ...grantKeyInputs.map((input) => ({
+        ...grantKeyInputs.filter((input) => !revokedSessionKeys.includes(input.sessionKey)).map((input) => ({
           key: input.sessionKey,
           expiresAt: input.expiresAt,
           grantedSlot: 2,
@@ -305,15 +311,14 @@ const api = {
     recoveryAccessInputs.push(input);
     return { transaction: 'recover-tx', wallet: 'wallet-pda', authority: input.authority, compromisedSessions: input.compromisedSessions, sharedIkaThreshold: input.sharedIkaThreshold, sharedIkaApprovers: input.sharedIkaApprovers, pendingDwalletController: input.pendingDwalletController, activity: { type: 'recover', status: 'done', states: ['sessions-revoked'], privacy: 'redacted', boundary: 'mock' } };
   },
-  grantKey: async (input: { owner: string; sessionKey: string; expiresAt: number; dailyLimit: number }) => {
-    grantKeyInputs.push(input);
-    return { transaction: 'grant-key-tx' };
+  revokeSession: async (input: { sessionKey: string }) => {
+    revokedSessionKeys.push(input.sessionKey);
+    return {
+      transaction: 'revoke-session-tx',
+      wallet: 'wallet-pda',
+      sessionKey: input.sessionKey,
+    };
   },
-  revokeSession: async (input: { sessionKey: string }) => ({
-    transaction: 'revoke-session-tx',
-    wallet: 'wallet-pda',
-    sessionKey: input.sessionKey,
-  }),
   requestPasskeyChallenge: async () => ({ challenge: Array.from(new Uint8Array(32)), publicKeyCredentialRequestOptions: { challenge: Array.from(new Uint8Array(32)), rpId: 'localhost', allowCredentials: [], userVerification: 'preferred' }, boundary: 'mock' }),
   verifyPasskeyAssertion: async () => ({ valid: false, approverPublicKey: '', challengeUsed: '', boundary: 'mock' }),
   createEncryptDeposit: async () => ({
@@ -884,8 +889,8 @@ describe('Consumer DCA demo frontend', () => {
   test('shows checklist progression and gates primary CTAs by prerequisites', async () => {
     const view = renderDemo();
 
-    expect(view.getByText(/checklist demo/i)).toBeTruthy();
-    expect(document.body.textContent).toMatch(/aksi berikutnya:\s*setup custody pda/i);
+    expect(view.getByText(/readiness command center/i)).toBeTruthy();
+    expect(document.body.textContent).toMatch(/aksi berikutnya:\s*initialize polet smart wallet/i);
     expect(view.getByRole('button', { name: /sign & simpan policy/i }).hasAttribute('disabled')).toBe(true);
     expect(view.getByRole('button', { name: /try 25 usdc via proxy/i }).hasAttribute('disabled')).toBe(true);
     expect(view.getByRole('button', { name: /run 5 usdc via proxy/i }).hasAttribute('disabled')).toBe(true);
@@ -1360,6 +1365,55 @@ describe('Consumer DCA demo frontend', () => {
     expect(view.getByText(/0\.1100 SOL/i)).toBeTruthy();
     expect(view.getByText(/Gas siap/i)).toBeTruthy();
     expect(view.getByText(/Fund Agent Gas 0\.1 SOL/i)).toBeTruthy();
+  });
+
+  test('shows production readiness across funded, active, revoked, and withdrawn states', async () => {
+    agentGasBalanceSol = 0.01;
+    const view = renderDemo();
+
+    expect(view.getByText(/auto-execution readiness/i)).toBeTruthy();
+    expect(view.getByText(/belum ready/i)).toBeTruthy();
+
+    fireEvent.click(view.getByRole('button', { name: /^initialize smart wallet$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(signedTransactions).toContain('initialize-wallet-tx'));
+
+    fireEvent.click(view.getByRole('button', { name: /(set up pda custody|setup custody pda)/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(view.getByText(/custody siap/i)).toBeTruthy());
+
+    fireEvent.click(view.getByRole('button', { name: /^deposit ke smart wallet$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(view.getAllByText(/^5 USDC$/i).length).toBeGreaterThan(0));
+
+    fireEvent.click(view.getByRole('button', { name: /^authorize agent session$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(signedTransactions).toContain('grant-key-tx'));
+
+    fireEvent.click(view.getByRole('button', { name: /^Fund Agent Gas$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(view.getByText(/Gas siap/i)).toBeTruthy());
+
+    fireEvent.click(view.getByRole('button', { name: /sign & simpan policy/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(view.getByText(/ready untuk agent auto-execute/i)).toBeTruthy());
+
+    fireEvent.click(view.getByRole('button', { name: /^revoke session$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(view.getByText(/belum ready/i)).toBeTruthy());
+
+    fireEvent.click(view.getByRole('button', { name: /^withdraw dari smart wallet$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(signedTransactions).toContain('withdraw-usdc-tx'));
+    expect(view.getByText(/belum ready/i)).toBeTruthy();
   });
 
   test('official Encrypt policy state displays ciphertext ids and suppresses pending artifacts', async () => {

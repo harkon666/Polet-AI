@@ -80,8 +80,10 @@ Current hackathon integration decision:
 - `077-session-revoke-invalidates-pending-tx` — Completed the revoked-session safety invariant slice. The custody execution path already re-reads current on-chain session state at submit time through `validate_session_and_attestation`, so an unsigned transaction built before individual revoke fails after the owner revokes that session. SDK auto-execute now normalizes proxy `SESSION_*`, simulation, and broadcast session authorization failures as explicit `revoked-session` safe-stop outcomes. Frontend activity now shows the session key for revoke events plus Jupiter/Ika trade attempts when available.
   - Verification this pass: `cd sdk && bun run build` ✅, `cd frontend && bun run typecheck` ✅.
   - Note: tests were not added or run per operator instruction.
-- `078-frontend-production-readiness-command-center` — Production command center slice, now unblocked by `071`, `072`, `073`, `076`, and `077`.
-- `079-production-copy-and-docs-alignment` — Copy/docs alignment slice, blocked by `074`, `075`, and `076`.
+- `078-frontend-production-readiness-command-center` — Completed the production readiness command center slice. Frontend now distinguishes connected owner from created smart-wallet PDA, shows readiness for smart wallet creation, custody funding, policy active state, active external agent session, agent gas funding, and native SOL reserve, and surfaces auto-execution readiness as status only. Deposit to Smart Wallet, Withdraw from Smart Wallet, and Fund Agent Gas Wallet remain separate owner-signed flows. Added direct owner-signed external agent session authorization, prominent individual session revoke, agent gas wallet SOL balance display, and readiness-transition test coverage for unfunded, funded, ready, revoked, and withdrawn states.
+  - Verification this pass: `cd frontend && bun run typecheck` ✅, `cd frontend && bun run build` ✅.
+  - Note: frontend tests were updated but not run per operator instruction. Frontend remains setup/readiness/activity surface; agent auto-execution stays in SDK/runtime.
+- `079-production-copy-and-docs-alignment` — Copy/docs alignment slice, now unblocked after `074`, `075`, and `076`.
 - `052-hackathon-ika-encrypt-prealpha-integration` — Reopened as the hackathon Ika x Encrypt umbrella. The corrected source of truth is official Encrypt pre-alpha ciphertext + graph lifecycle, not masked-witness XOR and not synthetic local evidence.
 - `059-official-encrypt-devnet-ciphertext-graph-e2e` — Completed the official Encrypt devnet integration evidence that is currently usable by the product: ciphertext creation through the official client, Encrypt deposit creation, devnet policy registration, owner-only policy value decryption/reveal, and safe pending lifecycle handling. The old event-authority/deposit blocker is no longer the active product blocker for policy setup/reveal. Final strategy decision resolution after graph output is now tracked separately in `068`.
 - `065-frontend-official-encrypt-prealpha-policy-setup` — Completed the frontend policy setup correction. Primary setup now accepts only numeric USDC limits, creates fresh official Encrypt pre-alpha ciphertext inputs in the browser through `@encrypt.xyz/pre-alpha-solana-client/grpc-web`, optionally signs `/wallet/create-encrypt-deposit`, registers those ciphertext refs through `/wallet/set-official-encrypt-ciphertext-policy`, and displays refs read-only after setup. Masked-witness setup remains only as an explicit dev fallback.
@@ -92,7 +94,7 @@ Current hackathon integration decision:
 
 ## In Progress
 
-- `070-production-smart-wallet-agent-trading-prd` — Production epic is now underway. First child slice `071` is complete; remaining production slices continue under `072` through `079`.
+- `070-production-smart-wallet-agent-trading-prd` — Production epic is now underway. Child slices `071` through `078` are complete; remaining production slice is `079`.
 
 ## Blocked
 
@@ -105,7 +107,7 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-- `078-frontend-production-readiness-command-center` — Production command center slice now unblocked after `071`, `072`, `073`, `076`, and `077`.
+- `079-production-copy-and-docs-alignment` — Copy/docs alignment slice now unblocked after `074`, `075`, and `076`.
 
 ### Stretch
 
