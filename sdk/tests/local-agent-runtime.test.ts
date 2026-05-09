@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
+import { Keypair, SystemProgram, Transaction } from '@solana/web3.js';
 import {
   JUPITER_SOL_MINT,
   JUPITER_USDC_MINT,
   createMultichainStrategyIntent,
   createLocalAgentRuntime,
+  createPoletAgentKit,
   submitIntent,
 } from '../src/index.js';
 
@@ -277,4 +279,215 @@ describe('local scripted agent runtime', () => {
       },
     });
   });
+
+  test('auto-executes an allowed Jupiter transaction after signer and simulation checks', async () => {
+    const agent = Keypair.generate();
+    const transaction = buildUnsignedAgentTransaction(agent);
+    const calls: string[] = [];
+    const fetchMock = async () => Response.json({
+      success: true,
+      data: {
+        allowed: true,
+        code: 'DCA_ALLOWED',
+        executionPath: 'policy-gated-custody-trade',
+        transaction: {
+          transaction,
+          signers: [agent.publicKey.toBase58()],
+        },
+      },
+    });
+    const kit = createPoletAgentKit({
+      owner: 'owner-1',
+      sessionKey: agent.publicKey.toBase58(),
+      baseUrl: 'https://proxy.polet.ai',
+      fetch: fetchMock,
+      agentSigner: () => agent,
+      connection: {
+        async simulateTransaction() {
+          calls.push('simulate');
+          return { context: { slot: 1 }, value: { err: null, logs: ['ok'] } };
+        },
+        async sendRawTransaction() {
+          calls.push('send');
+          return 'submitted-signature-1';
+        },
+      },
+    });
+
+    const result = await kit.autoExecuteTrade({
+      from: 'USDC',
+      to: 'SOL',
+      amount: '5',
+    });
+
+    expect(result.status).toBe('submitted');
+    expect(result.signature).toBe('submitted-signature-1');
+    expect(result.requiredSigners).toEqual([agent.publicKey.toBase58()]);
+    expect(calls).toEqual(['simulate', 'send']);
+  });
+
+  test('refuses auto-execute when unsigned transaction does not require configured agent signer', async () => {
+    const agent = Keypair.generate();
+    const other = Keypair.generate();
+    const transaction = buildUnsignedAgentTransaction(other);
+    const kit = createPoletAgentKit({
+      owner: 'owner-1',
+      sessionKey: agent.publicKey.toBase58(),
+      baseUrl: 'https://proxy.polet.ai',
+      fetch: async () => Response.json({
+        success: true,
+        data: {
+          allowed: true,
+          code: 'DCA_ALLOWED',
+          transaction: {
+            transaction,
+            signers: [other.publicKey.toBase58()],
+          },
+        },
+      }),
+      agentSigner: agent,
+      connection: {
+        async simulateTransaction() {
+          throw new Error('must not simulate before signer check passes');
+        },
+      },
+    });
+
+    const result = await kit.autoExecuteTrade({ from: 'USDC', to: 'SOL', amount: '5' });
+
+    expect(result.status).toBe('signer-required');
+    expect(result.agentSigner).toBe(agent.publicKey.toBase58());
+    expect(result.requiredSigners).toEqual([other.publicKey.toBase58()]);
+  });
+
+  test('stops auto-execute when simulation fails', async () => {
+    const agent = Keypair.generate();
+    const transaction = buildUnsignedAgentTransaction(agent);
+    const kit = createPoletAgentKit({
+      owner: 'owner-1',
+      sessionKey: agent.publicKey.toBase58(),
+      baseUrl: 'https://proxy.polet.ai',
+      fetch: async () => Response.json({
+        success: true,
+        data: {
+          allowed: true,
+          code: 'DCA_ALLOWED',
+          transaction: {
+            transaction,
+            signers: [agent.publicKey.toBase58()],
+          },
+        },
+      }),
+      agentSigner: agent,
+      connection: {
+        async simulateTransaction() {
+          return { context: { slot: 1 }, value: { err: { InstructionError: [0, 'Custom'] }, logs: ['blocked by runtime'] } };
+        },
+        async sendRawTransaction() {
+          throw new Error('must not send after failed simulation');
+        },
+      },
+    });
+
+    const result = await kit.autoExecuteTrade({ from: 'USDC', to: 'SOL', amount: '5' });
+
+    expect(result.status).toBe('simulation-failed');
+    expect(result.ok).toBe(false);
+    expect(result.simulation?.ok).toBe(false);
+  });
+
+  test('normalizes blocked and revoked session responses without broadcasting', async () => {
+    const agent = Keypair.generate();
+    const blockedKit = createPoletAgentKit({
+      owner: 'owner-1',
+      sessionKey: agent.publicKey.toBase58(),
+      baseUrl: 'https://proxy.polet.ai',
+      fetch: async () => Response.json({
+        success: true,
+        data: {
+          allowed: false,
+          code: 'CONFIDENTIAL_POLICY_BLOCKED',
+          reason: 'Confidential policy blocked this DCA run.',
+        },
+      }),
+      agentSigner: agent,
+    });
+    const revokedKit = createPoletAgentKit({
+      owner: 'owner-1',
+      sessionKey: agent.publicKey.toBase58(),
+      baseUrl: 'https://proxy.polet.ai',
+      fetch: async () => Response.json({
+        success: true,
+        data: {
+          allowed: false,
+          code: 'SESSION_NOT_AUTHORIZED',
+          reason: 'Session is not authorized for this wallet.',
+        },
+      }),
+      agentSigner: agent,
+    });
+
+    const blocked = await blockedKit.autoExecuteTrade({ from: 'USDC', to: 'SOL', amount: '25' });
+    const revoked = await revokedKit.autoExecuteTrade({ from: 'USDC', to: 'SOL', amount: '5' });
+
+    expect(blocked.status).toBe('not-executed');
+    expect(blocked.outcome.decision).toBe('blocked');
+    expect(JSON.stringify(blocked)).not.toContain('10 USDC');
+    expect(JSON.stringify(blocked)).not.toContain('20 USDC');
+    expect(revoked.status).toBe('not-executed');
+    expect(revoked.outcome.decision).toBe('blocked');
+    expect(revoked.trade.policy.code).toBe('SESSION_NOT_AUTHORIZED');
+  });
+
+  test('local runtime exposes the auto-execute DCA scenario', async () => {
+    const agent = Keypair.generate();
+    const transaction = buildUnsignedAgentTransaction(agent);
+    const runtime = createLocalAgentRuntime({
+      owner: 'owner-1',
+      sessionKey: agent.publicKey.toBase58(),
+      proxyUrl: 'https://proxy.polet.ai',
+      agentSigner: agent,
+      fetch: async () => Response.json({
+        success: true,
+        data: {
+          allowed: true,
+          code: 'DCA_ALLOWED',
+          transaction: {
+            transaction,
+            signers: [agent.publicKey.toBase58()],
+          },
+        },
+      }),
+      connection: {
+        async simulateTransaction() {
+          return { context: { slot: 1 }, value: { err: null, logs: [] } };
+        },
+        async sendRawTransaction() {
+          return 'runtime-signature-1';
+        },
+      },
+    });
+
+    const result = await runtime.runDcaAutoExecuteScenario({ intentId: 'runtime-auto-1' });
+
+    expect(result.intent.id).toBe('runtime-auto-1');
+    expect(result.decision).toBe('submitted');
+    expect(result.execution.signature).toBe('runtime-signature-1');
+  });
 });
+
+function buildUnsignedAgentTransaction(agent: Keypair): string {
+  const transaction = new Transaction({
+    feePayer: agent.publicKey,
+    recentBlockhash: '11111111111111111111111111111111',
+  }).add(SystemProgram.transfer({
+    fromPubkey: agent.publicKey,
+    toPubkey: Keypair.generate().publicKey,
+    lamports: 1,
+  }));
+
+  return transaction.serialize({
+    requireAllSignatures: false,
+    verifySignatures: false,
+  }).toString('base64');
+}

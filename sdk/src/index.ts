@@ -846,6 +846,7 @@ export interface PoletAgent {
 export interface PoletAgentKitOptions extends PoletAgentOptions {
   rpcUrl?: string;
   connection?: PoletAgentKitConnection;
+  agentSigner?: PoletExternalAgentSignerProvider;
   signers?: Signer[] | (() => Promise<Signer[]> | Signer[]);
 }
 
@@ -891,7 +892,9 @@ export interface PoletAgentKitStatus {
 export type PoletAgentToolStatus =
   | PoletTradeStatus
   | 'ok'
+  | 'not-executed'
   | 'submitted'
+  | 'simulation-failed'
   | 'failed'
   | 'signer-required';
 
@@ -924,10 +927,36 @@ export interface PoletSignAndSendResult {
   reason?: string;
 }
 
+export type PoletExternalAgentSignerProvider = Signer | (() => Promise<Signer> | Signer);
+
+export type PoletAutoExecuteInput = PoletTradeInput & {
+  skipPreflight?: boolean;
+  commitment?: Commitment;
+};
+
+export interface PoletAutoExecuteResult {
+  status: 'not-executed' | 'signer-required' | 'simulation-failed' | 'submitted' | 'failed';
+  ok: boolean;
+  trade: PoletTradeResult;
+  outcome: {
+    decision: 'allowed' | 'blocked' | 'pending' | 'needs-approval' | 'not-supported' | 'submitted' | 'failed';
+    status: PoletTradeStatus | PoletAutoExecuteResult['status'];
+    signature?: string;
+    reason?: string;
+  };
+  requiredSigners: string[];
+  missingSigners: string[];
+  agentSigner?: string;
+  simulation?: SimulatePoletTransactionResult;
+  signature?: string;
+  reason?: string;
+}
+
 export interface PoletAgentKit {
   validateConfig(): PoletAgentKitConfigValidation;
   status(): Promise<PoletAgentKitStatus>;
   trade(input: PoletTradeInput): Promise<PoletTradeResult>;
+  autoExecuteTrade(input: PoletAutoExecuteInput): Promise<PoletAutoExecuteResult>;
   simulateTransaction(input: SimulatePoletTransactionInput): Promise<SimulatePoletTransactionResult>;
   signAndSendTransaction(input: PoletSignAndSendInput): Promise<PoletSignAndSendResult>;
   tools(): PoletAgentToolDescriptor[];
@@ -951,6 +980,7 @@ export function createPoletAgentKit(options: PoletAgentKitOptions): PoletAgentKi
     validateConfig: () => validatePoletAgentKitConfig(options),
     status: () => getPoletAgentKitStatus(options),
     trade: (input) => agent.trade(input),
+    autoExecuteTrade: (input) => autoExecutePoletTrade(input, options, agent),
     simulateTransaction: (input) => simulatePoletTransaction({
       ...input,
       rpcUrl: input.rpcUrl ?? options.rpcUrl,
@@ -1178,6 +1208,7 @@ function buildPoletAgentKitTools(options: PoletAgentKitOptions, agent: PoletAgen
       }),
     })),
     tool('polet_sign_and_send_transaction', 'Sign and send only when an explicit session signer is configured.', async (input) => signAndSendToolResult(await signAndSendPoletTransaction(input as PoletSignAndSendInput, options))),
+    tool('polet_auto_execute_trade', 'Request an allowed Polet trade, simulate it, then sign and broadcast with the configured external agent signer.', async (input) => autoExecuteToolResult(await autoExecutePoletTrade(input as PoletAutoExecuteInput, options, agent))),
     tool('polet_shared_ika_approval_status', 'Return shared Ika approval status from wallet status.', async () => {
       const status = await getPoletAgentKitStatus(options);
       return {
@@ -1209,6 +1240,111 @@ function tool(
         };
       }
     },
+  };
+}
+
+async function autoExecutePoletTrade(
+  input: PoletAutoExecuteInput,
+  options: PoletAgentKitOptions,
+  agent: PoletAgent
+): Promise<PoletAutoExecuteResult> {
+  const trade = await agent.trade(input);
+  if (!trade.allowed) {
+    return nonExecutedAutoResult(trade, normalizeNonExecutableDecision(trade.status), trade.policy.reason);
+  }
+
+  const transaction = extractTradeExecutionTransaction(trade);
+  if (!transaction) {
+    return nonExecutedAutoResult(trade, 'not-supported', 'Allowed trade did not include an unsigned Polet transaction to execute.');
+  }
+
+  const signer = await resolveKitAgentSigner(options);
+  const requiredSigners = extractPoletRequiredSigners(transaction);
+  const agentSigner = signer?.publicKey.toBase58();
+  if (!signer || !agentSigner) {
+    return signerRequiredAutoResult(trade, requiredSigners, [], undefined, 'Explicit external agent signer provider is required before auto-execution.');
+  }
+
+  if (requiredSigners.length === 0 || !requiredSigners.includes(agentSigner)) {
+    return signerRequiredAutoResult(trade, requiredSigners, requiredSigners, agentSigner, 'Unsigned transaction does not require the configured agent signer; refusing to broadcast.');
+  }
+
+  const missingSigners = requiredSigners.filter((required) => required !== agentSigner);
+  if (missingSigners.length > 0) {
+    return signerRequiredAutoResult(trade, requiredSigners, missingSigners, agentSigner, 'Unsigned transaction requires signers that are not provided by the configured agent signer.');
+  }
+
+  let simulation: SimulatePoletTransactionResult;
+  try {
+    simulation = await simulatePoletTransaction({
+      transaction,
+      rpcUrl: options.rpcUrl,
+      connection: options.connection,
+      commitment: input.commitment,
+    });
+  } catch (error) {
+    return failedAutoResult(trade, requiredSigners, [], agentSigner, error instanceof Error ? error.message : 'Transaction simulation failed before broadcast.');
+  }
+
+  if (!simulation.ok) {
+    return {
+      status: 'simulation-failed',
+      ok: false,
+      trade,
+      outcome: {
+        decision: 'failed',
+        status: 'simulation-failed',
+        reason: 'Polet transaction simulation failed; broadcast stopped.',
+      },
+      requiredSigners,
+      missingSigners: [],
+      agentSigner,
+      simulation,
+      reason: 'Polet transaction simulation failed; broadcast stopped.',
+    };
+  }
+
+  const send = await signAndSendPoletTransaction({
+    transaction,
+    skipPreflight: input.skipPreflight,
+    commitment: input.commitment,
+  }, {
+    ...options,
+    signers: [signer],
+  });
+
+  if (!send.ok || !send.signature) {
+    return {
+      status: send.status === 'signer-required' ? 'signer-required' : 'failed',
+      ok: false,
+      trade,
+      outcome: {
+        decision: 'failed',
+        status: send.status === 'signer-required' ? 'signer-required' : 'failed',
+        reason: send.reason,
+      },
+      requiredSigners: send.requiredSigners,
+      missingSigners: send.requiredSigners.filter((required) => required !== agentSigner),
+      agentSigner,
+      simulation,
+      reason: send.reason,
+    };
+  }
+
+  return {
+    status: 'submitted',
+    ok: true,
+    trade,
+    outcome: {
+      decision: 'submitted',
+      status: 'submitted',
+      signature: send.signature,
+    },
+    requiredSigners,
+    missingSigners: [],
+    agentSigner,
+    simulation,
+    signature: send.signature,
   };
 }
 
@@ -1260,6 +1396,11 @@ async function resolveKitSigners(options: PoletAgentKitOptions): Promise<Signer[
   return typeof options.signers === 'function' ? await options.signers() : options.signers;
 }
 
+async function resolveKitAgentSigner(options: PoletAgentKitOptions): Promise<Signer | undefined> {
+  if (!options.agentSigner) return undefined;
+  return typeof options.agentSigner === 'function' ? await options.agentSigner() : options.agentSigner;
+}
+
 function tradeToolResult(result: PoletTradeResult): PoletAgentToolResult {
   return {
     status: normalizeToolTradeStatus(result.status),
@@ -1270,6 +1411,16 @@ function tradeToolResult(result: PoletTradeResult): PoletAgentToolResult {
 }
 
 function signAndSendToolResult(result: PoletSignAndSendResult): PoletAgentToolResult {
+  return {
+    status: result.status,
+    ok: result.ok,
+    data: result,
+    ...(result.reason && { reason: result.reason }),
+    ...(result.requiredSigners.length > 0 && { requiredSigners: result.requiredSigners }),
+  };
+}
+
+function autoExecuteToolResult(result: PoletAutoExecuteResult): PoletAgentToolResult {
   return {
     status: result.status,
     ok: result.ok,
@@ -1375,6 +1526,105 @@ function extractPoletSignerPubkeys(transaction: Transaction | VersionedTransacti
   }
 
   return transaction.signatures.map((signature) => signature.publicKey.toBase58());
+}
+
+function extractPoletRequiredSigners(value: string | PoletUnsignedTransactionLike): string[] {
+  if (typeof value !== 'string' && Array.isArray(value.signers) && value.signers.every((signer) => typeof signer === 'string')) {
+    return [...value.signers];
+  }
+
+  const base64 = extractPoletTransactionBase64(value);
+  const { transaction } = deserializePoletTransaction(Buffer.from(base64, 'base64'));
+  return extractPoletSignerPubkeys(transaction);
+}
+
+function extractTradeExecutionTransaction(trade: PoletTradeResult): string | PoletUnsignedTransactionLike | undefined {
+  const payload = trade.execution?.payload;
+  if (isPoletUnsignedTransactionLike(payload)) return payload;
+  return undefined;
+}
+
+function isPoletUnsignedTransactionLike(value: unknown): value is PoletUnsignedTransactionLike {
+  if (typeof value === 'string') return value.trim() !== '';
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as PoletUnsignedTransactionLike;
+  return typeof candidate.transaction === 'string'
+    || typeof candidate.unsignedTransaction === 'string'
+    || typeof candidate.base64 === 'string';
+}
+
+function normalizeNonExecutableDecision(status: PoletTradeStatus): PoletAutoExecuteResult['outcome']['decision'] {
+  if (status === 'pending-encrypt-execution') return 'pending';
+  if (status === 'needs-approval') return 'needs-approval';
+  if (status === 'not-supported') return 'not-supported';
+  if (status === 'blocked' || status === 'encrypt-verified-blocked') return 'blocked';
+  return 'failed';
+}
+
+function nonExecutedAutoResult(
+  trade: PoletTradeResult,
+  decision: PoletAutoExecuteResult['outcome']['decision'],
+  reason?: string
+): PoletAutoExecuteResult {
+  return {
+    status: 'not-executed',
+    ok: false,
+    trade,
+    outcome: {
+      decision,
+      status: trade.status,
+      reason,
+    },
+    requiredSigners: [],
+    missingSigners: [],
+    reason,
+  };
+}
+
+function signerRequiredAutoResult(
+  trade: PoletTradeResult,
+  requiredSigners: string[],
+  missingSigners: string[],
+  agentSigner: string | undefined,
+  reason: string
+): PoletAutoExecuteResult {
+  return {
+    status: 'signer-required',
+    ok: false,
+    trade,
+    outcome: {
+      decision: 'failed',
+      status: 'signer-required',
+      reason,
+    },
+    requiredSigners,
+    missingSigners,
+    ...(agentSigner && { agentSigner }),
+    reason,
+  };
+}
+
+function failedAutoResult(
+  trade: PoletTradeResult,
+  requiredSigners: string[],
+  missingSigners: string[],
+  agentSigner: string | undefined,
+  reason: string
+): PoletAutoExecuteResult {
+  return {
+    status: 'failed',
+    ok: false,
+    trade,
+    outcome: {
+      decision: 'failed',
+      status: 'failed',
+      reason,
+    },
+    requiredSigners,
+    missingSigners,
+    ...(agentSigner && { agentSigner }),
+    reason,
+  };
 }
 
 async function tradeWithJupiter(input: PoletTradeInput, options: PoletAgentOptions): Promise<PoletTradeResult> {
@@ -1742,6 +1992,8 @@ function isBlockingProxyCode(code: string | undefined): boolean {
     || code === 'ENCRYPT_POLICY_GRAPH_NOT_EXECUTED'
     || code === 'ENCRYPT_POLICY_PENDING'
     || code === 'ENCRYPT_POLICY_VERIFIED_BLOCKED'
+    || code === 'QUOTE_STALE'
+    || code === 'TOKEN_CUSTODY_NOT_CONFIGURED'
     || code === 'IKA_ROUTE_NOT_ALLOWED'
     || code === 'IKA_RISK_GUARDRAIL_BLOCKED';
 }
@@ -1872,6 +2124,7 @@ export {
   LocalAgentRuntime,
   type AgentRuntimeResult,
   type AgentRuntimeScenario,
+  type AgentAutoExecuteRuntimeResult,
   type DcaRunData,
   type HybridAgentRuntimeResult,
   type IkaAgentRuntimeResult,

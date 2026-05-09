@@ -1,9 +1,13 @@
 import {
   createMultichainStrategyIntent,
   createDcaIntent,
+  createPoletAgentKit,
   submitIntent,
   type DcaIntent,
   type MultichainStrategyIntent,
+  type PoletAgentKitConnection,
+  type PoletAutoExecuteResult,
+  type PoletExternalAgentSignerProvider,
   type ProxyClientOptions,
 } from './index.js';
 
@@ -13,6 +17,9 @@ export interface LocalAgentRuntimeConfig {
   owner: string;
   sessionKey: string;
   proxyUrl: string;
+  rpcUrl?: string;
+  connection?: PoletAgentKitConnection;
+  agentSigner?: PoletExternalAgentSignerProvider;
   maskedWitnessDevFixture?: number[];
   slippageBps?: number;
   fetch?: typeof fetch;
@@ -110,6 +117,14 @@ export interface AgentRuntimeResult {
   decision: 'allowed' | 'blocked' | 'unknown';
 }
 
+export interface AgentAutoExecuteRuntimeResult {
+  runtime: 'local-scripted-agent';
+  scenario: 'allow';
+  intent: DcaIntent;
+  execution: PoletAutoExecuteResult;
+  decision: PoletAutoExecuteResult['outcome']['decision'];
+}
+
 export interface IkaAgentRuntimeResult {
   runtime: 'local-scripted-agent';
   scenario: 'ika' | 'ika-sui';
@@ -180,6 +195,40 @@ export class LocalAgentRuntime {
       intent,
       proxyResponse,
       decision: toDecision(proxyResponse),
+    };
+  }
+
+  async runDcaAutoExecuteScenario(input: Omit<RunDcaScenarioInput, 'scenario'> = {}): Promise<AgentAutoExecuteRuntimeResult> {
+    const intent = this.createDcaIntent({ ...input, scenario: 'allow' });
+    const kit = createPoletAgentKit({
+      owner: this.config.owner,
+      sessionKey: this.config.sessionKey,
+      baseUrl: this.config.proxyUrl,
+      ...(this.config.rpcUrl && { rpcUrl: this.config.rpcUrl }),
+      ...(this.config.connection && { connection: this.config.connection }),
+      ...(this.config.agentSigner && { agentSigner: this.config.agentSigner }),
+      ...(this.config.fetch && { fetch: this.config.fetch }),
+      ...(this.config.maskedWitnessDevFixture && { maskedWitnessDevFixture: this.config.maskedWitnessDevFixture }),
+    });
+    const execution = await kit.autoExecuteTrade({
+      from: { chain: 'solana', asset: 'USDC', mint: intent.params.inputMint },
+      to: { chain: 'solana', asset: 'SOL', mint: intent.params.outputMint },
+      amount: intent.params.amountUsdc,
+      rail: 'jupiter',
+      strategy: 'dca',
+      slippageBps: intent.params.slippageBps,
+      destinationTokenAccount: intent.params.destinationTokenAccount,
+      nativeDestinationAccount: intent.params.nativeDestinationAccount,
+      policyHash: intent.policyHash,
+      intentId: intent.id,
+    });
+
+    return {
+      runtime: 'local-scripted-agent',
+      scenario: 'allow',
+      intent,
+      execution,
+      decision: execution.outcome.decision,
     };
   }
 
