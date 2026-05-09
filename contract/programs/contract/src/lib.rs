@@ -15,7 +15,7 @@ pub mod execution_payload;
 pub mod ika_approval;
 pub mod state;
 
-declare_id!("H2z7UMkXh6MirSNaB55pb2gLYvY9Zgz5PLQnQUqnYt6a");
+declare_id!("5hy6S8v1Z1ZLUonPai6wQKcnm8u5RdrNgspeuPYBsP9G");
 
 use confidential_policy::enforce_confidential_numeric_policy;
 pub use constants::WALLET_SEED;
@@ -309,6 +309,33 @@ pub struct ExecutePolicyGatedCustodyTradeAsSession<'info> {
     pub usdc_mint: UncheckedAccount<'info>,
     /// CHECK: Canonical SPL Token program for custody movement.
     pub token_program: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
+pub struct ExecuteConfidentialUsdcTransferAsSession<'info> {
+    #[account(
+        mut,
+        seeds = [WALLET_SEED, wallet.owner.as_ref()],
+        bump,
+    )]
+    pub wallet: Account<'info, Wallet>,
+    pub session_key: Signer<'info>,
+    /// CHECK: Registered PDA-owned USDC custody source; must match wallet.demo_custody.usdc_token_account.
+    #[account(mut)]
+    pub usdc_custody_account: UncheckedAccount<'info>,
+    /// CHECK: Destination USDC token account (any authority); mint is validated against wallet.demo_custody.usdc_mint.
+    #[account(mut)]
+    pub destination_usdc_account: UncheckedAccount<'info>,
+    /// CHECK: Registered USDC mint used for source custody debit.
+    pub usdc_mint: UncheckedAccount<'info>,
+    /// CHECK: Canonical SPL Token program for custody movement.
+    pub token_program: UncheckedAccount<'info>,
+    /// CHECK: Pending allowed-output ciphertext recorded by Polet FHE graph execution.
+    pub allowed_output_ciphertext: UncheckedAccount<'info>,
+    /// CHECK: Pending updated daily-spent ciphertext recorded by Polet FHE graph execution.
+    pub daily_spent_output_ciphertext: UncheckedAccount<'info>,
+    /// CHECK: Decryption request for allowed_output_ciphertext; verified against the current ciphertext digest.
+    pub allowed_decryption_request: UncheckedAccount<'info>,
 }
 
 #[derive(Accounts)]
@@ -653,7 +680,7 @@ fn read_verified_encrypt_allowed_output(
     Ok(*allowed)
 }
 
-fn consume_verified_encrypt_policy_for_ika(
+fn consume_verified_encrypt_policy(
     wallet: &mut Wallet,
     allowed_output_ciphertext: &AccountInfo,
     daily_spent_output_ciphertext: &AccountInfo,
@@ -915,6 +942,32 @@ fn validate_token_account(
         account_authority == *authority,
         ErrorCode::InvalidTokenCustody
     );
+    require!(data[108] == 1, ErrorCode::InvalidTokenCustody);
+
+    Ok(())
+}
+
+fn validate_external_token_account(
+    token_account: &AccountInfo,
+    mint: &Pubkey,
+    token_program: &Pubkey,
+) -> Result<()> {
+    // Same as validate_token_account but without pinning the account authority. Used for arbitrary
+    // destination USDC ATAs (recipient can be anyone). SPL transfer_checked downstream enforces mint match.
+    require!(
+        *token_account.owner == *token_program,
+        ErrorCode::InvalidTokenCustody
+    );
+
+    let data = token_account.try_borrow_data()?;
+    require!(data.len() >= 109, ErrorCode::InvalidTokenCustody);
+
+    let account_mint = Pubkey::new_from_array(
+        data[0..32]
+            .try_into()
+            .map_err(|_| ErrorCode::InvalidTokenCustody)?,
+    );
+    require!(account_mint == *mint, ErrorCode::InvalidTokenCustody);
     require!(data[108] == 1, ErrorCode::InvalidTokenCustody);
 
     Ok(())
@@ -1734,6 +1787,89 @@ pub mod contract {
         Ok(())
     }
 
+    /// Session-signed confidential USDC SPL transfer from PDA custody to an arbitrary destination
+    /// USDC token account. Gated on-chain by the full Official Encrypt FHE path: the pending
+    /// allowed-output ciphertext on `wallet.usdc_dca_policy` must be FHE-verified allowed before
+    /// the SPL transfer is executed, and the pending daily-spent ciphertext rotates into place.
+    pub fn execute_confidential_usdc_transfer_as_session(
+        ctx: Context<ExecuteConfidentialUsdcTransferAsSession>,
+        amount: u64,
+        attestation_slot: u64,
+        attestation_policy_seq: u64,
+    ) -> Result<()> {
+        require!(amount > 0, ErrorCode::InvalidIntent);
+
+        validate_session_and_attestation(
+            &ctx.accounts.wallet,
+            ctx.accounts.session_key.key(),
+            attestation_slot,
+            attestation_policy_seq,
+        )?;
+
+        require!(
+            ctx.accounts.wallet.demo_custody.configured,
+            ErrorCode::TokenCustodyNotConfigured
+        );
+        require!(
+            ctx.accounts.usdc_custody_account.key()
+                == ctx.accounts.wallet.demo_custody.usdc_token_account,
+            ErrorCode::InvalidTokenCustody
+        );
+        require!(
+            ctx.accounts.usdc_mint.key() == ctx.accounts.wallet.demo_custody.usdc_mint,
+            ErrorCode::InvalidTokenCustody
+        );
+
+        let token_program = ctx.accounts.token_program.key();
+        validate_supported_token_program(&token_program)?;
+        validate_pda_token_account(
+            &ctx.accounts.usdc_custody_account.to_account_info(),
+            &ctx.accounts.wallet.demo_custody.usdc_mint,
+            &ctx.accounts.wallet.key(),
+            &token_program,
+        )?;
+        validate_external_token_account(
+            &ctx.accounts.destination_usdc_account.to_account_info(),
+            &ctx.accounts.wallet.demo_custody.usdc_mint,
+            &token_program,
+        )?;
+        require!(
+            read_token_amount(&ctx.accounts.usdc_custody_account.to_account_info())? >= amount,
+            ErrorCode::AmountLimitExceeded
+        );
+
+        // Full FHE on-chain gate: verifies the pending allowed-output ciphertext decrypted to
+        // allowed=true, rotates daily_spent to the pending output, and clears pending state.
+        consume_verified_encrypt_policy(
+            &mut ctx.accounts.wallet,
+            &ctx.accounts.allowed_output_ciphertext.to_account_info(),
+            &ctx.accounts.daily_spent_output_ciphertext.to_account_info(),
+            &ctx.accounts.allowed_decryption_request.to_account_info(),
+            attestation_policy_seq,
+        )?;
+
+        let wallet_owner = ctx.accounts.wallet.owner;
+        transfer_checked_with_wallet_authority(
+            ctx.accounts.usdc_custody_account.to_account_info(),
+            ctx.accounts.usdc_mint.to_account_info(),
+            ctx.accounts.destination_usdc_account.to_account_info(),
+            ctx.accounts.wallet.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
+            wallet_owner,
+            ctx.bumps.wallet,
+            amount,
+            6,
+        )?;
+
+        msg!(
+            "Session executed FHE-verified USDC transfer: amount={}, destination={:?}, policy_seq={}",
+            amount,
+            ctx.accounts.destination_usdc_account.key(),
+            ctx.accounts.wallet.policy_seq
+        );
+        Ok(())
+    }
+
     pub fn execute_encrypt_policy_graph_as_session(
         ctx: Context<ExecuteEncryptPolicyGraphAsSession>,
         attestation_slot: u64,
@@ -1892,7 +2028,7 @@ pub mod contract {
             ctx.remaining_accounts,
         )?;
 
-        consume_verified_encrypt_policy_for_ika(
+        consume_verified_encrypt_policy(
             &mut ctx.accounts.wallet,
             &ctx.accounts.allowed_output_ciphertext.to_account_info(),
             &ctx.accounts.daily_spent_output_ciphertext.to_account_info(),

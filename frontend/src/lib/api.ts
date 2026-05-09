@@ -422,6 +422,50 @@ export async function executeConfidentialTransfer(
   return data.data;
 }
 
+export interface ExecuteConfidentialUsdcTransferInput {
+  owner: string;
+  sessionKey: string;
+  /** Destination wallet pubkey. The proxy derives the USDC ATA for this wallet. */
+  destination: string;
+  /** Amount in USDC base units (6 decimals). */
+  amountBaseUnits: string;
+  /** Encrypt decryption-request account used on-chain to prove allowed=true. */
+  allowedDecryptionRequest: string;
+  encrypt?: { encryptProgram?: string };
+}
+
+export interface ExecuteConfidentialUsdcTransferResult {
+  allowed: boolean;
+  transaction?: string;
+  blockHash?: string;
+  slot?: number;
+  signers?: string[];
+  wallet?: string;
+  destination?: string;
+  destinationUsdcAccount?: string;
+  amountBaseUnits?: string;
+  amountUi?: string;
+  policySeq?: number;
+  attestationSlot?: number;
+  code?: string;
+  reason?: string;
+  boundary?: 'session-signed-fhe-verified-usdc-transfer';
+}
+
+export async function executeConfidentialUsdcTransfer(
+  input: ExecuteConfidentialUsdcTransferInput
+): Promise<ExecuteConfidentialUsdcTransferResult> {
+  const data = await fetchJson<{ success: boolean; data: ExecuteConfidentialUsdcTransferResult }>(
+    `${PROXY_URL}/wallet/execute-confidential-usdc-transfer`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
 export async function setOfficialEncryptCiphertextPolicy(
   input: SetOfficialEncryptCiphertextPolicyInput
 ): Promise<SetOfficialEncryptCiphertextPolicyResult> {

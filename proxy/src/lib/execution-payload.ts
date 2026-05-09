@@ -88,3 +88,52 @@ export function encodeU32Le(value: number): Buffer {
   buffer.writeUInt32LE(value);
   return buffer;
 }
+
+export const EXECUTE_CONFIDENTIAL_USDC_TRANSFER_AS_SESSION_DISCRIMINATOR = Buffer.from([
+  200, 14, 66, 170, 206, 20, 88, 24,
+]);
+
+export interface ConfidentialUsdcTransferPayloadRequest {
+  amount: number | bigint;
+  attestationSlot: number | bigint;
+  attestationPolicySeq: number | bigint;
+}
+
+export interface ConfidentialUsdcTransferAccountRequest {
+  wallet: string;
+  sessionKey: string;
+  usdcCustodyAccount: string;
+  destinationUsdcAccount: string;
+  usdcMint: string;
+  tokenProgram: string;
+  allowedOutputCiphertext: string;
+  dailySpentOutputCiphertext: string;
+  allowedDecryptionRequest: string;
+}
+
+export function buildExecuteConfidentialUsdcTransferPayload(
+  request: ConfidentialUsdcTransferPayloadRequest
+): Buffer {
+  return Buffer.concat([
+    EXECUTE_CONFIDENTIAL_USDC_TRANSFER_AS_SESSION_DISCRIMINATOR,
+    encodeU64Le(request.amount),
+    encodeU64Le(request.attestationSlot),
+    encodeU64Le(request.attestationPolicySeq),
+  ]);
+}
+
+export function buildExecuteConfidentialUsdcTransferAccounts(
+  request: ConfidentialUsdcTransferAccountRequest
+): AccountMeta[] {
+  return [
+    { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.sessionKey), isSigner: true, isWritable: false },
+    { pubkey: new PublicKey(request.usdcCustodyAccount), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.destinationUsdcAccount), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.usdcMint), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.tokenProgram), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.allowedOutputCiphertext), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.dailySpentOutputCiphertext), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.allowedDecryptionRequest), isSigner: false, isWritable: false },
+  ];
+}

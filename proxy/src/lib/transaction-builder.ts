@@ -10,8 +10,12 @@ import type { Attestation, Intent } from '../types/intent';
 import {
   buildExecuteConfidentialTransferAccounts,
   buildExecuteConfidentialTransferPayload,
+  buildExecuteConfidentialUsdcTransferAccounts,
+  buildExecuteConfidentialUsdcTransferPayload,
   encodeU64Le,
   TRANSFER_INTENT_LENGTH,
+  type ConfidentialUsdcTransferAccountRequest,
+  type ConfidentialUsdcTransferPayloadRequest,
 } from './execution-payload';
 import { PROGRAM_ID_STRING } from './program-identity';
 
@@ -343,6 +347,41 @@ export async function buildConfidentialTransferSessionTransaction(
   });
 
   const transaction = new Transaction();
+  transaction.add(instruction);
+  const signerSet = new Set([request.sessionKey, options.feePayer ?? request.sessionKey]);
+  return serializeBuiltTransaction(
+    transaction,
+    options.feePayer ? new PublicKey(options.feePayer) : sessionKeyPubkey,
+    Array.from(signerSet),
+    options.partialSigners
+  );
+}
+
+export type ConfidentialUsdcTransferTransactionRequest =
+  ConfidentialUsdcTransferAccountRequest & ConfidentialUsdcTransferPayloadRequest;
+
+export async function buildConfidentialUsdcTransferSessionTransaction(
+  request: ConfidentialUsdcTransferTransactionRequest,
+  programId: string,
+  options: {
+    feePayer?: string;
+    partialSigners?: Signer[];
+    preInstructions?: TransactionInstruction[];
+  } = {}
+): Promise<BuiltTransaction> {
+  const sessionKeyPubkey = new PublicKey(request.sessionKey);
+  const programIdPubkey = new PublicKey(programId);
+
+  const instruction = new TransactionInstruction({
+    keys: buildExecuteConfidentialUsdcTransferAccounts(request),
+    programId: programIdPubkey,
+    data: buildExecuteConfidentialUsdcTransferPayload(request),
+  });
+
+  const transaction = new Transaction();
+  if (options.preInstructions && options.preInstructions.length > 0) {
+    for (const ix of options.preInstructions) transaction.add(ix);
+  }
   transaction.add(instruction);
   const signerSet = new Set([request.sessionKey, options.feePayer ?? request.sessionKey]);
   return serializeBuiltTransaction(

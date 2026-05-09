@@ -1177,3 +1177,43 @@ pub fn read_mock_message_approval(
         .expect("message approval account not found")
         .data
 }
+
+#[allow(clippy::too_many_arguments)]
+pub fn execute_confidential_usdc_transfer_as_session(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    session_key: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    usdc_custody_account: anchor_lang::prelude::Pubkey,
+    destination_usdc_account: anchor_lang::prelude::Pubkey,
+    usdc_mint: anchor_lang::prelude::Pubkey,
+    allowed_output_ciphertext: anchor_lang::prelude::Pubkey,
+    daily_spent_output_ciphertext: anchor_lang::prelude::Pubkey,
+    allowed_decryption_request: anchor_lang::prelude::Pubkey,
+    amount: u64,
+    attestation_slot: u64,
+    attestation_policy_seq: u64,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::ExecuteConfidentialUsdcTransferAsSession {
+        amount,
+        attestation_slot,
+        attestation_policy_seq,
+    };
+    let ix_accounts = contract::accounts::ExecuteConfidentialUsdcTransferAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        usdc_custody_account,
+        destination_usdc_account,
+        usdc_mint,
+        token_program: spl_token_program_id(),
+        allowed_output_ciphertext,
+        daily_spent_output_ciphertext,
+        allowed_decryption_request,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, payer, &[session_key], ix)
+}

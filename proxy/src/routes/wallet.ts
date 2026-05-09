@@ -6,6 +6,7 @@ import {
   ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
   buildApproveIkaMessageWithVerifiedEncryptSessionTransaction,
   buildConfidentialTransferSessionTransaction,
+  buildConfidentialUsdcTransferSessionTransaction,
   buildCreateEncryptDepositTransaction,
   buildExecuteEncryptPolicyGraphSessionTransaction,
   buildRequestPolicyValueDecryptionTransaction,
@@ -691,6 +692,194 @@ walletRouter.post('/execute-confidential-transfer', async (c) => {
   } catch (error) {
     console.error('Execute confidential transfer error:', error);
     const message = error instanceof Error ? error.message : 'Failed to build confidential transfer';
+    const status = message.includes('must be') || message.includes('supports at most') ? 400 : 500;
+    return c.json({ success: false, error: message }, status);
+  }
+});
+
+/**
+ * POST /wallet/execute-confidential-usdc-transfer
+ * Builds a session-signed, FHE-gated USDC SPL transfer from PDA custody to an arbitrary
+ * destination wallet. Consumes the wallet's pending allowed-output FHE ciphertext on-chain.
+ */
+walletRouter.post('/execute-confidential-usdc-transfer', async (c) => {
+  try {
+    const body = await c.req.json();
+    const ownerPubkey = parsePublicKey(body.owner, 'owner');
+    const sessionPubkey = parsePublicKey(body.sessionKey, 'sessionKey');
+    const destinationOwner = parsePublicKey(body.destination, 'destination');
+    const allowedDecryptionRequest = parsePublicKey(
+      body.allowedDecryptionRequest,
+      'allowedDecryptionRequest'
+    );
+    const amount = body.amountBaseUnits === undefined
+      ? parsePositiveAmount(body.amount, USDC_DECIMALS, 'USDC amount')
+      : parsePositiveAmount(body.amountBaseUnits, 0, 'USDC base units');
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const walletData = await getWalletData(ownerPubkey.toString());
+    if (!walletData) {
+      return c.json({ success: false, error: 'Wallet not found' }, 404);
+    }
+    if (!walletData.demoCustody?.configured) {
+      return c.json({ success: false, error: 'USDC custody is not registered' }, 400);
+    }
+    if (!walletData.usdcDcaPolicy?.enabled) {
+      return c.json({ success: false, error: 'USDC DCA confidential policy not configured' }, 400);
+    }
+    if (!walletData.usdcDcaPolicy?.encryptCiphertexts?.configured) {
+      return c.json({
+        success: false,
+        error: 'Full FHE USDC policy ciphertexts are not registered on-chain',
+      }, 400);
+    }
+    if (!hasPendingOfficialEncryptPolicyOutputs(walletData)) {
+      return c.json({
+        success: false,
+        code: 'ENCRYPT_POLICY_NOT_PENDING',
+        error:
+          'No pending FHE graph output for this wallet. Run executeEncryptPolicyGraph first so the allowed-output ciphertext is queued for the contract to consume.',
+      }, 409);
+    }
+
+    const state = walletData.usdcDcaPolicy.encryptCiphertexts!;
+    const expectedPolicySeq = Number(state.pendingPolicySeq);
+    if (expectedPolicySeq !== walletData.policySeq) {
+      return c.json({
+        success: false,
+        code: 'ENCRYPT_POLICY_STALE',
+        error: 'Pending FHE state belongs to a different policy sequence; re-run the graph.',
+      }, 409);
+    }
+
+    // Pre-check that the pending allowed-output ciphertext is Encrypt-verified so the contract
+    // does not fail with EncryptPolicyPending. This is defence-in-depth; the contract is the
+    // final authority.
+    const encryptProgram = body.encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING;
+    const connection = getConnection();
+    const [ciphertextStatus, requestInfo, slot] = await Promise.all([
+      readCiphertextStatus(connection, parsePublicKey(state.pendingAllowedOutput, 'pendingAllowedOutput')),
+      readBoolDecryptionRequest(connection, allowedDecryptionRequest),
+      connection.getSlot(),
+    ]);
+    if (!ciphertextStatus.exists || ciphertextStatus.owner !== encryptProgram) {
+      return c.json({
+        success: false,
+        code: 'ENCRYPT_CIPHERTEXT_INVALID',
+        error: `Pending allowed-output ${state.pendingAllowedOutput} is not a valid Encrypt ciphertext account`,
+      }, 409);
+    }
+    if (ciphertextStatus.status !== 'verified') {
+      return c.json({
+        success: false,
+        code: 'ENCRYPT_CIPHERTEXT_PENDING',
+        error: 'Allowed-output ciphertext is not yet Encrypt-verified.',
+      }, 409);
+    }
+    if (!requestInfo.exists || requestInfo.status === 'invalid' || requestInfo.ciphertext !== state.pendingAllowedOutput) {
+      return c.json({
+        success: false,
+        code: 'ENCRYPT_REQUEST_INVALID',
+        error: 'Allowed-output decryption request is invalid or does not match the pending ciphertext.',
+      }, 409);
+    }
+    if (requestInfo.status === 'pending') {
+      return c.json({
+        success: false,
+        code: 'ENCRYPT_REQUEST_PENDING',
+        error: 'Allowed-output decryption request is still pending; retry after it resolves.',
+      }, 409);
+    }
+    if (requestInfo.boolValue !== true) {
+      return c.json({
+        success: false,
+        code: 'ENCRYPT_VERIFIED_BLOCKED',
+        error: 'FHE policy graph evaluated this run as blocked.',
+      }, 409);
+    }
+
+    const attestationSlot = Math.max(slot, Number(walletData.lastRevokedSlot) + 1);
+    const usdcMint = parsePublicKey(walletData.demoCustody.usdcMint, 'demoCustody.usdcMint');
+    const destinationUsdcAta = deriveAta(destinationOwner, usdcMint);
+
+    // If the destination USDC ATA doesn't exist yet on devnet, prepend an idempotent
+    // create-ATA instruction so the recipient doesn't have to pre-create it. This is a
+    // no-op if the ATA already exists.
+    const preInstructions: anchor.web3.TransactionInstruction[] = [];
+    const destinationAtaInfo = await connection.getAccountInfo(destinationUsdcAta);
+    if (!destinationAtaInfo) {
+      preInstructions.push(new anchor.web3.TransactionInstruction({
+        programId: ASSOCIATED_TOKEN_PROGRAM_ID,
+        keys: [
+          { pubkey: ownerPubkey, isSigner: true, isWritable: true },
+          { pubkey: destinationUsdcAta, isSigner: false, isWritable: true },
+          { pubkey: destinationOwner, isSigner: false, isWritable: false },
+          { pubkey: usdcMint, isSigner: false, isWritable: false },
+          { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
+          { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
+        ],
+        data: Buffer.from([1]), // 1 = CreateIdempotent
+      }));
+    }
+
+    const sessionKeypair = sessionPubkey.equals(ownerPubkey)
+      ? null
+      : loadKey(ownerPubkey.toString(), 'session');
+    if (sessionKeypair && !sessionKeypair.publicKey.equals(sessionPubkey)) {
+      return c.json({
+        success: false,
+        code: 'SESSION_SIGNER_UNAVAILABLE',
+        error:
+          `Selected session ${sessionPubkey.toString()} is authorized on-chain, but the proxy KMS does not have that session key.`,
+      }, 409);
+    }
+    if (!sessionPubkey.equals(ownerPubkey) && !sessionKeypair) {
+      return c.json({
+        success: false,
+        code: 'SESSION_SIGNER_UNAVAILABLE',
+        error:
+          `Selected session ${sessionPubkey.toString()} needs its signature, but the proxy KMS does not have it.`,
+      }, 409);
+    }
+
+    const built = await buildConfidentialUsdcTransferSessionTransaction(
+      {
+        wallet: walletPda.toString(),
+        sessionKey: sessionPubkey.toString(),
+        usdcCustodyAccount: walletData.demoCustody.usdcTokenAccount,
+        destinationUsdcAccount: destinationUsdcAta.toString(),
+        usdcMint: usdcMint.toString(),
+        tokenProgram: walletData.demoCustody.tokenProgram ?? TOKEN_PROGRAM_ID.toString(),
+        allowedOutputCiphertext: state.pendingAllowedOutput,
+        dailySpentOutputCiphertext: state.pendingDailySpentOutput,
+        allowedDecryptionRequest: allowedDecryptionRequest.toString(),
+        amount,
+        attestationSlot,
+        attestationPolicySeq: walletData.policySeq,
+      },
+      PROGRAM_ID.toString(),
+      sessionKeypair
+        ? { feePayer: ownerPubkey.toString(), partialSigners: [sessionKeypair], preInstructions }
+        : { feePayer: ownerPubkey.toString(), preInstructions }
+    );
+
+    return c.json({
+      success: true,
+      data: {
+        allowed: true,
+        ...built,
+        wallet: walletPda.toString(),
+        destination: destinationOwner.toString(),
+        destinationUsdcAccount: destinationUsdcAta.toString(),
+        amountBaseUnits: amount.toString(),
+        amountUi: formatBaseUnits(amount, USDC_DECIMALS),
+        policySeq: walletData.policySeq,
+        attestationSlot,
+        boundary: 'session-signed-fhe-verified-usdc-transfer',
+      },
+    });
+  } catch (error) {
+    console.error('Execute confidential USDC transfer error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to build confidential USDC transfer';
     const status = message.includes('must be') || message.includes('supports at most') ? 400 : 500;
     return c.json({ success: false, error: message }, status);
   }
