@@ -11,9 +11,9 @@ import {
   createJupiterStrategyGateway,
 } from './jupiter-gateway';
 import {
-  buildConfidentialTransferSessionTransaction,
+  buildPolicyGatedCustodyTradeSessionTransaction,
   type BuiltTransaction,
-  type ConfidentialTransferTransactionRequest,
+  type PolicyGatedCustodyTradeTransactionRequest,
 } from './transaction-builder';
 import {
   PROGRAM_ID,
@@ -95,7 +95,7 @@ export interface ConfidentialDcaExecutionDeps extends StrategyExecutionDeps {
   gateway?: JupiterStrategyGateway;
   quoteFreshnessTtlMs?: number;
   buildTransaction?: (
-    request: Parameters<typeof buildConfidentialTransferSessionTransaction>[0],
+    request: PolicyGatedCustodyTradeTransactionRequest,
     programId: string
   ) => Promise<BuiltTransaction>;
 }
@@ -158,13 +158,22 @@ export async function runConfidentialDcaExecution(
           const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
           const destinationTokenAccount = request.destinationTokenAccount ?? wallet.demoCustody.solTokenAccount;
           const shouldBuildLegacyWitnessTransaction = encryptPolicy?.status !== 'encrypt-verified-allowed';
+          const quoteIssuedSlot = BigInt(quoteMetadata?.freshness?.slot ?? (BigInt(wallet.lastRevokedSlot) + 1n));
           const transaction = shouldBuildLegacyWitnessTransaction
-            ? await (deps.buildTransaction ?? buildConfidentialTransferSessionTransaction)(
+            ? await (deps.buildTransaction ?? buildPolicyGatedCustodyTradeSessionTransaction)(
               {
                 wallet: smartWalletAuthority,
                 sessionKey: request.sessionKey,
-                destination: destinationTokenAccount,
-                amount: amountBaseUnits,
+                usdcTokenAccount: wallet.demoCustody.usdcTokenAccount,
+                outputTokenAccount: destinationTokenAccount,
+                usdcMint: wallet.demoCustody.usdcMint,
+                tokenProgram: wallet.demoCustody.tokenProgram,
+                sourceAmount: amountBaseUnits,
+                quotedOutputAmount: quoteMetadata ? BigInt(quoteMetadata.expectedOutput) : amountBaseUnits,
+                minimumOutputAmount: quoteMetadata ? BigInt(quoteMetadata.minimumOutput) : amountBaseUnits,
+                slippageBps: quoteMetadata?.slippageBps ?? request.slippageBps ?? 100,
+                quoteIssuedSlot,
+                quoteMaxAgeSlots: 150,
                 attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
                 attestationPolicySeq: wallet.policySeq,
                 maskedWitnessDevFixture: request.maskedWitnessDevFixture ?? [],

@@ -19,6 +19,7 @@ import {
   APPROVE_IKA_MESSAGE_AS_SESSION_DISCRIMINATOR,
   APPROVE_IKA_MESSAGE_WITH_VERIFIED_ENCRYPT_AS_SESSION_DISCRIMINATOR,
   EXECUTE_ENCRYPT_POLICY_GRAPH_AS_SESSION_DISCRIMINATOR,
+  EXECUTE_POLICY_GATED_CUSTODY_TRADE_AS_SESSION_DISCRIMINATOR,
   REQUEST_POLICY_VALUE_DECRYPTION_DISCRIMINATOR,
   SET_OFFICIAL_ENCRYPT_CIPHERTEXT_POLICY_DISCRIMINATOR,
   buildApproveIkaMessageAsSessionAccounts,
@@ -33,6 +34,8 @@ import {
   buildExecuteEncryptPolicyGraphSessionTransaction,
   buildExecuteConfidentialTransferInstructionData,
   buildExecuteIntentData,
+  buildExecutePolicyGatedCustodyTradeAsSessionAccounts,
+  buildExecutePolicyGatedCustodyTradeInstructionData,
   buildRequestPolicyValueDecryptionAccounts,
   buildRequestPolicyValueDecryptionInstructionData,
   buildRequestPolicyValueDecryptionTransaction,
@@ -202,6 +205,45 @@ describe('Transaction Builder', () => {
         maskedWitnessDevFixture: [1, 2, 3],
       })).toThrow('maskedWitnessDevFixture must contain exactly 32 bytes');
       expect(() => buildTransferIntentPayload(destination, -1n)).toThrow('u64 value out of range');
+    });
+  });
+
+  describe('policy-gated custody trade builder', () => {
+    test('encodes quote-bound custody execution args', () => {
+      const request = createCustodyTradeRequest();
+      const data = buildExecutePolicyGatedCustodyTradeInstructionData(request);
+
+      expect(data.subarray(0, 8)).toEqual(EXECUTE_POLICY_GATED_CUSTODY_TRADE_AS_SESSION_DISCRIMINATOR);
+      expect(data.readBigUInt64LE(8)).toBe(5_000_000n);
+      expect(data.readBigUInt64LE(16)).toBe(40_000_000n);
+      expect(data.readBigUInt64LE(24)).toBe(39_500_000n);
+      expect(data.readUInt16LE(32)).toBe(100);
+      expect(data.readBigUInt64LE(34)).toBe(123n);
+      expect(data.readBigUInt64LE(42)).toBe(150n);
+      expect(data.readBigUInt64LE(50)).toBe(9n);
+      expect(data.readBigUInt64LE(58)).toBe(7n);
+      expect(Array.from(data.subarray(66, 98))).toEqual(request.maskedWitnessDevFixture as number[]);
+      expect(data.length).toBe(98);
+    });
+
+    test('defines custody execution account ordering', () => {
+      const request = createCustodyTradeRequest();
+
+      expect(buildExecutePolicyGatedCustodyTradeAsSessionAccounts(request)).toEqual([
+        { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(request.sessionKey), isSigner: true, isWritable: false },
+        { pubkey: new PublicKey(request.usdcTokenAccount), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(request.outputTokenAccount), isSigner: false, isWritable: true },
+        { pubkey: new PublicKey(request.usdcMint), isSigner: false, isWritable: false },
+        { pubkey: new PublicKey(request.tokenProgram), isSigner: false, isWritable: false },
+      ]);
+    });
+
+    test('rejects invalid custody execution witness', () => {
+      expect(() => buildExecutePolicyGatedCustodyTradeInstructionData({
+        ...createCustodyTradeRequest(),
+        maskedWitnessDevFixture: [1, 2, 3],
+      })).toThrow('maskedWitnessDevFixture must contain exactly 32 bytes');
     });
   });
 
@@ -651,6 +693,29 @@ function createApproveIkaRequest(overrides: Partial<Parameters<typeof buildAppro
     userPubkey: Keypair.generate().publicKey.toString(),
     signatureScheme: 5,
     messageApprovalBump: 201,
+    ...overrides,
+  };
+}
+
+function createCustodyTradeRequest(
+  overrides: Partial<Parameters<typeof buildExecutePolicyGatedCustodyTradeInstructionData>[0]> = {}
+) {
+  return {
+    wallet: Keypair.generate().publicKey.toString(),
+    sessionKey: Keypair.generate().publicKey.toString(),
+    usdcTokenAccount: Keypair.generate().publicKey.toString(),
+    outputTokenAccount: Keypair.generate().publicKey.toString(),
+    usdcMint: Keypair.generate().publicKey.toString(),
+    tokenProgram: Keypair.generate().publicKey.toString(),
+    sourceAmount: 5_000_000n,
+    quotedOutputAmount: 40_000_000n,
+    minimumOutputAmount: 39_500_000n,
+    slippageBps: 100,
+    quoteIssuedSlot: 123n,
+    quoteMaxAgeSlots: 150n,
+    attestationSlot: 9n,
+    attestationPolicySeq: 7n,
+    maskedWitnessDevFixture: Array.from({ length: 32 }, (_, index) => index + 1),
     ...overrides,
   };
 }

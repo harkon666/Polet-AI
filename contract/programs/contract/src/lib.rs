@@ -291,6 +291,27 @@ pub struct ExecuteConfidentialTransferAsSession<'info> {
 }
 
 #[derive(Accounts)]
+pub struct ExecutePolicyGatedCustodyTradeAsSession<'info> {
+    #[account(
+        mut,
+        seeds = [WALLET_SEED, wallet.owner.as_ref()],
+        bump,
+    )]
+    pub wallet: Account<'info, Wallet>,
+    pub session_key: Signer<'info>,
+    /// CHECK: Registered PDA-owned USDC custody source.
+    #[account(mut)]
+    pub usdc_token_account: UncheckedAccount<'info>,
+    /// CHECK: Registered PDA-owned trade-output custody account.
+    #[account(mut)]
+    pub output_token_account: UncheckedAccount<'info>,
+    /// CHECK: Registered USDC mint used for source custody debit.
+    pub usdc_mint: UncheckedAccount<'info>,
+    /// CHECK: Canonical SPL Token program for custody movement.
+    pub token_program: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
 pub struct ExecuteEncryptPolicyGraphAsSession<'info> {
     #[account(
         mut,
@@ -905,6 +926,16 @@ fn validate_token_account(
     Ok(())
 }
 
+fn read_token_amount(token_account: &AccountInfo) -> Result<u64> {
+    let data = token_account.try_borrow_data()?;
+    require!(data.len() >= 72, ErrorCode::InvalidTokenCustody);
+    Ok(u64::from_le_bytes(
+        data[64..72]
+            .try_into()
+            .map_err(|_| ErrorCode::InvalidTokenCustody)?,
+    ))
+}
+
 fn transfer_checked_with_wallet_authority<'info>(
     source: AccountInfo<'info>,
     mint: AccountInfo<'info>,
@@ -937,6 +968,30 @@ fn transfer_checked_with_wallet_authority<'info>(
         &[source, mint, destination, wallet, token_program],
         &[seeds],
     )?;
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn validate_quote_bound_execution(
+    source_amount: u64,
+    quoted_output_amount: u64,
+    minimum_output_amount: u64,
+    slippage_bps: u16,
+    quote_issued_slot: u64,
+    quote_max_age_slots: u64,
+) -> Result<()> {
+    require!(source_amount > 0, ErrorCode::InvalidQuoteExecution);
+    require!(quote_max_age_slots > 0, ErrorCode::InvalidQuoteExecution);
+    require!(
+        minimum_output_amount <= quoted_output_amount,
+        ErrorCode::InvalidQuoteExecution
+    );
+    require!(slippage_bps <= 10_000, ErrorCode::InvalidQuoteExecution);
+    let current_slot = Clock::get()?.slot;
+    let quote_expires_slot = quote_issued_slot
+        .checked_add(quote_max_age_slots)
+        .ok_or(ErrorCode::ArithmeticOverflow)?;
+    require!(current_slot <= quote_expires_slot, ErrorCode::QuoteStale);
     Ok(())
 }
 
@@ -1003,7 +1058,10 @@ pub mod contract {
         amount: u64,
     ) -> Result<()> {
         let wallet = &ctx.accounts.wallet;
-        require!(wallet.demo_custody.configured, ErrorCode::TokenCustodyNotConfigured);
+        require!(
+            wallet.demo_custody.configured,
+            ErrorCode::TokenCustodyNotConfigured
+        );
         let wallet_key = ctx.accounts.wallet.key();
         let wallet_owner = wallet.owner;
         let custody_usdc_mint = wallet.demo_custody.usdc_mint;
@@ -1052,13 +1110,13 @@ pub mod contract {
             let available = lamports.saturating_sub(MIN_NATIVE_SOL_RESERVE_LAMPORTS);
             require!(amount <= available, ErrorCode::AmountLimitExceeded);
             let destination = ctx.accounts.owner.to_account_info();
-            transfer_lamports(
-                wallet_info,
-                destination,
-                amount,
-            )?;
+            transfer_lamports(wallet_info, destination, amount)?;
             let wallet_lamports_after = ctx.accounts.wallet.to_account_info().lamports();
-            msg!("Withdraw SOL: amount={}, new_balance={}", amount, wallet_lamports_after);
+            msg!(
+                "Withdraw SOL: amount={}, new_balance={}",
+                amount,
+                wallet_lamports_after
+            );
             Ok(())
         } else {
             err!(ErrorCode::InvalidIntent)
@@ -1490,6 +1548,104 @@ pub mod contract {
             "Session executed confidential intent: instruction={}, dest={:?}",
             payload.instruction,
             ctx.accounts.destination.key(),
+        );
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn execute_policy_gated_custody_trade_as_session(
+        ctx: Context<ExecutePolicyGatedCustodyTradeAsSession>,
+        source_amount: u64,
+        quoted_output_amount: u64,
+        minimum_output_amount: u64,
+        slippage_bps: u16,
+        quote_issued_slot: u64,
+        quote_max_age_slots: u64,
+        attestation_slot: u64,
+        attestation_policy_seq: u64,
+        encryption_witness: [u8; 32],
+    ) -> Result<()> {
+        validate_session_and_attestation(
+            &ctx.accounts.wallet,
+            ctx.accounts.session_key.key(),
+            attestation_slot,
+            attestation_policy_seq,
+        )?;
+        validate_quote_bound_execution(
+            source_amount,
+            quoted_output_amount,
+            minimum_output_amount,
+            slippage_bps,
+            quote_issued_slot,
+            quote_max_age_slots,
+        )?;
+
+        require!(
+            ctx.accounts.wallet.to_account_info().lamports() >= MIN_NATIVE_SOL_RESERVE_LAMPORTS,
+            ErrorCode::NativeSolReserveViolation
+        );
+        require!(
+            ctx.accounts.wallet.demo_custody.configured,
+            ErrorCode::TokenCustodyNotConfigured
+        );
+        require!(
+            ctx.accounts.usdc_token_account.key()
+                == ctx.accounts.wallet.demo_custody.usdc_token_account,
+            ErrorCode::InvalidTokenCustody
+        );
+        require!(
+            ctx.accounts.output_token_account.key()
+                == ctx.accounts.wallet.demo_custody.sol_token_account,
+            ErrorCode::InvalidTokenCustody
+        );
+        require!(
+            ctx.accounts.usdc_mint.key() == ctx.accounts.wallet.demo_custody.usdc_mint,
+            ErrorCode::InvalidTokenCustody
+        );
+        let token_program = ctx.accounts.token_program.key();
+        validate_supported_token_program(&token_program)?;
+        validate_pda_token_account(
+            &ctx.accounts.usdc_token_account.to_account_info(),
+            &ctx.accounts.wallet.demo_custody.usdc_mint,
+            &ctx.accounts.wallet.key(),
+            &token_program,
+        )?;
+        validate_pda_token_account(
+            &ctx.accounts.output_token_account.to_account_info(),
+            &ctx.accounts.wallet.demo_custody.sol_mint,
+            &ctx.accounts.wallet.key(),
+            &token_program,
+        )?;
+        require!(
+            read_token_amount(&ctx.accounts.usdc_token_account.to_account_info())? >= source_amount,
+            ErrorCode::AmountLimitExceeded
+        );
+
+        let wallet_owner = ctx.accounts.wallet.owner;
+        enforce_confidential_numeric_policy(
+            &mut ctx.accounts.wallet,
+            source_amount,
+            &encryption_witness,
+        )?;
+
+        transfer_checked_with_wallet_authority(
+            ctx.accounts.usdc_token_account.to_account_info(),
+            ctx.accounts.usdc_mint.to_account_info(),
+            ctx.accounts.output_token_account.to_account_info(),
+            ctx.accounts.wallet.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
+            wallet_owner,
+            ctx.bumps.wallet,
+            source_amount,
+            6,
+        )?;
+
+        msg!(
+            "Policy-gated custody trade executed: source_amount={}, min_output={}, quote_slot={}, policy_seq={}",
+            source_amount,
+            minimum_output_amount,
+            quote_issued_slot,
+            ctx.accounts.wallet.policy_seq
         );
         Ok(())
     }

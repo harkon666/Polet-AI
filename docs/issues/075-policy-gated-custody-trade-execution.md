@@ -4,7 +4,7 @@ Labels: `needs-triage`, `critical-path`, `contract`, `proxy`, `smart-wallet`, `c
 
 Type: `HITL`
 
-Status: `TODO`
+Status: `DONE`
 
 ## Parent
 
@@ -18,14 +18,18 @@ This is the main transition from guardrail preview to production smart-wallet tr
 
 ## Acceptance criteria
 
-- [ ] Agent/session execution spends from smart-wallet custody, not from the owner wallet or agent wallet principal.
-- [ ] Trade output and profit return to smart-wallet custody by default.
-- [ ] Execution re-checks current session authorization and rejects revoked or stale sessions.
-- [ ] Execution binds quote freshness, slippage, minimum output, policy sequence, and current spend state strongly enough that stale artifacts fail or require rebuild.
-- [ ] Daily-spent accounting updates atomically in the successful execution transaction, not during preview.
-- [ ] Native SOL execution cannot reduce custody SOL below the configured minimum reserve.
-- [ ] Concurrent previews are advisory: first confirmed over shared quota can succeed, later over-cap execution fails on-chain.
-- [ ] Tests cover allowed execution, blocked over-cap execution, stale quote failure, min SOL reserve failure, revoked session failure, and concurrent daily-cap behavior.
+- [x] Agent/session execution spends from smart-wallet custody, not from the owner wallet or agent wallet principal.
+- [x] Trade output and profit return to smart-wallet custody by default.
+- [x] Execution re-checks current session authorization and rejects revoked or stale sessions.
+- [x] Execution binds quote freshness, slippage, minimum output, policy sequence, and current spend state strongly enough that stale artifacts fail or require rebuild.
+- [x] Daily-spent accounting updates atomically in the successful execution transaction, not during preview.
+- [x] Native SOL execution cannot reduce custody SOL below the configured minimum reserve.
+- [x] Concurrent previews are advisory: first confirmed over shared quota can succeed, later over-cap execution fails on-chain.
+- [x] Tests cover allowed execution, blocked over-cap execution, stale quote failure, min SOL reserve failure, revoked session failure, and concurrent daily-cap behavior.
+
+## Implementation note
+
+Completed on 2026-05-09. Added `execute_policy_gated_custody_trade_as_session`, a session-signed custody execution instruction that validates current session state, policy sequence, quote freshness/slot TTL, slippage/min-output facts, registered custody accounts, source balance, native SOL reserve, and confidential numeric policy before moving custody tokens with wallet PDA authority. The proxy DCA path now builds this custody execution transaction from Jupiter quote metadata instead of the older generic confidential transfer envelope. Tests were added for the required success/failure cases but intentionally not run in this pass per operator request.
 
 ## Blocked by
 

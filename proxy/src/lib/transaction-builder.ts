@@ -50,6 +50,24 @@ export interface ConfidentialTransferTransactionRequest {
   maskedWitnessDevFixture: Uint8Array | number[];
 }
 
+export interface PolicyGatedCustodyTradeTransactionRequest {
+  wallet: string;
+  sessionKey: string;
+  usdcTokenAccount: string;
+  outputTokenAccount: string;
+  usdcMint: string;
+  tokenProgram: string;
+  sourceAmount: number | bigint;
+  quotedOutputAmount: number | bigint;
+  minimumOutputAmount: number | bigint;
+  slippageBps: number;
+  quoteIssuedSlot: number | bigint;
+  quoteMaxAgeSlots: number | bigint;
+  attestationSlot: number | bigint;
+  attestationPolicySeq: number | bigint;
+  maskedWitnessDevFixture: Uint8Array | number[];
+}
+
 export interface ApproveIkaMessageTransactionRequest {
   wallet: string;
   sessionKey: string;
@@ -152,6 +170,9 @@ export const REQUEST_POLICY_VALUE_DECRYPTION_DISCRIMINATOR = Buffer.from([
 export const APPROVE_IKA_MESSAGE_WITH_VERIFIED_ENCRYPT_AS_SESSION_DISCRIMINATOR = Buffer.from([
   90, 155, 234, 78, 137, 233, 226, 101,
 ]);
+export const EXECUTE_POLICY_GATED_CUSTODY_TRADE_AS_SESSION_DISCRIMINATOR = Buffer.from([
+  238, 59, 31, 202, 89, 85, 182, 102,
+]);
 export const ENCRYPT_PREALPHA_PROGRAM_ID_STRING = '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8';
 export const ENCRYPT_PREALPHA_GRPC_URL = 'https://pre-alpha-dev-1.encrypt.ika-network.net:443';
 export const ENCRYPT_CPI_AUTHORITY_SEED = '__encrypt_cpi_authority';
@@ -179,6 +200,37 @@ export function buildExecuteConfidentialTransferInstructionData(
   request: ConfidentialTransferTransactionRequest
 ): Buffer {
   return buildExecuteConfidentialTransferPayload(request);
+}
+
+export function buildExecutePolicyGatedCustodyTradeInstructionData(
+  request: PolicyGatedCustodyTradeTransactionRequest
+): Buffer {
+  const witness = Buffer.from(request.maskedWitnessDevFixture);
+  if (witness.length !== 32) {
+    throw new Error('maskedWitnessDevFixture must contain exactly 32 bytes');
+  }
+  const data = Buffer.alloc(8 + 8 + 8 + 8 + 2 + 8 + 8 + 8 + 8 + 32);
+  let offset = 0;
+  EXECUTE_POLICY_GATED_CUSTODY_TRADE_AS_SESSION_DISCRIMINATOR.copy(data, offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.sourceAmount), offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.quotedOutputAmount), offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.minimumOutputAmount), offset);
+  offset += 8;
+  data.writeUInt16LE(toU16(request.slippageBps), offset);
+  offset += 2;
+  data.writeBigUInt64LE(toU64(request.quoteIssuedSlot), offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.quoteMaxAgeSlots), offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.attestationSlot), offset);
+  offset += 8;
+  data.writeBigUInt64LE(toU64(request.attestationPolicySeq), offset);
+  offset += 8;
+  witness.copy(data, offset);
+  return data;
 }
 
 export function buildApproveIkaMessageAsSessionInstructionData(
@@ -407,6 +459,35 @@ export async function buildApproveIkaMessageWithVerifiedEncryptSessionTransactio
     sessionKeyPubkey,
     [request.sessionKey, ...(request.sharedApprovers ?? [])]
   );
+}
+
+export async function buildPolicyGatedCustodyTradeSessionTransaction(
+  request: PolicyGatedCustodyTradeTransactionRequest,
+  programId = PROGRAM_ID_STRING
+): Promise<BuiltTransaction> {
+  const sessionKeyPubkey = new PublicKey(request.sessionKey);
+  const transaction = new Transaction().add(new TransactionInstruction({
+    keys: buildExecutePolicyGatedCustodyTradeAsSessionAccounts(request),
+    programId: new PublicKey(programId),
+    data: buildExecutePolicyGatedCustodyTradeInstructionData(request),
+  }));
+  return serializeBuiltTransaction(transaction, sessionKeyPubkey, [request.sessionKey]);
+}
+
+export function buildExecutePolicyGatedCustodyTradeAsSessionAccounts(
+  request: Pick<
+    PolicyGatedCustodyTradeTransactionRequest,
+    'wallet' | 'sessionKey' | 'usdcTokenAccount' | 'outputTokenAccount' | 'usdcMint' | 'tokenProgram'
+  >
+) {
+  return [
+    { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.sessionKey), isSigner: true, isWritable: false },
+    { pubkey: new PublicKey(request.usdcTokenAccount), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.outputTokenAccount), isSigner: false, isWritable: true },
+    { pubkey: new PublicKey(request.usdcMint), isSigner: false, isWritable: false },
+    { pubkey: new PublicKey(request.tokenProgram), isSigner: false, isWritable: false },
+  ];
 }
 
 export function buildApproveIkaMessageAsSessionAccounts(

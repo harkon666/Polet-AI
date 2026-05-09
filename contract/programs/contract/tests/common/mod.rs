@@ -352,11 +352,7 @@ pub fn write_mock_token_account(
     .expect("mock token account write failed");
 }
 
-pub fn write_mock_mint(
-    svm: &mut LiteSVM,
-    mint: anchor_lang::prelude::Pubkey,
-    decimals: u8,
-) {
+pub fn write_mock_mint(svm: &mut LiteSVM, mint: anchor_lang::prelude::Pubkey, decimals: u8) {
     let mut data = vec![0u8; 82];
     data[44] = decimals;
     data[45] = 1;
@@ -628,6 +624,52 @@ pub fn execute_confidential_as_session(
         session_key: session_key.pubkey(),
         destination,
         system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, payer, &[session_key], ix)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn execute_policy_gated_custody_trade_as_session(
+    svm: &mut LiteSVM,
+    payer: &Keypair,
+    session_key: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    usdc_token_account: anchor_lang::prelude::Pubkey,
+    output_token_account: anchor_lang::prelude::Pubkey,
+    usdc_mint: anchor_lang::prelude::Pubkey,
+    source_amount: u64,
+    quoted_output_amount: u64,
+    minimum_output_amount: u64,
+    slippage_bps: u16,
+    quote_issued_slot: u64,
+    quote_max_age_slots: u64,
+    attestation_slot: u64,
+    attestation_policy_seq: u64,
+    witness: [u8; 32],
+) -> Result<(), String> {
+    let ix_data = contract::instruction::ExecutePolicyGatedCustodyTradeAsSession {
+        source_amount,
+        quoted_output_amount,
+        minimum_output_amount,
+        slippage_bps,
+        quote_issued_slot,
+        quote_max_age_slots,
+        attestation_slot,
+        attestation_policy_seq,
+        encryption_witness: witness,
+    };
+    let ix_accounts = contract::accounts::ExecutePolicyGatedCustodyTradeAsSession {
+        wallet: wallet_pda,
+        session_key: session_key.pubkey(),
+        usdc_token_account,
+        output_token_account,
+        usdc_mint,
+        token_program: spl_token_program_id(),
     };
     let ix = anchor_lang::solana_program::instruction::Instruction {
         program_id: contract::id(),

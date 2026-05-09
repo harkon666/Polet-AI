@@ -579,6 +579,112 @@
       ]
     },
     {
+      "name": "execute_policy_gated_custody_trade_as_session",
+      "discriminator": [
+        238,
+        59,
+        31,
+        202,
+        89,
+        85,
+        182,
+        102
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  101,
+                  116,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet.owner",
+                "account": "Wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "session_key",
+          "signer": true
+        },
+        {
+          "name": "usdc_token_account",
+          "writable": true
+        },
+        {
+          "name": "output_token_account",
+          "writable": true
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "source_amount",
+          "type": "u64"
+        },
+        {
+          "name": "quoted_output_amount",
+          "type": "u64"
+        },
+        {
+          "name": "minimum_output_amount",
+          "type": "u64"
+        },
+        {
+          "name": "slippage_bps",
+          "type": "u16"
+        },
+        {
+          "name": "quote_issued_slot",
+          "type": "u64"
+        },
+        {
+          "name": "quote_max_age_slots",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_slot",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_policy_seq",
+          "type": "u64"
+        },
+        {
+          "name": "encryption_witness",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "execute_intent",
       "discriminator": [
         53,
@@ -1752,6 +1858,21 @@
       "code": 6030,
       "name": "EncryptPolicyBlocked",
       "msg": "Official Encrypt policy graph verified this action as blocked"
+    },
+    {
+      "code": 6031,
+      "name": "QuoteStale",
+      "msg": "Jupiter quote artifact is stale"
+    },
+    {
+      "code": 6032,
+      "name": "InvalidQuoteExecution",
+      "msg": "Invalid quote-bound execution facts"
+    },
+    {
+      "code": 6033,
+      "name": "NativeSolReserveViolation",
+      "msg": "Native SOL custody reserve would be violated"
     }
   ],
   "types": [

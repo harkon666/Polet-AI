@@ -71,7 +71,9 @@ Current hackathon integration decision:
   - Verification this pass: `cd proxy && bun run build` ✅, `cd proxy && bun test ./tests/confidential-dca-execution.test.ts ./tests/transaction-builder.test.ts` (41 tests pass) ✅, `cd proxy && bun test ./tests/wallet-routes.test.ts` (7 tests pass) ✅, `cd sdk && bun test ./tests/intent-builder.test.ts` (54 tests pass) ✅, `cd frontend && bun run typecheck` ✅.
   - Audit follow-up on 2026-05-09: stale quotes now return a non-executable `QUOTE_STALE` blocked result carrying quote metadata, frontend route preview labels policy valuation as quote-based valuation rather than an independent oracle, and tests were added for USDC nominal valuation, SOL quote valuation, stale quote rejection metadata, and Price API/display separation. Tests were not run in this pass per user request.
   - Note: quote metadata carries TTL, slippage, min-output, route, and freshness context for later execution binding. This is quote-based valuation, not an independent oracle.
-- `075-policy-gated-custody-trade-execution` — Critical HITL production execution slice, blocked by `074`. Owns the actual smart-wallet custody spend path, quote-bound execution, atomic daily-spent update, min SOL reserve enforcement, and concurrency behavior.
+- `075-policy-gated-custody-trade-execution` — Completed the HITL custody execution slice. Added a session-signed `execute_policy_gated_custody_trade_as_session` contract instruction that re-checks session authorization, policy sequence, quote freshness/TTL, slippage/min-output facts, registered custody accounts, custody source balance, native SOL reserve, and confidential numeric policy before moving custody tokens with wallet PDA authority and atomically updating daily-spent state. Proxy DCA allowed responses now build this custody execution transaction from Jupiter quote metadata instead of the older generic confidential transfer envelope. Added contract and proxy builder tests for allowed execution, over-cap block, stale quote, reserve failure, revoked session, and concurrent daily-cap behavior.
+  - Verification this pass: not run per user request.
+  - Note: transaction remains unsigned and session-paid; agent wallet pays gas only and does not custody principal/profit.
 - `076-agent-auto-execute-runtime` — SDK/runtime auto-execute slice, blocked by `075`.
 - `077-session-revoke-invalidates-pending-tx` — Security invariant slice, blocked by `075`.
 - `078-frontend-production-readiness-command-center` — Production command center slice, blocked by `071`, `072`, `073`, `076`, and `077`.
@@ -99,7 +101,7 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-- `075-policy-gated-custody-trade-execution` — Start after `071` and `074`; this is the main HITL smart-wallet execution slice.
+- `076-agent-auto-execute-runtime` — Start after `075`; this wires SDK/runtime signing, simulation, and broadcast around the new custody execution transaction.
 
 ### Stretch
 

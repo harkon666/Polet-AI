@@ -66,4 +66,10 @@ pub enum ErrorCode {
     EncryptPolicyPending,
     #[msg("Official Encrypt policy graph verified this action as blocked")]
     EncryptPolicyBlocked,
+    #[msg("Jupiter quote artifact is stale")]
+    QuoteStale,
+    #[msg("Invalid quote-bound execution facts")]
+    InvalidQuoteExecution,
+    #[msg("Native SOL custody reserve would be violated")]
+    NativeSolReserveViolation,
 }
