@@ -2,9 +2,18 @@
 
 ## Status Summary
 
-Polet AI is being redirected from a public policy smart wallet into a confidential Solana control layer for AI agents.
+Polet AI is being redirected from a public policy smart wallet into a production-oriented confidential Solana smart wallet for AI agent trading.
 
 The old v1 work remains useful as prior art, but the final hackathon path may substantially refactor the contract, proxy, SDK, and frontend. The key privacy requirement is that plaintext numeric policy rules must not remain in the final confidential execution path.
+
+Latest product decision:
+
+- New production epic: `070-production-smart-wallet-agent-trading-prd`.
+- The product should move beyond guardrail preview into a real custody and execution boundary: users deposit USDC/native SOL into the Polet smart wallet, set policy, authorize a manual external agent wallet as session signer, fund that agent wallet with small SOL for gas, and let the agent auto-execute only policy-approved trades.
+- Agent wallet public key is the session key. The private key stays in the external agent runtime. Polet/proxy should not be the production default custodian for agent signer keys.
+- Principal and profit remain in smart-wallet custody. Agent wallet pays gas only.
+- Jupiter swap quote is allowed for MVP trade-specific USDC-equivalent valuation; Jupiter Price API is for dashboard display. Do not call this an oracle.
+- Ika remains a policy-gated approval/signing rail, not full cross-chain custody settlement.
 
 Primary source of truth:
 
@@ -14,13 +23,16 @@ Primary source of truth:
 
 ## Product Direction
 
-**Polet AI Confidential Solana Control Layer for AI Agents**
+**Polet AI Production Smart Wallet for AI Agent Trading**
 
-Users configure confidential numeric policy rules, grant an AI agent a temporary session key, and let the agent request guarded strategy intents. The current Solana path uses Jupiter for token intelligence, pricing, and route/build previews. The new Ika path should use Polet as the Solana policy/control layer: the contract enforces guardrails on-chain and, only after approval, CPI-calls Ika Pre-Alpha `approve_message` so a dWallet can sign a bridgeless destination-chain trading intent.
+Users deposit USDC and native SOL into a Polet smart wallet, configure public operational guardrails and confidential numeric policy rules, grant a manual external AI agent wallet as a temporary session key, fund that agent wallet with small SOL for gas, and let the agent auto-execute guarded strategy intents. The current Solana path uses Jupiter for quote-based valuation, token intelligence, pricing display, and route/build execution inputs. The Ika path uses Polet as the Solana policy/control layer: the contract enforces guardrails on-chain and, only after approval, CPI-calls Ika Pre-Alpha `approve_message` so a dWallet can sign a bridgeless destination-chain trading intent.
 
 Core demo:
 
 - DCA run: 5 USDC -> SOL
+- Production custody scope: USDC + native SOL
+- Agent wallet: manual external owner-controlled signer, gas-only balance
+- Execution mode: agent auto-execute after allowed policy decision and successful simulation
 - Confidential max per run: 10 USDC
 - Confidential daily cap: 20 USDC
 - Block scenario: 25 USDC
@@ -33,7 +45,7 @@ Track alignment:
 
 - Encrypt: confidential numeric policy enforcement is core.
 - Ika: dWallet bridgeless signing rail controlled by Polet's Solana program after guardrail approval.
-- Jupiter: Tokens + Price + Recurring compatibility + Swap V2 `/build` fallback.
+- Jupiter: Swap quote for trade-specific policy valuation, Price API for dashboard display, Tokens + Recurring compatibility + Swap V2 `/build` fallback.
 - National Campus Hackathon Indonesia: Consumer App / DeFi safety for Indonesian users.
 
 Current hackathon integration decision:
@@ -47,6 +59,16 @@ Current hackathon integration decision:
 
 ## Umbrella Tracking
 
+- `070-production-smart-wallet-agent-trading-prd` — New production epic. Source of truth for moving Polet from a guardrail demo/control layer into a production smart-wallet custody and agent auto-execution product. Breakdowns are `071` through `079`.
+- `071-deposit-and-balance-readiness` — First unblocked production custody slice. Adds USDC/native SOL deposit UX, custody balance readiness, native SOL reserve/tradable split, and explicit separation between custody-account setup and funded balances.
+- `072-owner-withdraw-from-smart-wallet-custody` — Owner-only withdraw slice, blocked by `071`.
+- `073-agent-gas-wallet-funding` — Unblocked setup slice. Adds separate agent gas wallet balance/funding flow so the agent can pay auto-execution fees without receiving custody principal/profit.
+- `074-quote-based-policy-valuation` — Jupiter quote-based trade valuation slice, blocked by `071`.
+- `075-policy-gated-custody-trade-execution` — Critical HITL production execution slice, blocked by `071` and `074`. Owns the actual smart-wallet custody spend path, quote-bound execution, atomic daily-spent update, min SOL reserve enforcement, and concurrency behavior.
+- `076-agent-auto-execute-runtime` — SDK/runtime auto-execute slice, blocked by `075`.
+- `077-session-revoke-invalidates-pending-tx` — Security invariant slice, blocked by `075`.
+- `078-frontend-production-readiness-command-center` — Production command center slice, blocked by `071`, `072`, `073`, `076`, and `077`.
+- `079-production-copy-and-docs-alignment` — Copy/docs alignment slice, blocked by `074`, `075`, and `076`.
 - `052-hackathon-ika-encrypt-prealpha-integration` — Reopened as the hackathon Ika x Encrypt umbrella. The corrected source of truth is official Encrypt pre-alpha ciphertext + graph lifecycle, not masked-witness XOR and not synthetic local evidence.
 - `059-official-encrypt-devnet-ciphertext-graph-e2e` — Completed the official Encrypt devnet integration evidence that is currently usable by the product: ciphertext creation through the official client, Encrypt deposit creation, devnet policy registration, owner-only policy value decryption/reveal, and safe pending lifecycle handling. The old event-authority/deposit blocker is no longer the active product blocker for policy setup/reveal. Final strategy decision resolution after graph output is now tracked separately in `068`.
 - `065-frontend-official-encrypt-prealpha-policy-setup` — Completed the frontend policy setup correction. Primary setup now accepts only numeric USDC limits, creates fresh official Encrypt pre-alpha ciphertext inputs in the browser through `@encrypt.xyz/pre-alpha-solana-client/grpc-web`, optionally signs `/wallet/create-encrypt-deposit`, registers those ciphertext refs through `/wallet/set-official-encrypt-ciphertext-policy`, and displays refs read-only after setup. Masked-witness setup remains only as an explicit dev fallback.
@@ -70,16 +92,25 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-- None.
+- `071-deposit-and-balance-readiness` — Start here for production smart-wallet work. It creates the real user-facing custody deposit and balance foundation.
+- `073-agent-gas-wallet-funding` — Can run in parallel with `071` if another agent is available; it is independent and establishes the gas-only agent wallet setup.
+- `074-quote-based-policy-valuation` — Start after `071`; it prepares Jupiter quote valuation for custody execution.
+- `075-policy-gated-custody-trade-execution` — Start after `071` and `074`; this is the main HITL smart-wallet execution slice.
 
 ### Stretch
 
-- None.
+- `072-owner-withdraw-from-smart-wallet-custody` after `071`.
+- `076-agent-auto-execute-runtime` after `075`.
+- `077-session-revoke-invalidates-pending-tx` after `075`.
+- `078-frontend-production-readiness-command-center` after `071`, `072`, `073`, `076`, and `077`.
+- `079-production-copy-and-docs-alignment` after `074`, `075`, and `076`.
 
 ### Frontend Demo Scope
 
 - Do not expose legacy public policy routes in the primary frontend demo. Legacy routes remain prior-foundation code only.
 - Frontend demo features should use safe transaction summaries, explicit user signing, devnet/localnet boundaries, and honest pre-alpha disclaimers.
+- Production frontend work should distinguish Deposit to Smart Wallet from Fund Agent Gas Wallet. Custody deposits fund USDC/native SOL principal and profit; agent gas funding gives the manual external agent wallet small SOL for fees only.
+- Frontend should become a readiness command center for create wallet, deposit, set policy, grant session, fund agent gas, balances, activity, revoke individual session, and owner withdraw. It should not be required in the auto-execution loop.
 - For issue `065`, the primary policy setup must not accept manual ciphertext refs or send static sample ciphertext refs. The frontend should create fresh official Encrypt pre-alpha ciphertext inputs with `createEncryptWebClient`/`encryptValue`/`createInput`, then register those refs with Polet. The masked-witness numeric path may remain only as an explicitly labeled dev fallback.
 - For issue `066`, graph execution should call Polet's existing `execute_encrypt_policy_graph_as_session` path and surface `pending-encrypt-execution` safely. Do not claim verified allowed/blocked unless executor/decryption evidence exists.
 - Issue `068` completed pending Official Encrypt graph output resolution by decrypting/verifying the graph's `allowedOutputCiphertext`; future work must keep this path from falling back to plaintext/local numeric evaluation while presenting the result as Official Encrypt verified.
@@ -169,6 +200,20 @@ Ralph execution queue. Pick the first incomplete unblocked issue:
 │                   ├── 033-sui-transaction-digest-adapter
 │                   ├── 034-ethereum-transaction-digest-adapter
 │                   └── 052-hackathon-ika-encrypt-prealpha-integration
+
+070-production-smart-wallet-agent-trading-prd
+├── 071-deposit-and-balance-readiness
+│   ├── 072-owner-withdraw-from-smart-wallet-custody
+│   ├── 074-quote-based-policy-valuation
+│   │   ├── 075-policy-gated-custody-trade-execution
+│   │   │   ├── 076-agent-auto-execute-runtime
+│   │   │   ├── 077-session-revoke-invalidates-pending-tx
+│   │   │   └── 079-production-copy-and-docs-alignment
+│   │   └── 079-production-copy-and-docs-alignment
+│   └── 078-frontend-production-readiness-command-center
+├── 073-agent-gas-wallet-funding
+│   └── 078-frontend-production-readiness-command-center
+└── 078-frontend-production-readiness-command-center
 ```
 
 ## Done
