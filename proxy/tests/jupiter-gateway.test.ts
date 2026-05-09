@@ -74,6 +74,18 @@ describe('Jupiter Strategy Gateway', () => {
     expect(plan.recurring.compatible).toBe(false);
     expect(plan.executionPath).toBe('swap-build-fallback');
     expect(plan.build?.swapInstruction.programId).toBe('JUP6LkbZbjS1jKKwapdH673zwLsBH3M427A871qYx1W');
+    expect(plan.quoteMetadata).toMatchObject({
+      inputMint: JUPITER_USDC_MINT,
+      outputMint: JUPITER_SOL_MINT,
+      inputAmount: '5000000',
+      expectedOutput: '34400',
+      minimumOutput: '34000',
+      slippageBps: 100,
+      routeLabel: 'Orca Whirlpool',
+      freshness: {
+        blockHeight: 123,
+      },
+    });
     expect(requestedUrls.some((url) => url.includes('/tokens/v2/search'))).toBe(true);
     expect(requestedUrls.some((url) => url.includes('/price/v3'))).toBe(true);
     expect(requestedUrls.some((url) => url.includes('/swap/v2/build'))).toBe(true);
@@ -129,7 +141,15 @@ function mockBuildResponse() {
     otherAmountThreshold: '34000',
     swapMode: 'ExactIn',
     slippageBps: 100,
-    routePlan: [],
+    routePlan: [
+      {
+        swapInfo: {
+          label: 'Orca Whirlpool',
+          inAmount: '5000000',
+          outAmount: '34400',
+        },
+      },
+    ],
     computeBudgetInstructions: [],
     setupInstructions: [],
     swapInstruction: {

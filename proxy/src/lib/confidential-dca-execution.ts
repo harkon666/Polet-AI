@@ -32,6 +32,8 @@ const USDC_DECIMALS = 6;
 
 
 
+const QUOTE_FRESHNESS_TTL_MS = 60_000;
+
 export interface ConfidentialDcaRunRequest {
   owner: string;
   sessionKey: string;
@@ -74,7 +76,8 @@ export interface ConfidentialDcaRunBlocked {
     | 'ENCRYPT_POLICY_GRAPH_NOT_EXECUTED'
     | 'ENCRYPT_POLICY_PENDING'
     | 'ENCRYPT_POLICY_VERIFIED_BLOCKED'
-    | 'TOKEN_CUSTODY_NOT_CONFIGURED';
+    | 'TOKEN_CUSTODY_NOT_CONFIGURED'
+    | 'QUOTE_STALE';
   reason: string;
   status?: 'pending-encrypt-execution' | 'encrypt-verified-blocked';
   encryptPolicy?: Extract<
@@ -82,12 +85,15 @@ export interface ConfidentialDcaRunBlocked {
     { status: 'pending-encrypt-execution' | 'encrypt-verified-blocked' }
   >;
   jupiterPlan?: JupiterDcaStrategyPlan;
+  quoteMetadata?: JupiterQuoteMetadata;
+  quoteBasedValuation?: true;
 }
 
 export type ConfidentialDcaRunResult = ConfidentialDcaRunAllowed | ConfidentialDcaRunBlocked;
 
 export interface ConfidentialDcaExecutionDeps extends StrategyExecutionDeps {
   gateway?: JupiterStrategyGateway;
+  quoteFreshnessTtlMs?: number;
   buildTransaction?: (
     request: Parameters<typeof buildConfidentialTransferSessionTransaction>[0],
     programId: string
@@ -129,7 +135,7 @@ export async function runConfidentialDcaExecution(
           const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
 
           try {
-            return await gateway.prepareDcaStrategy({
+            const plan = await gateway.prepareDcaStrategy({
               inputMint,
               outputMint,
               amount: amountBaseUnits,
@@ -140,8 +146,11 @@ export async function runConfidentialDcaExecution(
               slippageBps: request.slippageBps ?? 100,
               wrapAndUnwrapSol: false,
             });
+            assertFreshQuote(plan, deps.quoteFreshnessTtlMs ?? QUOTE_FRESHNESS_TTL_MS);
+            return plan;
           } catch (error) {
             if (error instanceof JupiterGatewayError) throw error;
+            if (error instanceof StaleQuoteError) throw error;
             throw new ConfidentialDcaExecutionError('Jupiter precheck failed', 'JUPITER_PRECHECK_FAILED', 502);
           }
         },
@@ -203,6 +212,18 @@ export async function runConfidentialDcaExecution(
 
     return decision.payload;
   } catch (error) {
+    if (error instanceof StaleQuoteError) {
+      return {
+        allowed: false,
+        code: 'QUOTE_STALE',
+        reason: 'Quote is stale and must be refreshed before policy valuation.',
+        jupiterPlan: error.plan,
+        ...(error.plan.quoteMetadata && {
+          quoteMetadata: error.plan.quoteMetadata,
+          quoteBasedValuation: true,
+        }),
+      };
+    }
     if (error instanceof StrategyExecutionError) {
       throw new ConfidentialDcaExecutionError(error.message, error.code, error.status);
     }
@@ -247,4 +268,21 @@ function formatBaseUnits(amount: bigint, decimals: number): string {
   const whole = amount / scale;
   const fraction = (amount % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
   return fraction ? `${whole}.${fraction}` : whole.toString();
+}
+
+class StaleQuoteError extends Error {
+  constructor(public readonly plan: JupiterDcaStrategyPlan) {
+    super('Quote is stale and must be refreshed before policy valuation.');
+    this.name = 'StaleQuoteError';
+  }
+}
+
+function assertFreshQuote(plan: JupiterDcaStrategyPlan, ttlMs: number): void {
+  const timestamp = plan.quoteMetadata?.freshness?.timestamp;
+  if (!timestamp) return;
+
+  const issuedAt = new Date(timestamp).getTime();
+  if (!Number.isFinite(issuedAt) || Date.now() - issuedAt > ttlMs) {
+    throw new StaleQuoteError(plan);
+  }
 }

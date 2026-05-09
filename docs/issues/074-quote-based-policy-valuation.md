@@ -28,6 +28,7 @@ Add quote-based valuation for production policy previews. Jupiter swap quote sho
 - `proxy/src/lib/jupiter-gateway.ts`: Added `JupiterQuoteMetadata` interface with `inputMint`, `outputMint`, `inputAmount`, `expectedOutput`, `minimumOutput`, `slippageBps`, `priceImpactPct`, `routeLabel`, and `freshness` timestamp/slot/blockHeight. `JupiterDcaStrategyPlan` carries optional `quoteMetadata`. `computeUsdcEquivalentFromQuote` helper extracts USDC-equivalent from quote. `formatQuoteMetadataForDisplay` utility for UI. `prepareDcaStrategy` now populates `quoteMetadata` from build response.
 - `proxy/src/lib/confidential-dca-execution.ts`: Allowed DCA responses include `usdcEquivalent`, `usdcEquivalentBaseUnits`, `quoteBasedValuation: true`, and `quoteMetadata`. USDC input trades use nominal amount; SOL output trades use expected output as USDC-equivalent.
 - `frontend/src/lib/api.ts`: `JupiterPlanPreview` and `RunConfidentialDcaResult` updated with quote metadata fields and USDC-equivalent fields.
+- Audit follow-up: stale quote responses now return a non-executable `QUOTE_STALE` blocked result with quote metadata instead of an API error, and the frontend activity preview labels policy valuation as quote-based valuation, not an independent oracle.
 - Price API (`fetchPrices`) remains separate for dashboard/balance display only.
 
 ## Verification
@@ -37,6 +38,7 @@ Add quote-based valuation for production policy previews. Jupiter swap quote sho
 - `cd proxy && bun test ./tests/wallet-routes.test.ts` (7 tests pass) ✅
 - `cd sdk && bun test ./tests/intent-builder.test.ts` (54 tests pass) ✅
 - `cd frontend && bun run typecheck` ✅
+- Audit follow-up on 2026-05-09: tests were added for USDC nominal valuation, SOL quote valuation, stale quote rejection metadata, and Price API/display separation, but not run per user request.
 
 ## Notes
 

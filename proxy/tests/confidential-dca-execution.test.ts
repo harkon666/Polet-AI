@@ -46,6 +46,12 @@ describe('Confidential DCA execution path', () => {
       expect(result.code).toBe('DCA_ALLOWED');
       expect(result.amount).toBe('5');
       expect(result.amountBaseUnits).toBe('5000000');
+      expect(result.usdcEquivalent).toBe('5');
+      expect(result.usdcEquivalentBaseUnits).toBe('5000000');
+      expect(result.quoteBasedValuation).toBe(true);
+      expect(result.quoteMetadata?.inputAmount).toBe('5000000');
+      expect(result.quoteMetadata?.minimumOutput).toBe('34000');
+      expect(result.quoteMetadata?.slippageBps).toBe(100);
       expect(result.smartWalletAuthority).toBe(fixture.wallet.walletPda);
       expect(result.jupiterPlan.executionPath).toBe('swap-build-fallback');
       expect(result.jupiterPlan.build?.swapInstruction.accounts[0].pubkey).toBe(fixture.wallet.walletPda);
@@ -55,6 +61,69 @@ describe('Confidential DCA execution path', () => {
     expect(requestedUrls.some((url) => url.includes('/tokens/v2/search'))).toBe(true);
     expect(requestedUrls.some((url) => url.includes('/price/v3'))).toBe(true);
     expect(requestedUrls.some((url) => url.includes('/swap/v2/build'))).toBe(true);
+  });
+
+  test('uses Jupiter quote output as USDC-equivalent exposure for SOL input trades', async () => {
+    const fixture = createFixture();
+
+    const result = await runConfidentialDcaExecution(
+      {
+        owner: fixture.owner,
+        sessionKey: fixture.sessionKey,
+        amountUsdc: 5,
+        inputMint: JUPITER_SOL_MINT,
+        outputMint: JUPITER_USDC_MINT,
+        maskedWitnessDevFixture: Array.from(fixture.witness),
+      },
+      {
+        getWalletData: async () => fixture.wallet,
+        gateway: mockGateway([], {
+          inputMint: JUPITER_SOL_MINT,
+          outputMint: JUPITER_USDC_MINT,
+          outAmount: '6500000',
+          otherAmountThreshold: '6400000',
+        }),
+        buildTransaction: async () => mockBuiltTransaction(fixture.sessionKey),
+      }
+    );
+
+    expect(result.allowed).toBe(true);
+    if (result.allowed) {
+      expect(result.usdcEquivalent).toBe('6.5');
+      expect(result.usdcEquivalentBaseUnits).toBe('6500000');
+      expect(result.quoteMetadata?.expectedOutput).toBe('6500000');
+      expect(result.quoteMetadata?.minimumOutput).toBe('6400000');
+    }
+  });
+
+  test('rejects stale quote metadata without returning an executable transaction', async () => {
+    const fixture = createFixture();
+
+    const result = await runConfidentialDcaExecution(
+      {
+        owner: fixture.owner,
+        sessionKey: fixture.sessionKey,
+        amountUsdc: 5,
+        maskedWitnessDevFixture: Array.from(fixture.witness),
+      },
+      {
+        getWalletData: async () => fixture.wallet,
+        gateway: mockGateway(),
+        quoteFreshnessTtlMs: -1,
+        buildTransaction: async () => {
+          throw new Error('stale quote must not build transactions');
+        },
+      }
+    );
+
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.code).toBe('QUOTE_STALE');
+      expect(result.quoteBasedValuation).toBe(true);
+      expect(result.quoteMetadata?.inputAmount).toBe('5000000');
+      expect(result.jupiterPlan?.quoteMetadata?.minimumOutput).toBe('34000');
+      expect(result).not.toHaveProperty('transaction');
+    }
   });
 
   test('blocks a 25 USDC run without leaking the confidential threshold', async () => {
@@ -482,7 +551,15 @@ function createFixture(options: {
   return { owner, sessionKey, wallet, witness };
 }
 
-function mockGateway(requestedUrls: string[] = []) {
+function mockGateway(
+  requestedUrls: string[] = [],
+  buildOverrides: Partial<{
+    inputMint: string;
+    outputMint: string;
+    outAmount: string;
+    otherAmountThreshold: string;
+  }> = {}
+) {
   return createJupiterStrategyGateway({
     apiKey: 'test-key',
     fetch: ((input: URL | RequestInfo) => {
@@ -503,11 +580,13 @@ function mockGateway(requestedUrls: string[] = []) {
       }
       if (url.pathname.endsWith('/swap/v2/build')) {
         const taker = url.searchParams.get('taker') ?? '';
-        return Promise.resolve(jsonResponse({
-          inputMint: JUPITER_USDC_MINT,
-          outputMint: JUPITER_SOL_MINT,
+        const build = {
+          inputMint: buildOverrides.inputMint ?? url.searchParams.get('inputMint') ?? JUPITER_USDC_MINT,
+          outputMint: buildOverrides.outputMint ?? url.searchParams.get('outputMint') ?? JUPITER_SOL_MINT,
           inAmount: url.searchParams.get('amount') ?? '0',
-          outAmount: '34400',
+          outAmount: buildOverrides.outAmount ?? '34400',
+          otherAmountThreshold: buildOverrides.otherAmountThreshold ?? '34000',
+          slippageBps: Number(url.searchParams.get('slippageBps') ?? 100),
           computeBudgetInstructions: [],
           setupInstructions: [],
           swapInstruction: {
@@ -519,7 +598,8 @@ function mockGateway(requestedUrls: string[] = []) {
           otherInstructions: [],
           tipInstruction: null,
           addressesByLookupTableAddress: null,
-        }));
+        };
+        return Promise.resolve(jsonResponse(build));
       }
 
       return Promise.resolve(jsonResponse({ error: 'not found' }, 404));

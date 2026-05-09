@@ -1496,7 +1496,7 @@ export function DemoTabContent({
           ? `${result.executionPath ?? 'Jupiter Swap V2'} / route preview`
           : result.code ?? encryptStatus,
         encryptPolicy: result.encryptPolicy,
-        jupiterPlan: result.allowed ? result.jupiterPlan : undefined,
+        jupiterPlan: result.allowed || result.code === 'QUOTE_STALE' ? result.jupiterPlan : undefined,
         transactionSigners: result.allowed ? result.transaction?.signers : undefined,
         unsignedTransaction: result.allowed && result.transaction
           ? {

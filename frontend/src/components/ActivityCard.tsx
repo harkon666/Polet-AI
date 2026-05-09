@@ -305,21 +305,34 @@ function IkaRequestPreviewCard({
 
 function JupiterRoutePreview({ entry, labels }: { entry: ActivityEntry; labels: (typeof COPY)['id' | 'en'] }) {
   const build = entry.jupiterPlan?.build;
-  const route = build?.routePlan?.[0]?.swapInfo?.label ?? 'Jupiter Swap V2';
+  const quote = entry.jupiterPlan?.quoteMetadata;
+  const route = quote?.routeLabel ?? build?.routePlan?.[0]?.swapInfo?.label ?? 'Jupiter Swap V2';
   const outputSymbol = entry.jupiterPlan?.outputToken?.symbol ?? 'SOL';
   const outputDecimals = entry.jupiterPlan?.outputToken?.decimals ?? 9;
-  const expectedOutput = formatTokenAmount(build?.outAmount, outputDecimals);
-  const minimumOutput = formatTokenAmount(build?.otherAmountThreshold, outputDecimals);
+  const expectedOutput = formatTokenAmount(quote?.expectedOutput ?? build?.outAmount, outputDecimals);
+  const minimumOutput = formatTokenAmount(quote?.minimumOutput ?? build?.otherAmountThreshold, outputDecimals);
   const signer = entry.transactionSigners?.[0];
+  const freshness = quote?.freshness?.timestamp ? formatFreshness(quote.freshness.timestamp) : undefined;
 
   return (
     <div className="mt-3 grid gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-xs text-[var(--sea-ink-soft)] sm:grid-cols-2">
       <InfoPill label={labels.jupiterRouteReady} value={labels.executionBoundary} wide />
+      <InfoPill label={labels.quoteValuation} value={labels.quoteValuationBoundary} wide />
       <InfoPill label={labels.expectedOutput} value={expectedOutput ? `${expectedOutput} ${outputSymbol}` : 'Available'} />
       <InfoPill label={labels.minOutput} value={minimumOutput ? `${minimumOutput} ${outputSymbol}` : 'Auto'} />
+      <InfoPill label={labels.slippage} value={quote?.slippageBps !== undefined ? `${quote.slippageBps} bps` : '100 bps'} />
+      {quote?.priceImpactPct && <InfoPill label={labels.priceImpact} value={quote.priceImpactPct} />}
+      {freshness && <InfoPill label={labels.quoteFreshness} value={freshness} />}
       <InfoPill label={labels.routeEngine} value={route} />
       <InfoPill label={labels.policyTxReady} value={entry.smartWalletAuthority ? short(entry.smartWalletAuthority) : 'Smart wallet'} />
       <InfoPill label={labels.signer} value={signer ? short(signer) : 'Agent address'} />
     </div>
   );
+}
+
+function formatFreshness(timestamp: string) {
+  const ageSeconds = Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000));
+  if (!Number.isFinite(ageSeconds)) return timestamp;
+  if (ageSeconds < 60) return `${ageSeconds}s ago`;
+  return `${Math.floor(ageSeconds / 60)}m ago`;
 }
