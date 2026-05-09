@@ -21,7 +21,10 @@
       "Bash(pnpm *)",
       "Bash(vitest *)",
       "Bash(npx playwright *)",
-      "Bash(gh *)"
+      "Bash(gh *)",
+      "Bash(NO_DNA=1 cargo build)",
+      "Bash(NO_DNA=1 cargo test)",
+      "Bash(NO_DNA=1 cargo test --test demo_custody)"
     ],
     "deny": [
       "Bash(rm -rf *)",

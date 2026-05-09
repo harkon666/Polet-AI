@@ -63,6 +63,7 @@ export interface JupiterBuildResponse {
   otherAmountThreshold?: string;
   swapMode?: string;
   slippageBps?: number;
+  priceImpactPct?: string;
   routePlan?: unknown[];
   computeBudgetInstructions: JupiterApiInstruction[];
   setupInstructions: JupiterApiInstruction[];
@@ -76,6 +77,70 @@ export interface JupiterBuildResponse {
     lastValidBlockHeight: number;
   };
   [key: string]: unknown;
+}
+
+export interface JupiterQuoteMetadata {
+  inputMint: string;
+  outputMint: string;
+  inputAmount: string;
+  expectedOutput: string;
+  minimumOutput: string;
+  slippageBps: number;
+  priceImpactPct?: string;
+  routeLabel?: string;
+  freshness: {
+    timestamp: string;
+    slot?: number;
+    blockHeight?: number;
+  };
+}
+
+export function computeUsdcEquivalentFromQuote(
+  quote: JupiterQuoteMetadata,
+  inputDecimals: number = 6
+): bigint {
+  if (quote.inputMint === JUPITER_USDC_MINT) {
+    return BigInt(quote.inputAmount);
+  }
+  if (quote.outputMint === JUPITER_USDC_MINT) {
+    return BigInt(quote.expectedOutput);
+  }
+  return BigInt(quote.expectedOutput);
+}
+
+export function formatQuoteMetadataForDisplay(quote: JupiterQuoteMetadata): {
+  inputDisplay: string;
+  outputDisplay: string;
+  minOutputDisplay: string;
+  priceImpactDisplay: string;
+  routeLabel: string;
+  freshnessLabel: string;
+} {
+  return {
+    inputDisplay: formatTokenAmount(quote.inputAmount, quote.inputMint === JUPITER_USDC_MINT ? 6 : 9),
+    outputDisplay: formatTokenAmount(quote.expectedOutput, quote.outputMint === JUPITER_USDC_MINT ? 6 : 9),
+    minOutputDisplay: formatTokenAmount(quote.minimumOutput, quote.outputMint === JUPITER_USDC_MINT ? 6 : 9),
+    priceImpactDisplay: quote.priceImpactPct ?? 'N/A',
+    routeLabel: quote.routeLabel ?? 'unknown',
+    freshnessLabel: formatFreshness(quote.freshness),
+  };
+}
+
+function formatTokenAmount(amount: string, decimals: number): string {
+  const value = BigInt(amount);
+  const scale = 10n ** BigInt(decimals);
+  const whole = value / scale;
+  const fraction = (value % scale).toString().padStart(decimals, '0').replace(/0+$/, '');
+  return fraction ? `${whole}.${fraction}` : whole.toString();
+}
+
+function formatFreshness(freshness: JupiterQuoteMetadata['freshness']): string {
+  const date = new Date(freshness.timestamp);
+  const age = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (age < 5) return 'just now';
+  if (age < 60) return `${age}s ago`;
+  if (age < 3600) return `${Math.floor(age / 60)}m ago`;
+  return date.toLocaleTimeString();
 }
 
 export interface JupiterBuildSwapRequest {
@@ -110,6 +175,7 @@ export interface JupiterDcaStrategyPlan {
   recurring: JupiterRecurringCompatibility;
   executionPath: 'recurring' | 'swap-build-fallback';
   build?: JupiterBuildResponse;
+  quoteMetadata?: JupiterQuoteMetadata;
 }
 
 export class JupiterGatewayError extends Error {
@@ -286,6 +352,7 @@ export class JupiterStrategyGateway {
     }
 
     const build = await this.buildSwapInstructions(request);
+    const quoteMetadata = this.extractQuoteMetadata(build, request.slippageBps ?? 100);
     return {
       inputToken: tokens[request.inputMint],
       outputToken: tokens[request.outputMint],
@@ -293,7 +360,37 @@ export class JupiterStrategyGateway {
       recurring,
       executionPath: 'swap-build-fallback',
       build,
+      quoteMetadata,
     };
+  }
+
+  private extractQuoteMetadata(
+    build: JupiterBuildResponse,
+    slippageBps: number
+  ): JupiterQuoteMetadata {
+    const routeLabel = this.extractRouteLabel(build.routePlan);
+    return {
+      inputMint: build.inputMint,
+      outputMint: build.outputMint,
+      inputAmount: build.inAmount,
+      expectedOutput: build.outAmount,
+      minimumOutput: build.otherAmountThreshold ?? build.outAmount,
+      slippageBps,
+      priceImpactPct: build.priceImpactPct,
+      routeLabel,
+      freshness: {
+        timestamp: new Date().toISOString(),
+        blockHeight: build.blockhashWithMetadata?.lastValidBlockHeight,
+      },
+    };
+  }
+
+  private extractRouteLabel(routePlan: unknown[] | undefined): string | undefined {
+    if (!Array.isArray(routePlan) || routePlan.length === 0) return undefined;
+    const first = routePlan[0] as Record<string, unknown>;
+    if (!first) return undefined;
+    const swapInfo = first.swapInfo as Record<string, unknown> | undefined;
+    return typeof swapInfo?.label === 'string' ? swapInfo.label : undefined;
   }
 
   private async requestJson<T>(url: URL): Promise<T> {

@@ -4,6 +4,8 @@ import {
   JUPITER_SOL_MINT,
   JUPITER_USDC_MINT,
   JupiterGatewayError,
+  JupiterQuoteMetadata,
+  computeUsdcEquivalentFromQuote,
   type JupiterDcaStrategyPlan,
   type JupiterStrategyGateway,
   createJupiterStrategyGateway,
@@ -49,9 +51,13 @@ export interface ConfidentialDcaRunAllowed {
   code: 'DCA_ALLOWED';
   amount: string;
   amountBaseUnits: string;
+  usdcEquivalent: string;
+  usdcEquivalentBaseUnits: string;
+  quoteBasedValuation: true;
   executionPath: 'recurring' | 'swap-build-fallback';
   smartWalletAuthority: string;
   jupiterPlan: JupiterDcaStrategyPlan;
+  quoteMetadata?: JupiterQuoteMetadata;
   transaction?: BuiltTransaction;
   encryptPolicy?: Extract<OfficialEncryptPolicyExecution, { status: 'encrypt-verified-allowed' }>;
 }
@@ -158,14 +164,24 @@ export async function runConfidentialDcaExecution(
             )
             : undefined;
 
+          const quoteMetadata = prepared.quoteMetadata;
+          const usdcEquivalentBaseUnits = quoteMetadata
+            ? computeUsdcEquivalentFromQuote(quoteMetadata, USDC_DECIMALS)
+            : amountBaseUnits;
+          const usdcEquivalent = formatBaseUnits(usdcEquivalentBaseUnits, USDC_DECIMALS);
+
           return {
             allowed: true,
             code: 'DCA_ALLOWED',
             amount: formatBaseUnits(amountBaseUnits, USDC_DECIMALS),
             amountBaseUnits: amountBaseUnits.toString(),
+            usdcEquivalent,
+            usdcEquivalentBaseUnits: usdcEquivalentBaseUnits.toString(),
+            quoteBasedValuation: true,
             executionPath: prepared.executionPath,
             smartWalletAuthority,
             jupiterPlan: prepared,
+            ...(quoteMetadata && { quoteMetadata }),
             ...(transaction && { transaction }),
             ...(encryptPolicy?.status === 'encrypt-verified-allowed' && {
               encryptPolicy,

@@ -67,7 +67,9 @@ Current hackathon integration decision:
 - `073-agent-gas-wallet-funding` — Completed the separate agent gas wallet balance/funding flow. Proxy route `POST /wallet/fund-agent-gas` validates the agent wallet is an authorized session key, enforces a 10 SOL max per transaction, and returns an owner-signed SOL transfer. Frontend displays the authorized agent wallet public key and current SOL balance, shows a low-balance warning when below 0.05 SOL, and lets the owner build/sign/confirm a SOL transfer to fund the agent wallet. The flow is labeled as "Fund Agent Gas" and is clearly separated from "Deposit to Smart Wallet." Readiness state distinguishes custody-funded from agent-gas-funded.
   - Verification this pass: `cd proxy && bun test ./tests/wallet-routes.test.ts` (7 tests pass) ✅, `cd proxy && bun run build` ✅, `cd frontend && bun run test src/components/DemoTab.test.tsx` (27 tests pass) ✅, `cd frontend && bun run typecheck` ✅, `cd frontend && bun run build` ✅.
   - Note: agent gas SOL pays transaction fees only and is not principal/profit custody. The flow requires the agent wallet to already be an authorized session key on-chain.
-- `074-quote-based-policy-valuation` — Jupiter quote-based trade valuation slice, unblocked by completed `071`.
+- `074-quote-based-policy-valuation` — Completed the Jupiter quote-based policy valuation slice. Added `JupiterQuoteMetadata` interface to `jupiter-gateway.ts` with input amount, expected output, minimum output, slippage bps, price impact, route label, and freshness timestamp. `JupiterDcaStrategyPlan` now carries optional `quoteMetadata`. `computeUsdcEquivalentFromQuote` helper extracts USDC-equivalent from the quote (returns input amount for USDC input, expected output for USDC output). `prepareDcaStrategy` now populates `quoteMetadata` from the build response. Allowed DCA responses in `confidential-dca-execution.ts` now include `usdcEquivalent`, `usdcEquivalentBaseUnits`, `quoteBasedValuation: true`, and `quoteMetadata` fields. Frontend API types updated to reflect the new fields and quote metadata structure. Price API remains separate for dashboard/balance display use only.
+  - Verification this pass: `cd proxy && bun run build` ✅, `cd proxy && bun test ./tests/confidential-dca-execution.test.ts ./tests/transaction-builder.test.ts` (41 tests pass) ✅, `cd proxy && bun test ./tests/wallet-routes.test.ts` (7 tests pass) ✅, `cd sdk && bun test ./tests/intent-builder.test.ts` (54 tests pass) ✅, `cd frontend && bun run typecheck` ✅.
+  - Note: quote metadata carries TTL, slippage, min-output, route, and freshness context for later execution binding. This is quote-based valuation, not an independent oracle.
 - `075-policy-gated-custody-trade-execution` — Critical HITL production execution slice, blocked by `074`. Owns the actual smart-wallet custody spend path, quote-bound execution, atomic daily-spent update, min SOL reserve enforcement, and concurrency behavior.
 - `076-agent-auto-execute-runtime` — SDK/runtime auto-execute slice, blocked by `075`.
 - `077-session-revoke-invalidates-pending-tx` — Security invariant slice, blocked by `075`.
@@ -96,7 +98,6 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-- `074-quote-based-policy-valuation` — Now unblocked by `071`; it prepares Jupiter quote valuation for custody execution.
 - `075-policy-gated-custody-trade-execution` — Start after `071` and `074`; this is the main HITL smart-wallet execution slice.
 
 ### Stretch

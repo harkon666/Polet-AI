@@ -757,6 +757,21 @@ export interface JupiterPlanPreview {
     isVerified?: boolean;
     organicScoreLabel?: string;
   };
+  quoteMetadata?: {
+    inputMint: string;
+    outputMint: string;
+    inputAmount: string;
+    expectedOutput: string;
+    minimumOutput: string;
+    slippageBps: number;
+    priceImpactPct?: string;
+    routeLabel?: string;
+    freshness: {
+      timestamp: string;
+      slot?: number;
+      blockHeight?: number;
+    };
+  };
   build?: {
     inAmount?: string;
     outAmount?: string;
@@ -813,6 +828,9 @@ export type RunConfidentialDcaResult = {
   reason?: string;
   amount?: string;
   amountBaseUnits?: string;
+  usdcEquivalent?: string;
+  usdcEquivalentBaseUnits?: string;
+  quoteBasedValuation?: true;
   executionPath?: 'recurring' | 'swap-build-fallback';
   smartWalletAuthority?: string;
   jupiterPlan?: JupiterPlanPreview;
