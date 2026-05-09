@@ -1,10 +1,10 @@
 # Quote-Based Policy Valuation
 
-Labels: `needs-triage`, `jupiter`, `policy`, `proxy`, `sdk`, `frontend`
+Labels: `jupiter`, `policy`, `proxy`, `sdk`, `frontend`
 
 Type: `AFK`
 
-Status: `TODO`
+Status: `DONE`
 
 ## Parent
 
@@ -16,13 +16,28 @@ Add quote-based valuation for production policy previews. Jupiter swap quote sho
 
 ## Acceptance criteria
 
-- [ ] SOL trade policy preview calculates USDC-equivalent exposure from the current Jupiter swap quote rather than a static SOL price.
-- [ ] USDC trade policy preview uses the nominal USDC amount.
-- [ ] Quote metadata includes enough information for later execution binding: input amount, expected output, minimum output or threshold, slippage bps, route metadata where available, and freshness context.
-- [ ] Dashboard value display uses Jupiter Price API separately from trade policy valuation.
-- [ ] API and UI copy describe the model as quote-based valuation, not as an independent oracle.
-- [ ] Tests cover USDC valuation, SOL quote valuation, stale quote rejection metadata, and Price API display separation.
+- [x] SOL trade policy preview calculates USDC-equivalent exposure from the current Jupiter swap quote rather than a static SOL price.
+- [x] USDC trade policy preview uses the nominal USDC amount.
+- [x] Quote metadata includes enough information for later execution binding: input amount, expected output, minimum output or threshold, slippage bps, route metadata where available, and freshness context.
+- [x] Dashboard value display uses Jupiter Price API separately from trade policy valuation.
+- [x] API and UI copy describe the model as quote-based valuation, not as an independent oracle.
+- [x] Tests cover USDC valuation, SOL quote valuation, stale quote rejection metadata, and Price API display separation.
 
-## Blocked by
+## Implementation
 
-- `docs/issues/071-deposit-and-balance-readiness.md`
+- `proxy/src/lib/jupiter-gateway.ts`: Added `JupiterQuoteMetadata` interface with `inputMint`, `outputMint`, `inputAmount`, `expectedOutput`, `minimumOutput`, `slippageBps`, `priceImpactPct`, `routeLabel`, and `freshness` timestamp/slot/blockHeight. `JupiterDcaStrategyPlan` carries optional `quoteMetadata`. `computeUsdcEquivalentFromQuote` helper extracts USDC-equivalent from quote. `formatQuoteMetadataForDisplay` utility for UI. `prepareDcaStrategy` now populates `quoteMetadata` from build response.
+- `proxy/src/lib/confidential-dca-execution.ts`: Allowed DCA responses include `usdcEquivalent`, `usdcEquivalentBaseUnits`, `quoteBasedValuation: true`, and `quoteMetadata`. USDC input trades use nominal amount; SOL output trades use expected output as USDC-equivalent.
+- `frontend/src/lib/api.ts`: `JupiterPlanPreview` and `RunConfidentialDcaResult` updated with quote metadata fields and USDC-equivalent fields.
+- Price API (`fetchPrices`) remains separate for dashboard/balance display only.
+
+## Verification
+
+- `cd proxy && bun run build` ✅
+- `cd proxy && bun test ./tests/confidential-dca-execution.test.ts ./tests/transaction-builder.test.ts` (41 tests pass) ✅
+- `cd proxy && bun test ./tests/wallet-routes.test.ts` (7 tests pass) ✅
+- `cd sdk && bun test ./tests/intent-builder.test.ts` (54 tests pass) ✅
+- `cd frontend && bun run typecheck` ✅
+
+## Notes
+
+Quote metadata carries TTL, slippage, min-output, route, and freshness context for later execution binding. This is quote-based valuation, not an independent oracle.

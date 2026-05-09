@@ -4,7 +4,7 @@ Labels: `needs-triage`, `smart-wallet`, `custody`, `frontend`, `proxy`, `contrac
 
 Type: `AFK`
 
-Status: `TODO`
+Status: `COMPLETED`
 
 ## Parent
 
@@ -16,13 +16,21 @@ Add owner-only withdrawal for USDC and native SOL from smart-wallet custody. The
 
 ## Acceptance criteria
 
-- [ ] Owner can build, sign, and confirm a USDC withdrawal from smart-wallet custody to the owner wallet.
-- [ ] Owner can build, sign, and confirm a native SOL withdrawal while preserving the minimum SOL reserve.
-- [ ] Agent/session signers cannot call generic withdraw or transfer instructions.
-- [ ] Withdrawals are recorded in frontend activity and wallet balances refresh after confirmation.
-- [ ] If a withdrawal makes future agent trades impossible, agent execution fails with a normal insufficient-balance style response rather than bypassing policy.
-- [ ] Tests cover owner-only authorization, session rejection, SOL reserve preservation, and frontend withdrawal states.
+- [x] Owner can build, sign, and confirm a USDC withdrawal from smart-wallet custody to the owner wallet.
+- [x] Owner can build, sign, and confirm a native SOL withdrawal while preserving the minimum SOL reserve.
+- [x] Agent/session signers cannot call generic withdraw or transfer instructions.
+- [x] Withdrawals are recorded in frontend activity and wallet balances refresh after confirmation.
+- [x] If a withdrawal makes future agent trades impossible, agent execution fails with a normal insufficient-balance style response rather than bypassing policy.
+- [x] Tests cover owner-only authorization, session rejection, SOL reserve preservation, and frontend withdrawal states.
 
 ## Blocked by
 
 - `docs/issues/071-deposit-and-balance-readiness.md`
+
+## Verification
+
+- `cd contract && NO_DNA=1 anchor build` ✅
+- `cd contract && NO_DNA=1 cargo test --test demo_custody` (6 tests pass) ✅
+- `cd proxy && bun test ./tests/wallet-routes.test.ts` (7 tests pass) ✅
+- `cd proxy && bun run build` ✅
+- Commit: `92e498f`
