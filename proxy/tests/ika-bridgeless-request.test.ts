@@ -508,10 +508,19 @@ describe('Ika bridgeless execution request', () => {
         sourceAmountCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingSourceAmount,
         allowedOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput,
         dailySpentOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput,
+        allowedDecryptionRequest: Keypair.generate().publicKey.toString(),
         verifiedSlot: 1001,
         graph: 'polet_policy_guardrail_graph',
       }),
-      buildApprovalTransaction: async () => fixture.approvalTransaction,
+      buildApprovalTransaction: async () => {
+        throw new Error('Official Encrypt verified Ika must not build legacy masked-witness approval transactions');
+      },
+      buildVerifiedEncryptApprovalTransaction: async (request) => {
+        expect(request.allowedOutputCiphertext).toBe(fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput);
+        expect(request.dailySpentOutputCiphertext).toBe(fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput);
+        expect(request.allowedDecryptionRequest).toBeTruthy();
+        return fixture.approvalTransaction;
+      },
     });
 
     expect(result.allowed).toBe(true);
@@ -535,10 +544,14 @@ describe('Ika bridgeless execution request', () => {
         sourceAmountCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingSourceAmount,
         allowedOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput,
         dailySpentOutputCiphertext: fixture.wallet.confidentialPolicy.encryptCiphertexts!.pendingDailySpentOutput,
+        allowedDecryptionRequest: Keypair.generate().publicKey.toString(),
         verifiedSlot: 1001,
         graph: 'polet_policy_guardrail_graph',
       }),
-      buildApprovalTransaction: async () => fixture.approvalTransaction,
+      buildApprovalTransaction: async () => {
+        throw new Error('Official Encrypt verified Ika must not build legacy masked-witness approval transactions');
+      },
+      buildVerifiedEncryptApprovalTransaction: async () => fixture.approvalTransaction,
     });
 
     expect(result.allowed).toBe(true);

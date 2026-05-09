@@ -13,6 +13,7 @@ import {
 } from './ika-prealpha-signing';
 import {
   buildApproveIkaMessageSessionTransaction,
+  buildApproveIkaMessageWithVerifiedEncryptSessionTransaction,
   type BuiltTransaction,
 } from './transaction-builder';
 import {
@@ -132,6 +133,9 @@ export type IkaBridgelessResult = IkaBridgelessAllowed | IkaBridgelessNeedsAppro
 export interface IkaBridgelessDeps extends StrategyExecutionDeps {
   buildApprovalTransaction?: (
     request: Parameters<typeof buildApproveIkaMessageSessionTransaction>[0]
+  ) => Promise<BuiltTransaction>;
+  buildVerifiedEncryptApprovalTransaction?: (
+    request: Parameters<typeof buildApproveIkaMessageWithVerifiedEncryptSessionTransaction>[0]
   ) => Promise<BuiltTransaction>;
 }
 
@@ -349,7 +353,7 @@ async function buildIkaAllowedResult(
     request: ikaRequestBase,
     ...preAlphaOverrides,
   });
-  const poletApprovalTransaction = await (deps.buildApprovalTransaction ?? buildApproveIkaMessageSessionTransaction)({
+  const commonApprovalRequest = {
     wallet: smartWalletAuthority,
     sessionKey: intent.sessionKey,
     coordinator: preAlphaSigning.coordinatorPda,
@@ -359,16 +363,26 @@ async function buildIkaAllowedResult(
     callerProgram: preAlphaSigning.approveMessage.callerProgram,
     ikaProgram: preAlphaSigning.approveMessage.programId,
     ikaMessageHash: preAlphaSigning.ikaMessageHash,
-    sourceAmount: amountBaseUnits,
     orderExpiresAt: canonicalOrder.expiresAtUnix,
     attestationSlot: BigInt(wallet.lastRevokedSlot) + 1n,
     attestationPolicySeq: wallet.policySeq,
-    maskedWitnessDevFixture: params.maskedWitnessDevFixture ?? [],
     userPubkey: preAlphaSigning.userPublicKey,
     signatureScheme: signatureSchemeCode(preAlphaSigning.signatureScheme),
     messageApprovalBump: preAlphaSigning.messageApprovalBump,
     sharedApprovers: sharedApproval.progress.approvedApprovers,
-  });
+  };
+  const poletApprovalTransaction = encryptPolicy?.status === 'encrypt-verified-allowed'
+    ? await (deps.buildVerifiedEncryptApprovalTransaction ?? buildApproveIkaMessageWithVerifiedEncryptSessionTransaction)({
+      ...commonApprovalRequest,
+      allowedOutputCiphertext: encryptPolicy.allowedOutputCiphertext,
+      dailySpentOutputCiphertext: encryptPolicy.dailySpentOutputCiphertext,
+      allowedDecryptionRequest: requireAllowedDecryptionRequest(encryptPolicy),
+    })
+    : await (deps.buildApprovalTransaction ?? buildApproveIkaMessageSessionTransaction)({
+      ...commonApprovalRequest,
+      sourceAmount: amountBaseUnits,
+      maskedWitnessDevFixture: params.maskedWitnessDevFixture ?? [],
+    });
 
   return {
     allowed: true,
@@ -388,6 +402,18 @@ async function buildIkaAllowedResult(
       },
     },
   };
+}
+
+function requireAllowedDecryptionRequest(
+  encryptPolicy: Extract<OfficialEncryptPolicyExecution, { status: 'encrypt-verified-allowed' }>
+): string {
+  if (!encryptPolicy.allowedDecryptionRequest) {
+    throw new IkaBridgelessRequestError(
+      'Official Encrypt verified Ika approval requires an allowed-output decryption request',
+      'ENCRYPT_DECRYPTION_REQUEST_REQUIRED'
+    );
+  }
+  return encryptPolicy.allowedDecryptionRequest;
 }
 
 function buildDestinationDigest(
