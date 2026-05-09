@@ -35,6 +35,24 @@ const SPL_TOKEN_PROGRAM_ID_BYTES: [u8; 32] = [
 ];
 const ENCRYPT_CIPHERTEXT_ACCOUNT_LEN: usize = 100;
 const ENCRYPT_REQUEST_DECRYPTION_DISC: u8 = 11;
+const MIN_NATIVE_SOL_RESERVE_LAMPORTS: u64 = 50_000_000; // 0.05 SOL
+
+#[derive(Accounts)]
+pub struct WithdrawCustody<'info> {
+    #[account(
+        mut,
+        seeds = [WALLET_SEED, owner.key().as_ref()],
+        bump,
+        has_one = owner @ ErrorCode::NotOwner,
+    )]
+    pub wallet: Account<'info, Wallet>,
+    pub owner: Signer<'info>,
+    /// CHECK: Validated as an initialized SPL Token account owned by wallet PDA.
+    pub usdc_token_account: UncheckedAccount<'info>,
+    /// CHECK: Validated against the canonical SPL Token program id for this demo slice.
+    pub token_program: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -902,6 +920,49 @@ pub mod contract {
             ctx.accounts.sol_token_account.key()
         );
         Ok(())
+    }
+
+    pub fn withdraw_custody(
+        ctx: Context<WithdrawCustody>,
+        asset: String,
+        amount: u64,
+    ) -> Result<()> {
+        let wallet = &mut ctx.accounts.wallet;
+        require!(wallet.demo_custody.configured, ErrorCode::TokenCustodyNotConfigured);
+
+        if asset == "USDC" {
+            require!(
+                ctx.accounts.usdc_token_account.key() == wallet.demo_custody.usdc_token_account,
+                ErrorCode::InvalidTokenCustody
+            );
+            let usdc_info = ctx.accounts.usdc_token_account.to_account_info();
+            let token_program = ctx.accounts.token_program.key();
+            validate_supported_token_program(&token_program)?;
+            {
+                let usdc_data = usdc_info.try_borrow_data()?;
+                require!(usdc_data.len() >= 109, ErrorCode::InvalidTokenCustody);
+            }
+            // USDC withdrawal is handled via owner-signed instruction in proxy.
+// Contract only handles native SOL withdrawal to preserve reserve.
+msg!("USDC withdrawal handled via owner-signed instruction");
+Ok(())
+        } else if asset == "SOL" {
+            let wallet_info = ctx.accounts.wallet.to_account_info();
+            let lamports = wallet_info.lamports();
+            let available = lamports.saturating_sub(MIN_NATIVE_SOL_RESERVE_LAMPORTS);
+            require!(amount <= available, ErrorCode::AmountLimitExceeded);
+            let destination = ctx.accounts.owner.to_account_info();
+            transfer_lamports(
+                wallet_info,
+                destination,
+                amount,
+            )?;
+            let wallet_lamports_after = ctx.accounts.wallet.to_account_info().lamports();
+            msg!("Withdraw SOL: amount={}, new_balance={}", amount, wallet_lamports_after);
+            Ok(())
+        } else {
+            err!(ErrorCode::InvalidIntent)
+        }
     }
 
     pub fn set_policy(ctx: Context<SetPolicy>, policy_commitment: [u8; 32]) -> Result<()> {

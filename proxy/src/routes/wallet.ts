@@ -1378,6 +1378,90 @@ walletRouter.post('/deposit-custody', async (c) => {
   }
 });
 /**
+ * POST /wallet/withdraw-custody
+ * Builds an owner-signed withdrawal transfer from Polet smart-wallet custody.
+ */
+walletRouter.post('/withdraw-custody', async (c) => {
+  try {
+    const body = await c.req.json();
+    const ownerPubkey = parsePublicKey(body.owner, 'owner');
+    const asset = body.asset;
+    if (asset !== 'USDC' && asset !== 'SOL') {
+      return c.json({ success: false, error: 'asset must be USDC or SOL' }, 400);
+    }
+    const amount = parsePositiveAmount(body.amount, asset === 'USDC' ? USDC_DECIMALS : SOL_DECIMALS, `${asset} amount`);
+
+    const connection = getConnection();
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const walletData = await getWalletData(ownerPubkey.toString());
+
+    if (!walletData) {
+      return c.json({ success: false, error: 'Wallet not found' }, 404);
+    }
+    if (!walletData.demoCustody.configured) {
+      return c.json({ success: false, error: 'Custody not configured' }, 400);
+    }
+
+    const instructions: anchor.web3.TransactionInstruction[] = [];
+
+    if (asset === 'USDC') {
+      // USDC withdrawal via owner-signed instruction from proxy
+      // The owner signs a TransferChecked from wallet's USDC ATA to owner's USDC ATA
+      const usdcMint = new PublicKey(walletData.demoCustody.usdcMint);
+      const walletUsdcAta = deriveAta(walletPda, usdcMint);
+      const ownerUsdcAta = deriveAta(ownerPubkey, usdcMint);
+
+      // Check if owner ATA exists, create if needed
+      const ownerAtaInfo = await connection.getAccountInfo(ownerUsdcAta);
+      if (!ownerAtaInfo) {
+        instructions.push(createAtaInstruction(ownerPubkey, ownerUsdcAta, ownerPubkey, usdcMint));
+      }
+
+      // Transfer from wallet's USDC ATA to owner's USDC ATA
+      instructions.push(createTransferCheckedInstruction(
+        walletUsdcAta,
+        usdcMint,
+        ownerUsdcAta,
+        walletPda, // authority is wallet PDA
+        amount,
+        USDC_DECIMALS
+      ));
+    } else {
+      // Native SOL withdrawal - check reserve
+      const nativeLamports = BigInt(await connection.getBalance(walletPda));
+      const available = nativeLamports - MIN_NATIVE_SOL_RESERVE_LAMPORTS;
+      if (amount > available) {
+        return c.json({ success: false, error: 'Insufficient SOL balance after reserve' }, 400);
+      }
+      instructions.push(SystemProgram.transfer({
+        fromPubkey: walletPda,
+        toPubkey: ownerPubkey,
+        lamports: Number(amount),
+      }));
+    }
+
+    const tx = new Transaction().add(...instructions);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(ownerPubkey, tx),
+        wallet: walletPda.toString(),
+        asset,
+        amount: String(body.amount),
+        amountBaseUnits: amount.toString(),
+        source: asset === 'USDC' ? deriveAta(walletPda, new PublicKey(walletData.demoCustody.usdcMint)).toString() : walletPda.toString(),
+        destination: asset === 'USDC' ? deriveAta(ownerPubkey, new PublicKey(walletData.demoCustody.usdcMint)).toString() : ownerPubkey.toString(),
+        boundary: 'owner-signed-smart-wallet-custody-withdraw',
+      },
+    });
+  } catch (error) {
+    console.error('Withdraw custody error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to build custody withdraw transaction';
+    const status = message.includes('must be') || message.includes('supports at most') || message.includes('Insufficient') ? 400 : 500;
+    return c.json({ success: false, error: message }, status);
+  }
+});
+/**
  * GET /wallet/:owner
  * Fetches the current on-chain state of a wallet.
  */

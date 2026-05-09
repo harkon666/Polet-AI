@@ -367,6 +367,34 @@ pub fn register_demo_custody(
     send_ix(svm, owner, &[], ix)
 }
 
+pub fn withdraw_custody(
+    svm: &mut LiteSVM,
+    signer: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    usdc_token_account: anchor_lang::prelude::Pubkey,
+    token_program: anchor_lang::prelude::Pubkey,
+    asset: &str,
+    amount: u64,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::WithdrawCustody {
+        asset: asset.to_string(),
+        amount,
+    };
+    let ix_accounts = contract::accounts::WithdrawCustody {
+        wallet: wallet_pda,
+        owner: signer.pubkey(),
+        usdc_token_account,
+        token_program,
+        system_program: anchor_lang::solana_program::system_program::ID,
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, signer, &[], ix)
+}
+
 pub fn transfer_intent(destination: anchor_lang::prelude::Pubkey, amount: u64) -> Vec<u8> {
     let mut data = vec![TRANSFER_INTENT_INSTRUCTION];
     data.extend_from_slice(destination.as_ref());
