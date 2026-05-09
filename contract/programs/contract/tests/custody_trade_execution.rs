@@ -144,8 +144,8 @@ fn allowed_execution_spends_from_custody_and_updates_daily_spent_atomically() {
 fn over_cap_execution_fails_without_spending_or_updating_daily_state() {
     let (mut svm, fixture) = setup_trade_fixture(10_000_000, 20_000_000, 18_000_000, 25_000_000, 0);
     let before = read_wallet(&svm, fixture.wallet_pda)
-        .confidential_policy
-        .encrypted_daily_spent;
+        .usdc_dca_policy
+            .encrypted_daily_spent;
 
     let res = execute_default_trade(&mut svm, &fixture, 5_000_000);
 
@@ -156,7 +156,7 @@ fn over_cap_execution_fails_without_spending_or_updating_daily_state() {
     );
     assert_eq!(
         read_wallet(&svm, fixture.wallet_pda)
-            .confidential_policy
+            .usdc_dca_policy
             .encrypted_daily_spent,
         before
     );

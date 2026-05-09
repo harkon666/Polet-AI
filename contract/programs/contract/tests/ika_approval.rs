@@ -48,23 +48,23 @@ fn configure_pending_official_encrypt_policy(
     .expect("set Encrypt ciphertext policy failed");
     update_wallet(svm, wallet_pda, |wallet| {
         wallet
-            .confidential_policy
+            .usdc_dca_policy
             .encrypt_ciphertexts
             .pending_allowed_output = allowed_output;
         wallet
-            .confidential_policy
+            .usdc_dca_policy
             .encrypt_ciphertexts
             .pending_daily_spent_output = daily_spent_output;
         wallet
-            .confidential_policy
+            .usdc_dca_policy
             .encrypt_ciphertexts
             .pending_source_amount = source_amount;
-        wallet.confidential_policy.encrypt_ciphertexts.pending_slot = 10_000;
+        wallet.usdc_dca_policy.encrypt_ciphertexts.pending_slot = 10_000;
         wallet
-            .confidential_policy
+            .usdc_dca_policy
             .encrypt_ciphertexts
             .pending_policy_seq = wallet.policy_seq;
-        wallet.confidential_policy.encrypt_ciphertexts.pending = true;
+        wallet.usdc_dca_policy.encrypt_ciphertexts.pending = true;
     });
     write_mock_encrypt_ciphertext(svm, allowed_output, allowed_digest, 0);
     write_mock_encrypt_ciphertext(svm, daily_spent_output, [0x92u8; 32], 4);
@@ -143,7 +143,7 @@ fn ika_approval_allows_in_limit_order_and_cpi_calls_mock_ika() {
 
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypted_daily_spent,
+        wallet.usdc_dca_policy.encrypted_daily_spent,
         encrypt_amount(5, &witness)
     );
 }
@@ -193,7 +193,7 @@ fn official_encrypt_pending_output_cannot_call_mock_ika() {
     assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
     assert!(
         read_wallet(&svm, wallet_pda)
-            .confidential_policy
+            .usdc_dca_policy
             .encrypt_ciphertexts
             .pending
     );
@@ -222,7 +222,7 @@ fn official_encrypt_verified_blocked_output_cannot_call_mock_ika_or_mutate_spend
     write_mock_ika_account(&mut svm, message_approval, 100);
 
     let wallet = read_wallet(&svm, wallet_pda);
-    let original_daily_spent = wallet.confidential_policy.encrypt_ciphertexts.daily_spent;
+    let original_daily_spent = wallet.usdc_dca_policy.encrypt_ciphertexts.daily_spent;
     let res = approve_ika_message_with_verified_encrypt_as_session_with_coapprovers(
         &mut svm,
         &session_key,
@@ -246,10 +246,10 @@ fn official_encrypt_verified_blocked_output_cannot_call_mock_ika_or_mutate_spend
     assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.daily_spent,
         original_daily_spent
     );
-    assert!(wallet.confidential_policy.encrypt_ciphertexts.pending);
+    assert!(wallet.usdc_dca_policy.encrypt_ciphertexts.pending);
 }
 
 #[test]
@@ -303,10 +303,10 @@ fn official_encrypt_verified_allowed_output_calls_mock_ika_and_consumes_pending_
     );
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.daily_spent,
         fixture.daily_spent_output
     );
-    assert!(!wallet.confidential_policy.encrypt_ciphertexts.pending);
+    assert!(!wallet.usdc_dca_policy.encrypt_ciphertexts.pending);
 }
 
 #[test]
@@ -511,7 +511,7 @@ fn official_encrypt_verified_allowed_requires_shared_quorum_before_cpi() {
     .expect("configure shared Ika approvers failed");
     update_wallet(&mut svm, wallet_pda, |wallet| {
         wallet
-            .confidential_policy
+            .usdc_dca_policy
             .encrypt_ciphertexts
             .pending_policy_seq = wallet.policy_seq;
     });
@@ -613,7 +613,7 @@ fn ika_approval_blocks_over_limit_order_before_cpi() {
 
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypted_daily_spent,
+        wallet.usdc_dca_policy.encrypted_daily_spent,
         encrypt_amount(0, &witness)
     );
 }
@@ -765,7 +765,7 @@ fn ika_approval_blocks_until_configured_shared_quorum_signs() {
     );
     assert_eq!(
         read_wallet(&svm, wallet_pda)
-            .confidential_policy
+            .usdc_dca_policy
             .encrypted_daily_spent,
         encrypt_amount(0, &witness),
         "quorum block should happen before confidential spend mutation"

@@ -70,7 +70,7 @@ fn recovery_authority_revokes_compromised_sessions_and_rotates_shared_access() {
     assert!(wallet.dwallet_controller.migration_pending);
     assert_eq!(wallet.dwallet_controller.rotation_seq, 1);
     assert_eq!(
-        wallet.confidential_policy.encrypted_max_per_run, 0,
+        wallet.sol_transfer_policy.encrypted_max_per_run, 0,
         "recovery must not rewrite private policy values"
     );
 }

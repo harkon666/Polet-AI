@@ -79,7 +79,8 @@ pub struct Wallet {
     pub merkle_root: [u8; 32],
     pub policy_seq: u64,
     pub last_revoked_slot: u64,
-    pub confidential_policy: ConfidentialNumericPolicy,
+    pub sol_transfer_policy: ConfidentialNumericPolicy,
+    pub usdc_dca_policy: ConfidentialNumericPolicy,
     pub demo_custody: DemoTokenCustody,
     pub shared_ika_approvals: SharedIkaApprovalConfig,
     pub dwallet_controller: DwalletControllerRotation,
@@ -96,6 +97,7 @@ impl Wallet {
         + 32
         + 8
         + 8
+        + ConfidentialNumericPolicy::SPACE
         + ConfidentialNumericPolicy::SPACE
         + DemoTokenCustody::SPACE
         + SharedIkaApprovalConfig::SPACE

@@ -32,6 +32,7 @@ import {
   buildExecuteEncryptPolicyGraphAsSessionAccounts,
   buildExecuteEncryptPolicyGraphAsSessionInstructionData,
   buildExecuteEncryptPolicyGraphSessionTransaction,
+  buildConfidentialTransferSessionTransaction,
   buildExecuteConfidentialTransferInstructionData,
   buildExecuteIntentData,
   buildExecutePolicyGatedCustodyTradeAsSessionAccounts,
@@ -205,6 +206,39 @@ describe('Transaction Builder', () => {
         maskedWitnessDevFixture: [1, 2, 3],
       })).toThrow('maskedWitnessDevFixture must contain exactly 32 bytes');
       expect(() => buildTransferIntentPayload(destination, -1n)).toThrow('u64 value out of range');
+    });
+
+    test('builds owner fee-payer confidential transfer with partial session signature', async () => {
+      const blockhash = Keypair.generate().publicKey.toString();
+      const owner = Keypair.generate();
+      const session = Keypair.generate();
+      setConnection({
+        getLatestBlockhash: async () => ({ blockhash, lastValidBlockHeight: 99 }),
+        getSlot: async () => 123456,
+      } as never);
+
+      const request = {
+        wallet: Keypair.generate().publicKey.toString(),
+        sessionKey: session.publicKey.toString(),
+        destination: Keypair.generate().publicKey.toString(),
+        amount: 5_000_000n,
+        attestationSlot: 9n,
+        attestationPolicySeq: 3n,
+        maskedWitnessDevFixture: Array.from({ length: 32 }, (_, index) => index + 1),
+      };
+      const built = await buildConfidentialTransferSessionTransaction(
+        request,
+        PROGRAM_ID_STRING,
+        { feePayer: owner.publicKey.toString(), partialSigners: [session] }
+      );
+      const transaction = Transaction.from(Buffer.from(built.transaction, 'base64'));
+
+      expect(built.signers).toEqual([request.sessionKey, owner.publicKey.toString()]);
+      expect(transaction.feePayer?.toString()).toBe(owner.publicKey.toString());
+      expect(transaction.instructions[0].keys[1].isSigner).toBe(true);
+      expect(transaction.signatures.some((sig) =>
+        sig.publicKey.equals(session.publicKey) && sig.signature
+      )).toBe(true);
     });
   });
 

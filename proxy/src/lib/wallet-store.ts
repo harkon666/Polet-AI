@@ -43,16 +43,9 @@ export interface WalletData {
   merkleRoot: number[];
   policySeq: number;
   lastRevokedSlot: number;
-  confidentialPolicy: {
-    policyCommitment: number[];
-    encryptionWitnessHash: number[];
-    encryptedMaxPerRun: bigint;
-    encryptedDailyCap: bigint;
-    encryptedDailySpent: bigint;
-    spentDayIndex: number;
-    encryptCiphertexts?: EncryptPolicyCiphertextState;
-    enabled: boolean;
-  };
+  confidentialPolicy: WalletPolicyData;
+  solTransferPolicy: WalletPolicyData;
+  usdcDcaPolicy: WalletPolicyData;
   demoCustody: {
     usdcMint: string;
     usdcTokenAccount: string;
@@ -90,6 +83,17 @@ export interface WalletData {
   }>;
 }
 
+export interface WalletPolicyData {
+    policyCommitment: number[];
+    encryptionWitnessHash: number[];
+    encryptedMaxPerRun: bigint;
+    encryptedDailyCap: bigint;
+    encryptedDailySpent: bigint;
+    spentDayIndex: number;
+    encryptCiphertexts?: EncryptPolicyCiphertextState;
+    enabled: boolean;
+}
+
 /**
  * Get wallet data from Solana RPC
  */
@@ -120,6 +124,9 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
       authorized: tk.authorized,
     }));
 
+    const solTransferPolicy = normalizeConfidentialPolicy(accountData.solTransferPolicy);
+    const usdcDcaPolicy = normalizeConfidentialPolicy(accountData.usdcDcaPolicy);
+
     return {
       walletPda: walletPda.toString(),
       owner: accountData.owner.toString(),
@@ -129,33 +136,9 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
       merkleRoot: Array.from(accountData.merkleRoot),
       policySeq: accountData.policySeq.toNumber(),
       lastRevokedSlot: accountData.lastRevokedSlot.toNumber(),
-      confidentialPolicy: {
-        policyCommitment: Array.from(accountData.confidentialPolicy.policyCommitment),
-        encryptionWitnessHash: Array.from(accountData.confidentialPolicy.encryptionWitnessHash),
-        encryptedMaxPerRun: BigInt(accountData.confidentialPolicy.encryptedMaxPerRun.toString()),
-        encryptedDailyCap: BigInt(accountData.confidentialPolicy.encryptedDailyCap.toString()),
-        encryptedDailySpent: BigInt(accountData.confidentialPolicy.encryptedDailySpent.toString()),
-        spentDayIndex: accountData.confidentialPolicy.spentDayIndex.toNumber(),
-        encryptCiphertexts: accountData.confidentialPolicy.encryptCiphertexts && {
-          maxPerRun: accountData.confidentialPolicy.encryptCiphertexts.maxPerRun.toString(),
-          dailyCap: accountData.confidentialPolicy.encryptCiphertexts.dailyCap.toString(),
-          dailySpent: accountData.confidentialPolicy.encryptCiphertexts.dailySpent.toString(),
-          lastRevealRequest: accountData.confidentialPolicy.encryptCiphertexts.lastRevealRequest?.toString(),
-          lastRevealCiphertext: accountData.confidentialPolicy.encryptCiphertexts.lastRevealCiphertext?.toString(),
-          lastRevealDigest: accountData.confidentialPolicy.encryptCiphertexts.lastRevealDigest
-            ? Array.from(accountData.confidentialPolicy.encryptCiphertexts.lastRevealDigest)
-            : undefined,
-          lastRevealKind: accountData.confidentialPolicy.encryptCiphertexts.lastRevealKind,
-          pendingAllowedOutput: accountData.confidentialPolicy.encryptCiphertexts.pendingAllowedOutput.toString(),
-          pendingDailySpentOutput: accountData.confidentialPolicy.encryptCiphertexts.pendingDailySpentOutput.toString(),
-          pendingSourceAmount: accountData.confidentialPolicy.encryptCiphertexts.pendingSourceAmount.toString(),
-          pendingSlot: Number(accountData.confidentialPolicy.encryptCiphertexts.pendingSlot),
-          pendingPolicySeq: Number(accountData.confidentialPolicy.encryptCiphertexts.pendingPolicySeq),
-          pending: accountData.confidentialPolicy.encryptCiphertexts.pending,
-          configured: accountData.confidentialPolicy.encryptCiphertexts.configured,
-        },
-        enabled: accountData.confidentialPolicy.enabled,
-      },
+      confidentialPolicy: usdcDcaPolicy,
+      solTransferPolicy,
+      usdcDcaPolicy,
       demoCustody: {
         usdcMint: accountData.demoCustody.usdcMint.toString(),
         usdcTokenAccount: accountData.demoCustody.usdcTokenAccount.toString(),
@@ -191,6 +174,36 @@ export async function getWalletData(ownerStr: string): Promise<WalletData | null
   }
 }
 
+function normalizeConfidentialPolicy(policy: WalletAccount['usdcDcaPolicy']): WalletPolicyData {
+  return {
+    policyCommitment: Array.from(policy.policyCommitment),
+    encryptionWitnessHash: Array.from(policy.encryptionWitnessHash),
+    encryptedMaxPerRun: BigInt(policy.encryptedMaxPerRun.toString()),
+    encryptedDailyCap: BigInt(policy.encryptedDailyCap.toString()),
+    encryptedDailySpent: BigInt(policy.encryptedDailySpent.toString()),
+    spentDayIndex: policy.spentDayIndex.toNumber(),
+    encryptCiphertexts: policy.encryptCiphertexts && {
+      maxPerRun: policy.encryptCiphertexts.maxPerRun.toString(),
+      dailyCap: policy.encryptCiphertexts.dailyCap.toString(),
+      dailySpent: policy.encryptCiphertexts.dailySpent.toString(),
+      lastRevealRequest: policy.encryptCiphertexts.lastRevealRequest?.toString(),
+      lastRevealCiphertext: policy.encryptCiphertexts.lastRevealCiphertext?.toString(),
+      lastRevealDigest: policy.encryptCiphertexts.lastRevealDigest
+        ? Array.from(policy.encryptCiphertexts.lastRevealDigest)
+        : undefined,
+      lastRevealKind: policy.encryptCiphertexts.lastRevealKind,
+      pendingAllowedOutput: policy.encryptCiphertexts.pendingAllowedOutput.toString(),
+      pendingDailySpentOutput: policy.encryptCiphertexts.pendingDailySpentOutput.toString(),
+      pendingSourceAmount: policy.encryptCiphertexts.pendingSourceAmount.toString(),
+      pendingSlot: Number(policy.encryptCiphertexts.pendingSlot),
+      pendingPolicySeq: Number(policy.encryptCiphertexts.pendingPolicySeq),
+      pending: policy.encryptCiphertexts.pending,
+      configured: policy.encryptCiphertexts.configured,
+    },
+    enabled: policy.enabled,
+  };
+}
+
 function isMissingAnchorAccountError(error: unknown): boolean {
   return error instanceof Error
     && error.message.includes('Account does not exist or has no data');
@@ -209,7 +222,7 @@ export async function getWalletPolicy(ownerStr: string): Promise<Policy | null> 
   if (!wallet) return null;
   
   const _ = deserializePolicy;
-  if (!wallet.confidentialPolicy.enabled) return null;
+  if (!wallet.usdcDcaPolicy.enabled) return null;
 
   return {
     allowlist: [],

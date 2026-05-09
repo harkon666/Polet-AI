@@ -54,6 +54,7 @@ export function usePolicyManager({
         maxPerRunUsdc: policyDraft.maxPerRunUsdc,
         dailyCapUsdc: policyDraft.dailyCapUsdc,
         maskedWitnessDevFixture: witness,
+        policyScope: 'usdc-dca',
       });
       await signAndConfirmTransaction(result.transaction);
       setPolicySaved(true);

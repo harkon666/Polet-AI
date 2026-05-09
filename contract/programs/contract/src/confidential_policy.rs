@@ -2,25 +2,19 @@ use anchor_lang::prelude::*;
 use solana_sha256_hasher::hashv;
 
 use crate::error::ErrorCode;
-use crate::state::{ConfidentialNumericPolicy, Wallet};
+use crate::state::ConfidentialNumericPolicy;
 
 pub fn enforce_confidential_numeric_policy(
-    wallet: &mut Wallet,
+    policy: &mut ConfidentialNumericPolicy,
     amount: u64,
     encryption_witness: &[u8; 32],
 ) -> Result<()> {
-    verify_witness(&wallet.confidential_policy, encryption_witness)?;
+    verify_witness(policy, encryption_witness)?;
 
-    let max_per_run = decrypt_amount(
-        wallet.confidential_policy.encrypted_max_per_run,
-        encryption_witness,
-    );
-    let daily_cap = decrypt_amount(
-        wallet.confidential_policy.encrypted_daily_cap,
-        encryption_witness,
-    );
+    let max_per_run = decrypt_amount(policy.encrypted_max_per_run, encryption_witness);
+    let daily_cap = decrypt_amount(policy.encrypted_daily_cap, encryption_witness);
     let today = current_day_index()?;
-    let daily_spent = current_daily_spent(&wallet.confidential_policy, encryption_witness, today);
+    let daily_spent = current_daily_spent(policy, encryption_witness, today);
 
     require!(amount <= max_per_run, ErrorCode::AmountLimitExceeded);
     let next_daily_spent = daily_spent
@@ -28,9 +22,8 @@ pub fn enforce_confidential_numeric_policy(
         .ok_or(ErrorCode::ArithmeticOverflow)?;
     require!(next_daily_spent <= daily_cap, ErrorCode::DailyLimitExceeded);
 
-    wallet.confidential_policy.encrypted_daily_spent =
-        encrypt_amount(next_daily_spent, encryption_witness);
-    wallet.confidential_policy.spent_day_index = today;
+    policy.encrypted_daily_spent = encrypt_amount(next_daily_spent, encryption_witness);
+    policy.spent_day_index = today;
 
     Ok(())
 }

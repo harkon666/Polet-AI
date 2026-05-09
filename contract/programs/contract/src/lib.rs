@@ -15,7 +15,7 @@ pub mod execution_payload;
 pub mod ika_approval;
 pub mod state;
 
-declare_id!("H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG");
+declare_id!("H2z7UMkXh6MirSNaB55pb2gLYvY9Zgz5PLQnQUqnYt6a");
 
 use confidential_policy::enforce_confidential_numeric_policy;
 pub use constants::WALLET_SEED;
@@ -516,7 +516,7 @@ fn require_official_encrypt_ciphertext_account(
 }
 
 fn set_encrypt_policy_ciphertexts(
-    wallet: &mut Wallet,
+    policy: &mut ConfidentialNumericPolicy,
     policy_commitment: [u8; 32],
     max_per_run_ciphertext: Pubkey,
     daily_cap_ciphertext: Pubkey,
@@ -527,8 +527,8 @@ fn set_encrypt_policy_ciphertexts(
     require_non_default_pubkey(daily_cap_ciphertext)?;
     require_non_default_pubkey(daily_spent_ciphertext)?;
 
-    wallet.confidential_policy.policy_commitment = policy_commitment;
-    wallet.confidential_policy.encrypt_ciphertexts = EncryptPolicyCiphertexts {
+    policy.policy_commitment = policy_commitment;
+    policy.encrypt_ciphertexts = EncryptPolicyCiphertexts {
         max_per_run: max_per_run_ciphertext,
         daily_cap: daily_cap_ciphertext,
         daily_spent: daily_spent_ciphertext,
@@ -544,19 +544,13 @@ fn set_encrypt_policy_ciphertexts(
         pending: false,
         configured: true,
     };
-    wallet.confidential_policy.enabled = true;
-    wallet.policy_commitment = policy_commitment;
-    wallet.policy_seq = wallet
-        .policy_seq
-        .checked_add(1)
-        .ok_or(ErrorCode::ArithmeticOverflow)?;
+    policy.enabled = true;
     Ok(())
 }
 
-fn require_encrypt_ciphertext_policy(wallet: &Wallet) -> Result<()> {
+fn require_encrypt_ciphertext_policy(policy: &ConfidentialNumericPolicy) -> Result<()> {
     require!(
-        wallet.confidential_policy.enabled
-            && wallet.confidential_policy.encrypt_ciphertexts.configured,
+        policy.enabled && policy.encrypt_ciphertexts.configured,
         ErrorCode::ConfidentialPolicyNotConfigured
     );
     Ok(())
@@ -567,9 +561,9 @@ fn require_expected_ciphertext(actual: Pubkey, expected: Pubkey) -> Result<()> {
     Ok(())
 }
 
-fn expected_policy_reveal_ciphertext(wallet: &Wallet, kind: u8) -> Result<Pubkey> {
-    require_encrypt_ciphertext_policy(wallet)?;
-    let ciphertexts = &wallet.confidential_policy.encrypt_ciphertexts;
+fn expected_policy_reveal_ciphertext(policy: &ConfidentialNumericPolicy, kind: u8) -> Result<Pubkey> {
+    require_encrypt_ciphertext_policy(policy)?;
+    let ciphertexts = &policy.encrypt_ciphertexts;
     match kind {
         0 => Ok(ciphertexts.max_per_run),
         1 => Ok(ciphertexts.daily_cap),
@@ -666,8 +660,8 @@ fn consume_verified_encrypt_policy_for_ika(
     allowed_decryption_request: &AccountInfo,
     attestation_policy_seq: u64,
 ) -> Result<()> {
-    require_encrypt_ciphertext_policy(wallet)?;
-    let ciphertexts = &wallet.confidential_policy.encrypt_ciphertexts;
+    require_encrypt_ciphertext_policy(&wallet.usdc_dca_policy)?;
+    let ciphertexts = &wallet.usdc_dca_policy.encrypt_ciphertexts;
     require!(ciphertexts.pending, ErrorCode::EncryptPolicyPending);
     require!(
         ciphertexts.pending_policy_seq == wallet.policy_seq
@@ -689,28 +683,28 @@ fn consume_verified_encrypt_policy_for_ika(
     )?;
     require!(allowed, ErrorCode::EncryptPolicyBlocked);
 
-    wallet.confidential_policy.encrypt_ciphertexts.daily_spent = wallet
-        .confidential_policy
+    wallet.usdc_dca_policy.encrypt_ciphertexts.daily_spent = wallet
+        .usdc_dca_policy
         .encrypt_ciphertexts
         .pending_daily_spent_output;
     wallet
-        .confidential_policy
+        .usdc_dca_policy
         .encrypt_ciphertexts
         .pending_allowed_output = Pubkey::default();
     wallet
-        .confidential_policy
+        .usdc_dca_policy
         .encrypt_ciphertexts
         .pending_daily_spent_output = Pubkey::default();
     wallet
-        .confidential_policy
+        .usdc_dca_policy
         .encrypt_ciphertexts
         .pending_source_amount = Pubkey::default();
-    wallet.confidential_policy.encrypt_ciphertexts.pending_slot = 0;
+    wallet.usdc_dca_policy.encrypt_ciphertexts.pending_slot = 0;
     wallet
-        .confidential_policy
+        .usdc_dca_policy
         .encrypt_ciphertexts
         .pending_policy_seq = 0;
-    wallet.confidential_policy.encrypt_ciphertexts.pending = false;
+    wallet.usdc_dca_policy.encrypt_ciphertexts.pending = false;
 
     Ok(())
 }
@@ -1008,7 +1002,8 @@ pub mod contract {
             merkle_root: [0u8; 32],
             policy_seq: 0,
             last_revoked_slot: 0,
-            confidential_policy: ConfidentialNumericPolicy::default(),
+            sol_transfer_policy: ConfidentialNumericPolicy::default(),
+            usdc_dca_policy: ConfidentialNumericPolicy::default(),
             demo_custody: DemoTokenCustody::default(),
             shared_ika_approvals: SharedIkaApprovalConfig::default(),
             dwallet_controller: DwalletControllerRotation::default(),
@@ -1172,14 +1167,93 @@ pub mod contract {
         );
 
         let wallet = &mut ctx.accounts.wallet;
-        wallet.confidential_policy = ConfidentialNumericPolicy {
+        let policy = ConfidentialNumericPolicy {
             policy_commitment,
             encryption_witness_hash,
             encrypted_max_per_run,
             encrypted_daily_cap,
             encrypted_daily_spent,
             spent_day_index,
-            encrypt_ciphertexts: wallet.confidential_policy.encrypt_ciphertexts.clone(),
+            encrypt_ciphertexts: EncryptPolicyCiphertexts::default(),
+            enabled: true,
+        };
+        wallet.sol_transfer_policy = policy.clone();
+        wallet.usdc_dca_policy = policy;
+        wallet.policy_commitment = policy_commitment;
+        wallet.policy_seq = wallet
+            .policy_seq
+            .checked_add(1)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
+
+        msg!(
+            "Confidential numeric policy updated, policy_seq={}",
+            wallet.policy_seq
+        );
+        Ok(())
+    }
+
+    pub fn set_sol_transfer_confidential_policy(
+        ctx: Context<SetConfidentialNumericPolicy>,
+        policy_commitment: [u8; 32],
+        encryption_witness_hash: [u8; 32],
+        encrypted_max_per_run: u64,
+        encrypted_daily_cap: u64,
+        encrypted_daily_spent: u64,
+        spent_day_index: i64,
+    ) -> Result<()> {
+        require!(policy_commitment != [0u8; 32], ErrorCode::PolicyViolation);
+        require!(
+            encryption_witness_hash != [0u8; 32],
+            ErrorCode::InvalidPolicyWitness
+        );
+
+        let wallet = &mut ctx.accounts.wallet;
+        wallet.sol_transfer_policy = ConfidentialNumericPolicy {
+            policy_commitment,
+            encryption_witness_hash,
+            encrypted_max_per_run,
+            encrypted_daily_cap,
+            encrypted_daily_spent,
+            spent_day_index,
+            encrypt_ciphertexts: wallet.sol_transfer_policy.encrypt_ciphertexts.clone(),
+            enabled: true,
+        };
+        wallet.policy_seq = wallet
+            .policy_seq
+            .checked_add(1)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
+
+        msg!(
+            "SOL transfer confidential policy updated, policy_seq={}",
+            wallet.policy_seq
+        );
+        Ok(())
+    }
+
+    pub fn set_usdc_dca_confidential_policy(
+        ctx: Context<SetConfidentialNumericPolicy>,
+        policy_commitment: [u8; 32],
+        encryption_witness_hash: [u8; 32],
+        encrypted_max_per_run: u64,
+        encrypted_daily_cap: u64,
+        encrypted_daily_spent: u64,
+        spent_day_index: i64,
+    ) -> Result<()> {
+        require!(policy_commitment != [0u8; 32], ErrorCode::PolicyViolation);
+        require!(
+            encryption_witness_hash != [0u8; 32],
+            ErrorCode::InvalidPolicyWitness
+        );
+
+        let wallet = &mut ctx.accounts.wallet;
+        wallet.usdc_dca_policy = ConfidentialNumericPolicy {
+            policy_commitment,
+            encryption_witness_hash,
+            encrypted_max_per_run,
+            encrypted_daily_cap,
+            encrypted_daily_spent,
+            spent_day_index,
+            encrypt_ciphertexts: wallet.usdc_dca_policy.encrypt_ciphertexts.clone(),
             enabled: true,
         };
         wallet.policy_commitment = policy_commitment;
@@ -1189,7 +1263,7 @@ pub mod contract {
             .ok_or(ErrorCode::ArithmeticOverflow)?;
 
         msg!(
-            "Confidential numeric policy updated, policy_seq={}",
+            "USDC DCA confidential policy updated, policy_seq={}",
             wallet.policy_seq
         );
         Ok(())
@@ -1204,12 +1278,17 @@ pub mod contract {
     ) -> Result<()> {
         let wallet = &mut ctx.accounts.wallet;
         set_encrypt_policy_ciphertexts(
-            wallet,
+            &mut wallet.usdc_dca_policy,
             policy_commitment,
             max_per_run_ciphertext,
             daily_cap_ciphertext,
             daily_spent_ciphertext,
         )?;
+        wallet.policy_commitment = policy_commitment;
+        wallet.policy_seq = wallet
+            .policy_seq
+            .checked_add(1)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
 
         msg!(
             "Encrypt ciphertext policy updated, policy_seq={}",
@@ -1245,12 +1324,17 @@ pub mod contract {
 
         let wallet = &mut ctx.accounts.wallet;
         set_encrypt_policy_ciphertexts(
-            wallet,
+            &mut wallet.usdc_dca_policy,
             policy_commitment,
             ctx.accounts.max_per_run_ciphertext.key(),
             ctx.accounts.daily_cap_ciphertext.key(),
             ctx.accounts.daily_spent_ciphertext.key(),
         )?;
+        wallet.policy_commitment = policy_commitment;
+        wallet.policy_seq = wallet
+            .policy_seq
+            .checked_add(1)
+            .ok_or(ErrorCode::ArithmeticOverflow)?;
 
         msg!(
             "Official Encrypt ciphertext policy accepted, policy_seq={}",
@@ -1277,7 +1361,7 @@ pub mod contract {
             ctx.accounts.encrypt_program.key(),
         )?;
 
-        let expected = expected_policy_reveal_ciphertext(&ctx.accounts.wallet, kind)?;
+        let expected = expected_policy_reveal_ciphertext(&ctx.accounts.wallet.usdc_dca_policy, kind)?;
         require_expected_ciphertext(ctx.accounts.ciphertext.key(), expected)?;
 
         let encrypt_ctx = EncryptContext {
@@ -1298,7 +1382,7 @@ pub mod contract {
             &ctx.accounts.ciphertext.to_account_info(),
         )?;
 
-        let ciphertexts = &mut ctx.accounts.wallet.confidential_policy.encrypt_ciphertexts;
+        let ciphertexts = &mut ctx.accounts.wallet.usdc_dca_policy.encrypt_ciphertexts;
         ciphertexts.last_reveal_request = ctx.accounts.request.key();
         ciphertexts.last_reveal_ciphertext = ctx.accounts.ciphertext.key();
         ciphertexts.last_reveal_digest = digest;
@@ -1525,7 +1609,7 @@ pub mod contract {
         let payload = parse_transfer_intent(&intent_data, &ctx.accounts.destination.key())?;
 
         enforce_confidential_numeric_policy(
-            &mut ctx.accounts.wallet,
+            &mut ctx.accounts.wallet.sol_transfer_policy,
             payload.amount,
             &encryption_witness,
         )?;
@@ -1623,7 +1707,7 @@ pub mod contract {
 
         let wallet_owner = ctx.accounts.wallet.owner;
         enforce_confidential_numeric_policy(
-            &mut ctx.accounts.wallet,
+            &mut ctx.accounts.wallet.usdc_dca_policy,
             source_amount,
             &encryption_witness,
         )?;
@@ -1656,7 +1740,7 @@ pub mod contract {
         attestation_policy_seq: u64,
         cpi_authority_bump: u8,
     ) -> Result<()> {
-        require_encrypt_ciphertext_policy(&ctx.accounts.wallet)?;
+        require_encrypt_ciphertext_policy(&ctx.accounts.wallet.usdc_dca_policy)?;
         validate_session_and_attestation(
             &ctx.accounts.wallet,
             ctx.accounts.session_key.key(),
@@ -1664,7 +1748,7 @@ pub mod contract {
             attestation_policy_seq,
         )?;
 
-        let ciphertexts = &ctx.accounts.wallet.confidential_policy.encrypt_ciphertexts;
+        let ciphertexts = &ctx.accounts.wallet.usdc_dca_policy.encrypt_ciphertexts;
         require_expected_ciphertext(
             ctx.accounts.max_per_run_ciphertext.key(),
             ciphertexts.max_per_run,
@@ -1707,7 +1791,7 @@ pub mod contract {
         )?;
 
         let policy_seq = ctx.accounts.wallet.policy_seq;
-        let policy = &mut ctx.accounts.wallet.confidential_policy;
+        let policy = &mut ctx.accounts.wallet.usdc_dca_policy;
         policy.encrypt_ciphertexts.pending_source_amount =
             ctx.accounts.source_amount_ciphertext.key();
         policy.encrypt_ciphertexts.pending_allowed_output =
@@ -1740,7 +1824,7 @@ pub mod contract {
         require!(
             !ctx.accounts
                 .wallet
-                .confidential_policy
+                .usdc_dca_policy
                 .encrypt_ciphertexts
                 .configured,
             ErrorCode::EncryptPolicyPending
@@ -1758,7 +1842,7 @@ pub mod contract {
         )?;
 
         enforce_confidential_numeric_policy(
-            &mut ctx.accounts.wallet,
+            &mut ctx.accounts.wallet.usdc_dca_policy,
             source_amount,
             &encryption_witness,
         )?;

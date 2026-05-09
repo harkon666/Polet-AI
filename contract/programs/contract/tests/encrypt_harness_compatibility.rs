@@ -183,17 +183,17 @@ fn encrypt_harness_process_pending_allows_ika_and_updates_daily_spent_output() {
 
     execute_graph(&mut svm, wallet_pda, &fixture);
     let wallet = read_wallet(&svm, wallet_pda);
-    assert!(wallet.confidential_policy.encrypt_ciphertexts.pending);
+    assert!(wallet.usdc_dca_policy.encrypt_ciphertexts.pending);
     assert_eq!(
         wallet
-            .confidential_policy
+            .usdc_dca_policy
             .encrypt_ciphertexts
             .pending_source_amount,
         fixture.source_amount
     );
     assert_eq!(
         wallet
-            .confidential_policy
+            .usdc_dca_policy
             .encrypt_ciphertexts
             .pending_allowed_output,
         fixture.allowed_output
@@ -229,10 +229,10 @@ fn encrypt_harness_process_pending_allows_ika_and_updates_daily_spent_output() {
     assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 1);
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.daily_spent,
         fixture.daily_spent_output
     );
-    assert!(!wallet.confidential_policy.encrypt_ciphertexts.pending);
+    assert!(!wallet.usdc_dca_policy.encrypt_ciphertexts.pending);
 }
 
 #[test]
@@ -249,7 +249,7 @@ fn encrypt_harness_process_pending_blocks_ika_without_mutating_spend() {
 
     execute_graph(&mut svm, wallet_pda, &fixture);
     let original_spent = read_wallet(&svm, wallet_pda)
-        .confidential_policy
+        .usdc_dca_policy
         .encrypt_ciphertexts
         .daily_spent;
     encrypt.process_pending(
@@ -282,10 +282,10 @@ fn encrypt_harness_process_pending_blocks_ika_without_mutating_spend() {
     assert_eq!(read_mock_message_approval(&svm, message_approval)[0], 0);
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.daily_spent,
         original_spent
     );
-    assert!(wallet.confidential_policy.encrypt_ciphertexts.pending);
+    assert!(wallet.usdc_dca_policy.encrypt_ciphertexts.pending);
 }
 
 #[test]
@@ -325,12 +325,12 @@ fn owner_can_request_each_policy_value_reveal_without_plaintext_storage() {
         assert!(res.is_ok(), "owner reveal request kind {kind} should pass");
 
         let wallet = read_wallet(&svm, wallet_pda);
-        let refs = wallet.confidential_policy.encrypt_ciphertexts;
+        let refs = wallet.usdc_dca_policy.encrypt_ciphertexts;
         assert_eq!(refs.last_reveal_request, request.pubkey());
         assert_eq!(refs.last_reveal_ciphertext, ciphertext);
         assert_eq!(refs.last_reveal_kind, kind);
         assert_eq!(
-            wallet.confidential_policy.encrypted_max_per_run, 0,
+            wallet.usdc_dca_policy.encrypted_max_per_run, 0,
             "official reveal must not write plaintext policy values"
         );
     }

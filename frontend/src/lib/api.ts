@@ -70,11 +70,23 @@ export interface BuildTransactionResult {
 }
 
 export async function buildTransaction(input: BuildTransactionInput): Promise<BuildTransactionResult> {
+  const intentPayload = {
+    id: `frontend-transfer-${Date.now()}`,
+    owner: input.owner,
+    sessionKey: input.sessionKey,
+    action: 'transfer',
+    params: {
+      destination: input.destination,
+      amount: input.amount,
+    },
+    timestamp: Math.floor(Date.now() / 1000),
+  };
+
   const data = await fetchJson<{ success: boolean; data: BuildTransactionResult }>(
     `${PROXY_URL}/legacy/intent/execute`,
     {
       method: 'POST',
-      body: JSON.stringify(input),
+      body: JSON.stringify(intentPayload),
     }
   );
 
@@ -207,9 +219,12 @@ export async function revokeSession(input: RevokeSessionInput): Promise<RevokeSe
 
 export interface SetConfidentialPolicyInput {
   owner: string;
-  maxPerRunUsdc: string;
-  dailyCapUsdc: string;
+  maxPerRunUsdc?: string;
+  dailyCapUsdc?: string;
+  maxPerRunBaseUnits?: string;
+  dailyCapBaseUnits?: string;
   maskedWitnessDevFixture: number[];
+  policyScope?: 'sol-transfer' | 'usdc-dca';
 }
 
 export interface SetOfficialEncryptCiphertextPolicyInput {
@@ -360,6 +375,44 @@ export interface RecoverAccessResult extends WalletTransactionResult {
 export async function setConfidentialPolicy(input: SetConfidentialPolicyInput): Promise<WalletTransactionResult> {
   const data = await fetchJson<{ success: boolean; data: WalletTransactionResult }>(
     `${PROXY_URL}/wallet/set-confidential-policy`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export interface ExecuteConfidentialTransferInput {
+  owner: string;
+  sessionKey: string;
+  destination: string;
+  amountLamports: string;
+}
+
+export interface ExecuteConfidentialTransferResult {
+  allowed: boolean;
+  transaction?: string;
+  wallet?: string;
+  blockHash?: string;
+  slot?: number;
+  signers?: string[];
+  code?: string;
+  reason?: string;
+  destination?: string;
+  amountLamports?: string;
+  amountUi?: string;
+  policySeq?: number;
+  attestationSlot?: number;
+  boundary?: 'session-signed-confidential-native-sol-transfer';
+}
+
+export async function executeConfidentialTransfer(
+  input: ExecuteConfidentialTransferInput
+): Promise<ExecuteConfidentialTransferResult> {
+  const data = await fetchJson<{ success: boolean; data: ExecuteConfidentialTransferResult }>(
+    `${PROXY_URL}/wallet/execute-confidential-transfer`,
     {
       method: 'POST',
       body: JSON.stringify(input),

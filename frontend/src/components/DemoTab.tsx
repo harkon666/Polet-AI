@@ -34,7 +34,6 @@ import {
   runMultichainIntent,
   setRecoveryAuthority,
   recoverAccess,
-  verifyPasskeyAssertion,
   broadcastIkaDestination,
   createEncryptDeposit,
   executeEncryptPolicyGraph,
@@ -1085,6 +1084,7 @@ export function DemoTabContent({
             maxPerRunUsdc: policyDraft.maxPerRunUsdc,
             dailyCapUsdc: policyDraft.dailyCapUsdc,
             maskedWitnessDevFixture: Array.from({ length: 32 }, () => 7),
+            policyScope: 'usdc-dca',
           });
           const signature = await signAndConfirmTransaction(result.transaction);
           setPolicySaved(true);

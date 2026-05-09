@@ -501,6 +501,66 @@ pub fn set_confidential_numeric_policy(
     send_ix(svm, owner, &[], ix)
 }
 
+pub fn set_sol_transfer_confidential_policy(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    witness: [u8; 32],
+    max_per_run: u64,
+    daily_cap: u64,
+    daily_spent: u64,
+    spent_day_index: i64,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::SetSolTransferConfidentialPolicy {
+        policy_commitment: [0x42u8; 32],
+        encryption_witness_hash: hashv(&[&witness]).to_bytes(),
+        encrypted_max_per_run: encrypt_amount(max_per_run, &witness),
+        encrypted_daily_cap: encrypt_amount(daily_cap, &witness),
+        encrypted_daily_spent: encrypt_amount(daily_spent, &witness),
+        spent_day_index,
+    };
+    let ix_accounts = contract::accounts::SetConfidentialNumericPolicy {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[], ix)
+}
+
+pub fn set_usdc_dca_confidential_policy(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    witness: [u8; 32],
+    max_per_run: u64,
+    daily_cap: u64,
+    daily_spent: u64,
+    spent_day_index: i64,
+) -> Result<(), String> {
+    let ix_data = contract::instruction::SetUsdcDcaConfidentialPolicy {
+        policy_commitment: [0x42u8; 32],
+        encryption_witness_hash: hashv(&[&witness]).to_bytes(),
+        encrypted_max_per_run: encrypt_amount(max_per_run, &witness),
+        encrypted_daily_cap: encrypt_amount(daily_cap, &witness),
+        encrypted_daily_spent: encrypt_amount(daily_spent, &witness),
+        spent_day_index,
+    };
+    let ix_accounts = contract::accounts::SetConfidentialNumericPolicy {
+        wallet: wallet_pda,
+        owner: owner.pubkey(),
+    };
+    let ix = anchor_lang::solana_program::instruction::Instruction {
+        program_id: contract::id(),
+        data: ix_data.data(),
+        accounts: ix_accounts.to_account_metas(None),
+    };
+    send_ix(svm, owner, &[], ix)
+}
+
 pub fn set_encrypt_ciphertext_policy(
     svm: &mut LiteSVM,
     owner: &Keypair,

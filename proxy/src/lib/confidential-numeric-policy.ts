@@ -31,15 +31,27 @@ export type ConfidentialNumericPolicyEvaluation =
     };
 
 export function buildConfidentialNumericPolicySetup(input: {
-  maxPerRunUsdc: unknown;
-  dailyCapUsdc: unknown;
+  maxPerRunUsdc?: unknown;
+  dailyCapUsdc?: unknown;
+  maxPerRunBaseUnits?: unknown;
+  dailyCapBaseUnits?: unknown;
   maskedWitnessDevFixture: number[] | Uint8Array;
   spentDayIndex?: bigint | number;
 }): ConfidentialNumericPolicySetup {
   const witness = normalizeWitness(input.maskedWitnessDevFixture);
   const witnessHash = hashWitness(witness);
-  const encryptedMaxPerRun = encryptAmount(parseUsdcAmount(input.maxPerRunUsdc), witness);
-  const encryptedDailyCap = encryptAmount(parseUsdcAmount(input.dailyCapUsdc), witness);
+  const encryptedMaxPerRun = encryptAmount(
+    input.maxPerRunBaseUnits === undefined
+      ? parseUsdcAmount(input.maxPerRunUsdc)
+      : parseBaseUnits(input.maxPerRunBaseUnits, 'maxPerRunBaseUnits'),
+    witness
+  );
+  const encryptedDailyCap = encryptAmount(
+    input.dailyCapBaseUnits === undefined
+      ? parseUsdcAmount(input.dailyCapUsdc)
+      : parseBaseUnits(input.dailyCapBaseUnits, 'dailyCapBaseUnits'),
+    witness
+  );
   const encryptedDailySpent = encryptAmount(0n, witness);
   const spentDayIndex = BigInt(input.spentDayIndex ?? currentDayIndex());
   const commitmentBytes = Buffer.concat([
@@ -113,6 +125,18 @@ export function parseUsdcAmount(value: unknown): bigint {
   const baseUnits = BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(USDC_DECIMALS, '0'));
   if (baseUnits <= 0n) throw new Error('USDC amount must be positive');
   return baseUnits;
+}
+
+function parseBaseUnits(value: unknown, label: string): bigint {
+  if (typeof value === 'bigint') {
+    if (value <= 0n) throw new Error(`${label} must be positive`);
+    return value;
+  }
+  const raw = String(value ?? '').trim();
+  if (!/^\d+$/.test(raw)) throw new Error(`${label} must be a positive integer`);
+  const amount = BigInt(raw);
+  if (amount <= 0n) throw new Error(`${label} must be positive`);
+  return amount;
 }
 
 export function encodeConfidentialAmount(amountBaseUnits: bigint, maskedWitnessDevFixture: number[] | Uint8Array): bigint {

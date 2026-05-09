@@ -31,21 +31,21 @@ fn owner_can_record_official_encrypt_ciphertext_policy_identifiers() {
     .expect("set Encrypt ciphertext policy failed");
 
     let wallet = read_wallet(&svm, wallet_pda);
-    assert!(wallet.confidential_policy.enabled);
-    assert!(wallet.confidential_policy.encrypt_ciphertexts.configured);
+    assert!(wallet.usdc_dca_policy.enabled);
+    assert!(wallet.usdc_dca_policy.encrypt_ciphertexts.configured);
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.max_per_run,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.max_per_run,
         max_per_run_ciphertext
     );
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.daily_cap,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.daily_cap,
         daily_cap_ciphertext
     );
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.daily_spent,
         daily_spent_ciphertext
     );
-    assert!(!wallet.confidential_policy.encrypt_ciphertexts.pending);
+    assert!(!wallet.usdc_dca_policy.encrypt_ciphertexts.pending);
     assert_eq!(wallet.policy_seq, 1);
 }
 
@@ -89,18 +89,18 @@ fn owner_can_accept_official_encrypt_ciphertext_accounts_with_encrypt_context_ac
     .expect("set official Encrypt ciphertext policy failed");
 
     let wallet = read_wallet(&svm, wallet_pda);
-    assert!(wallet.confidential_policy.enabled);
-    assert!(wallet.confidential_policy.encrypt_ciphertexts.configured);
+    assert!(wallet.usdc_dca_policy.enabled);
+    assert!(wallet.usdc_dca_policy.encrypt_ciphertexts.configured);
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.max_per_run,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.max_per_run,
         max_per_run_ciphertext
     );
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.daily_cap,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.daily_cap,
         daily_cap_ciphertext
     );
     assert_eq!(
-        wallet.confidential_policy.encrypt_ciphertexts.daily_spent,
+        wallet.usdc_dca_policy.encrypt_ciphertexts.daily_spent,
         daily_spent_ciphertext
     );
     assert_eq!(wallet.policy_seq, 1);
@@ -149,7 +149,7 @@ fn official_encrypt_policy_setup_rejects_non_encrypt_owned_ciphertext_accounts()
         "official Encrypt policy setup must reject ciphertext accounts not owned by Encrypt"
     );
     let wallet = read_wallet(&svm, wallet_pda);
-    assert!(!wallet.confidential_policy.encrypt_ciphertexts.configured);
+    assert!(!wallet.usdc_dca_policy.encrypt_ciphertexts.configured);
 }
 
 #[test]
@@ -190,10 +190,10 @@ fn confidential_policy_allows_in_limit_action_and_updates_daily_spent() {
 
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypted_daily_spent,
+        wallet.sol_transfer_policy.encrypted_daily_spent,
         encrypt_amount(5, &witness)
     );
-    assert!(wallet.confidential_policy.spent_day_index >= 0);
+    assert!(wallet.sol_transfer_policy.spent_day_index >= 0);
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn confidential_policy_blocks_action_above_max_per_run_without_updating_spent() 
 
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypted_daily_spent,
+        wallet.sol_transfer_policy.encrypted_daily_spent,
         encrypt_amount(0, &witness)
     );
 }
@@ -271,7 +271,7 @@ fn confidential_policy_blocks_action_that_would_exceed_daily_cap() {
 
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypted_daily_spent,
+        wallet.sol_transfer_policy.encrypted_daily_spent,
         encrypt_amount(15, &witness)
     );
 }
@@ -314,7 +314,7 @@ fn confidential_policy_resets_daily_spent_when_day_changes() {
 
     let wallet = read_wallet(&svm, wallet_pda);
     assert_eq!(
-        wallet.confidential_policy.encrypted_daily_spent,
+        wallet.sol_transfer_policy.encrypted_daily_spent,
         encrypt_amount(5, &witness)
     );
 }

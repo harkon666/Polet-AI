@@ -1,5 +1,5 @@
 {
-  "address": "H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG",
+  "address": "H2z7UMkXh6MirSNaB55pb2gLYvY9Zgz5PLQnQUqnYt6a",
   "metadata": {
     "name": "contract",
     "version": "0.1.0",
@@ -1317,6 +1317,130 @@
       ]
     },
     {
+      "name": "set_sol_transfer_confidential_policy",
+      "discriminator": [
+        159,
+        154,
+        233,
+        179,
+        11,
+        108,
+        102,
+        73
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "policy_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encryption_witness_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encrypted_max_per_run",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_cap",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_spent",
+          "type": "u64"
+        },
+        {
+          "name": "spent_day_index",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "set_usdc_dca_confidential_policy",
+      "discriminator": [
+        255,
+        165,
+        43,
+        36,
+        44,
+        66,
+        112,
+        57
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "policy_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encryption_witness_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encrypted_max_per_run",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_cap",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_spent",
+          "type": "u64"
+        },
+        {
+          "name": "spent_day_index",
+          "type": "i64"
+        }
+      ]
+    },
+    {
       "name": "set_encrypt_ciphertext_policy",
       "discriminator": [
         170,
@@ -2169,7 +2293,15 @@
             "type": "u64"
           },
           {
-            "name": "confidential_policy",
+            "name": "sol_transfer_policy",
+            "type": {
+              "defined": {
+                "name": "ConfidentialNumericPolicy"
+              }
+            }
+          },
+          {
+            "name": "usdc_dca_policy",
             "type": {
               "defined": {
                 "name": "ConfidentialNumericPolicy"

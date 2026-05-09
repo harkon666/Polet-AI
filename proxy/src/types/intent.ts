@@ -241,7 +241,8 @@ export interface WalletAccount {
   merkleRoot: number[] | Uint8Array;
   policySeq: BN;
   lastRevokedSlot: BN;
-  confidentialPolicy: ConfidentialNumericPolicyAccount;
+  solTransferPolicy: ConfidentialNumericPolicyAccount;
+  usdcDcaPolicy: ConfidentialNumericPolicyAccount;
   demoCustody: DemoTokenCustodyAccount;
   sharedIkaApprovals: SharedIkaApprovalConfigAccount;
   dwalletController: DwalletControllerRotationAccount;

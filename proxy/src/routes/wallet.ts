@@ -5,6 +5,7 @@ import {
   ENCRYPT_PREALPHA_GRPC_URL,
   ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
   buildApproveIkaMessageWithVerifiedEncryptSessionTransaction,
+  buildConfidentialTransferSessionTransaction,
   buildCreateEncryptDepositTransaction,
   buildExecuteEncryptPolicyGraphSessionTransaction,
   buildRequestPolicyValueDecryptionTransaction,
@@ -20,7 +21,7 @@ import { generateAndSaveKey, loadKey } from '../lib/kms';
 import { buildPolicyTree } from '../lib/merkle-tree';
 import { getWalletData } from '../lib/wallet-store';
 import { PROGRAM_ID, deriveWalletPda } from '../lib/program-identity';
-import { buildConfidentialNumericPolicySetup } from '../lib/confidential-numeric-policy';
+import { buildConfidentialNumericPolicySetup, evaluateConfidentialNumericPolicy } from '../lib/confidential-numeric-policy';
 import { readBoolDecryptionRequest, readCiphertextStatus, readEncryptInfraStatus } from '../lib/encrypt-ciphertext-poller';
 import {
   hasPendingOfficialEncryptPolicyOutputs,
@@ -68,6 +69,8 @@ const USDC_DECIMALS = 6;
 const SOL_DECIMALS = 9;
 const MIN_NATIVE_SOL_RESERVE_LAMPORTS = 50_000_000n;
 const U64_MAX = (1n << 64n) - 1n;
+const SET_SOL_TRANSFER_CONFIDENTIAL_POLICY_DISCRIMINATOR = Buffer.from([159, 154, 233, 179, 11, 108, 102, 73]);
+const SET_USDC_DCA_CONFIDENTIAL_POLICY_DISCRIMINATOR = Buffer.from([255, 165, 43, 36, 44, 66, 112, 57]);
 
 walletRouter.get('/encrypt-ciphertext/:ciphertext', async (c) => {
   try {
@@ -180,6 +183,28 @@ async function serializeUnsigned(ownerPubkey: PublicKey, tx: Transaction) {
     requireAllSignatures: false,
     verifySignatures: false,
   }).toString('base64');
+}
+
+function buildSetScopedConfidentialPolicyData(
+  discriminator: Buffer,
+  policySetup: ReturnType<typeof buildConfidentialNumericPolicySetup>
+) {
+  const data = Buffer.alloc(8 + 32 + 32 + 8 + 8 + 8 + 8);
+  let offset = 0;
+  discriminator.copy(data, offset);
+  offset += 8;
+  Buffer.from(policySetup.policyCommitment).copy(data, offset);
+  offset += 32;
+  Buffer.from(policySetup.encryptionWitnessHash).copy(data, offset);
+  offset += 32;
+  data.writeBigUInt64LE(policySetup.encryptedMaxPerRun, offset);
+  offset += 8;
+  data.writeBigUInt64LE(policySetup.encryptedDailyCap, offset);
+  offset += 8;
+  data.writeBigUInt64LE(policySetup.encryptedDailySpent, offset);
+  offset += 8;
+  data.writeBigInt64LE(BigInt(policySetup.spentDayIndex), offset);
+  return data;
 }
 
 function parsePublicKey(value: unknown, label: string): PublicKey {
@@ -502,9 +527,21 @@ walletRouter.post('/grant-key', async (c) => {
  */
 walletRouter.post('/set-confidential-policy', async (c) => {
   try {
-    const { owner, maxPerRunUsdc, dailyCapUsdc, maskedWitnessDevFixture } = await c.req.json();
-    if (!owner || maxPerRunUsdc === undefined || dailyCapUsdc === undefined) {
-      return c.json({ success: false, error: 'owner, maxPerRunUsdc, and dailyCapUsdc are required' }, 400);
+    const {
+      owner,
+      maxPerRunUsdc,
+      dailyCapUsdc,
+      maxPerRunBaseUnits,
+      dailyCapBaseUnits,
+      maskedWitnessDevFixture,
+      policyScope,
+    } = await c.req.json();
+    if (
+      !owner
+      || (maxPerRunUsdc === undefined && maxPerRunBaseUnits === undefined)
+      || (dailyCapUsdc === undefined && dailyCapBaseUnits === undefined)
+    ) {
+      return c.json({ success: false, error: 'owner and policy amounts are required' }, 400);
     }
     if (!Array.isArray(maskedWitnessDevFixture) || maskedWitnessDevFixture.length !== 32) {
       return c.json({ success: false, error: 'maskedWitnessDevFixture must contain 32 bytes' }, 400);
@@ -514,23 +551,23 @@ walletRouter.post('/set-confidential-policy', async (c) => {
     const policySetup = buildConfidentialNumericPolicySetup({
       maxPerRunUsdc,
       dailyCapUsdc,
+      maxPerRunBaseUnits,
+      dailyCapBaseUnits,
       maskedWitnessDevFixture,
     });
 
-    const program = getProgram();
-    const ix = await program.methods.setConfidentialNumericPolicy(
-      policySetup.policyCommitment,
-      policySetup.encryptionWitnessHash,
-      new anchor.BN(policySetup.encryptedMaxPerRun.toString()),
-      new anchor.BN(policySetup.encryptedDailyCap.toString()),
-      new anchor.BN(policySetup.encryptedDailySpent.toString()),
-      new anchor.BN(policySetup.spentDayIndex.toString())
-    )
-      .accounts({
-        wallet: walletPda,
-        owner: ownerPubkey,
-      })
-      .instruction();
+    const scope = policyScope === 'sol-transfer' ? 'sol-transfer' : 'usdc-dca';
+    const discriminator = scope === 'sol-transfer'
+      ? SET_SOL_TRANSFER_CONFIDENTIAL_POLICY_DISCRIMINATOR
+      : SET_USDC_DCA_CONFIDENTIAL_POLICY_DISCRIMINATOR;
+    const ix = new anchor.web3.TransactionInstruction({
+      programId: PROGRAM_ID,
+      keys: [
+        { pubkey: walletPda, isSigner: false, isWritable: true },
+        { pubkey: ownerPubkey, isSigner: true, isWritable: false },
+      ],
+      data: buildSetScopedConfidentialPolicyData(discriminator, policySetup),
+    });
 
     const tx = new Transaction().add(ix);
     return c.json({
@@ -540,11 +577,122 @@ walletRouter.post('/set-confidential-policy', async (c) => {
         wallet: walletPda.toString(),
         policyCommitment: policySetup.policyCommitment,
         encryptionWitnessHash: policySetup.encryptionWitnessHash,
+        policyScope: scope,
       },
     });
   } catch (error) {
     console.error('Set confidential policy error:', error);
     return c.json({ success: false, error: error instanceof Error ? error.message : 'Failed to build confidential policy transaction' }, 500);
+  }
+});
+
+/**
+ * POST /wallet/execute-confidential-transfer
+ * Builds owner/session-signed native SOL transfer from smart wallet PDA.
+ * Proxy pre-checks same masked numeric policy; contract enforces again on submit.
+ */
+walletRouter.post('/execute-confidential-transfer', async (c) => {
+  try {
+    const body = await c.req.json();
+    const ownerPubkey = parsePublicKey(body.owner, 'owner');
+    const sessionPubkey = parsePublicKey(body.sessionKey, 'sessionKey');
+    const destination = parsePublicKey(body.destination, 'destination');
+    const amount = body.amountLamports === undefined
+      ? parsePositiveAmount(body.amount, SOL_DECIMALS, 'SOL amount')
+      : parsePositiveAmount(body.amountLamports, 0, 'SOL lamports');
+    const walletPda = deriveWalletPda(ownerPubkey);
+    const walletData = await getWalletData(ownerPubkey.toString());
+
+    if (!walletData) {
+      return c.json({ success: false, error: 'Wallet not found' }, 404);
+    }
+    if (!walletData.solTransferPolicy.enabled) {
+      return c.json({ success: false, error: 'SOL transfer policy not configured' }, 400);
+    }
+
+    const witness = Array(32).fill(0);
+    witness[0] = 42;
+    const decision = evaluateConfidentialNumericPolicy(
+      { confidentialPolicy: walletData.solTransferPolicy },
+      amount,
+      witness,
+      undefined,
+      {
+      blockedReason: 'Transfer amount exceeds confidential spending cap.',
+      }
+    );
+    if (!decision.allowed) {
+      return c.json({
+        success: true,
+        data: {
+          allowed: false,
+          code: decision.code,
+          reason: decision.reason,
+          amountLamports: amount.toString(),
+          amountUi: formatBaseUnits(amount, SOL_DECIMALS),
+        },
+      });
+    }
+
+    const sessionKeypair = sessionPubkey.equals(ownerPubkey)
+      ? null
+      : loadKey(ownerPubkey.toString(), 'session');
+    if (sessionKeypair && !sessionKeypair.publicKey.equals(sessionPubkey)) {
+      return c.json({
+        success: false,
+        code: 'SESSION_SIGNER_UNAVAILABLE',
+        error:
+          `Selected session ${sessionPubkey.toString()} is authorized on-chain, but proxy KMS does not have that session key. ` +
+          `Use Generate Proxy Session, or authorize connected owner wallet as session for this demo.`,
+      }, 409);
+    }
+    if (!sessionPubkey.equals(ownerPubkey) && !sessionKeypair) {
+      return c.json({
+        success: false,
+        code: 'SESSION_SIGNER_UNAVAILABLE',
+        error:
+          `Selected session ${sessionPubkey.toString()} needs its signature. ` +
+          `Use Generate Proxy Session, or authorize connected owner wallet as session for this demo.`,
+      }, 409);
+    }
+
+    const connection = getConnection();
+    const slot = Math.max(await connection.getSlot(), Number(walletData.lastRevokedSlot) + 1);
+    const built = await buildConfidentialTransferSessionTransaction(
+      {
+        wallet: walletPda.toString(),
+        sessionKey: sessionPubkey.toString(),
+        destination: destination.toString(),
+        amount,
+        attestationSlot: slot,
+        attestationPolicySeq: walletData.policySeq,
+        maskedWitnessDevFixture: witness,
+      },
+      PROGRAM_ID.toString(),
+      sessionKeypair
+        ? { feePayer: ownerPubkey.toString(), partialSigners: [sessionKeypair] }
+        : { feePayer: ownerPubkey.toString() }
+    );
+
+    return c.json({
+      success: true,
+      data: {
+        allowed: true,
+        ...built,
+        wallet: walletPda.toString(),
+        destination: destination.toString(),
+        amountLamports: amount.toString(),
+        amountUi: formatBaseUnits(amount, SOL_DECIMALS),
+        policySeq: walletData.policySeq,
+        attestationSlot: slot,
+        boundary: 'session-signed-confidential-native-sol-transfer',
+      },
+    });
+  } catch (error) {
+    console.error('Execute confidential transfer error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to build confidential transfer';
+    const status = message.includes('must be') || message.includes('supports at most') ? 400 : 500;
+    return c.json({ success: false, error: message }, status);
   }
 });
 

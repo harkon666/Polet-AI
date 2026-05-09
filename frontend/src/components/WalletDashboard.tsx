@@ -3,10 +3,9 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletButton } from './WalletButton';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
-import { Shield, Clock, Key, AlertTriangle, Send } from 'lucide-react';
+import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
 import { getWalletData, initializeWallet, grantKey, registerAgent, revokeSession } from '../lib/api';
 import { SimpleDemoTab } from './SimpleDemoTab';
-import { useI18n } from '../lib/i18n';
 import { POLET_PROGRAM_ID, shortProgramId } from '../lib/program';
 import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
 
@@ -26,7 +25,6 @@ export function WalletDashboard() {
   const [poletWalletPda, setPoletWalletPda] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const [activeTab, setActiveTab] = useState<'demo' | 'simple' | 'temporal'>('demo');
-  const { t } = useI18n();
   const [temporalKeys, setTemporalKeys] = useState<TemporalKey[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);

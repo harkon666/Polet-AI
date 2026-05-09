@@ -62,6 +62,23 @@ describe('Confidential numeric policy module', () => {
     expect(invalidWitness.allowed).toBe(false);
     if (!invalidWitness.allowed) expect(invalidWitness.code).toBe('INVALID_POLICY_WITNESS');
   });
+
+  test('supports native base-unit policies for simple SOL transfer demo', () => {
+    const witness = Uint8Array.from(Array.from({ length: 32 }, (_, index) => index + 1));
+    const setup = buildConfidentialNumericPolicySetup({
+      maxPerRunBaseUnits: '100000000',
+      dailyCapBaseUnits: '500000000',
+      maskedWitnessDevFixture: witness,
+      spentDayIndex: 123,
+    });
+    const wallet = walletWithPolicy(setup, 123);
+
+    const allowed = evaluateConfidentialNumericPolicy(wallet, 99_000_000n, witness, 123);
+    const blocked = evaluateConfidentialNumericPolicy(wallet, 101_000_000n, witness, 123);
+
+    expect(allowed.allowed).toBe(true);
+    expect(blocked.allowed).toBe(false);
+  });
 });
 
 function walletWithPolicy(

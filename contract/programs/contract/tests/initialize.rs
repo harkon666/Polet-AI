@@ -17,8 +17,8 @@ fn initialize_creates_pda_wallet_without_plaintext_numeric_policy() {
     assert_eq!(wallet.merkle_root, [0u8; 32]);
     assert_eq!(wallet.policy_seq, 0);
     assert_eq!(wallet.last_revoked_slot, 0);
-    assert!(!wallet.confidential_policy.enabled);
-    assert_eq!(wallet.confidential_policy.encrypted_daily_spent, 0);
+    assert!(!wallet.sol_transfer_policy.enabled);
+    assert_eq!(wallet.sol_transfer_policy.encrypted_daily_spent, 0);
     assert!(!wallet.demo_custody.configured);
     assert_eq!(
         wallet.demo_custody.usdc_token_account,

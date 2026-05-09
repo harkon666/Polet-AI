@@ -9,6 +9,7 @@ interface PrivatePolicyTileProps {
   onHide?: () => void;
   disabled?: boolean;
   busy?: boolean;
+  unit?: string;
 }
 
 export function PrivatePolicyTile({
@@ -20,6 +21,7 @@ export function PrivatePolicyTile({
   onHide,
   disabled,
   busy,
+  unit = 'USDC',
 }: PrivatePolicyTileProps) {
   const revealed = value !== undefined;
   return (
@@ -30,7 +32,7 @@ export function PrivatePolicyTile({
             {revealed ? <Eye className="h-4 w-4 text-amber-500" /> : <EyeOff className="h-4 w-4 text-[var(--lagoon-deep)]" />}
             {label}
           </p>
-          <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">{revealed ? `${value} USDC` : '********'}</p>
+          <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">{revealed ? `${value} ${unit}` : '********'}</p>
         </div>
         {(onReveal || onHide) && (
           <button

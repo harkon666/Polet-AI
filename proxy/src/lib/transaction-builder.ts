@@ -330,12 +330,9 @@ export function to_LE_Bytes(num: bigint): Uint8Array {
 
 export async function buildConfidentialTransferSessionTransaction(
   request: ConfidentialTransferTransactionRequest,
-  programId: string
+  programId: string,
+  options: { feePayer?: string; partialSigners?: Signer[] } = {}
 ): Promise<BuiltTransaction> {
-  const connection = getConnection();
-  const { blockhash } = await connection.getLatestBlockhash();
-  const recentSlot = await connection.getSlot();
-
   const sessionKeyPubkey = new PublicKey(request.sessionKey);
   const programIdPubkey = new PublicKey(programId);
 
@@ -347,20 +344,13 @@ export async function buildConfidentialTransferSessionTransaction(
 
   const transaction = new Transaction();
   transaction.add(instruction);
-  transaction.recentBlockhash = blockhash;
-  transaction.feePayer = sessionKeyPubkey;
-
-  const serialized = transaction.serialize({
-    requireAllSignatures: false,
-    verifySignatures: false,
-  });
-
-  return {
-    transaction: serialized.toString('base64'),
-    blockHash: blockhash,
-    slot: recentSlot,
-    signers: [request.sessionKey],
-  };
+  const signerSet = new Set([request.sessionKey, options.feePayer ?? request.sessionKey]);
+  return serializeBuiltTransaction(
+    transaction,
+    options.feePayer ? new PublicKey(options.feePayer) : sessionKeyPubkey,
+    Array.from(signerSet),
+    options.partialSigners
+  );
 }
 
 export async function buildApproveIkaMessageSessionTransaction(
