@@ -4,10 +4,13 @@ import {
   evaluateLegacyPublicIntent,
   generateLegacyPublicAttestation,
 } from '../lib/legacy-public-policy-engine';
+import { evaluateConfidentialNumericPolicy } from '../lib/confidential-numeric-policy';
 import { buildTransaction } from '../lib/transaction-builder';
 import { getWalletPolicy, isSessionAuthorized } from '../lib/wallet-store';
 import type { Intent, Policy } from '../types/intent';
 import { PROGRAM_ID_STRING } from '../lib/program-identity';
+import { getWalletData } from '../lib/wallet-store';
+import { getIntentAmount } from '../lib/intent-parser';
 
 export const legacyIntentRouter = new Hono();
 
@@ -55,6 +58,33 @@ legacyIntentRouter.post('/evaluate', async (c) => {
     }
 
     const result = evaluateLegacyPublicIntent(intent, policy);
+    
+    // Check confidential policy if enabled
+    const walletData = await getWalletData(intent.owner);
+    if (walletData?.confidentialPolicy?.enabled) {
+      const amount = getIntentAmount(intent);
+      // For simple demo, we assume the witness is the same mock one [42, 0, ..., 0]
+      const witness = Array(32).fill(0);
+      witness[0] = 42;
+      
+      const confidentialResult = evaluateConfidentialNumericPolicy(
+        walletData,
+        BigInt(amount),
+        witness
+      );
+      
+      if (!confidentialResult.allowed) {
+        return c.json({
+          success: true,
+          data: {
+            allowed: false,
+            reason: `Confidential: ${confidentialResult.reason}`,
+            code: 'CONFIDENTIAL_POLICY_BLOCKED',
+          },
+        });
+      }
+    }
+
     if (!result.allowed) {
       return c.json({
         success: true,
@@ -133,6 +163,32 @@ legacyIntentRouter.post('/execute', async (c) => {
     }
 
     const result = evaluateLegacyPublicIntent(intent, policy);
+
+    // Check confidential policy if enabled
+    const walletData = await getWalletData(intent.owner);
+    if (walletData?.confidentialPolicy?.enabled) {
+      const amount = getIntentAmount(intent);
+      const witness = Array(32).fill(0);
+      witness[0] = 42;
+      
+      const confidentialResult = evaluateConfidentialNumericPolicy(
+        walletData,
+        BigInt(amount),
+        witness
+      );
+      
+      if (!confidentialResult.allowed) {
+        return c.json({
+          success: true,
+          data: {
+            allowed: false,
+            reason: `Confidential: ${confidentialResult.reason}`,
+            code: 'CONFIDENTIAL_POLICY_BLOCKED',
+          },
+        });
+      }
+    }
+
     if (!result.allowed) {
       return c.json({
         success: true,

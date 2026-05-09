@@ -3,8 +3,10 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletButton } from './WalletButton';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
-import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
+import { Shield, Clock, Key, AlertTriangle, Send } from 'lucide-react';
 import { getWalletData, initializeWallet, grantKey, registerAgent, revokeSession } from '../lib/api';
+import { SimpleDemoTab } from './SimpleDemoTab';
+import { useI18n } from '../lib/i18n';
 import { POLET_PROGRAM_ID, shortProgramId } from '../lib/program';
 import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
 
@@ -23,7 +25,8 @@ export function WalletDashboard() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [poletWalletPda, setPoletWalletPda] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'demo' | 'temporal'>('demo');
+  const [activeTab, setActiveTab] = useState<'demo' | 'simple' | 'temporal'>('demo');
+  const { t } = useI18n();
   const [temporalKeys, setTemporalKeys] = useState<TemporalKey[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -281,7 +284,7 @@ export function WalletDashboard() {
 
       {/* Tab Navigation */}
       <div className="flex gap-1 rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-1">
-        {(['demo', 'temporal'] as const).map((tab) => (
+        {(['demo', 'simple', 'temporal'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -290,7 +293,8 @@ export function WalletDashboard() {
                 : 'text-[var(--sea-ink-soft)] hover:bg-[var(--link-bg-hover)]'
               }`}
           >
-            {tab === 'demo' && 'DCA Demo'}
+            {tab === 'demo' && 'Demo'}
+            {tab === 'simple' && 'Simple Demo'}
             {tab === 'temporal' && 'Agent Access'}
           </button>
         ))}
@@ -307,6 +311,13 @@ export function WalletDashboard() {
             revokingSessionKey={revokingSessionKey}
           />
         </div>
+      )}
+      {activeTab === 'simple' && (
+        <SimpleDemoTab
+          agentAddresses={temporalKeys
+            .filter((key) => key.authorized)
+            .map((key) => key.sessionKey)}
+        />
       )}
       {activeTab === 'demo' && (
         <>

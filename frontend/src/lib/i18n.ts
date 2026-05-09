@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 export type Locale = 'id' | 'en';
 
 export const COPY = {
@@ -227,6 +229,18 @@ export const COPY = {
     recoveryNoSessions: 'Tidak ada agent/session wallet compromised',
     recoverySessionsCount: 'Agent/session wallet untuk revoke',
     recoveryPrivacy: 'Recovery tidak mengubah policy privat.',
+    simpleTitle: 'Simple Shielded Transfer',
+    simpleBody: 'Uji coba guardrails Polet dengan transfer SOL sederhana. Atur limit confidential, lalu coba kirim SOL yang melebihi limit tersebut.',
+    simpleTransferTitle: 'Execute Transfer',
+    simpleDestination: 'Destination Address',
+    simpleDestinationPlaceholder: 'Masukkan alamat Solana tujuan',
+    simpleMaxAmount: 'Max SOL per transfer',
+    simpleDailyLimit: 'Daily SOL limit',
+    simplePolicyReady: 'Confidential policy siap',
+    simplePolicyNotReady: 'Policy belum diatur',
+    simpleTransferSuccess: 'Transfer berhasil dieksekusi!',
+    simpleTransferBlocked: 'Transfer diblokir oleh Polet policy!',
+    simpleTransferConfirm: 'Konfirmasi transfer SOL dari Smart Wallet',
     recoveryBoundary: 'Recovery staging only; tidak bypass Polet policy atau execute Ika settlement.',
     routeRiskTitle: 'Route risk guardrails',
     routeRiskBody: 'Pengaturan publik untuk Ika route-risk. Ini bukan policy privat.',
@@ -502,6 +516,18 @@ export const COPY = {
     recoveryNoSessions: 'No compromised agent/session wallets',
     recoverySessionsCount: 'Agent/session wallets to revoke',
     recoveryPrivacy: 'Recovery does not alter private policy.',
+    simpleTitle: 'Simple Shielded Transfer',
+    simpleBody: 'Test Polet guardrails with simple SOL transfers. Set confidential limits, then try sending SOL that exceeds them.',
+    simpleTransferTitle: 'Execute Transfer',
+    simpleDestination: 'Destination Address',
+    simpleDestinationPlaceholder: 'Enter Solana destination address',
+    simpleMaxAmount: 'Max SOL per transfer',
+    simpleDailyLimit: 'Daily SOL limit',
+    simplePolicyReady: 'Confidential policy ready',
+    simplePolicyNotReady: 'Policy not set',
+    simpleTransferSuccess: 'Transfer executed successfully!',
+    simpleTransferBlocked: 'Transfer blocked by Polet policy!',
+    simpleTransferConfirm: 'Confirm SOL transfer from Smart Wallet',
     recoveryBoundary: 'Recovery staging only; does not bypass Polet policy or execute Ika settlement.',
     routeRiskTitle: 'Route risk guardrails',
     routeRiskBody: 'Public Ika route-risk settings. This is not a private policy.',
@@ -534,3 +560,19 @@ export const COPY = {
 } as const;
 
 export type CopyKey = keyof typeof COPY.id;
+
+export function useI18n() {
+  const [locale, setLocale] = useState<Locale>(() => {
+    const saved = localStorage.getItem('polet-locale');
+    return (saved as Locale) || 'id';
+  });
+
+  const t = COPY[locale];
+
+  const switchLocale = (newLocale: Locale) => {
+    setLocale(newLocale);
+    localStorage.setItem('polet-locale', newLocale);
+  };
+
+  return { t, locale, switchLocale };
+}

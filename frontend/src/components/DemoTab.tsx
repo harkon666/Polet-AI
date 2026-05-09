@@ -501,7 +501,7 @@ export function DemoTabContent({
       )
       .map((session: any) => ({
         key: session.key,
-        label: `Session ${short(session.key)}`,
+        label: session.key === owner ? `Owner (Self) ${short(session.key)}` : `Session ${short(session.key)}`,
       }));
     return sessionOptions;
   };
@@ -2286,13 +2286,22 @@ export function DemoTabContent({
               <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.authorizeAgentSession}</p>
               <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">{t.authorizeAgentSessionHelp}</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_120px_auto]">
-                <input
-                  value={sessionDraft.sessionKey}
-                  onChange={(event) => setSessionDraft((prev) => ({ ...prev, sessionKey: event.target.value }))}
-                  placeholder={t.agentPlaceholder}
-                  className="rounded-lg px-3 py-2 text-sm font-mono"
-                  aria-label={t.agentAddress}
-                />
+                <div className="relative flex-1">
+                  <input
+                    value={sessionDraft.sessionKey}
+                    onChange={(event) => setSessionDraft((prev) => ({ ...prev, sessionKey: event.target.value }))}
+                    placeholder={t.agentPlaceholder}
+                    className="w-full rounded-lg px-3 py-2 text-sm font-mono pr-12"
+                    aria-label={t.agentAddress}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSessionDraft((prev) => ({ ...prev, sessionKey: owner || '' }))}
+                    className="absolute right-1 top-1 rounded-md bg-[var(--island-bg)] px-2 py-1 text-[10px] font-bold text-[var(--lagoon-deep)] hover:bg-[var(--line)]"
+                  >
+                    ME
+                  </button>
+                </div>
                 <input
                   value={sessionDraft.hours}
                   onChange={(event) => setSessionDraft((prev) => ({ ...prev, hours: event.target.value }))}
