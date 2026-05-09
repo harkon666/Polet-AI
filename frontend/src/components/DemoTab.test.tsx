@@ -32,6 +32,7 @@ afterEach(() => {
   initializedWallet = false;
   signedTransactions = [];
   custodyFunded = false;
+  agentGasBalanceSol = 0.01;
 });
 
 let sharedConfig: { threshold: number; approvers: string[] } | null = null;
@@ -53,6 +54,7 @@ let encryptDepositAlreadyExists = false;
 let initializedWallet = false;
 let signedTransactions: string[] = [];
 let custodyFunded = false;
+let agentGasBalanceSol = 0.01;
 const coApproverA = 'BxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR4';
 const coApproverB = 'CxW8ng8qBlOydV0W10Ti14rZ4juxA1sB9mK3lU6vV5xR5';
 const connectedOwner = 'AxV7mf7pAkNxcU99Si13rYq3iwz9qP5r8fH6gS5tT3wQ2';
@@ -189,6 +191,7 @@ const api = {
     };
   },
   fundAgentGas: async (input: { owner: string; agentWallet: string; amount: string }) => {
+    agentGasBalanceSol += Number(input.amount);
     return {
       transaction: `fund-agent-gas-${input.amount}-tx`,
       source: input.owner,
@@ -675,6 +678,7 @@ function renderDemo(options: {
       executeGraphBeforeRequests={options.executeGraphBeforeRequests ?? false}
       initialExecutionCiphertexts={options.initialExecutionCiphertexts ?? legacyInitialExecutionCiphertexts}
       readDecryptionRequest={async () => mockDecryptionRequestData(10n)}
+      readAgentGasBalance={async () => agentGasBalanceSol}
     />
   );
 }
@@ -1317,6 +1321,45 @@ describe('Consumer DCA demo frontend', () => {
     await waitFor(() => expect(signedTransactions).toContain('withdraw-usdc-tx'));
     expect(view.getByText(/USDC withdraw terkonfirmasi/i)).toBeTruthy();
     expect(view.getAllByText(/0 USDC/i).length).toBeGreaterThan(0);
+  });
+
+  test('shows low agent gas readiness separately from custody funding', async () => {
+    agentGasBalanceSol = 0.01;
+    const view = renderDemo();
+
+    await waitFor(() => expect(view.getByText(/0\.0100 SOL/i)).toBeTruthy());
+
+    expect(view.getByText(/Readiness gas agent/i)).toBeTruthy();
+    expect(view.getByText(/Butuh gas/i)).toBeTruthy();
+    expect(view.getByText(/Balance agent wallet rendah/i)).toBeTruthy();
+    expect(view.getByText(/Transfer SOL ke agent wallet untuk biaya transaksi/i)).toBeTruthy();
+    expect(view.getByText(/Ini terpisah dari custody deposit/i)).toBeTruthy();
+    expect(view.getByRole('button', { name: /^Fund Agent Gas$/i })).toBeTruthy();
+  });
+
+  test('shows funded agent gas readiness when balance reaches threshold', async () => {
+    agentGasBalanceSol = 0.05;
+    const view = renderDemo();
+
+    await waitFor(() => expect(view.getByText(/0\.0500 SOL/i)).toBeTruthy());
+
+    expect(view.getByText(/Gas siap/i)).toBeTruthy();
+    expect(view.queryByText(/Balance agent wallet rendah/i)).toBeNull();
+  });
+
+  test('signs agent gas transfer and refreshes confirmed funded state', async () => {
+    agentGasBalanceSol = 0.01;
+    const view = renderDemo();
+
+    await waitFor(() => expect(view.getByText(/Butuh gas/i)).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /^Fund Agent Gas$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+
+    await waitFor(() => expect(signedTransactions).toContain('fund-agent-gas-0.1-tx'));
+    expect(view.getByText(/0\.1100 SOL/i)).toBeTruthy();
+    expect(view.getByText(/Gas siap/i)).toBeTruthy();
+    expect(view.getByText(/Fund Agent Gas 0\.1 SOL/i)).toBeTruthy();
   });
 
   test('official Encrypt policy state displays ciphertext ids and suppresses pending artifacts', async () => {

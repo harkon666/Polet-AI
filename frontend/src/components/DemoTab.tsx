@@ -133,6 +133,15 @@ interface DemoTabContentProps {
   executeGraphBeforeRequests?: boolean;
   initialExecutionCiphertexts?: OfficialEncryptExecutionCiphertexts | null;
   readDecryptionRequest?: (request: string) => Promise<Uint8Array | null>;
+  readAgentGasBalance?: (agentWallet: string) => Promise<number>;
+}
+
+const DEFAULT_AGENT_GAS_READY_THRESHOLD_SOL = Number(import.meta.env.VITE_AGENT_GAS_READY_THRESHOLD_SOL ?? '0.05');
+
+async function readAgentGasBalanceFromRpc(agentWallet: string): Promise<number> {
+  const connection = new Connection(import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
+  const balance = await connection.getBalance(new PublicKey(agentWallet));
+  return balance / 1e9;
 }
 
 const DEFAULT_API: DemoApi = {
@@ -257,6 +266,7 @@ export function DemoTabContent({
   executeGraphBeforeRequests = true,
   initialExecutionCiphertexts = null,
   readDecryptionRequest,
+  readAgentGasBalance,
 }: DemoTabContentProps) {
   const [locale, setLocale] = useState<Locale>('id');
   const [policyDraft, setPolicyDraft] = useState({ maxPerRunUsdc: '10', dailyCapUsdc: '20' });
@@ -308,6 +318,11 @@ export function DemoTabContent({
     pendingDwalletController: '',
   });
   const [passkeyChallenge, setPasskeyChallenge] = useState<string | null>(null);
+  const agentGasReadyThresholdSol = Number.isFinite(DEFAULT_AGENT_GAS_READY_THRESHOLD_SOL)
+    ? DEFAULT_AGENT_GAS_READY_THRESHOLD_SOL
+    : 0.05;
+  const agentGasBalanceNumber = agentGasBalance === null ? null : Number(agentGasBalance);
+  const agentGasReady = agentGasBalanceNumber !== null && agentGasBalanceNumber >= agentGasReadyThresholdSol;
   const [passkeyVerified, setPasskeyVerified] = useState(false);
   const [passkeyUnavailable, setPasskeyUnavailable] = useState(false);
   const [passkeyDraft, setPasskeyDraft] = useState({
@@ -593,6 +608,10 @@ export function DemoTabContent({
     }
   }, [agentAddresses, agentAddress]);
 
+  useEffect(() => {
+    refreshAgentGasBalance();
+  }, [agentAddress]);
+
   const normalizeApproverLines = (value: string) =>
     Array.from(new Set(value.split(/\s+/).map((line) => line.trim()).filter(Boolean)));
 
@@ -751,9 +770,10 @@ export function DemoTabContent({
       return;
     }
     try {
-      const connection = new Connection(import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
-      const balance = await connection.getBalance(new PublicKey(agentAddress.trim()));
-      setAgentGasBalance((balance / 1e9).toFixed(4));
+      const balanceSol = readAgentGasBalance
+        ? await readAgentGasBalance(agentAddress.trim())
+        : await readAgentGasBalanceFromRpc(agentAddress.trim());
+      setAgentGasBalance(balanceSol.toFixed(4));
     } catch {
       setAgentGasBalance(null);
     }
@@ -1798,15 +1818,20 @@ export function DemoTabContent({
             <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
               <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.fundAgentGas}</p>
               <p className="mt-1 text-sm text-[var(--sea-ink)]">{t.fundAgentGasHelp}</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
                 <InfoTile label={t.fundAgentGasDestination} value={short(agentAddress.trim())} small />
                 <InfoTile
                   label="Agent SOL balance"
                   value={agentGasBalance ? `${agentGasBalance} SOL` : '—'}
-                  tone={agentGasBalance && Number(agentGasBalance) < 0.05 ? 'green' : undefined}
+                  tone={agentGasReady ? 'green' : agentGasBalance ? 'amber' : undefined}
+                />
+                <InfoTile
+                  label={t.fundAgentGasReadiness}
+                  value={agentGasReady ? t.fundAgentGasReady : t.fundAgentGasNeedsFunding}
+                  tone={agentGasReady ? 'green' : 'amber'}
                 />
               </div>
-              {agentGasBalance && Number(agentGasBalance) < 0.05 && (
+              {agentGasBalance && !agentGasReady && (
                 <p className="mt-2 text-xs font-semibold text-amber-600">{t.fundAgentGasLowBalance}</p>
               )}
               <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
