@@ -16,7 +16,6 @@ import {
   Wallet,
   X,
   KeyRound,
-  Fingerprint,
 } from 'lucide-react';
 import {
   runConfidentialDca,
@@ -35,7 +34,6 @@ import {
   runMultichainIntent,
   setRecoveryAuthority,
   recoverAccess,
-  requestPasskeyChallenge,
   verifyPasskeyAssertion,
   broadcastIkaDestination,
   createEncryptDeposit,
@@ -111,8 +109,6 @@ interface DemoApi {
   setRecoveryAuthority: (input: { owner: string; recoveryAuthority: string }) => Promise<WalletTransactionResult & { recoveryAuthority: string; activity: { type: string; status: string; privacy: string } }>;
   recoverAccess: (input: { owner: string; authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string }) => Promise<WalletTransactionResult & { authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string; activity: { type: string; status: string; states: string[]; privacy: string; boundary: string } }>;
   revokeSession: typeof revokeSession;
-  requestPasskeyChallenge: (input: { owner: string; sessionKey: string; sharedApprovalChallenge: string; credentialId: string; rpId: string; expiresAtUnix: number }) => Promise<{ challenge: number[]; publicKeyCredentialRequestOptions: { challenge: number[]; rpId: string; allowCredentials: Array<{ type: string; id: string }>; userVerification: string }; boundary: string }>;
-  verifyPasskeyAssertion: (input: { expectedChallenge: number[]; expectedOrigin: string; expectedRpId: string; expectedCredentialId: string; credentialPublicKeyJwk: Record<string, unknown>; assertion: { authenticatorData: string; clientDataJSON: string; signature: string; userHandle?: string }; requireUserVerification: boolean }) => Promise<{ valid: boolean; approverPublicKey: string; challengeUsed: string; boundary: string }>;
   broadcastIkaDestination: typeof import('../lib/api').broadcastIkaDestination;
   runConfidentialDca: typeof runConfidentialDca;
   runMultichainIntent: typeof runMultichainIntent;
@@ -160,8 +156,6 @@ const DEFAULT_API: DemoApi = {
   setRecoveryAuthority,
   recoverAccess,
   revokeSession,
-  requestPasskeyChallenge,
-  verifyPasskeyAssertion,
   broadcastIkaDestination,
   runConfidentialDca,
   runMultichainIntent,
@@ -325,19 +319,12 @@ export function DemoTabContent({
     sharedIkaApprovers: '',
     pendingDwalletController: '',
   });
-  const [passkeyChallenge, setPasskeyChallenge] = useState<string | null>(null);
+
   const agentGasReadyThresholdSol = Number.isFinite(DEFAULT_AGENT_GAS_READY_THRESHOLD_SOL)
     ? DEFAULT_AGENT_GAS_READY_THRESHOLD_SOL
     : 0.05;
   const agentGasBalanceNumber = agentGasBalance === null ? null : Number(agentGasBalance);
   const agentGasReady = agentGasBalanceNumber !== null && agentGasBalanceNumber >= agentGasReadyThresholdSol;
-  const [passkeyVerified, setPasskeyVerified] = useState(false);
-  const [passkeyUnavailable, setPasskeyUnavailable] = useState(false);
-  const [passkeyDraft, setPasskeyDraft] = useState({
-    credentialId: '',
-    rpId: '',
-    assertion: '',
-  });
   const [lastIkaBroadcastable, setLastIkaBroadcastable] = useState<{
     ikaRequest: import('../lib/api').IkaRequestPreview;
     producedSignature: { status: 'signature-produced-prealpha'; signature: string; publicKey: string; messageDigest: string; signatureScheme: string };
@@ -1310,80 +1297,7 @@ export function DemoTabContent({
     });
   };
 
-  const isWebAuthnAvailable = () => typeof navigator !== 'undefined' && typeof navigator.credentials !== 'undefined';
 
-  const requestPasskeyChallenge = async () => {
-    if (!owner || !agentAddress.trim() || !passkeyDraft.credentialId.trim() || !passkeyDraft.rpId.trim()) {
-      return;
-    }
-    if (!isWebAuthnAvailable()) {
-      setPasskeyUnavailable(true);
-      return;
-    }
-    setBusy('passkey-challenge');
-    setError(null);
-    try {
-      const challengeResult = await api.requestPasskeyChallenge({
-        owner,
-        sessionKey: agentAddress.trim(),
-        sharedApprovalChallenge: 'demo-shared-approval-challenge',
-        credentialId: passkeyDraft.credentialId.trim(),
-        rpId: passkeyDraft.rpId.trim(),
-        expiresAtUnix: Math.floor(Date.now() / 1000) + 300,
-      });
-      const challengeHex = Array.from(new Uint8Array(challengeResult.challenge)).map(b => b.toString(16).padStart(2, '0')).join('');
-      setPasskeyChallenge(challengeHex);
-      addActivity({
-        status: 'setup',
-        message: `Passkey challenge prepared`,
-        route: 'Passkey coapproval challenge',
-      });
-    } catch (err) {
-      recordError(err instanceof Error ? err.message : 'Failed to request passkey challenge');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const verifyPasskeyProof = async () => {
-    if (!passkeyChallenge || !passkeyDraft.assertion.trim()) {
-      return;
-    }
-    setBusy('passkey-verify');
-    setError(null);
-    try {
-      const assertion = JSON.parse(passkeyDraft.assertion);
-      const challengeBytes = new Uint8Array(passkeyChallenge.match(/.{2}/g)!.map(b => parseInt(b, 16)));
-      const result = await api.verifyPasskeyAssertion({
-        expectedChallenge: Array.from(challengeBytes),
-        expectedOrigin: 'http://localhost',
-        expectedRpId: passkeyDraft.rpId.trim(),
-        expectedCredentialId: passkeyDraft.credentialId.trim(),
-        credentialPublicKeyJwk: { kty: 'RSA', alg: 'RS256' },
-        assertion: {
-          authenticatorData: assertion.authenticatorData,
-          clientDataJSON: assertion.clientDataJSON,
-          signature: assertion.signature,
-          userHandle: assertion.userHandle,
-        },
-        requireUserVerification: false,
-      });
-      if (result.valid) {
-        setPasskeyVerified(true);
-        addActivity({
-          status: 'setup',
-          message: `Passkey verified for co-approval`,
-          route: 'Passkey coapproval verified',
-        });
-      } else {
-        recordError('Passkey verification failed');
-      }
-    } catch (err) {
-      recordError(err instanceof Error ? err.message : 'Failed to verify passkey assertion');
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const submitOfficialEncryptGraph = async (amountUsdc: string, routePair: string, route: string): Promise<OfficialEncryptPolicyPreview | null> => {
     if (!owner || !agentAddress.trim()) {
@@ -2275,82 +2189,7 @@ export function DemoTabContent({
         </Panel>
       </section>
 
-      {/* Passkey Co-approval */}
-      <section>
-        <Panel icon={<Fingerprint className="h-5 w-5" />} title={t.passkeyTitle}>
-          <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.passkeyBody}</p>
-          {passkeyUnavailable ? (
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs font-medium text-amber-600">
-              {t.passkeyUnavailable}
-            </div>
-          ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="grid gap-3">
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.passkeyCredentialId}</span>
-                  <input
-                    value={passkeyDraft.credentialId}
-                    onChange={(event) => setPasskeyDraft((prev) => ({ ...prev, credentialId: event.target.value }))}
-                    placeholder={t.passkeyCredentialIdPlaceholder}
-                    className="w-full rounded-lg px-3 py-2 font-mono text-sm"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.passkeyRpId}</span>
-                  <input
-                    value={passkeyDraft.rpId}
-                    onChange={(event) => setPasskeyDraft((prev) => ({ ...prev, rpId: event.target.value }))}
-                    placeholder={t.passkeyRpIdPlaceholder}
-                    className="w-full rounded-lg px-3 py-2 font-mono text-sm"
-                  />
-                </label>
-                <button
-                  onClick={requestPasskeyChallenge}
-                  disabled={!owner || !passkeyDraft.credentialId.trim() || !passkeyDraft.rpId.trim() || Boolean(busy)}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  <Fingerprint className="h-4 w-4" />
-                  {busy === 'passkey-challenge' ? '...' : t.passkeyRequestChallenge}
-                </button>
-              </div>
-              <div className="grid gap-3">
-                {passkeyChallenge && !passkeyVerified && (
-                  <label className="block">
-                    <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.passkeyAssertion}</span>
-                    <textarea
-                      value={passkeyDraft.assertion}
-                      onChange={(event) => setPasskeyDraft((prev) => ({ ...prev, assertion: event.target.value }))}
-                      placeholder={t.passkeyAssertionPlaceholder}
-                      rows={3}
-                      className="w-full rounded-lg px-3 py-2 font-mono text-xs"
-                    />
-                  </label>
-                )}
-                {passkeyChallenge && !passkeyVerified && (
-                  <button
-                    onClick={verifyPasskeyProof}
-                    disabled={!passkeyDraft.assertion.trim() || Boolean(busy)}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                  >
-                    <Check className="h-4 w-4" />
-                    {busy === 'passkey-verify' ? '...' : t.passkeyVerify}
-                  </button>
-                )}
-                {passkeyVerified && (
-                  <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
-                    <p className="text-xs font-semibold uppercase text-green-500">{t.passkeyVerified}</p>
-                  </div>
-                )}
-                {passkeyChallenge && (
-                  <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
-                    <p className="text-xs font-semibold text-[var(--sea-ink-soft)]">{t.passkeyBoundary}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </Panel>
-      </section>
+
 
       {/* Strategy + Activity Row */}
       <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">

@@ -178,7 +178,7 @@ No changes to the contract logic or frontend wiring are required; the system is 
 ## Files Modified
 
 - `scripts/070-verify-encrypt-policy-blocking.ts` - Fixed deposit creation with disc 14 and encVault
-- All scripts now use program ID `33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY`
+- All scripts now use program ID `H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG`
 
 ## References
 

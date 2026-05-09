@@ -7,7 +7,7 @@
   "encryptGrpc": "https://pre-alpha-dev-1.encrypt.ika-network.net:443",
   "encryptProgramId": "4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8",
   "closedProgramId": "F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p",
-  "replacementPoletProgramId": "33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY",
+  "replacementPoletProgramId": "H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG",
   "upgradeAuthority": "2WdWUNeKibeX1hyC6CscJeUa1EruKYDHcHHSUhHeSFKf",
   "programClose": {
     "requestedByUser": true,
@@ -19,7 +19,7 @@
     }
   },
   "replacementDeploy": {
-    "programId": "33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY",
+    "programId": "H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG",
     "signature": "4WznhghcpHae7mbC7MhYd1k29iLiYkzQ4XxzyWP3zFaxrSgy6esHU1KG71tweZzynVa6ns8uZTpMCJ6ui95HwBAm",
     "lastDeployedSlot": 460989361,
     "dataLength": 398872,

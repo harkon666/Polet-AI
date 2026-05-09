@@ -27,7 +27,7 @@ const ENCRYPT_EVENT_AUTHORITY_SEED = '__event_authority';
 const ENCRYPT_DEPOSIT_SEED = 'encrypt_deposit';
 
 // Polet CPI authority (for cross-check)
-const POLET_PROGRAM_ID = new PublicKey('33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY');
+const POLET_PROGRAM_ID = new PublicKey('H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG');
 const POLET_ENCRYPT_CPI_AUTHORITY_SEED = '__encrypt_cpi_authority';
 
 // ─── Helpers ────────────────────────────────────────────────────────

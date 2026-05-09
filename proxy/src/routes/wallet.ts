@@ -1569,7 +1569,7 @@ async function withCustodyBalances(walletData: Awaited<ReturnType<typeof getWall
     custodyBalances: {
       usdcBaseUnits,
       usdcUi: formatBaseUnits(usdcBaseUnits, USDC_DECIMALS),
-      nativeSolLamports,
+      nativeSolLamports: nativeLamports,
       nativeSolUi: formatBaseUnits(nativeLamports, SOL_DECIMALS),
       minNativeSolReserveLamports: MIN_NATIVE_SOL_RESERVE_LAMPORTS,
       minNativeSolReserveUi: formatBaseUnits(MIN_NATIVE_SOL_RESERVE_LAMPORTS, SOL_DECIMALS),

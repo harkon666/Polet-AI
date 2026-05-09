@@ -37,7 +37,7 @@ Polet currently calls `encrypt_ctx.execute_graph(&polet_policy_guardrail_graph_b
 - [x] The graph input count is fixed to the four encrypted inputs Polet passes: source amount, max per run, daily spent, and daily cap.
 - [x] Contract tests cover the exact execute-graph instruction payload format so raw graph bytes cannot regress.
 - [x] Proxy/frontend behavior remains unchanged at the API level: guarded runs still submit graph first and suppress Jupiter/Ika artifacts until verified output exists.
-- [x] Manual live devnet graph execution no longer fails at the immediate 186-CU `custom program error: 0x1` discriminator/payload boundary. The original `F7X...` program id was closed as requested and cannot be redeployed, so this was verified on replacement devnet program id `33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY` with fresh wallet/session state.
+- [x] Manual live devnet graph execution no longer fails at the immediate 186-CU `custom program error: 0x1` discriminator/payload boundary. The original `F7X...` program id was closed as requested and cannot be redeployed, so this was verified on replacement devnet program id `H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG` with fresh wallet/session state.
 - [x] The fixed payload exposed no later Encrypt error in the fresh live E2E run: graph execution succeeded, wallet pending state was recorded, and both output ciphertexts reached `verified`.
 
 ## Progress notes
@@ -49,7 +49,7 @@ Polet currently calls `encrypt_ctx.execute_graph(&polet_policy_guardrail_graph_b
 - Simulate-only devnet evidence was run without private keys using `sigVerify: false` and `replaceRecentBlockhash: true`; no broadcast was attempted. It still failed at the exact 186-CU Encrypt boundary. Evidence: `docs/evidence/069-official-encrypt-execute-graph-payload-abi-fix-simulate.json`.
 - `solana program show F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p --url https://api.devnet.solana.com` reports upgrade authority `2WdWUNeKibeX1hyC6CscJeUa1EruKYDHcHHSUhHeSFKf`, program data `4Fr3PKsKWvEquMqyiVzn5TdXJcXySkyu1LQqFzR6Vu2s`, last deployed slot `460920402`.
 - User requested closing the devnet program to reclaim SOL before redeploy. `solana program close F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p` succeeded and reclaimed `2.77184088 SOL`; redeploying the same id failed with `Program F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p has been closed, use a new Program Id`.
-- Replacement devnet program id `33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY` was upgraded with the rebuilt fixed binary. Deploy signature: `4WznhghcpHae7mbC7MhYd1k29iLiYkzQ4XxzyWP3zFaxrSgy6esHU1KG71tweZzynVa6ns8uZTpMCJ6ui95HwBAm`; last deployed slot: `460989361`.
+- Replacement devnet program id `H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG` was upgraded with the rebuilt fixed binary. Deploy signature: `4WznhghcpHae7mbC7MhYd1k29iLiYkzQ4XxzyWP3zFaxrSgy6esHU1KG71tweZzynVa6ns8uZTpMCJ6ui95HwBAm`; last deployed slot: `460989361`.
 - Fresh live E2E on `33ubr...` created official Encrypt ciphertext inputs, initialized a new Polet wallet, set policy, granted a session, created owner/session Encrypt deposits, and executed the graph successfully. Wallet pending slot: `460989735`.
 - Output ciphertexts were read back from devnet and both were `verified`: allowed output `3ijxbPpdyu3y6YARE5Uzg6YAym7DoZdDtXV7cpX1EKfR` (`EBool`, status byte `1`) and daily spent output `GTcbySXNveP1Jq3kqU1Y1kf2sgTv3ycER21ZfaMUcjZ3` (`EUint64`, status byte `1`).
 - Evidence: `docs/evidence/069-official-encrypt-execute-graph-payload-abi-fix-redeploy-live-e2e.json`.

@@ -15,7 +15,7 @@ pub mod execution_payload;
 pub mod ika_approval;
 pub mod state;
 
-declare_id!("33ubr2bpviBt5iLQgb2C6eyczFuka7uhSoxDxBnQktKY");
+declare_id!("H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG");
 
 use confidential_policy::enforce_confidential_numeric_policy;
 pub use constants::WALLET_SEED;
