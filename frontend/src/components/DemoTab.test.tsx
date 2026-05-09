@@ -175,6 +175,19 @@ const api = {
       boundary: 'owner-signed-smart-wallet-custody-deposit' as const,
     };
   },
+  withdrawCustody: async (input: { asset: 'USDC' | 'SOL'; amount: string }) => {
+    custodyFunded = false;
+    return {
+      transaction: `withdraw-${input.asset.toLowerCase()}-tx`,
+      wallet: 'wallet-pda',
+      asset: input.asset,
+      amount: input.amount,
+      amountBaseUnits: input.asset === 'USDC' ? '1000000' : '100000000',
+      source: input.asset === 'USDC' ? 'USDC111111111111111111111111111111111111111' : 'wallet-pda',
+      destination: input.asset === 'USDC' ? 'OwnerUsdcAta111111111111111111111111111111' : connectedOwner,
+      boundary: 'owner-signed-smart-wallet-custody-withdraw' as const,
+    };
+  },
   fundAgentGas: async (input: { owner: string; agentWallet: string; amount: string }) => {
     return {
       transaction: `fund-agent-gas-${input.amount}-tx`,
@@ -1282,6 +1295,28 @@ describe('Consumer DCA demo frontend', () => {
     await waitFor(() => expect(view.getAllByText(/^5 USDC$/i).length).toBeGreaterThan(0));
     expect(signedTransactions).toContain('deposit-usdc-tx');
     expect(view.getByText(/0\.1 SOL/i)).toBeTruthy();
+  });
+
+  test('signs an owner withdrawal and refreshes custody activity state', async () => {
+    const view = renderDemo();
+
+    fireEvent.click(view.getByRole('button', { name: /(set up pda custody|setup custody pda)/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(view.getByText(/(custody ready|custody siap)/i)).toBeTruthy());
+
+    fireEvent.click(view.getByRole('button', { name: /^deposit ke smart wallet$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+    await waitFor(() => expect(signedTransactions).toContain('deposit-usdc-tx'));
+
+    fireEvent.click(view.getByRole('button', { name: /^withdraw dari smart wallet$/i }));
+    await waitFor(() => expect(view.getByRole('button', { name: /sign & execute/i })).toBeTruthy());
+    fireEvent.click(view.getByRole('button', { name: /sign & execute/i }));
+
+    await waitFor(() => expect(signedTransactions).toContain('withdraw-usdc-tx'));
+    expect(view.getByText(/USDC withdraw terkonfirmasi/i)).toBeTruthy();
+    expect(view.getAllByText(/0 USDC/i).length).toBeGreaterThan(0);
   });
 
   test('official Encrypt policy state displays ciphertext ids and suppresses pending artifacts', async () => {

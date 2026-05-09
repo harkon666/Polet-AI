@@ -24,6 +24,7 @@ import {
   setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
   depositCustody,
+  withdrawCustody,
   fundAgentGas,
   configureSharedIkaApprovers,
   getWalletData,
@@ -52,6 +53,8 @@ import {
   type WalletTransactionResult,
   type DepositCustodyInput,
   type DepositCustodyResult,
+  type WithdrawCustodyInput,
+  type WithdrawCustodyResult,
   type ExecuteEncryptPolicyGraphInput,
   type ExecuteEncryptPolicyGraphResult,
   type OfficialEncryptExecutionRefs,
@@ -99,6 +102,7 @@ interface DemoApi {
   setOfficialEncryptCiphertextPolicy: (input: SetOfficialEncryptCiphertextPolicyInput) => Promise<SetOfficialEncryptCiphertextPolicyResult>;
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
   depositCustody: (input: DepositCustodyInput) => Promise<DepositCustodyResult>;
+  withdrawCustody: (input: WithdrawCustodyInput) => Promise<WithdrawCustodyResult>;
   fundAgentGas: (input: { owner: string; agentWallet: string; amount: string }) => Promise<{ transaction: string; source: string; destination: string; amountLamports: string; amountUi: string; boundary: string }>;
   configureSharedIkaApprovers: (input: SharedIkaApproverConfigInput) => Promise<WalletTransactionResult & { threshold: number; approvers: string[] }>;
   revokeSharedIkaApprover: (input: { owner: string; approver: string }) => Promise<WalletTransactionResult & { approver: string }>;
@@ -137,6 +141,7 @@ const DEFAULT_API: DemoApi = {
   setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
   depositCustody,
+  withdrawCustody,
   fundAgentGas,
   configureSharedIkaApprovers,
   revokeSharedIkaApprover,
@@ -270,6 +275,7 @@ export function DemoTabContent({
     funded: boolean;
   } | null>(null);
   const [depositDraft, setDepositDraft] = useState({ asset: 'USDC' as 'USDC' | 'SOL', amount: '5' });
+  const [withdrawDraft, setWithdrawDraft] = useState({ asset: 'USDC' as 'USDC' | 'SOL', amount: '1' });
   const [agentGasBalance, setAgentGasBalance] = useState<string | null>(null);
   const [fundAgentGasDraft, setFundAgentGasDraft] = useState('0.1');
   const [sharedIkaApproval, setSharedIkaApproval] = useState<{ threshold: number; approvers: string[] } | null>(null);
@@ -659,6 +665,44 @@ export function DemoTabContent({
           });
         } catch (err) {
           recordError(err instanceof Error ? err.message : 'Failed to build custody deposit');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
+  };
+
+  const withdrawFromCustody = async () => {
+    if (!owner || !custody) {
+      recordError('Set up custody before withdrawing.');
+      return;
+    }
+    const asset = withdrawDraft.asset;
+    const amount = withdrawDraft.amount.trim();
+    setPendingConfirm({
+      action: `${t.withdrawFromSmartWallet} ${asset}`,
+      description: `${t.confirmWithdraw} ${amount} ${asset}`,
+      onConfirm: async () => {
+        setBusy('withdraw-custody');
+        setError(null);
+        try {
+          const result = await api.withdrawCustody({
+            owner,
+            asset,
+            amount,
+            usdcMint: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+            custodyTokenAccount: custody.usdcTokenAccount,
+          });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          await refreshCustodyBalances();
+          addActivity({
+            status: 'setup',
+            message: `${asset} ${t.withdrawConfirmed}: ${signature.slice(0, 8)}...`,
+            route: 'Owner withdraw from smart-wallet custody',
+            signature,
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to build custody withdraw');
         } finally {
           setBusy(null);
         }
@@ -1712,6 +1756,40 @@ export function DemoTabContent({
               {t.depositDestination}: {depositDraft.asset === 'USDC'
                 ? (custody?.usdcTokenAccount ? short(custody.usdcTokenAccount) : t.notPrepared)
                 : (custodyBalances?.nativeCustodyAddress ? short(custodyBalances.nativeCustodyAddress) : t.notPrepared)}
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+            <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.withdrawFromSmartWallet}</p>
+            <p className="mt-1 text-sm text-[var(--sea-ink)]">{t.withdrawHelp}</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-[120px_1fr_auto]">
+              <select
+                value={withdrawDraft.asset}
+                onChange={(event) => setWithdrawDraft((prev) => ({ ...prev, asset: event.target.value as 'USDC' | 'SOL' }))}
+                className="rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="USDC">USDC</option>
+                <option value="SOL">SOL</option>
+              </select>
+              <input
+                value={withdrawDraft.amount}
+                onChange={(event) => setWithdrawDraft((prev) => ({ ...prev, amount: event.target.value }))}
+                type="number"
+                min="0"
+                step={withdrawDraft.asset === 'USDC' ? '0.000001' : '0.000000001'}
+                className="rounded-lg px-3 py-2 text-sm"
+                aria-label={t.withdrawAmount}
+              />
+              <button
+                onClick={withdrawFromCustody}
+                disabled={!owner || !custody || !withdrawDraft.amount || Boolean(busy)}
+                className="rounded-lg border border-[var(--line)] bg-white px-4 py-2 text-sm font-semibold text-[var(--sea-ink)] disabled:opacity-50"
+              >
+                {busy === 'withdraw-custody' ? 'Signing...' : t.withdrawFromSmartWallet}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
+              {t.withdrawDestination}: {withdrawDraft.asset === 'USDC' ? 'Owner USDC ATA' : (owner ? short(owner) : t.missingOwner)}
             </p>
           </div>
 

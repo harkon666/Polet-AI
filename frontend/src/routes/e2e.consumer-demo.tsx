@@ -140,6 +140,16 @@ const e2eApi = {
     custodyAddress: 'wallet-pda',
     boundary: 'owner-signed-smart-wallet-custody-deposit' as const,
   }),
+  withdrawCustody: async (input: { asset: 'USDC' | 'SOL'; amount: string }) => ({
+    transaction: `withdraw-${input.asset.toLowerCase()}-tx`,
+    wallet: 'wallet-pda',
+    asset: input.asset,
+    amount: input.amount,
+    amountBaseUnits: input.asset === 'USDC' ? '1000000' : '100000000',
+    source: input.asset === 'USDC' ? 'USDC111111111111111111111111111111111111111' : 'wallet-pda',
+    destination: input.asset === 'USDC' ? 'OwnerUsdcAta111111111111111111111111111111' : owner,
+    boundary: 'owner-signed-smart-wallet-custody-withdraw' as const,
+  }),
   fundAgentGas: async (input: { owner: string; agentWallet: string; amount: string }) => ({
     transaction: `fund-agent-gas-${input.amount}-tx`,
     source: input.owner,

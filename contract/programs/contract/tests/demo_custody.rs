@@ -1,7 +1,8 @@
 use {
     common::{
-        initialize, read_wallet, register_demo_custody, setup_svm, spl_token_program_id,
-        write_mock_token_account, wsol_mint, withdraw_custody,
+        initialize, read_mock_token_amount, read_wallet, register_demo_custody, setup_svm,
+        spl_token_program_id, write_mock_mint, write_mock_token_account, wsol_mint,
+        withdraw_custody,
     },
     solana_account::Account,
     solana_keypair::Keypair,
@@ -92,8 +93,10 @@ fn owner_can_withdraw_native_sol_preserving_reserve() {
 
     let usdc_mint = Keypair::new().pubkey();
     let usdc_token_account = Keypair::new().pubkey();
+    let owner_usdc_token_account = Keypair::new().pubkey();
     let sol_token_account = Keypair::new().pubkey();
     write_mock_token_account(&mut svm, usdc_token_account, usdc_mint, wallet_pda, 25_000_000);
+    write_mock_token_account(&mut svm, owner_usdc_token_account, usdc_mint, owner.pubkey(), 0);
     write_mock_token_account(&mut svm, sol_token_account, wsol_mint(), wallet_pda, 0);
 
     register_demo_custody(
@@ -129,6 +132,8 @@ fn owner_can_withdraw_native_sol_preserving_reserve() {
         &owner,
         wallet_pda,
         usdc_token_account,
+        owner_usdc_token_account,
+        usdc_mint,
         spl_token_program_id(),
         "SOL",
         withdraw_amount,
@@ -159,8 +164,10 @@ fn owner_cannot_withdraw_more_than_available_sol() {
 
     let usdc_mint = Keypair::new().pubkey();
     let usdc_token_account = Keypair::new().pubkey();
+    let owner_usdc_token_account = Keypair::new().pubkey();
     let sol_token_account = Keypair::new().pubkey();
     write_mock_token_account(&mut svm, usdc_token_account, usdc_mint, wallet_pda, 25_000_000);
+    write_mock_token_account(&mut svm, owner_usdc_token_account, usdc_mint, owner.pubkey(), 0);
     write_mock_token_account(&mut svm, sol_token_account, wsol_mint(), wallet_pda, 0);
     register_demo_custody(
         &mut svm,
@@ -195,6 +202,8 @@ fn owner_cannot_withdraw_more_than_available_sol() {
         &owner,
         wallet_pda,
         usdc_token_account,
+        owner_usdc_token_account,
+        usdc_mint,
         spl_token_program_id(),
         "SOL",
         50_000_000, // 0.05 SOL — more than 0.01 available
@@ -217,8 +226,10 @@ fn non_owner_cannot_withdraw_custody() {
 
     let usdc_mint = Keypair::new().pubkey();
     let usdc_token_account = Keypair::new().pubkey();
+    let owner_usdc_token_account = Keypair::new().pubkey();
     let sol_token_account = Keypair::new().pubkey();
     write_mock_token_account(&mut svm, usdc_token_account, usdc_mint, wallet_pda, 25_000_000);
+    write_mock_token_account(&mut svm, owner_usdc_token_account, usdc_mint, owner.pubkey(), 0);
     write_mock_token_account(&mut svm, sol_token_account, wsol_mint(), wallet_pda, 0);
     register_demo_custody(
         &mut svm,
@@ -255,6 +266,8 @@ fn non_owner_cannot_withdraw_custody() {
         &attacker,
         wallet_pda,
         usdc_token_account,
+        owner_usdc_token_account,
+        usdc_mint,
         spl_token_program_id(),
         "SOL",
         10_000_000,
@@ -269,14 +282,60 @@ fn withdraw_custody_rejects_unconfigured_custody() {
     // No register_demo_custody — custody not configured
 
     let usdc_token_account = Keypair::new().pubkey();
+    let owner_usdc_token_account = Keypair::new().pubkey();
+    let usdc_mint = Keypair::new().pubkey();
     let res = withdraw_custody(
         &mut svm,
         &owner,
         wallet_pda,
         usdc_token_account,
+        owner_usdc_token_account,
+        usdc_mint,
         spl_token_program_id(),
         "SOL",
         10_000_000,
     );
     assert!(res.is_err(), "withdraw on unconfigured custody must fail");
+}
+
+#[test]
+fn owner_can_withdraw_usdc_from_pda_custody_to_owner_token_account() {
+    let (mut svm, owner, wallet_pda) = setup_svm();
+    initialize(&mut svm, &owner, wallet_pda);
+
+    let usdc_mint = Keypair::new().pubkey();
+    let usdc_token_account = Keypair::new().pubkey();
+    let owner_usdc_token_account = Keypair::new().pubkey();
+    let sol_token_account = Keypair::new().pubkey();
+    write_mock_mint(&mut svm, usdc_mint, 6);
+    write_mock_token_account(&mut svm, usdc_token_account, usdc_mint, wallet_pda, 25_000_000);
+    write_mock_token_account(&mut svm, owner_usdc_token_account, usdc_mint, owner.pubkey(), 1_000_000);
+    write_mock_token_account(&mut svm, sol_token_account, wsol_mint(), wallet_pda, 0);
+
+    register_demo_custody(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        usdc_mint,
+        usdc_token_account,
+        wsol_mint(),
+        sol_token_account,
+    )
+    .expect("register demo custody should pass");
+
+    withdraw_custody(
+        &mut svm,
+        &owner,
+        wallet_pda,
+        usdc_token_account,
+        owner_usdc_token_account,
+        usdc_mint,
+        spl_token_program_id(),
+        "USDC",
+        5_000_000,
+    )
+    .expect("owner USDC withdraw should pass");
+
+    assert_eq!(read_mock_token_amount(&svm, usdc_token_account), 20_000_000);
+    assert_eq!(read_mock_token_amount(&svm, owner_usdc_token_account), 6_000_000);
 }

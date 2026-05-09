@@ -248,6 +248,16 @@ export interface DepositCustodyInput {
   tokenProgram?: string;
 }
 
+export interface WithdrawCustodyInput {
+  owner: string;
+  asset: 'USDC' | 'SOL';
+  amount: string;
+  usdcMint?: string;
+  custodyTokenAccount?: string;
+  destinationTokenAccount?: string;
+  tokenProgram?: string;
+}
+
 export interface WalletTransactionResult {
   transaction: string;
   wallet: string;
@@ -266,6 +276,15 @@ export interface DepositCustodyResult extends WalletTransactionResult {
   createdCustodyAccount: boolean;
   custodyAddress: string;
   boundary: 'owner-signed-smart-wallet-custody-deposit';
+}
+
+export interface WithdrawCustodyResult extends WalletTransactionResult {
+  asset: 'USDC' | 'SOL';
+  amount: string;
+  amountBaseUnits: string;
+  source: string;
+  destination: string;
+  boundary: 'owner-signed-smart-wallet-custody-withdraw';
 }
 
 export interface SetOfficialEncryptCiphertextPolicyResult extends WalletTransactionResult {
@@ -379,6 +398,18 @@ export async function setupDemoCustody(input: SetupDemoCustodyInput): Promise<Wa
 export async function depositCustody(input: DepositCustodyInput): Promise<DepositCustodyResult> {
   const data = await fetchJson<{ success: boolean; data: DepositCustodyResult }>(
     `${PROXY_URL}/wallet/deposit-custody`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
+export async function withdrawCustody(input: WithdrawCustodyInput): Promise<WithdrawCustodyResult> {
+  const data = await fetchJson<{ success: boolean; data: WithdrawCustodyResult }>(
+    `${PROXY_URL}/wallet/withdraw-custody`,
     {
       method: 'POST',
       body: JSON.stringify(input),

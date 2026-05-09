@@ -30,7 +30,13 @@ Add owner-only withdrawal for USDC and native SOL from smart-wallet custody. The
 ## Verification
 
 - `cd contract && NO_DNA=1 anchor build` ✅
-- `cd contract && NO_DNA=1 cargo test --test demo_custody` (6 tests pass) ✅
+- `cd contract && NO_DNA=1 cargo test` ✅
 - `cd proxy && bun test ./tests/wallet-routes.test.ts` (7 tests pass) ✅
 - `cd proxy && bun run build` ✅
-- Commit: `92e498f`
+- `cd frontend && bun run test src/components/DemoTab.test.tsx` (28 tests pass) ✅
+- `cd frontend && bun run typecheck` ✅
+- `cd frontend && bun run build` ✅
+
+## Correction notes
+
+The previous proxy route built direct transfers from the wallet PDA, which cannot sign normal token/system transfers. The corrected slice routes both USDC and native SOL withdrawals through Polet `withdraw_custody`: USDC uses a token `TransferChecked` CPI with wallet PDA signer seeds, and native SOL uses the contract lamport transfer while preserving the 0.05 SOL reserve. The frontend now exposes owner withdrawal, records the activity, and refreshes custody balances after confirmation.

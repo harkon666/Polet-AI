@@ -39,7 +39,7 @@ pub fn mock_encrypt_id() -> anchor_lang::prelude::Pubkey {
 pub fn setup_svm() -> (LiteSVM, Keypair, anchor_lang::prelude::Pubkey) {
     let program_id = contract::id();
     let payer = Keypair::new();
-    let mut svm = LiteSVM::new();
+    let mut svm = LiteSVM::new().with_default_programs();
 
     let deploy_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
@@ -145,6 +145,18 @@ pub fn grant_session(
         accounts: ix_accounts.to_account_metas(None),
     };
     send_ix(svm, owner, &[], ix)
+}
+
+pub fn grant_session_with_slot(
+    svm: &mut LiteSVM,
+    owner: &Keypair,
+    wallet_pda: anchor_lang::prelude::Pubkey,
+    session_key: anchor_lang::prelude::Pubkey,
+    expires_at: i64,
+    slot: u64,
+) -> Result<(), String> {
+    svm.warp_to_slot(slot);
+    grant_session(svm, owner, wallet_pda, session_key, expires_at)
 }
 
 pub fn revoke_session(
@@ -340,6 +352,46 @@ pub fn write_mock_token_account(
     .expect("mock token account write failed");
 }
 
+pub fn write_mock_mint(
+    svm: &mut LiteSVM,
+    mint: anchor_lang::prelude::Pubkey,
+    decimals: u8,
+) {
+    let mut data = vec![0u8; 82];
+    data[44] = decimals;
+    data[45] = 1;
+
+    svm.set_account(
+        mint,
+        Account {
+            lamports: 1_000_000_000,
+            data,
+            owner: spl_token_program_id(),
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+    .expect("mock mint account write failed");
+}
+
+pub fn read_mock_token_amount(svm: &LiteSVM, token_account: anchor_lang::prelude::Pubkey) -> u64 {
+    let account = svm
+        .get_account(&token_account)
+        .expect("token account must exist");
+    u64::from_le_bytes(account.data[64..72].try_into().expect("amount bytes"))
+}
+
+pub fn set_account_lamports(
+    svm: &mut LiteSVM,
+    pubkey: anchor_lang::prelude::Pubkey,
+    lamports: u64,
+) {
+    let mut account = svm.get_account(&pubkey).expect("account must exist");
+    account.lamports = lamports;
+    svm.set_account(pubkey, account)
+        .expect("account lamports write failed");
+}
+
 pub fn register_demo_custody(
     svm: &mut LiteSVM,
     owner: &Keypair,
@@ -372,6 +424,8 @@ pub fn withdraw_custody(
     signer: &Keypair,
     wallet_pda: anchor_lang::prelude::Pubkey,
     usdc_token_account: anchor_lang::prelude::Pubkey,
+    owner_usdc_token_account: anchor_lang::prelude::Pubkey,
+    usdc_mint: anchor_lang::prelude::Pubkey,
     token_program: anchor_lang::prelude::Pubkey,
     asset: &str,
     amount: u64,
@@ -384,8 +438,9 @@ pub fn withdraw_custody(
         wallet: wallet_pda,
         owner: signer.pubkey(),
         usdc_token_account,
+        owner_usdc_token_account,
+        usdc_mint,
         token_program,
-        system_program: anchor_lang::solana_program::system_program::ID,
     };
     let ix = anchor_lang::solana_program::instruction::Instruction {
         program_id: contract::id(),

@@ -48,10 +48,15 @@ pub struct WithdrawCustody<'info> {
     pub wallet: Account<'info, Wallet>,
     pub owner: Signer<'info>,
     /// CHECK: Validated as an initialized SPL Token account owned by wallet PDA.
+    #[account(mut)]
     pub usdc_token_account: UncheckedAccount<'info>,
+    /// CHECK: Validated as an initialized SPL Token account owned by the wallet owner.
+    #[account(mut)]
+    pub owner_usdc_token_account: UncheckedAccount<'info>,
+    /// CHECK: Validated against registered custody USDC mint.
+    pub usdc_mint: UncheckedAccount<'info>,
     /// CHECK: Validated against the canonical SPL Token program id for this demo slice.
     pub token_program: UncheckedAccount<'info>,
-    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -865,6 +870,76 @@ fn validate_pda_token_account(
     Ok(())
 }
 
+fn validate_token_account(
+    token_account: &AccountInfo,
+    mint: &Pubkey,
+    authority: &Pubkey,
+    token_program: &Pubkey,
+) -> Result<()> {
+    require!(
+        *token_account.owner == *token_program,
+        ErrorCode::InvalidTokenCustody
+    );
+
+    let data = token_account.try_borrow_data()?;
+    require!(data.len() >= 109, ErrorCode::InvalidTokenCustody);
+
+    let account_mint = Pubkey::new_from_array(
+        data[0..32]
+            .try_into()
+            .map_err(|_| ErrorCode::InvalidTokenCustody)?,
+    );
+    let account_authority = Pubkey::new_from_array(
+        data[32..64]
+            .try_into()
+            .map_err(|_| ErrorCode::InvalidTokenCustody)?,
+    );
+
+    require!(account_mint == *mint, ErrorCode::InvalidTokenCustody);
+    require!(
+        account_authority == *authority,
+        ErrorCode::InvalidTokenCustody
+    );
+    require!(data[108] == 1, ErrorCode::InvalidTokenCustody);
+
+    Ok(())
+}
+
+fn transfer_checked_with_wallet_authority<'info>(
+    source: AccountInfo<'info>,
+    mint: AccountInfo<'info>,
+    destination: AccountInfo<'info>,
+    wallet: AccountInfo<'info>,
+    token_program: AccountInfo<'info>,
+    owner: Pubkey,
+    wallet_bump: u8,
+    amount: u64,
+    decimals: u8,
+) -> Result<()> {
+    let mut data = Vec::with_capacity(10);
+    data.push(12);
+    data.extend_from_slice(&amount.to_le_bytes());
+    data.push(decimals);
+
+    let ix = Instruction {
+        program_id: token_program.key(),
+        accounts: vec![
+            AccountMeta::new(source.key(), false),
+            AccountMeta::new_readonly(mint.key(), false),
+            AccountMeta::new(destination.key(), false),
+            AccountMeta::new_readonly(wallet.key(), true),
+        ],
+        data,
+    };
+    let seeds = &[WALLET_SEED, owner.as_ref(), &[wallet_bump]];
+    invoke_signed(
+        &ix,
+        &[source, mint, destination, wallet, token_program],
+        &[seeds],
+    )?;
+    Ok(())
+}
+
 #[program]
 pub mod contract {
     use super::*;
@@ -927,25 +1002,50 @@ pub mod contract {
         asset: String,
         amount: u64,
     ) -> Result<()> {
-        let wallet = &mut ctx.accounts.wallet;
+        let wallet = &ctx.accounts.wallet;
         require!(wallet.demo_custody.configured, ErrorCode::TokenCustodyNotConfigured);
+        let wallet_key = ctx.accounts.wallet.key();
+        let wallet_owner = wallet.owner;
+        let custody_usdc_mint = wallet.demo_custody.usdc_mint;
+        let custody_usdc_account = wallet.demo_custody.usdc_token_account;
 
         if asset == "USDC" {
             require!(
-                ctx.accounts.usdc_token_account.key() == wallet.demo_custody.usdc_token_account,
+                ctx.accounts.usdc_token_account.key() == custody_usdc_account,
+                ErrorCode::InvalidTokenCustody
+            );
+            require!(
+                ctx.accounts.usdc_mint.key() == custody_usdc_mint,
                 ErrorCode::InvalidTokenCustody
             );
             let usdc_info = ctx.accounts.usdc_token_account.to_account_info();
             let token_program = ctx.accounts.token_program.key();
             validate_supported_token_program(&token_program)?;
-            {
-                let usdc_data = usdc_info.try_borrow_data()?;
-                require!(usdc_data.len() >= 109, ErrorCode::InvalidTokenCustody);
-            }
-            // USDC withdrawal is handled via owner-signed instruction in proxy.
-// Contract only handles native SOL withdrawal to preserve reserve.
-msg!("USDC withdrawal handled via owner-signed instruction");
-Ok(())
+            validate_pda_token_account(
+                &usdc_info,
+                &custody_usdc_mint,
+                &wallet_key,
+                &token_program,
+            )?;
+            validate_token_account(
+                &ctx.accounts.owner_usdc_token_account.to_account_info(),
+                &custody_usdc_mint,
+                &ctx.accounts.owner.key(),
+                &token_program,
+            )?;
+            transfer_checked_with_wallet_authority(
+                usdc_info,
+                ctx.accounts.usdc_mint.to_account_info(),
+                ctx.accounts.owner_usdc_token_account.to_account_info(),
+                ctx.accounts.wallet.to_account_info(),
+                ctx.accounts.token_program.to_account_info(),
+                wallet_owner,
+                ctx.bumps.wallet,
+                amount,
+                6,
+            )?;
+            msg!("Withdraw USDC: amount={}", amount);
+            Ok(())
         } else if asset == "SOL" {
             let wallet_info = ctx.accounts.wallet.to_account_info();
             let lamports = wallet_info.lamports();
@@ -1371,8 +1471,17 @@ Ok(())
             payload.amount,
             &encryption_witness,
         )?;
+
+        // Enforce min SOL reserve: wallet must retain MIN_NATIVE_SOL_RESERVE_LAMPORTS after debit
+        let wallet_info = ctx.accounts.wallet.to_account_info();
+        let remaining = wallet_info.lamports().saturating_sub(payload.amount);
+        require!(
+            remaining >= MIN_NATIVE_SOL_RESERVE_LAMPORTS,
+            ErrorCode::AmountLimitExceeded
+        );
+
         transfer_lamports(
-            ctx.accounts.wallet.to_account_info(),
+            wallet_info,
             ctx.accounts.destination.to_account_info(),
             payload.amount,
         )?;

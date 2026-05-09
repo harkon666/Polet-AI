@@ -1403,42 +1403,48 @@ walletRouter.post('/withdraw-custody', async (c) => {
     }
 
     const instructions: anchor.web3.TransactionInstruction[] = [];
+    const tokenProgram = body.tokenProgram ? parsePublicKey(body.tokenProgram, 'tokenProgram') : TOKEN_PROGRAM_ID;
+    const program = getProgram();
+    let source: PublicKey;
+    let destination: PublicKey;
+    const usdcMint = body.usdcMint
+      ? parsePublicKey(body.usdcMint, 'usdcMint')
+      : new PublicKey(walletData.demoCustody.usdcMint);
+    const walletUsdcAta = body.custodyTokenAccount
+      ? parsePublicKey(body.custodyTokenAccount, 'custodyTokenAccount')
+      : deriveAta(walletPda, usdcMint, tokenProgram);
+    const ownerUsdcAta = body.destinationTokenAccount
+      ? parsePublicKey(body.destinationTokenAccount, 'destinationTokenAccount')
+      : deriveAta(ownerPubkey, usdcMint, tokenProgram);
 
     if (asset === 'USDC') {
-      // USDC withdrawal via owner-signed instruction from proxy
-      // The owner signs a TransferChecked from wallet's USDC ATA to owner's USDC ATA
-      const usdcMint = new PublicKey(walletData.demoCustody.usdcMint);
-      const walletUsdcAta = deriveAta(walletPda, usdcMint);
-      const ownerUsdcAta = deriveAta(ownerPubkey, usdcMint);
-
-      // Check if owner ATA exists, create if needed
       const ownerAtaInfo = await connection.getAccountInfo(ownerUsdcAta);
       if (!ownerAtaInfo) {
-        instructions.push(createAtaInstruction(ownerPubkey, ownerUsdcAta, ownerPubkey, usdcMint));
+        instructions.push(createAtaInstruction(ownerPubkey, ownerUsdcAta, ownerPubkey, usdcMint, tokenProgram));
       }
-
-      // Transfer from wallet's USDC ATA to owner's USDC ATA
-      instructions.push(createTransferCheckedInstruction(
-        walletUsdcAta,
-        usdcMint,
-        ownerUsdcAta,
-        walletPda, // authority is wallet PDA
-        amount,
-        USDC_DECIMALS
-      ));
+      source = walletUsdcAta;
+      destination = ownerUsdcAta;
     } else {
-      // Native SOL withdrawal - check reserve
       const nativeLamports = BigInt(await connection.getBalance(walletPda));
       const available = nativeLamports - MIN_NATIVE_SOL_RESERVE_LAMPORTS;
       if (amount > available) {
         return c.json({ success: false, error: 'Insufficient SOL balance after reserve' }, 400);
       }
-      instructions.push(SystemProgram.transfer({
-        fromPubkey: walletPda,
-        toPubkey: ownerPubkey,
-        lamports: Number(amount),
-      }));
+      source = walletPda;
+      destination = ownerPubkey;
     }
+
+    const withdrawIx = await program.methods.withdrawCustody(asset, new anchor.BN(amount.toString()))
+      .accounts({
+        wallet: walletPda,
+        owner: ownerPubkey,
+        usdcTokenAccount: walletUsdcAta,
+        ownerUsdcTokenAccount: ownerUsdcAta,
+        usdcMint,
+        tokenProgram,
+      })
+      .instruction();
+    instructions.push(withdrawIx);
 
     const tx = new Transaction().add(...instructions);
     return c.json({
@@ -1449,8 +1455,8 @@ walletRouter.post('/withdraw-custody', async (c) => {
         asset,
         amount: String(body.amount),
         amountBaseUnits: amount.toString(),
-        source: asset === 'USDC' ? deriveAta(walletPda, new PublicKey(walletData.demoCustody.usdcMint)).toString() : walletPda.toString(),
-        destination: asset === 'USDC' ? deriveAta(ownerPubkey, new PublicKey(walletData.demoCustody.usdcMint)).toString() : ownerPubkey.toString(),
+        source: source.toString(),
+        destination: destination.toString(),
         boundary: 'owner-signed-smart-wallet-custody-withdraw',
       },
     });
