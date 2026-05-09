@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { Keypair, PublicKey, type Signer } from '@solana/web3.js';
+import { Keypair, PublicKey, Connection, type Signer } from '@solana/web3.js';
 import {
   Activity,
   AlertTriangle,
@@ -24,6 +24,7 @@ import {
   setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
   depositCustody,
+  fundAgentGas,
   configureSharedIkaApprovers,
   getWalletData,
   getEncryptCiphertextStatus,
@@ -98,6 +99,7 @@ interface DemoApi {
   setOfficialEncryptCiphertextPolicy: (input: SetOfficialEncryptCiphertextPolicyInput) => Promise<SetOfficialEncryptCiphertextPolicyResult>;
   setupDemoCustody: (input: SetupDemoCustodyInput) => Promise<WalletTransactionResult>;
   depositCustody: (input: DepositCustodyInput) => Promise<DepositCustodyResult>;
+  fundAgentGas: (input: { owner: string; agentWallet: string; amount: string }) => Promise<{ transaction: string; source: string; destination: string; amountLamports: string; amountUi: string; boundary: string }>;
   configureSharedIkaApprovers: (input: SharedIkaApproverConfigInput) => Promise<WalletTransactionResult & { threshold: number; approvers: string[] }>;
   revokeSharedIkaApprover: (input: { owner: string; approver: string }) => Promise<WalletTransactionResult & { approver: string }>;
   setRecoveryAuthority: (input: { owner: string; recoveryAuthority: string }) => Promise<WalletTransactionResult & { recoveryAuthority: string; activity: { type: string; status: string; privacy: string } }>;
@@ -135,6 +137,7 @@ const DEFAULT_API: DemoApi = {
   setOfficialEncryptCiphertextPolicy,
   setupDemoCustody,
   depositCustody,
+  fundAgentGas,
   configureSharedIkaApprovers,
   revokeSharedIkaApprover,
   setRecoveryAuthority,
@@ -267,6 +270,8 @@ export function DemoTabContent({
     funded: boolean;
   } | null>(null);
   const [depositDraft, setDepositDraft] = useState({ asset: 'USDC' as 'USDC' | 'SOL', amount: '5' });
+  const [agentGasBalance, setAgentGasBalance] = useState<string | null>(null);
+  const [fundAgentGasDraft, setFundAgentGasDraft] = useState('0.1');
   const [sharedIkaApproval, setSharedIkaApproval] = useState<{ threshold: number; approvers: string[] } | null>(null);
   const [sharedDraft, setSharedDraft] = useState({
     threshold: Math.max(1, Math.min(2, agentAddresses.length || 1)).toString(),
@@ -659,6 +664,55 @@ export function DemoTabContent({
         }
       },
     });
+  };
+
+  const fundAgentGas = async () => {
+    if (!owner || !agentAddress.trim()) {
+      recordError('Select an authorized agent wallet first.');
+      return;
+    }
+    const amount = fundAgentGasDraft.trim();
+    setPendingConfirm({
+      action: t.fundAgentGas,
+      description: `${t.confirmFundAgentGas} ${amount} SOL → ${short(agentAddress.trim())}`,
+      onConfirm: async () => {
+        setBusy('fund-agent-gas');
+        setError(null);
+        try {
+          const result = await api.fundAgentGas({
+            owner,
+            agentWallet: agentAddress.trim(),
+            amount,
+          });
+          const signature = await signAndConfirmTransaction(result.transaction);
+          await refreshAgentGasBalance();
+          addActivity({
+            status: 'setup',
+            message: `${t.fundAgentGas} ${amount} SOL: ${signature.slice(0, 8)}...`,
+            route: 'Owner fund agent gas wallet',
+            signature,
+          });
+        } catch (err) {
+          recordError(err instanceof Error ? err.message : 'Failed to build agent gas funding transaction');
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
+  };
+
+  const refreshAgentGasBalance = async () => {
+    if (!agentAddress.trim()) {
+      setAgentGasBalance(null);
+      return;
+    }
+    try {
+      const connection = new Connection(import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com', 'confirmed');
+      const balance = await connection.getBalance(new PublicKey(agentAddress.trim()));
+      setAgentGasBalance((balance / 1e9).toFixed(4));
+    } catch {
+      setAgentGasBalance(null);
+    }
   };
 
   const readOfficialEncryptRefsFromWallet = (data: any): OfficialEncryptPolicyRefs | null => {
@@ -1660,6 +1714,43 @@ export function DemoTabContent({
                 : (custodyBalances?.nativeCustodyAddress ? short(custodyBalances.nativeCustodyAddress) : t.notPrepared)}
             </p>
           </div>
+
+          {/* Agent Gas Wallet Funding */}
+          {hasAgent && (
+            <div className="mt-4 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
+              <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.fundAgentGas}</p>
+              <p className="mt-1 text-sm text-[var(--sea-ink)]">{t.fundAgentGasHelp}</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <InfoTile label={t.fundAgentGasDestination} value={short(agentAddress.trim())} small />
+                <InfoTile
+                  label="Agent SOL balance"
+                  value={agentGasBalance ? `${agentGasBalance} SOL` : '—'}
+                  tone={agentGasBalance && Number(agentGasBalance) < 0.05 ? 'green' : undefined}
+                />
+              </div>
+              {agentGasBalance && Number(agentGasBalance) < 0.05 && (
+                <p className="mt-2 text-xs font-semibold text-amber-600">{t.fundAgentGasLowBalance}</p>
+              )}
+              <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+                <input
+                  value={fundAgentGasDraft}
+                  onChange={(event) => setFundAgentGasDraft(event.target.value)}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="rounded-lg px-3 py-2 text-sm"
+                  aria-label={t.fundAgentGasAmount}
+                />
+                <button
+                  onClick={fundAgentGas}
+                  disabled={!owner || !agentAddress.trim() || !fundAgentGasDraft || Boolean(busy)}
+                  className="rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {busy === 'fund-agent-gas' ? 'Signing...' : t.fundAgentGas}
+                </button>
+              </div>
+            </div>
+          )}
         </Panel>
 
         <Panel icon={<Shield className="h-5 w-5" />} title={t.policyTitle}>

@@ -1461,6 +1461,68 @@ walletRouter.post('/withdraw-custody', async (c) => {
     return c.json({ success: false, error: message }, status);
   }
 });
+
+/**
+ * POST /wallet/fund-agent-gas
+ * Builds an owner-signed SOL transfer to fund the manual external agent wallet for gas fees.
+ * This is separate from smart-wallet custody deposits - agent gas SOL pays transaction fees only.
+ */
+walletRouter.post('/fund-agent-gas', async (c) => {
+  try {
+    const body = await c.req.json();
+    const ownerPubkey = parsePublicKey(body.owner, 'owner');
+    const agentWallet = parsePublicKey(body.agentWallet, 'agentWallet');
+    const amount = parsePositiveAmount(body.amount, SOL_DECIMALS, 'SOL amount');
+
+    // Validate amount is reasonable for gas funding (max 10 SOL to prevent misuse)
+    const MAX_GAS_FUND_AMOUNT = 10n * BigInt(10 ** SOL_DECIMALS); // 10 SOL in lamports
+    if (amount > MAX_GAS_FUND_AMOUNT) {
+      return c.json({ success: false, error: 'Gas funding amount exceeds maximum 10 SOL' }, 400);
+    }
+
+    const walletData = await getWalletData(ownerPubkey.toString());
+
+    if (!walletData) {
+      return c.json({ success: false, error: 'Wallet not found' }, 404);
+    }
+
+    // Validate agentWallet is an authorized session key for this owner
+    const currentTime = Math.floor(Date.now() / 1000);
+    const isAuthorizedSession = walletData.sessions.some(
+      (s) => s.key === agentWallet.toString() && s.authorized && s.expiresAt > currentTime
+    );
+    if (!isAuthorizedSession) {
+      return c.json({ success: false, error: 'Agent wallet is not an authorized session key for this owner' }, 400);
+    }
+
+    // Build transfer from owner to agent wallet
+    const instructions: anchor.web3.TransactionInstruction[] = [];
+    instructions.push(SystemProgram.transfer({
+      fromPubkey: ownerPubkey,
+      toPubkey: agentWallet,
+      lamports: Number(amount),
+    }));
+
+    const tx = new Transaction().add(...instructions);
+    return c.json({
+      success: true,
+      data: {
+        transaction: await serializeUnsigned(ownerPubkey, tx),
+        source: ownerPubkey.toString(),
+        destination: agentWallet.toString(),
+        amountLamports: amount.toString(),
+        amountUi: formatBaseUnits(amount, SOL_DECIMALS),
+        boundary: 'owner-signed-agent-gas-funding',
+      },
+    });
+  } catch (error) {
+    console.error('Fund agent gas error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to build agent gas funding transaction';
+    const status = message.includes('must be') || message.includes('exceeds') ? 400 : 500;
+    return c.json({ success: false, error: message }, status);
+  }
+});
+
 /**
  * GET /wallet/:owner
  * Fetches the current on-chain state of a wallet.

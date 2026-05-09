@@ -64,7 +64,9 @@ Current hackathon integration decision:
 - `072-owner-withdraw-from-smart-wallet-custody` — Completed owner-only withdrawal for native SOL from smart-wallet custody with 0.05 SOL reserve enforcement. Contract instruction `withdraw_custody` validates owner authority via `has_one = owner`, requires custody configured, enforces `MIN_NATIVE_SOL_RESERVE_LAMPORTS = 50_000_000`, and transfers native SOL via `transfer_lamports`. Proxy route `POST /wallet/withdraw-custody` handles USDC via owner-signed `TransferChecked` through derived ATAs and native SOL via `SystemProgram.transfer` with reserve check. TDD tests cover: owner SOL withdraw preserving reserve, reject withdraw exceeding available balance, non-owner reject, and unconfigured custody reject.
   - Verification this pass: `cd contract && NO_DNA=1 anchor build` ✅, `cd contract && NO_DNA=1 cargo test --test demo_custody` (6 tests pass) ✅, `cd proxy && bun test ./tests/wallet-routes.test.ts` (7 tests pass) ✅, `cd proxy && bun run build` ✅.
   - Note: USDC withdrawal uses owner-signed proxy instruction; native SOL uses contract `withdraw_custody` instruction with reserve. Agent/session signers cannot call generic withdraw — contract enforces `has_one = owner`.
-- `073-agent-gas-wallet-funding` — Unblocked setup slice. Adds separate agent gas wallet balance/funding flow so the agent can pay auto-execution fees without receiving custody principal/profit.
+- `073-agent-gas-wallet-funding` — Completed the separate agent gas wallet balance/funding flow. Proxy route `POST /wallet/fund-agent-gas` validates the agent wallet is an authorized session key, enforces a 10 SOL max per transaction, and returns an owner-signed SOL transfer. Frontend displays the authorized agent wallet public key and current SOL balance, shows a low-balance warning when below 0.05 SOL, and lets the owner build/sign/confirm a SOL transfer to fund the agent wallet. The flow is labeled as "Fund Agent Gas" and is clearly separated from "Deposit to Smart Wallet." Readiness state distinguishes custody-funded from agent-gas-funded.
+  - Verification this pass: `cd proxy && bun test ./tests/wallet-routes.test.ts` (7 tests pass) ✅, `cd proxy && bun run build` ✅, `cd frontend && bun run test src/components/DemoTab.test.tsx` (27 tests pass) ✅, `cd frontend && bun run typecheck` ✅, `cd frontend && bun run build` ✅.
+  - Note: agent gas SOL pays transaction fees only and is not principal/profit custody. The flow requires the agent wallet to already be an authorized session key on-chain.
 - `074-quote-based-policy-valuation` — Jupiter quote-based trade valuation slice, unblocked by completed `071`.
 - `075-policy-gated-custody-trade-execution` — Critical HITL production execution slice, blocked by `074`. Owns the actual smart-wallet custody spend path, quote-bound execution, atomic daily-spent update, min SOL reserve enforcement, and concurrency behavior.
 - `076-agent-auto-execute-runtime` — SDK/runtime auto-execute slice, blocked by `075`.
@@ -94,8 +96,6 @@ Current hackathon integration decision:
 
 Ralph execution queue. Pick the first incomplete unblocked issue:
 
-- `073-agent-gas-wallet-funding` — Can run in parallel with `071` if another agent is available; it is independent and establishes the gas-only agent wallet setup.
-- `072-owner-withdraw-from-smart-wallet-custody` — Now unblocked by `071`; owner-only withdraw can build on custody balances and reserve semantics.
 - `074-quote-based-policy-valuation` — Now unblocked by `071`; it prepares Jupiter quote valuation for custody execution.
 - `075-policy-gated-custody-trade-execution` — Start after `071` and `074`; this is the main HITL smart-wallet execution slice.
 

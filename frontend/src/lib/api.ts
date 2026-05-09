@@ -388,6 +388,33 @@ export async function depositCustody(input: DepositCustodyInput): Promise<Deposi
   return data.data;
 }
 
+export interface FundAgentGasInput {
+  owner: string;
+  agentWallet: string;
+  amount: string;
+}
+
+export interface FundAgentGasResult {
+  transaction: string;
+  source: string;
+  destination: string;
+  amountLamports: string;
+  amountUi: string;
+  boundary: 'owner-signed-agent-gas-funding';
+}
+
+export async function fundAgentGas(input: FundAgentGasInput): Promise<FundAgentGasResult> {
+  const data = await fetchJson<{ success: boolean; data: FundAgentGasResult }>(
+    `${PROXY_URL}/wallet/fund-agent-gas`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+
+  return data.data;
+}
+
 export async function configureSharedIkaApprovers(input: SharedIkaApproverConfigInput): Promise<SharedIkaApproverConfigResult> {
   const data = await fetchJson<{ success: boolean; data: SharedIkaApproverConfigResult }>(
     `${PROXY_URL}/wallet/shared-ika-approvers`,

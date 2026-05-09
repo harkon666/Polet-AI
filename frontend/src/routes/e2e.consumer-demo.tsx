@@ -140,6 +140,14 @@ const e2eApi = {
     custodyAddress: 'wallet-pda',
     boundary: 'owner-signed-smart-wallet-custody-deposit' as const,
   }),
+  fundAgentGas: async (input: { owner: string; agentWallet: string; amount: string }) => ({
+    transaction: `fund-agent-gas-${input.amount}-tx`,
+    source: input.owner,
+    destination: input.agentWallet,
+    amountLamports: String(Number(input.amount) * 1e9),
+    amountUi: input.amount,
+    boundary: 'owner-signed-agent-gas-funding' as const,
+  }),
   configureSharedIkaApprovers: async (input: { threshold: number; approvers: string[] }) => ({
     transaction: 'shared-config-tx',
     wallet: 'wallet-pda',
