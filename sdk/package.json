@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "polet-mcp": "dist/mcp-server/cli.js"
+    "polet-mcp": "dist/mcp-server/cli.bundled.js",
+    "polet-readiness": "dist/bin/readiness.js"
   },
   "exports": {
     ".": {
@@ -31,15 +32,21 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && bun build src/mcp-server/cli.ts --target=node --outfile dist/mcp-server/cli.bundled.js && chmod +x dist/mcp-server/cli.js dist/mcp-server/cli.bundled.js dist/bin/readiness.js || true",
     "agent:run": "bun run src/local-agent-runner.ts",
     "encrypt:evidence": "bun run src/official-encrypt-evidence-runner.ts",
     "encrypt:live-e2e": "bun run src/official-encrypt-live-e2e-runner.ts",
     "send:polet-tx": "bun run src/send-polet-transaction.ts",
     "mcp-server": "bun run src/mcp-server/cli.ts",
+    "mcp:smoke": "bun run tests/mcp-subprocess-smoke.ts",
     "test": "bun test",
     "dev": "bun test --watch"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
     "@encrypt.xyz/pre-alpha-solana-client": "^0.1.1",

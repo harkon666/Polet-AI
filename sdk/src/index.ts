@@ -1085,6 +1085,14 @@ export interface PoletAgentKit {
    * classes.
    */
   execute(input: PoletTradeInput, options?: import('./agent-execute.js').PoletExecuteOptions): Promise<import('./agent-execute.js').PoletExecutionResult>;
+  /**
+   * Run the Official Encrypt policy-graph preflight manually. Most callers
+   * do not need this — `execute()` invokes it automatically when the proxy
+   * reports that a confidential policy graph must be executed first.
+   * Exposed for agents that want to pre-warm refs or inspect the verified
+   * decision before committing to a trade.
+   */
+  runEncryptPreflight(amountUsdc: string): Promise<import('./encrypt-preflight.js').EncryptPreflightResult>;
   progressIkaLifecycle(input: ProgressIkaLifecycleInput): Promise<PoletIkaLifecycleOutcome>;
   tools(): PoletAgentToolDescriptor[];
   onboarding: {
@@ -1125,7 +1133,23 @@ export function createPoletAgentKit(options: PoletAgentKitOptions): PoletAgentKi
           rpcUrl: simInput.rpcUrl ?? options.rpcUrl,
           connection: simInput.connection ?? options.connection,
         }),
+        resolveAgentSigner: () => resolveKitAgentSigner(options),
       }, executeOptions);
+    },
+    runEncryptPreflight: async (amountUsdc: string) => {
+      const { runEncryptPolicyPreflight } = await import('./encrypt-preflight.js');
+      const signer = await resolveKitAgentSigner(options);
+      if (!signer) throw new Error('Encrypt preflight requires an agent signer configured in PoletAgentKitOptions');
+      if (!options.owner || !options.sessionKey) throw new Error('Encrypt preflight requires owner + sessionKey');
+      return runEncryptPolicyPreflight({
+        baseUrl: options.baseUrl,
+        owner: options.owner,
+        sessionKey: options.sessionKey,
+        agentSigner: signer,
+        amountUsdc,
+        rpcUrl: options.rpcUrl,
+        connection: options.connection as Connection | undefined,
+      });
     },
     progressIkaLifecycle: (input) => agent.progressIkaLifecycle(input),
     tools: () => buildPoletAgentKitTools(options, agent),

@@ -1,0 +1,22 @@
+{
+  "_comment": "Polet MCP server template. Copy into:",
+  "_location_macos": "~/Library/Application Support/Claude/claude_desktop_config.json",
+  "_location_windows": "%APPDATA%\\Claude\\claude_desktop_config.json",
+  "_location_linux": "~/.config/Claude/claude_desktop_config.json",
+  "_after": "Restart Claude Desktop. Polet tools appear in the tool picker.",
+  "mcpServers": {
+    "polet": {
+      "command": "node",
+      "args": [
+        "/ABSOLUTE/PATH/TO/Polet-AI/sdk/dist/mcp-server/cli.js"
+      ],
+      "env": {
+        "POLET_OWNER": "<paste from polet-agent.json>",
+        "POLET_SESSION_KEY": "<paste from polet-agent.json>",
+        "POLET_AGENT_KEYPAIR": "<paste from polet-agent.json>",
+        "POLET_PROXY_URL": "http://localhost:3001",
+        "POLET_RPC_URL": "https://api.devnet.solana.com"
+      }
+    }
+  }
+}

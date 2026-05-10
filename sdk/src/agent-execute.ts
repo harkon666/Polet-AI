@@ -214,6 +214,10 @@ export interface PoletExecuteOptions {
   connection?: Connection;
   /** Injected fetch for tests. */
   fetch?: typeof fetch;
+  /** When true (default), automatically run the Encrypt policy-graph preflight if the first trade attempt is blocked with reason "graph must be executed". */
+  autoEncryptPreflight?: boolean;
+  /** Maximum number of automatic preflight retries. Default 1. */
+  maxEncryptPreflightRetries?: number;
 }
 
 export interface PoletExecuteDeps {
@@ -231,6 +235,16 @@ export async function executePoletTrade(
   deps: PoletExecuteDeps,
   options: PoletExecuteOptions = {}
 ): Promise<PoletExecutionResult> {
+  const maxRetries = options.maxEncryptPreflightRetries ?? 1;
+  return executeWithEncryptRetry(input, deps, options, maxRetries);
+}
+
+async function executeWithEncryptRetry(
+  input: PoletTradeInput,
+  deps: PoletExecuteDeps,
+  options: PoletExecuteOptions,
+  retriesLeft: number
+): Promise<PoletExecutionResult> {
   let trade: PoletTradeResult;
   try {
     trade = await deps.agent.trade(input);
@@ -245,6 +259,65 @@ export async function executePoletTrade(
       message: wrapped.message,
       reason: wrapped.message,
     };
+  }
+
+  // Auto-run Encrypt policy-graph preflight if proxy says we must.
+  if (
+    !trade.allowed
+    && options.autoEncryptPreflight !== false
+    && retriesLeft > 0
+    && isEncryptPreflightRequired(trade)
+    && canResolveAgentSigner(deps)
+  ) {
+    try {
+      const { runEncryptPolicyPreflight } = await import('./encrypt-preflight.js');
+      const signer = await deps.resolveAgentSigner!();
+      if (!signer) throw new Error('resolveAgentSigner returned undefined');
+      const amount = extractAmount(input);
+      if (!amount) throw new Error('Cannot extract USDC amount from trade input for preflight');
+      const preflight = await runEncryptPolicyPreflight({
+        baseUrl: deps.kitOptions.baseUrl,
+        owner: deps.kitOptions.owner!,
+        sessionKey: deps.kitOptions.sessionKey!,
+        agentSigner: signer,
+        amountUsdc: amount,
+        rpcUrl: deps.kitOptions.rpcUrl,
+        connection: options.connection,
+        fetch: options.fetch,
+        log: (message) => process.stderr.write(`${message}\n`),
+      });
+      if (preflight.decision.status === 'encrypt-verified-allowed') {
+        const retryInput: PoletTradeInput = {
+          ...(input as PoletTradeInput),
+          officialEncrypt: preflight.refs,
+        } as PoletTradeInput;
+        return executeWithEncryptRetry(retryInput, deps, options, retriesLeft - 1);
+      }
+      // Verified-blocked: surface as policy-blocked, non-recoverable.
+      const reason = 'Official Encrypt verifier blocked this trade (amount exceeds the private cap).';
+      if (options.throwOnFailure) throw new PoletPolicyBlockedError(reason, { code: 'ENCRYPT_VERIFIED_BLOCKED' });
+      return {
+        status: 'policy-blocked',
+        ok: false,
+        recoverable: true,
+        rail: trade.rail,
+        trade,
+        code: 'ENCRYPT_VERIFIED_BLOCKED',
+        reason,
+        message: `Polet policy blocked via Encrypt verifier: ${reason}`,
+      };
+    } catch (error) {
+      const wrapped = toPoletAgentError(error);
+      if (options.throwOnFailure) throw wrapped;
+      return {
+        status: 'lifecycle-error',
+        ok: false,
+        rail: rail(input),
+        trade,
+        message: wrapped.message,
+        reason: `Encrypt preflight failed: ${wrapped.message}`,
+      };
+    }
   }
 
   // Non-allowed paths ----------------------------------------------------
@@ -281,6 +354,28 @@ export async function executePoletTrade(
     reason: `Polet rail ${trade.rail} is not supported by execute()`,
     message: `Rail ${trade.rail} cannot be executed end-to-end by this SDK build.`,
   };
+}
+
+function isEncryptPreflightRequired(trade: PoletTradeResult): boolean {
+  const reason = trade.policy?.reason?.toLowerCase() ?? '';
+  const code = (trade.policy?.code ?? '').toString().toLowerCase();
+  return (
+    reason.includes('encrypt policy graph must be executed')
+    || reason.includes('pending-encrypt-execution')
+    || code === 'encrypt_policy_graph_not_executed'
+    || code === 'encrypt_policy_pending'
+  );
+}
+
+function canResolveAgentSigner(deps: PoletExecuteDeps): boolean {
+  return typeof deps.resolveAgentSigner === 'function';
+}
+
+function extractAmount(input: PoletTradeInput): string | null {
+  const candidate = (input as unknown as { amount?: unknown }).amount;
+  if (typeof candidate === 'string') return candidate.trim();
+  if (typeof candidate === 'number') return String(candidate);
+  return null;
 }
 
 function mapDisallowedTrade(

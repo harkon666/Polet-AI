@@ -17,6 +17,25 @@ bun add @polet-ai/sdk
 npm install @polet-ai/sdk
 ```
 
+## End-to-end in 5 steps (Hermes / Claude / Cursor)
+
+See [`docs/hermes-quickstart.md`](../docs/hermes-quickstart.md) for the zero-to-trading walkthrough. Summary:
+
+1. Start `proxy` + `frontend` locally.
+2. In the frontend, connect the owner wallet → initialize Polet → set confidential policy → click **Generate agent keypair** + **Grant as Polet session** + **Download polet-agent.json**.
+3. `cd sdk && bun run build` to emit `dist/mcp-server/cli.js`.
+4. Point Hermes / Claude Desktop / Cursor at the CLI via `node dist/mcp-server/cli.js` and paste the values from `polet-agent.json` into the env block (templates in [`docs/templates/`](../docs/templates/)).
+5. In the agent runtime, ask: *"Use Polet. Check status, then execute 5 USDC to SUI."* The agent discovers the Polet MCP tools and invokes `polet_execute`.
+
+Pre-run sanity check:
+
+```bash
+POLET_OWNER=... POLET_SESSION_KEY=... POLET_PROXY_URL=... \
+  node sdk/dist/bin/readiness.js
+```
+
+The helper verifies proxy reachable + wallet onboarded + session authorized + managed fixture loaded before Hermes spawns the MCP server.
+
 ## Quickstart (20 lines)
 
 ```ts

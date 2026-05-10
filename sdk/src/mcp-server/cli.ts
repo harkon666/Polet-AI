@@ -1,6 +1,10 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * Polet MCP CLI — spins up a stdio MCP server for MCP-capable agent runtimes.
+ *
+ * Runs on both Node.js 20+ and Bun. Hermes Agent, OpenClaw, Claude Desktop,
+ * Cursor, Zed, and custom LLM clients can spawn this binary directly via
+ * `npx @polet-ai/sdk polet-mcp` or `bunx @polet-ai/sdk polet-mcp`.
  *
  * Configuration is read from environment variables so it can be declared
  * directly in an MCP client's config (e.g. `mcp.json`):
@@ -15,6 +19,7 @@
  */
 
 import { Connection, Keypair, type Signer } from '@solana/web3.js';
+import bs58 from 'bs58';
 import { createPoletAgentKit, type PoletAgentKit } from '../index.js';
 import { PoletMcpServer } from './server.js';
 
@@ -35,10 +40,6 @@ function resolveAgentSigner(): Signer | undefined {
     if (trimmed.startsWith('[')) {
       return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(trimmed)));
     }
-    // base58 fallback via dynamic import so the dep only loads when needed.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const bs58 = (globalThis as unknown as { bs58?: { decode: (s: string) => Uint8Array } }).bs58
-      ?? (require('bs58') as { decode: (s: string) => Uint8Array });
     return Keypair.fromSecretKey(bs58.decode(trimmed));
   } catch (error) {
     process.stderr.write(`[polet-mcp] invalid POLET_AGENT_KEYPAIR: ${(error as Error).message}\n`);

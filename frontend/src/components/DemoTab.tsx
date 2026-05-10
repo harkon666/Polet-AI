@@ -79,6 +79,7 @@ import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-
 import { Panel } from './ui/Panel';
 import { InfoTile } from './ui/InfoTile';
 import { IkaSetupPanel } from './IkaSetupPanel';
+import { AgentOnboardingPanel } from './AgentOnboardingPanel';
 import { InfoRow } from './ui/InfoRow';
 import { PrivatePolicyTile } from './ui/PrivatePolicyTile';
 import { ActivityCard } from './ActivityCard';
@@ -2195,6 +2196,11 @@ export function DemoTabContent({
       {/* Ika managed demo setup */}
       <section>
         <IkaSetupPanel owner={owner ?? undefined} />
+      </section>
+
+      {/* Agent credentials export (Hermes / Claude / Cursor / SendAI) */}
+      <section>
+        <AgentOnboardingPanel owner={owner ?? undefined} />
       </section>
 
       {/* Strategy + Activity Row */}
