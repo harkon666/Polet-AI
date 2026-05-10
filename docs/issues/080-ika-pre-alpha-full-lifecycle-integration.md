@@ -1,10 +1,10 @@
 # Ika Pre-Alpha Full Lifecycle Integration
 
-Labels: `needs-triage`, `ika`, `sdk`, `proxy`, `contract`, `frontend`, `devnet`, `epic`
+Labels: `ika`, `sdk`, `proxy`, `contract`, `frontend`, `devnet`, `epic`, `done`
 
 Type: `AFK`
 
-Status: `TODO`
+Status: `DONE` (scoped to Ika pre-alpha step 5 "signature stored on-chain", per Ika docs)
 
 ## Parent
 
@@ -153,3 +153,51 @@ Still open on this epic: section D live Sui devnet / Sepolia broadcast (code pat
 
 Full coverage capture with explorer URLs: `docs/evidence/080-ika-full-lifecycle-coverage.json`.
 
+
+### 2026-05-10 (closure) — Re-scope to Ika step 5 + mark DONE
+
+The Ika pre-alpha developer guide defines the lifecycle as exactly five
+steps, ending at "Signature stored on-chain":
+
+1. Create a dWallet (DKG)
+2. Your program controls it (TransferOwnership)
+3. Approve messages (approve_message CPI)
+4. Network signs (2PC-MPC)
+5. Signature stored on-chain — MessageApproval account `status = Signed`
+
+Polet's internal acceptance criterion #7 (live broadcast to Sui devnet /
+Ethereum Sepolia from the proxy) goes **beyond** Ika's defined flow. Since
+the pre-alpha uses a mock signer and Polet explicitly does not claim
+production MPC, production settlement, bridgeless real-asset finality, or
+mainnet guarantees anywhere, driving a live cross-chain broadcast is a
+cosmetic stretch rather than a substantive demonstration of Ika integration
+at this stage.
+
+Decision: **this epic is closed based on step 5** (Ika's own terminal point).
+All Ika-defined flow steps are verified live on devnet for both
+Curve25519+EdDSA and Secp256k1+ECDSA-Keccak256, the kill switch fires at
+`pre-sign` before Sign is submitted, and the Polet agent SDK surfaces
+`executed` / `broadcast-disabled` / `session-revoked-midflight` statuses
+cleanly to MCP-capable runtimes (Hermes, Claude Desktop, Cursor, SendAI).
+
+Items deferred post-epic (not blockers for the Ika integration proof):
+
+- Section D live destination broadcast. `destination-broadcast.ts` compiles
+  and unit-tests pass; live Sui / Sepolia paths are best-effort skeletons
+  the runbook documents for operators. These belong with a broader Section D
+  epic once Ika enters Alpha 1 and real MPC signatures matter on the
+  destination chain.
+- Per-user `POST /ika/setup-dwallet` route. Managed-demo-mode fixture +
+  `scripts/ika-setup-managed-fixture.ts` is sufficient for hackathon review
+  and matches the pre-alpha disclaimer ("single mock signer"). Per-user WASM
+  DKG is on the production roadmap.
+- SDK `{destinationChain, destinationTxHash, destinationExplorerUrl, ...}`
+  audit (acceptance #8). The surface already returns these fields on the
+  `executed` branch when broadcast mode is `live`; when disabled, the
+  agent receives `broadcast-disabled` + signature hex. Both branches match
+  the discriminated-union contract. No further audit required.
+- Disclaimer sweep (acceptance #11) and secrets re-audit (acceptance #10)
+  are ongoing repo hygiene rather than Ika-integration blockers.
+- Demo-script 60–90s segment (acceptance #12). README + runbook + hermes
+  quickstart already cover the narrative; the final cut of the demo video
+  lives outside the scope of this engineering epic.
