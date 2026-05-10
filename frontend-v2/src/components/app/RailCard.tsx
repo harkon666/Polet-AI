@@ -14,10 +14,12 @@ export type Rail = {
   blockActionKey: ActionKey
   blockActionLabelKey: TranslationKey
   blockActionLoadingKey: TranslationKey
+  blockHintKey: TranslationKey
   /** Allow scenario action ("Run 5 USDC" / "Approve 5 USDC"). */
   allowActionKey: ActionKey
   allowActionLabelKey: TranslationKey
   allowActionLoadingKey: TranslationKey
+  allowHintKey: TranslationKey
 }
 
 type RailCardProps = {
@@ -47,6 +49,13 @@ type RailCardProps = {
  *   2. Pre-alpha disclaimer foot strip in mono uppercase — explicit
  *      operational boundary on every rail card, not just in a footer
  *      footnote.
+ *
+ * Tier-1 redesign (Day 12): each action button is two-line — verdict
+ * icon + label on top, italic confidential-cap hint underneath. The
+ * pair is split by a vertical "policy gate intersect" rail with a
+ * monospace `π` symbol at its centre, making explicit the moment the
+ * intent passes through Polet's confidential gate before reaching the
+ * downstream rail provider.
  *
  * `mt-auto` on the disclaimer pushes it to the bottom of the flex
  * card so disclaimers align across both cards regardless of body
@@ -100,29 +109,61 @@ export function RailCard({
         {t(rail.bodyKey)}
       </p>
 
-      {/* Action buttons */}
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      {/* Action buttons with policy-gate intersect */}
+      <div className="mt-6 relative grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={onBlock}
           disabled={!enabled || anyLoading}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-coral/40 bg-coral/5 px-3 py-2 text-xs font-medium text-coral hover:bg-coral/10 hover:border-coral transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex flex-col items-center justify-center gap-0.5 rounded-lg border border-coral/40 bg-coral/5 px-3 py-3 hover:bg-coral/10 hover:border-coral transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {blockLoading ? <Spinner size={11} /> : null}
-          {blockLoading
-            ? t(rail.blockActionLoadingKey)
-            : t(rail.blockActionLabelKey)}
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-coral">
+            {blockLoading ? (
+              <Spinner size={11} />
+            ) : (
+              <span aria-hidden="true" className="font-mono">✗</span>
+            )}
+            {blockLoading
+              ? t(rail.blockActionLoadingKey)
+              : t(rail.blockActionLabelKey)}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-coral/70">
+            {t(rail.blockHintKey)}
+          </span>
         </button>
+
+        {/* Policy gate intersect — vertical lagoon rail with π badge */}
+        <span
+          aria-hidden="true"
+          className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[1] h-[60%] w-px bg-gradient-to-b from-transparent via-lagoon-bright/40 to-transparent"
+        />
+        <span
+          aria-hidden="true"
+          title="policy gate intersect"
+          className="hidden sm:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[2] items-center justify-center h-6 w-6 rounded-full border border-lagoon-bright/40 bg-bg-deep font-mono text-[11px] text-lagoon-bright shadow-[0_0_12px_rgba(45,212,191,0.35)]"
+        >
+          π
+        </span>
+
         <button
           type="button"
           onClick={onAllow}
           disabled={!enabled || anyLoading}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-2 text-xs font-medium text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex flex-col items-center justify-center gap-0.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-3 hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {allowLoading ? <Spinner size={11} /> : null}
-          {allowLoading
-            ? t(rail.allowActionLoadingKey)
-            : t(rail.allowActionLabelKey)}
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-lagoon-bright">
+            {allowLoading ? (
+              <Spinner size={11} />
+            ) : (
+              <span aria-hidden="true" className="font-mono">✓</span>
+            )}
+            {allowLoading
+              ? t(rail.allowActionLoadingKey)
+              : t(rail.allowActionLabelKey)}
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-lagoon-bright/70">
+            {t(rail.allowHintKey)}
+          </span>
         </button>
       </div>
 

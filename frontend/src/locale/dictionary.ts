@@ -332,6 +332,13 @@ export type TranslationKey =
   // App console — Day 10 layout pivot (mission ribbon + stat strip + onboarding wizard + advanced collapse)
   | 'app.ribbon.thesis'
   | 'app.ribbon.scope'
+  | 'app.ribbon.dynamic.policyEnforces'
+  | 'app.ribbon.dynamic.constraints'
+  | 'app.ribbon.dynamic.sessionSingular'
+  | 'app.ribbon.dynamic.sessionsPlural'
+  | 'app.ribbon.dynamic.rails'
+  | 'app.ribbon.dynamic.gateAwake'
+  | 'app.ribbon.dynamic.gateDormant'
   | 'app.stat.pda'
   | 'app.stat.balance'
   | 'app.stat.policy'
@@ -361,9 +368,13 @@ export type TranslationKey =
   | 'app.rail.ika.action.block.loading'
   | 'app.rail.ika.action.allow'
   | 'app.rail.ika.action.allow.loading'
+  | 'app.rail.action.block.hint'
+  | 'app.rail.action.allow.hint'
   | 'app.log.kicker'
   | 'app.log.tagline'
   | 'app.log.empty'
+  | 'app.log.empty.gateAwake'
+  | 'app.log.empty.hint'
   // Polish bundle (Day 11.5): constraint tooltips, session keypair affordances, spinner labels
   | 'app.constraint.numericLimit.tooltip'
   | 'app.constraint.scopeMatch.tooltip'
@@ -755,6 +766,13 @@ const en: Dictionary = {
   // App console — Day 10 layout pivot
   'app.ribbon.thesis': 'Three rails · One gate',
   'app.ribbon.scope': 'Devnet preview · Policy-gated',
+  'app.ribbon.dynamic.policyEnforces': 'Policy enforces',
+  'app.ribbon.dynamic.constraints': 'constraints',
+  'app.ribbon.dynamic.sessionSingular': 'active session',
+  'app.ribbon.dynamic.sessionsPlural': 'active sessions',
+  'app.ribbon.dynamic.rails': 'rails',
+  'app.ribbon.dynamic.gateAwake': 'gate awake',
+  'app.ribbon.dynamic.gateDormant': 'gate dormant',
   'app.stat.pda': 'PDA',
   'app.stat.balance': 'SOL Balance',
   'app.stat.policy': 'Policy seq',
@@ -788,11 +806,15 @@ const en: Dictionary = {
   'app.rail.ika.action.block.loading': 'Submitting…',
   'app.rail.ika.action.allow': 'Approve 5 USDC',
   'app.rail.ika.action.allow.loading': 'Preparing…',
+  'app.rail.action.block.hint': 'Over confidential cap',
+  'app.rail.action.allow.hint': 'Within confidential cap',
 
   // Receipt log (Day 11)
   'app.log.kicker': 'Receipt log',
   'app.log.tagline': 'nothing leaks, nothing bypasses',
   'app.log.empty': 'No actions yet, run a setup step or rail to begin.',
+  'app.log.empty.gateAwake': 'Policy gate is awake',
+  'app.log.empty.hint': 'No agent activity yet — try Run 5 USDC to see verdict',
   // Polish (Day 11.5)
   'app.constraint.numericLimit.tooltip':
     'pi_numeric_limit — confidential max-per-run and daily-cap check. Thresholds stay encrypted on-chain; only pass/fail leaves the gate.',
@@ -1187,6 +1209,13 @@ const id: Dictionary = {
   // App console — Day 10 layout pivot
   'app.ribbon.thesis': 'Tiga rail · Satu gate',
   'app.ribbon.scope': 'Pratinjau devnet · Policy-gated',
+  'app.ribbon.dynamic.policyEnforces': 'Kebijakan menjaga',
+  'app.ribbon.dynamic.constraints': 'konstrain',
+  'app.ribbon.dynamic.sessionSingular': 'sesi aktif',
+  'app.ribbon.dynamic.sessionsPlural': 'sesi aktif',
+  'app.ribbon.dynamic.rails': 'rail',
+  'app.ribbon.dynamic.gateAwake': 'gate siaga',
+  'app.ribbon.dynamic.gateDormant': 'gate tidur',
   'app.stat.pda': 'PDA',
   'app.stat.balance': 'Saldo SOL',
   'app.stat.policy': 'Policy seq',
@@ -1220,11 +1249,15 @@ const id: Dictionary = {
   'app.rail.ika.action.block.loading': 'Mengirim…',
   'app.rail.ika.action.allow': 'Setujui 5 USDC',
   'app.rail.ika.action.allow.loading': 'Menyiapkan…',
+  'app.rail.action.block.hint': 'Melebihi cap rahasia',
+  'app.rail.action.allow.hint': 'Dalam cap rahasia',
 
   // Receipt log (Day 11)
   'app.log.kicker': 'Receipt log',
   'app.log.tagline': 'tidak ada yang bocor, tidak ada yang lolos',
   'app.log.empty': 'Belum ada aksi, jalankan langkah setup atau rail untuk mulai.',
+  'app.log.empty.gateAwake': 'Gate kebijakan siaga',
+  'app.log.empty.hint': 'Belum ada aktivitas agen — coba Jalankan 5 USDC untuk lihat verdict',
   // Polish (Day 11.5)
   'app.constraint.numericLimit.tooltip':
     'pi_numeric_limit — pemeriksaan max-per-run dan daily-cap rahasia. Ambang batas tetap terenkripsi on-chain; hanya pass/fail yang keluar dari gate.',

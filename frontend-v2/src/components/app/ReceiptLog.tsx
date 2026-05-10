@@ -111,9 +111,22 @@ export function ReceiptLog() {
           style={{ transitionDelay: '160ms' }}
         >
           {receipts.length === 0 ? (
-            <p className="px-6 py-10 text-center font-mono text-xs uppercase tracking-[0.22em] text-ink-mute">
-              {t('app.log.empty')}
-            </p>
+            <div className="relative px-6 py-12 flex flex-col items-center gap-3">
+              {/* Gate-awake pulse ring — visible "policy gate is breathing" cue */}
+              <span
+                aria-hidden="true"
+                className="relative inline-flex h-3 w-3 items-center justify-center"
+              >
+                <span className="absolute inline-flex h-full w-full rounded-full bg-lagoon-bright/40 animate-ping" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-lagoon-bright shadow-[0_0_12px_rgba(45,212,191,0.6)]" />
+              </span>
+              <p className="text-center font-mono text-xs uppercase tracking-[0.22em] text-ink-soft">
+                {t('app.log.empty.gateAwake')}
+              </p>
+              <p className="text-center font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+                {t('app.log.empty.hint')}
+              </p>
+            </div>
           ) : (
             <ul className="divide-y divide-line/60">
               {receipts.map((entry, i) => (

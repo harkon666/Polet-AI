@@ -38,9 +38,11 @@ const RAILS: Rail[] = [
     blockActionKey: 'jupiter-block',
     blockActionLabelKey: 'app.rail.jupiter.action.block',
     blockActionLoadingKey: 'app.rail.jupiter.action.block.loading',
+    blockHintKey: 'app.rail.action.block.hint',
     allowActionKey: 'jupiter-allow',
     allowActionLabelKey: 'app.rail.jupiter.action.allow',
     allowActionLoadingKey: 'app.rail.jupiter.action.allow.loading',
+    allowHintKey: 'app.rail.action.allow.hint',
   },
   {
     id: 'ika',
@@ -52,9 +54,11 @@ const RAILS: Rail[] = [
     blockActionKey: 'ika-block',
     blockActionLabelKey: 'app.rail.ika.action.block',
     blockActionLoadingKey: 'app.rail.ika.action.block.loading',
+    blockHintKey: 'app.rail.action.block.hint',
     allowActionKey: 'ika-allow',
     allowActionLabelKey: 'app.rail.ika.action.allow',
     allowActionLoadingKey: 'app.rail.ika.action.allow.loading',
+    allowHintKey: 'app.rail.action.allow.hint',
   },
 ]
 
