@@ -7,7 +7,12 @@ import {
   useState,
 } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
-import { LAMPORTS_PER_SOL, type PublicKey } from '@solana/web3.js'
+import {
+  LAMPORTS_PER_SOL,
+  type BlockhashWithExpiryBlockHeight,
+  type Connection,
+  type PublicKey,
+} from '@solana/web3.js'
 import {
   getWalletData,
   initializeWallet as apiInitializeWallet,
@@ -139,6 +144,72 @@ const newId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
+/**
+ * Robust transaction confirmation with extended polling.
+ *
+ * Devnet RPC propagation is jittery: a signed transaction can land
+ * on-chain but the connection node we polled for blockhash hasn't
+ * caught up yet, so `confirmTransaction` rejects with
+ * "block height exceeded" before the cluster has actually finalised
+ * (or rejected) the signature.
+ *
+ * Strategy:
+ *   1. Try the standard confirm path (`confirmFreshTransaction`).
+ *   2. On any error, poll `getSignatureStatus(searchTransactionHistory)`
+ *      every 2s for up to `pollTimeoutMs`. If the cluster reports
+ *      `confirmed`/`finalized`, treat as success. If it reports an
+ *      on-chain error, surface that. If the timeout passes without
+ *      either, surface a clear timeout message that includes the
+ *      signature so the user can verify on Solana Explorer manually.
+ */
+async function robustConfirm(
+  connection: Connection,
+  signature: string,
+  latestBlockhash: BlockhashWithExpiryBlockHeight,
+  pollTimeoutMs = 60_000,
+) {
+  try {
+    await confirmFreshTransaction(connection, signature, latestBlockhash)
+    return
+  } catch (err) {
+    // Fall through to extended polling for the slow-propagation case.
+    const start = Date.now()
+    while (Date.now() - start < pollTimeoutMs) {
+      try {
+        const status = await connection.getSignatureStatus(signature, {
+          searchTransactionHistory: true,
+        })
+        const value = status.value
+        if (value?.err) {
+          throw new Error(
+            `Transaction failed on-chain: ${JSON.stringify(value.err)}`,
+          )
+        }
+        if (
+          value?.confirmationStatus === 'confirmed' ||
+          value?.confirmationStatus === 'finalized'
+        ) {
+          return
+        }
+      } catch (statusErr) {
+        // Surface on-chain failures immediately, otherwise keep polling.
+        if (
+          statusErr instanceof Error &&
+          statusErr.message.startsWith('Transaction failed on-chain')
+        ) {
+          throw statusErr
+        }
+      }
+      await new Promise((r) => setTimeout(r, 2000))
+    }
+    throw new Error(
+      `Transaction ${signature.slice(0, 8)}…${signature.slice(-4)} did not confirm within ${
+        pollTimeoutMs / 1000
+      }s. Check Solana Explorer (devnet) for the final status.`,
+    )
+  }
+}
+
 export function ConsoleStateProvider({
   children,
 }: {
@@ -195,32 +266,36 @@ export function ConsoleStateProvider({
   }, [connected, publicKey, refresh])
 
   // Helper, run a transaction-bearing action: api call → prepare →
-  // sendTransaction → confirm → emit receipt → refresh.
+  // sendTransaction → robustConfirm → emit receipt → refresh. Tracks
+  // the signature in scope so a failure receipt can still surface a
+  // Solana Explorer link when the tx was broadcast but failed during
+  // confirmation.
   const runTxAction = useCallback(
     async <T extends { transaction: string }>(
       key: ActionKey,
       apiCall: () => Promise<T>,
       onSuccess: (result: T, signature: string) => void,
-      onFailure: (err: unknown) => void,
+      onFailure: (err: unknown, signature: string | undefined) => void,
     ) => {
       if (!publicKey) return
       setLoading(key)
       setError(null)
+      let signature: string | undefined
       try {
         const result = await apiCall()
         const { transaction, latestBlockhash } = await prepareFreshTransaction(
           result.transaction,
           connection,
         )
-        const signature = await sendTransaction(transaction, connection)
-        await confirmFreshTransaction(connection, signature, latestBlockhash)
+        signature = await sendTransaction(transaction, connection)
+        await robustConfirm(connection, signature, latestBlockhash)
         onSuccess(result, signature)
         await refresh()
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Unknown error'
         setError(message)
-        onFailure(err)
+        onFailure(err, signature)
       } finally {
         setLoading(null)
       }
@@ -242,10 +317,11 @@ export function ConsoleStateProvider({
           signature,
           status: 'info',
         }),
-      (err) =>
+      (err, signature) =>
         emitReceipt({
           action: 'WALLET INIT FAILED',
           description: err instanceof Error ? err.message : 'Unknown error',
+          signature,
           status: 'error',
         }),
     )
@@ -267,10 +343,11 @@ export function ConsoleStateProvider({
           signature,
           status: 'info',
         }),
-      (err) =>
+      (err, signature) =>
         emitReceipt({
           action: 'CUSTODY REGISTER FAILED',
           description: err instanceof Error ? err.message : 'Unknown error',
+          signature,
           status: 'error',
         }),
     )
@@ -297,10 +374,11 @@ export function ConsoleStateProvider({
           status: 'info',
           body: `Limits sealed (max-per-run / daily-cap). Original amounts never leave your client; the gate evaluates blind.`,
         }),
-      (err) =>
+      (err, signature) =>
         emitReceipt({
           action: 'POLICY SAVE FAILED',
           description: err instanceof Error ? err.message : 'Unknown error',
+          signature,
           status: 'error',
         }),
     )
@@ -326,10 +404,11 @@ export function ConsoleStateProvider({
           status: 'info',
           body: 'Agent received scoped temporary authority. The owner key is not exposed.',
         }),
-      (err) =>
+      (err, signature) =>
         emitReceipt({
           action: 'SESSION GRANT FAILED',
           description: err instanceof Error ? err.message : 'Unknown error',
+          signature,
           status: 'error',
         }),
     )
