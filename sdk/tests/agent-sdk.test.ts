@@ -158,10 +158,10 @@ describe('adapter output shapes', () => {
     execute: async () => ({ status: 'executed-preview', ok: true, rail: 'jupiter', trade: {} as PoletTradeResult, message: 'preview', execution: {} } as never),
   } as unknown as PoletAgentKit;
 
-  test('createPoletToolSet lists 4 tools with JSON schemas', () => {
+  test('createPoletToolSet lists 5 tools with JSON schemas', () => {
     const toolset = createPoletToolSet(kit);
     const names = toolset.list().map((t) => t.name);
-    expect(names).toEqual(['polet_status', 'polet_enable_chain', 'polet_trade', 'polet_execute']);
+    expect(names).toEqual(['polet_status', 'polet_balance', 'polet_enable_chain', 'polet_trade', 'polet_execute']);
     for (const tool of toolset.list()) {
       expect(tool.inputSchema).toHaveProperty('type', 'object');
     }
@@ -169,7 +169,7 @@ describe('adapter output shapes', () => {
 
   test('Solana Agent Kit adapter produces SendAI-style descriptors', () => {
     const actions = createPoletSolanaAgentKitActions(kit);
-    expect(actions.length).toBe(4);
+    expect(actions.length).toBe(5);
     const execute = actions.find((a) => a.name === 'polet_execute');
     expect(execute?.similes.length).toBeGreaterThan(0);
     expect(Array.isArray(execute?.examples)).toBe(true);
@@ -211,10 +211,10 @@ describe('MCP server protocol', () => {
     expect(parsed.result.capabilities.tools).toBeTruthy();
   });
 
-  test('tools/list returns 4 Polet tools', async () => {
+  test('tools/list returns 5 Polet tools', async () => {
     const response = await server.handle(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }));
     const parsed = JSON.parse(response!);
-    expect(parsed.result.tools.length).toBe(4);
+    expect(parsed.result.tools.length).toBe(5);
     expect(parsed.result.tools.map((t: { name: string }) => t.name)).toContain('polet_execute');
   });
 

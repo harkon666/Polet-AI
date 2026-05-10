@@ -31,6 +31,7 @@ import type {
 } from './bridgeless-order.js';
 import {
   Connection,
+  PublicKey,
   Transaction,
   VersionedTransaction,
   type Commitment,
@@ -1006,6 +1007,132 @@ export interface PoletAgentKitStatus {
   diagnostics: PoletAgentKitDiagnostic[];
 }
 
+export interface PoletAgentKitBalance {
+  ok: boolean;
+  owner?: string;
+  sessionKey?: string;
+  walletPda?: string;
+  custody: {
+    usdcTokenAccount?: string;
+    usdcBaseUnits?: string;
+    usdcFormatted?: string;
+    usdcDecimals?: number;
+    solTokenAccount?: string;
+    solBaseUnits?: string;
+    solFormatted?: string;
+    solDecimals?: number;
+  };
+  walletPdaLamports?: number;
+  walletPdaSolFormatted?: string;
+  agentWalletLamports?: number;
+  agentWalletSolFormatted?: string;
+  ownerLamports?: number;
+  ownerSolFormatted?: string;
+  diagnostics: PoletAgentKitDiagnostic[];
+  /**
+   * Deliberately excluded: daily-cap, max-per-run, daily-spent. These remain
+   * confidential and are only surfaced via policy-gate verdicts.
+   */
+  note: string;
+}
+
+async function getPoletAgentKitBalance(options: PoletAgentKitOptions): Promise<PoletAgentKitBalance> {
+  const diagnostics: PoletAgentKitDiagnostic[] = [];
+  const rpcUrl = options.rpcUrl ?? 'https://api.devnet.solana.com';
+  const connection = (options.connection as Connection | undefined) ?? new Connection(rpcUrl, 'confirmed');
+  const walletPda = options.owner && isValidPublicKey(options.owner)
+    ? (await deriveWalletPDA(options.owner)).toString()
+    : undefined;
+
+  const walletEnvelope = options.owner && isValidPublicKey(options.owner)
+    ? await fetchProxyGet<{ success?: boolean; data?: Record<string, unknown>; error?: unknown }>(`/wallet/${options.owner}`, options).catch((error) => {
+      diagnostics.push(diagnostic('wallet', 'WALLET_LOOKUP_FAILED', error instanceof Error ? error.message : 'Wallet lookup failed.'));
+      return undefined;
+    })
+    : undefined;
+  const walletData = walletEnvelope?.success === true ? walletEnvelope.data : undefined;
+  const custody = walletData?.demoCustody as
+    | { usdcTokenAccount?: string; solTokenAccount?: string; configured?: boolean }
+    | undefined;
+
+  const custodyResult: PoletAgentKitBalance['custody'] = {};
+  if (custody?.usdcTokenAccount) {
+    custodyResult.usdcTokenAccount = custody.usdcTokenAccount;
+    try {
+      const r = await connection.getTokenAccountBalance(new PublicKey(custody.usdcTokenAccount));
+      custodyResult.usdcBaseUnits = r.value.amount;
+      custodyResult.usdcFormatted = r.value.uiAmountString
+        ? `${r.value.uiAmountString} USDC`
+        : `${r.value.uiAmount ?? 0} USDC`;
+      custodyResult.usdcDecimals = r.value.decimals;
+    } catch (error) {
+      diagnostics.push(diagnostic('custody.usdc', 'USDC_BALANCE_QUERY_FAILED', error instanceof Error ? error.message : 'USDC custody balance query failed.'));
+    }
+  }
+  if (custody?.solTokenAccount) {
+    custodyResult.solTokenAccount = custody.solTokenAccount;
+    try {
+      const r = await connection.getTokenAccountBalance(new PublicKey(custody.solTokenAccount));
+      custodyResult.solBaseUnits = r.value.amount;
+      custodyResult.solFormatted = r.value.uiAmountString
+        ? `${r.value.uiAmountString} wSOL`
+        : `${r.value.uiAmount ?? 0} wSOL`;
+      custodyResult.solDecimals = r.value.decimals;
+    } catch (error) {
+      diagnostics.push(diagnostic('custody.sol', 'SOL_BALANCE_QUERY_FAILED', error instanceof Error ? error.message : 'SOL custody balance query failed.'));
+    }
+  }
+
+  const lamportsToSolString = (lamports: number): string => `${(lamports / 1_000_000_000).toFixed(4)} SOL`;
+
+  let walletPdaLamports: number | undefined;
+  if (walletPda) {
+    try {
+      walletPdaLamports = await connection.getBalance(new PublicKey(walletPda));
+    } catch (error) {
+      diagnostics.push(diagnostic('walletPda', 'WALLET_PDA_BALANCE_QUERY_FAILED', error instanceof Error ? error.message : 'Wallet PDA balance query failed.'));
+    }
+  }
+  let agentWalletLamports: number | undefined;
+  if (options.sessionKey && isValidPublicKey(options.sessionKey)) {
+    try {
+      agentWalletLamports = await connection.getBalance(new PublicKey(options.sessionKey));
+    } catch (error) {
+      diagnostics.push(diagnostic('sessionKey', 'AGENT_BALANCE_QUERY_FAILED', error instanceof Error ? error.message : 'Agent wallet balance query failed.'));
+    }
+  }
+  let ownerLamports: number | undefined;
+  if (options.owner && isValidPublicKey(options.owner)) {
+    try {
+      ownerLamports = await connection.getBalance(new PublicKey(options.owner));
+    } catch (error) {
+      diagnostics.push(diagnostic('owner', 'OWNER_BALANCE_QUERY_FAILED', error instanceof Error ? error.message : 'Owner balance query failed.'));
+    }
+  }
+
+  return {
+    ok: diagnostics.length === 0 && Boolean(walletData),
+    ...(options.owner && { owner: options.owner }),
+    ...(options.sessionKey && { sessionKey: options.sessionKey }),
+    ...(walletPda && { walletPda }),
+    custody: custodyResult,
+    ...(walletPdaLamports !== undefined && {
+      walletPdaLamports,
+      walletPdaSolFormatted: lamportsToSolString(walletPdaLamports),
+    }),
+    ...(agentWalletLamports !== undefined && {
+      agentWalletLamports,
+      agentWalletSolFormatted: lamportsToSolString(agentWalletLamports),
+    }),
+    ...(ownerLamports !== undefined && {
+      ownerLamports,
+      ownerSolFormatted: lamportsToSolString(ownerLamports),
+    }),
+    diagnostics,
+    note: 'Balances here are spendable token amounts only. Confidential policy thresholds (max-per-run, daily-cap, daily-spent) remain encrypted and are never exposed here.',
+  };
+}
+
 export type PoletAgentToolStatus =
   | PoletTradeStatus
   | 'ok'
@@ -1073,6 +1200,7 @@ export interface PoletAutoExecuteResult {
 export interface PoletAgentKit {
   validateConfig(): PoletAgentKitConfigValidation;
   status(): Promise<PoletAgentKitStatus>;
+  balance(): Promise<PoletAgentKitBalance>;
   trade(input: PoletTradeInput): Promise<PoletTradeResult>;
   autoExecuteTrade(input: PoletAutoExecuteInput): Promise<PoletAutoExecuteResult>;
   simulateTransaction(input: SimulatePoletTransactionInput): Promise<SimulatePoletTransactionResult>;
@@ -1114,6 +1242,7 @@ export function createPoletAgentKit(options: PoletAgentKitOptions): PoletAgentKi
   return {
     validateConfig: () => validatePoletAgentKitConfig(options),
     status: () => getPoletAgentKitStatus(options),
+    balance: () => getPoletAgentKitBalance(options),
     trade: (input) => agent.trade(input),
     autoExecuteTrade: (input) => autoExecutePoletTrade(input, options, agent),
     simulateTransaction: (input) => simulatePoletTransaction({

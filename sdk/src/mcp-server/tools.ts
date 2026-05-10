@@ -60,6 +60,7 @@ export interface PoletToolSet {
 export function createPoletToolSet(kit: PoletAgentKit): PoletToolSet {
   const tools: PoletToolDefinition[] = [
     createStatusTool(kit),
+    createBalanceTool(kit),
     createEnableChainTool(kit),
     createTradeTool(kit),
     createExecuteTool(kit),
@@ -68,6 +69,34 @@ export function createPoletToolSet(kit: PoletAgentKit): PoletToolSet {
   return {
     list: () => tools,
     get: (name) => byName.get(name),
+  };
+}
+
+// ---------- polet_balance ----------
+
+function createBalanceTool(kit: PoletAgentKit): PoletToolDefinition {
+  return {
+    name: 'polet_balance',
+    description:
+      'Report the spendable balances visible to Polet: USDC and wSOL inside the smart-wallet custody, plus native SOL on the wallet PDA, the agent session wallet (gas), and the owner. Confidential policy thresholds (max-per-run, daily-cap, daily-spent) are intentionally NOT included — those stay encrypted on-chain.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    async call() {
+      try {
+        const balance = await kit.balance();
+        const ok = balance.ok;
+        return {
+          status: ok ? 'ok' : 'failed',
+          ok,
+          summary: ok
+            ? `Custody USDC: ${balance.custody.usdcFormatted ?? 'n/a'}, custody SOL: ${balance.custody.solFormatted ?? 'n/a'}, agent gas: ${balance.agentWalletSolFormatted ?? 'n/a'}.`
+            : 'Balance query failed. See `diagnostics`.',
+          data: balance as unknown as Record<string, unknown>,
+          reason: ok ? undefined : summarizeDiagnostics(balance.diagnostics),
+        };
+      } catch (error) {
+        return failureResult('failed', error);
+      }
+    },
   };
 }
 

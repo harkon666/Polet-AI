@@ -10,7 +10,7 @@
  *   2. `initialize` → protocol version + tool capabilities.
  *   3. `notifications/initialized` does NOT emit a response (notifications
  *      must not interleave into the stdout stream).
- *   4. `tools/list` returns the 4 Polet tools with JSON schemas.
+ *   4. `tools/list` returns the 5 Polet tools with JSON schemas.
  *   5. `tools/call polet_trade` propagates through to the proxy (returns
  *      `policy-blocked` when the owner is a dummy pubkey — exercising the
  *      full chain: MCP → kit.trade → fetch → proxy → response → tool result).
@@ -107,7 +107,7 @@ async function main(): Promise<void> {
     failures.push('tools/list did not return a tools array');
   } else {
     const names = ((toolsList.result as { tools: Array<{ name: string }> }).tools).map((t) => t.name);
-    const expected = ['polet_status', 'polet_enable_chain', 'polet_trade', 'polet_execute'];
+    const expected = ['polet_status', 'polet_balance', 'polet_enable_chain', 'polet_trade', 'polet_execute'];
     for (const name of expected) {
       if (!names.includes(name)) failures.push(`tools/list missing ${name}`);
     }
