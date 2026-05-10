@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { getWalletData } from '#shared/lib/api'
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
@@ -104,13 +103,18 @@ export function SetupLedger() {
 /* ──────────────────────────────────────────────────────────────────
  * OnboardingWizard, the disconnected variant.
  *
- * One hero card for step 01 (Connect wallet) with a primary CTA, plus
- * three disabled rows below it. When the user connects, this whole
- * variant unmounts and `<LedgerTable>` takes over with hydrated state.
+ * One hero card for step 01 (Connect wallet) plus three disabled
+ * "waiting for wallet" rows. The hero explains WHY ("Polet stores
+ * your limits as ciphertext…") and points up to the header chrome,
+ * which is where the actual `<WalletButton>` lives. We deliberately
+ * do NOT render a second connect button here — the sticky header
+ * is the single source of truth for the wallet control, and a
+ * duplicate body button competes visually without adding a
+ * different affordance. When the user connects, this whole variant
+ * unmounts and `<LedgerTable>` takes over with hydrated state.
  * ────────────────────────────────────────────────────────────────── */
 function OnboardingWizard() {
   const { t } = useLocale()
-  const { setVisible } = useWalletModal()
 
   return (
     <div className="mt-6 md:mt-8 space-y-3">
@@ -133,16 +137,10 @@ function OnboardingWizard() {
         <p className="mt-3 max-w-2xl text-sm md:text-base text-ink-soft leading-relaxed">
           {t('app.wizard.connect.body')}
         </p>
-        <div className="mt-5">
-          <button
-            type="button"
-            onClick={() => setVisible(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-5 py-2.5 text-sm font-medium text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition"
-          >
-            Connect wallet
-            <span aria-hidden="true">→</span>
-          </button>
-        </div>
+        <p className="mt-5 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.22em] text-lagoon-bright">
+          <span aria-hidden="true" className="animate-pulse">↑</span>
+          {t('app.wizard.connect.pointer')}
+        </p>
       </article>
 
       {/* Steps 02-04, ghosted "waiting for wallet" */}

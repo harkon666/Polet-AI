@@ -341,6 +341,7 @@ export type TranslationKey =
   | 'app.wizard.of'
   | 'app.wizard.connect.title'
   | 'app.wizard.connect.body'
+  | 'app.wizard.connect.pointer'
   | 'app.wizard.disabled.waiting'
   | 'app.advanced.label';
 
@@ -732,6 +733,7 @@ const en: Dictionary = {
   'app.wizard.connect.title': 'Connect a devnet wallet',
   'app.wizard.connect.body':
     'Polet stores your limits as ciphertext; the gate evaluates blind. Connect a devnet wallet to derive your smart-wallet PDA and start the four-step setup.',
+  'app.wizard.connect.pointer': 'Use the Connect wallet control in the header',
   'app.wizard.disabled.waiting': 'waiting for wallet',
   'app.advanced.label': 'Advanced · Legacy v1 console',
 };
@@ -1122,6 +1124,7 @@ const id: Dictionary = {
   'app.wizard.connect.title': 'Hubungkan wallet devnet',
   'app.wizard.connect.body':
     'Polet menyimpan batas kamu sebagai ciphertext; gate evaluasi tanpa membaca. Hubungkan wallet devnet untuk derive PDA smart wallet kamu dan mulai setup empat langkah.',
+  'app.wizard.connect.pointer': 'Pakai kontrol Connect wallet di header',
   'app.wizard.disabled.waiting': 'menunggu wallet',
   'app.advanced.label': 'Lanjutan · Konsol v1 lama',
 };
