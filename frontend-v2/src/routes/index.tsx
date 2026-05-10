@@ -5,12 +5,15 @@ import { StatsCounter } from '../components/StatsCounter'
 import { Manifesto } from '../components/Manifesto'
 import { RailsSection } from '../components/RailsSection'
 import { DemoWidget } from '../components/DemoWidget'
+import { SecuritySection } from '../components/SecuritySection'
+import { FinalCtaSection } from '../components/FinalCtaSection'
+import { Footer } from '../components/Footer'
 
 export const Route = createFileRoute('/')({
   component: LandingPage,
 })
 
-function LandingPage() {
+export function LandingPage() {
   return (
     <>
       <Hero />
@@ -19,7 +22,9 @@ function LandingPage() {
       <Manifesto />
       <RailsSection />
       <DemoWidget />
-      {/* Day 6 sections come below: Security, Final CTA, Footer */}
+      <SecuritySection />
+      <FinalCtaSection />
+      <Footer />
     </>
   )
 }

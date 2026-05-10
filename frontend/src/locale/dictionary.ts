@@ -260,6 +260,7 @@ export type TranslationKey =
   | 'disclaimer.notclaimed.item.4'
   | 'disclaimer.notclaimed.item.5'
   // Final CTA
+  | 'cta.kicker'
   | 'cta.heading'
   | 'cta.body'
   | 'cta.primary'
@@ -610,6 +611,7 @@ const en: Dictionary = {
   'disclaimer.notclaimed.item.5': 'Audit, KYC, or regulated custody guarantees',
 
   // Final CTA
+  'cta.kicker': 'Next steps',
   'cta.heading': 'Try the policy gate on devnet.',
   'cta.body':
     'Connect a devnet wallet, set a confidential policy, grant an agent session key, and run the three demo outcomes.',
@@ -963,6 +965,7 @@ const id: Dictionary = {
   'disclaimer.notclaimed.item.5': 'Audit, KYC, atau jaminan custody teregulasi',
 
   // Final CTA
+  'cta.kicker': 'Langkah berikutnya',
   'cta.heading': 'Coba policy gate di devnet.',
   'cta.body':
     'Connect wallet devnet, set policy rahasia, kasih agent session key, dan jalankan tiga skenario demo.',
