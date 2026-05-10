@@ -2,8 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { ClientWalletProvider } from '#shared/components/ClientWalletProvider'
 import { useLocale } from '#shared/hooks/use-locale'
 import { useScrollReveal } from '../hooks/useScrollReveal'
-import { KickerLabel } from '../components/primitives/KickerLabel'
 import { AppHeader } from '../components/app/AppHeader'
+import { MissionRibbon } from '../components/app/MissionRibbon'
+import { StatStrip } from '../components/app/StatStrip'
 import { SetupLedger } from '../components/app/SetupLedger'
 import { TwoRailConsole } from '../components/app/TwoRailConsole'
 import { WalletDashboard } from '../components/app/WalletDashboard'
@@ -11,20 +12,28 @@ import { WalletDashboard } from '../components/app/WalletDashboard'
 /**
  * /app, the operational console for Polet's confidential control layer.
  *
- * Day 9 redesign — the page now reads as the operational counterpart of
- * the landing narrative ("Three rails. One gate.") rather than a second
- * marketing brochure. Page order, top → bottom:
+ * Day 10 layout pivot — the Day 9 marketing thesis section + double
+ * "Connect wallet" prompts are gone. The page now reads as a tight
+ * console:
  *
- *   1. <AppHeader />        (sticky console chrome — Day 8)
- *   2. <ConsoleThesis />    (kicker + tagline, no big marketing h1)
- *   3. <SetupLedger />      (4-row state ledger; POLICY uses EncryptedField)
- *   4. <TwoRailConsole />   (Jupiter + Ika parallel cards on ParticleField)
- *   5. <AdvancedFallback /> (cross-imported v1 WalletDashboard, temporary
- *                            bridge until Day 10 wires the rails to real
- *                            proxy actions and moves it into <details>)
+ *   1. <AppHeader />        sticky console chrome (Day 8)
+ *   2. <MissionRibbon />    one-line "Three rails · One gate" strip
+ *   3. <StatStrip />        4 live tiles (PDA / SOL / Policy / Sessions),
+ *                           hidden when wallet not connected
+ *   4. <SetupLedger />      state-aware: onboarding wizard when
+ *                           disconnected, dense table when connected
+ *   5. <TwoRailConsole />   Jupiter + Ika parallel cards on
+ *                           ParticleField (Day 9 visuals retained)
+ *   6. <AdvancedFallback /> legacy v1 WalletDashboard hidden behind a
+ *                           <details> collapse so the duplicate
+ *                           "Connect wallet" Shield prompt is gone
+ *                           from the default view
  *
- * Wallet adapter still lives ONLY in this route's tree (Day 8 perf win),
- * so landing pages don't drag the ~1 MB wallet-adapter bundle.
+ * Wallet adapter still lives ONLY in this route's tree (Day 8 perf
+ * win), so landing pages don't drag the ~1 MB wallet-adapter bundle.
+ *
+ * Day 11 will wire write actions on each Setup Ledger row + each
+ * RailCard (Try 25 / Run 5 / Approve 5) and add a Receipt Log panel.
  */
 export const Route = createFileRoute('/app')({
   component: AppPage,
@@ -34,7 +43,8 @@ function AppPage() {
   return (
     <ClientWalletProvider>
       <AppHeader />
-      <ConsoleThesis />
+      <MissionRibbon />
+      <StatStrip />
       <SetupLedger />
       <TwoRailConsole />
       <AdvancedFallback />
@@ -43,67 +53,42 @@ function AppPage() {
 }
 
 /**
- * Console thesis, the /app counterpart to the landing marketing hero.
+ * Legacy v1 WalletDashboard, collapsed behind `<details>`.
  *
- * Reuses the established Polet phrasing rather than coining a new line:
- *   - kicker:   `rails.kicker`               → "Three rails. One gate."
- *   - h1:       `footer.brand.tagline`       → "Confidential smart wallet for AI agents on Solana."
- *   - subtitle: `footer.brand.subtagline`    → "Policy-gated. No unlimited authority."
+ * Day 9 mounted this dashboard visibly at the bottom, which produced
+ * a duplicate "Connect a devnet wallet" Shield prompt next to the
+ * SetupLedger empty state. Day 10 hides it behind a single mono
+ * uppercase summary so it's available for power users (init wallet,
+ * full session manager, demo/simple/agent-access tabs) without
+ * polluting the primary console flow.
  *
- * No 5xl marketing h1; this is operator chrome, not a brochure. Visual
- * weight is intentionally lighter than the Hero so the operational
- * sections below carry the page.
+ * Day 11 wires the new SetupLedger and TwoRailConsole to real proxy
+ * actions, after which this fallback can be retired entirely.
  */
-function ConsoleThesis() {
+function AdvancedFallback() {
   const containerRef = useScrollReveal()
   const { t } = useLocale()
   return (
     <section
       ref={containerRef}
-      aria-label="Polet console thesis"
-      className="border-b border-line bg-bg-base"
+      className="border-t border-line bg-bg-base py-6 md:py-8"
     >
-      <div className="mx-auto max-w-6xl px-6 py-10 md:py-14">
-        <KickerLabel tone="accent" className="pl-reveal">
-          {t('rails.kicker')}
-        </KickerLabel>
-        <h1
-          className="pl-reveal mt-4 font-sans font-bold text-ink tracking-tight leading-[1.15] text-2xl sm:text-3xl md:text-4xl max-w-3xl"
-          style={{ transitionDelay: '80ms' }}
-        >
-          {t('footer.brand.tagline')}
-        </h1>
-        <p
-          className="pl-reveal mt-3 text-base md:text-lg text-ink-soft leading-relaxed max-w-3xl"
-          style={{ transitionDelay: '160ms' }}
-        >
-          {t('footer.brand.subtagline')}
-        </p>
+      <div className="mx-auto max-w-6xl px-6">
+        <details className="pl-reveal group">
+          <summary className="cursor-pointer flex items-center justify-between font-mono text-xs uppercase tracking-[0.22em] text-ink-mute hover:text-ink transition py-3 list-none [&::-webkit-details-marker]:hidden">
+            <span>{t('app.advanced.label')}</span>
+            <span
+              aria-hidden="true"
+              className="text-ink-mute group-open:rotate-180 transition"
+            >
+              ▾
+            </span>
+          </summary>
+          <div className="pl-app-shell mt-6">
+            <WalletDashboard />
+          </div>
+        </details>
       </div>
     </section>
-  )
-}
-
-/**
- * Temporary fallback for the cross-imported v1 WalletDashboard.
- *
- * Day 9 ships the structural redesign (chrome + ledger + rails frame)
- * with the legacy dashboard still mounted at the bottom so users can
- * actually init the wallet, save the policy, grant a session, etc.
- * Day 10 wires the new SetupLedger and TwoRailConsole to real proxy
- * actions and moves this fallback into the Advanced `<details>`
- * collapse, after which the redesign fully replaces the v1 surface.
- */
-function AdvancedFallback() {
-  const containerRef = useScrollReveal()
-  return (
-    <div
-      ref={containerRef}
-      className="pl-app-shell mx-auto max-w-6xl px-6 py-12 md:py-16"
-    >
-      <div className="pl-reveal">
-        <WalletDashboard />
-      </div>
-    </div>
   )
 }

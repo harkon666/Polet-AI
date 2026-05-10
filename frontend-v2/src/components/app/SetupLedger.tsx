@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
+import { useWalletModal } from '@solana/wallet-adapter-react-ui'
 import { getWalletData } from '#shared/lib/api'
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
@@ -18,16 +19,23 @@ import { EncryptedField } from '../EncryptedField'
  *   03 / POLICY   confidential numeric guardrails — RENDERS AS CIPHERTEXT
  *   04 / SESSION  agent session key (temporary signing authority)
  *
- * The POLICY row is intentionally the visual hero. Its sealed value is
- * rendered with the same `<EncryptedField>` component the landing
- * Crypto-Blur Theater uses, so the redacted ciphertext glows with the
- * lagoon-bright pulse and reinforces Polet's core promise: limits stay
- * private, the gate evaluates blind.
+ * Day 10 state-aware variants:
  *
- * Day 9 (this commit) is DISPLAY ONLY. State is derived from
- * `getWalletData(owner)` and rendered, but clicking a row is a no-op.
- * Day 10 wires write CTAs (init wallet, register custody, save policy,
- * grant session) directly inline on each row.
+ *   - DISCONNECTED → `<OnboardingWizard>`: hero card for step 01
+ *     (Connect a devnet wallet) with a primary CTA, plus three
+ *     ghosted "waiting for wallet" rows below. The page's only
+ *     primary action when disconnected.
+ *
+ *   - CONNECTED → `<LedgerTable>`: dense table where each row shows
+ *     index + label + value + state badge + Solana Explorer arrow.
+ *     The POLICY row renders sealed values inside `<EncryptedField
+ *     state="encrypted">`, the same component the landing
+ *     Crypto-Blur Theater uses, so the redacted ciphertext glows
+ *     with the lagoon-bright pulse.
+ *
+ * Day 11 will wire each row's affordance to a real write CTA
+ * (initializeWallet, registerCustody, setConfidentialPolicy,
+ * grantSession). Day 10 keeps reads only.
  */
 
 type RowState = 'pending' | 'initialized' | 'registered' | 'sealed' | 'active'
@@ -73,14 +81,113 @@ const formatExpiry = (epochMs: number) => {
 
 export function SetupLedger() {
   const { t } = useLocale()
-  const { connected, publicKey } = useWallet()
+  const { connected } = useWallet()
   const containerRef = useScrollReveal()
-  // Loose `any` typing — proxy returns untyped JSON.
+
+  return (
+    <section
+      ref={containerRef}
+      aria-label="Polet setup ledger"
+      className="border-b border-line bg-bg-base py-8 md:py-12"
+    >
+      <div className="mx-auto max-w-6xl px-6">
+        <KickerLabel tone="accent" className="pl-reveal">
+          {t('app.ledger.kicker')}
+        </KickerLabel>
+
+        {connected ? <LedgerTable /> : <OnboardingWizard />}
+      </div>
+    </section>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * OnboardingWizard, the disconnected variant.
+ *
+ * One hero card for step 01 (Connect wallet) with a primary CTA, plus
+ * three disabled rows below it. When the user connects, this whole
+ * variant unmounts and `<LedgerTable>` takes over with hydrated state.
+ * ────────────────────────────────────────────────────────────────── */
+function OnboardingWizard() {
+  const { t } = useLocale()
+  const { setVisible } = useWalletModal()
+
+  return (
+    <div className="mt-6 md:mt-8 space-y-3">
+      {/* Step 01 hero */}
+      <article
+        className="pl-reveal rounded-2xl border border-lagoon-bright/30 bg-bg-deep p-6 md:p-8"
+        style={{ transitionDelay: '80ms' }}
+      >
+        <div className="flex items-baseline gap-3">
+          <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-lagoon-bright">
+            {`${t('app.wizard.step')} 1 ${t('app.wizard.of')} 4`}
+          </span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-ink-mute">
+            · {t('app.ledger.row.wallet').toUpperCase()}
+          </span>
+        </div>
+        <h2 className="mt-2 font-sans text-xl md:text-2xl font-bold text-ink leading-tight">
+          {t('app.wizard.connect.title')}
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm md:text-base text-ink-soft leading-relaxed">
+          {t('app.wizard.connect.body')}
+        </p>
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={() => setVisible(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-5 py-2.5 text-sm font-medium text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition"
+          >
+            Connect wallet
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </article>
+
+      {/* Steps 02-04, ghosted "waiting for wallet" */}
+      <div className="rounded-2xl border border-line bg-bg-deep overflow-hidden divide-y divide-line/60 opacity-60">
+        {ROWS.slice(1).map((row, i) => (
+          <article
+            key={row.id}
+            className="pl-reveal flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 px-6 py-5"
+            style={{ transitionDelay: `${160 + 80 * i}ms` }}
+          >
+            <div className="sm:w-44 shrink-0 flex items-baseline gap-3">
+              <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-ink-mute">
+                {String(i + 2).padStart(2, '0')}
+              </span>
+              <span className="font-sans text-base font-semibold text-ink-soft leading-tight">
+                {t(row.labelKey)}
+              </span>
+            </div>
+            <div className="flex-1 font-mono text-xs uppercase tracking-[0.22em] text-ink-mute">
+              {t('app.wizard.disabled.waiting')}
+            </div>
+            <span className={STATE_BADGE_CLASSES.pending}>
+              {t(STATE_LABEL_KEY.pending)}
+            </span>
+          </article>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * LedgerTable, the connected variant.
+ *
+ * Hydrates from `getWalletData(owner)` and renders the four-row
+ * ledger with state badges and Solana Explorer affordances.
+ * ────────────────────────────────────────────────────────────────── */
+function LedgerTable() {
+  const { t } = useLocale()
+  const { publicKey } = useWallet()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any | null>(null)
 
   useEffect(() => {
-    if (!connected || !publicKey) {
+    if (!publicKey) {
       setData(null)
       return
     }
@@ -96,9 +203,8 @@ export function SetupLedger() {
     return () => {
       cancelled = true
     }
-  }, [connected, publicKey])
+  }, [publicKey])
 
-  // Derive each row's state + display value from the proxy response.
   const walletState: RowState =
     data?.walletPda ? 'initialized' : 'pending'
 
@@ -114,8 +220,7 @@ export function SetupLedger() {
     (data?.temporalKeys ?? data?.sessions ?? []).find(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (s: any) =>
-        s?.authorized &&
-        Number(s?.expiresAt ?? 0) * 1000 > Date.now(),
+        s?.authorized && Number(s?.expiresAt ?? 0) * 1000 > Date.now(),
     ) ?? null
 
   const sessionState: RowState = activeSession ? 'active' : 'pending'
@@ -128,72 +233,45 @@ export function SetupLedger() {
   }
 
   return (
-    <section
-      ref={containerRef}
-      aria-label="Polet setup ledger"
-      className="border-b border-line bg-bg-base py-16 md:py-20"
-    >
-      <div className="mx-auto max-w-6xl px-6">
-        <KickerLabel tone="accent" className="pl-reveal">
-          {t('app.ledger.kicker')}
-        </KickerLabel>
-
-        {!connected ? (
-          <p
-            className="pl-reveal mt-3 text-sm text-ink-mute"
-            style={{ transitionDelay: '80ms' }}
+    <div className="mt-6 md:mt-8 rounded-2xl border border-line bg-bg-deep overflow-hidden divide-y divide-line/60">
+      {ROWS.map((row, i) => {
+        const state = rowState[row.id]
+        return (
+          <article
+            key={row.id}
+            className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 px-6 py-5 hover:bg-surface/40 transition pl-reveal"
+            style={{ transitionDelay: `${80 * (i + 1)}ms` }}
           >
-            {t('app.ledger.empty.connectFirst')}
-          </p>
-        ) : null}
+            <div className="sm:w-44 shrink-0 flex items-baseline gap-3">
+              <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-lagoon-bright">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <span className="font-sans text-base font-semibold text-ink leading-tight">
+                {t(row.labelKey)}
+              </span>
+            </div>
 
-        <div
-          className="pl-reveal mt-8 md:mt-10 rounded-2xl border border-line bg-bg-deep overflow-hidden divide-y divide-line/60"
-          style={{ transitionDelay: '120ms' }}
-        >
-          {ROWS.map((row, i) => {
-            const state = rowState[row.id]
-            return (
-              <article
-                key={row.id}
-                className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 px-6 py-5 hover:bg-surface/40 transition pl-reveal"
-                style={{ transitionDelay: `${160 + 80 * i}ms` }}
-              >
-                {/* Index + label, fixed width on desktop */}
-                <div className="sm:w-44 shrink-0 flex items-baseline gap-3">
-                  <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-lagoon-bright">
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <span className="font-sans text-base font-semibold text-ink leading-tight">
-                    {t(row.labelKey)}
-                  </span>
-                </div>
+            <div className="flex-1 min-w-0 font-mono text-sm text-ink-soft">
+              <RowValue row={row} state={state} data={data} activeSession={activeSession} />
+            </div>
 
-                {/* Value column */}
-                <div className="flex-1 min-w-0 font-mono text-sm text-ink-soft">
-                  <RowValue row={row} state={state} data={data} activeSession={activeSession} />
-                </div>
+            <span className={STATE_BADGE_CLASSES[state]}>
+              {t(STATE_LABEL_KEY[state])}
+            </span>
 
-                {/* State badge */}
-                <span className={STATE_BADGE_CLASSES[state]}>
-                  {t(STATE_LABEL_KEY[state])}
-                </span>
-
-                {/* Affordance arrow — Day 10 wires Solana Explorer per row */}
-                <a
-                  href="#"
-                  aria-label="View on Solana Explorer"
-                  className="opacity-50 group-hover:opacity-100 transition text-ink-soft hover:text-lagoon-bright text-sm"
-                  onClick={(e) => e.preventDefault()}
-                >
-                  ↗
-                </a>
-              </article>
-            )
-          })}
-        </div>
-      </div>
-    </section>
+            {/* Solana Explorer affordance — Day 11 wires real link per row */}
+            <a
+              href="#"
+              aria-label="View on Solana Explorer"
+              className="opacity-50 group-hover:opacity-100 transition text-ink-soft hover:text-lagoon-bright text-sm"
+              onClick={(e) => e.preventDefault()}
+            >
+              ↗
+            </a>
+          </article>
+        )
+      })}
+    </div>
   )
 }
 
@@ -202,7 +280,7 @@ export function SetupLedger() {
  *
  * The POLICY row is special: when sealed, it renders `<EncryptedField>`
  * with phase="encrypted" so the value pulses lagoon-bright as ciphertext
- * (same component the landing DemoWidget uses). Day 10 will derive the
+ * (same component the landing DemoWidget uses). Day 11 will derive the
  * `encryptedHash` from the real on-chain policy_seq + commitment.
  */
 function RowValue({
@@ -231,7 +309,7 @@ function RowValue({
   }
 
   if (row.id === 'policy') {
-    // Day 9 placeholder ciphertext — Day 10 derives from policy_seq + commitment.
+    // Day 10 placeholder ciphertext — Day 11 derives from policy_seq + commitment.
     return (
       <EncryptedField
         value="•••••••••••••••"

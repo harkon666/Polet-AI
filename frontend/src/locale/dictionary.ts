@@ -328,7 +328,21 @@ export type TranslationKey =
   | 'app.ledger.empty.connectFirst'
   | 'app.console.rails.kicker'
   | 'app.rail.jupiter.disclaimer'
-  | 'app.rail.ika.disclaimer';
+  | 'app.rail.ika.disclaimer'
+  // App console — Day 10 layout pivot (mission ribbon + stat strip + onboarding wizard + advanced collapse)
+  | 'app.ribbon.thesis'
+  | 'app.ribbon.scope'
+  | 'app.stat.pda'
+  | 'app.stat.balance'
+  | 'app.stat.policy'
+  | 'app.stat.sessions'
+  | 'app.stat.unit.active'
+  | 'app.wizard.step'
+  | 'app.wizard.of'
+  | 'app.wizard.connect.title'
+  | 'app.wizard.connect.body'
+  | 'app.wizard.disabled.waiting'
+  | 'app.advanced.label';
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -704,6 +718,22 @@ const en: Dictionary = {
   'app.console.rails.kicker': 'Operational rails',
   'app.rail.jupiter.disclaimer': 'DEVNET PREVIEW · NOT MAINNET',
   'app.rail.ika.disclaimer': 'PRE-ALPHA · NOT MPC SETTLEMENT',
+
+  // App console — Day 10 layout pivot
+  'app.ribbon.thesis': 'Three rails · One gate',
+  'app.ribbon.scope': 'Devnet preview · Policy-gated',
+  'app.stat.pda': 'PDA',
+  'app.stat.balance': 'SOL Balance',
+  'app.stat.policy': 'Policy seq',
+  'app.stat.sessions': 'Sessions',
+  'app.stat.unit.active': 'active',
+  'app.wizard.step': 'Step',
+  'app.wizard.of': 'of',
+  'app.wizard.connect.title': 'Connect a devnet wallet',
+  'app.wizard.connect.body':
+    'Polet stores your limits as ciphertext; the gate evaluates blind. Connect a devnet wallet to derive your smart-wallet PDA and start the four-step setup.',
+  'app.wizard.disabled.waiting': 'waiting for wallet',
+  'app.advanced.label': 'Advanced · Legacy v1 console',
 };
 
 // ---------------------------------------------------------------------------
@@ -1078,6 +1108,22 @@ const id: Dictionary = {
   'app.console.rails.kicker': 'Rail operasional',
   'app.rail.jupiter.disclaimer': 'DEVNET PREVIEW · NOT MAINNET',
   'app.rail.ika.disclaimer': 'PRE-ALPHA · NOT MPC SETTLEMENT',
+
+  // App console — Day 10 layout pivot
+  'app.ribbon.thesis': 'Tiga rail · Satu gate',
+  'app.ribbon.scope': 'Pratinjau devnet · Policy-gated',
+  'app.stat.pda': 'PDA',
+  'app.stat.balance': 'Saldo SOL',
+  'app.stat.policy': 'Policy seq',
+  'app.stat.sessions': 'Session',
+  'app.stat.unit.active': 'aktif',
+  'app.wizard.step': 'Langkah',
+  'app.wizard.of': 'dari',
+  'app.wizard.connect.title': 'Hubungkan wallet devnet',
+  'app.wizard.connect.body':
+    'Polet menyimpan batas kamu sebagai ciphertext; gate evaluasi tanpa membaca. Hubungkan wallet devnet untuk derive PDA smart wallet kamu dan mulai setup empat langkah.',
+  'app.wizard.disabled.waiting': 'menunggu wallet',
+  'app.advanced.label': 'Lanjutan · Konsol v1 lama',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };
