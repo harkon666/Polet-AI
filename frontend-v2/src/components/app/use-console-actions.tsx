@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
+import bs58 from 'bs58'
 import {
   Keypair,
   LAMPORTS_PER_SOL,
@@ -365,6 +366,70 @@ function describeError(err: unknown): string {
   return message
 }
 
+/* ──────────────────────────────────────────────────────────────────
+ * Session keypair persistence
+ *
+ * The BYO agent keypair is minted client-side by `grantAgentSession`
+ * and held in component state so subsequent rail run transactions
+ * can co-sign as the session signer. Day 11.5 mirrors that state
+ * into `sessionStorage` (tab-scoped, cleared on tab close) so the
+ * SESSION row affordance survives page refresh / Vite HMR reload.
+ *
+ * Devnet-only project. Secret is base58-encoded plaintext under a
+ * versioned key; cleared on wallet disconnect or when the on-chain
+ * session is no longer active. Production agents would hold their
+ * own keypair externally — this storage is purely a demo affordance.
+ * ────────────────────────────────────────────────────────────────── */
+const SESSION_KEY_STORAGE = 'polet.agentSessionKey.v1'
+
+type StoredSessionKey = {
+  owner: string
+  publicKey: string
+  secretKey: string
+}
+
+function readStoredSessionKey(): StoredSessionKey | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(SESSION_KEY_STORAGE)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as StoredSessionKey
+    if (
+      typeof parsed.owner !== 'string' ||
+      typeof parsed.publicKey !== 'string' ||
+      typeof parsed.secretKey !== 'string'
+    ) {
+      return null
+    }
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeStoredSessionKey(owner: PublicKey, kp: Keypair) {
+  if (typeof window === 'undefined') return
+  const entry: StoredSessionKey = {
+    owner: owner.toBase58(),
+    publicKey: kp.publicKey.toBase58(),
+    secretKey: bs58.encode(kp.secretKey),
+  }
+  try {
+    window.sessionStorage.setItem(SESSION_KEY_STORAGE, JSON.stringify(entry))
+  } catch {
+    // quota / privacy mode failures are non-fatal
+  }
+}
+
+function clearStoredSessionKey() {
+  if (typeof window === 'undefined') return
+  try {
+    window.sessionStorage.removeItem(SESSION_KEY_STORAGE)
+  } catch {
+    // ignore
+  }
+}
+
 export function ConsoleStateProvider({
   children,
 }: {
@@ -420,10 +485,50 @@ export function ConsoleStateProvider({
       setSolBalance(null)
       setError(null)
       setSessionKeypair(null)
+      clearStoredSessionKey()
       return
     }
     void refresh()
   }, [connected, publicKey, refresh])
+
+  // Restore the BYO agent keypair from sessionStorage when the
+  // on-chain wallet data lands and an active session matches a stored
+  // secret. This lets the SESSION row affordance (Copy/Download
+  // buttons) survive a page refresh or Vite HMR reload inside the
+  // same tab. Stale entries (owner mismatch, session revoked or
+  // expired) are evicted on detection.
+  useEffect(() => {
+    if (!publicKey || !data) return
+    if (sessionKeypair) return
+    const stored = readStoredSessionKey()
+    if (!stored) return
+    if (stored.owner !== publicKey.toBase58()) {
+      clearStoredSessionKey()
+      return
+    }
+    const sessions = (data.sessions ?? []) as Array<{
+      key?: unknown
+      authorized?: unknown
+      expiresAt?: unknown
+    }>
+    const stillActive = sessions.some(
+      (s) =>
+        s &&
+        s.authorized === true &&
+        String(s.key ?? '') === stored.publicKey &&
+        Number(s.expiresAt ?? 0) * 1000 > Date.now(),
+    )
+    if (!stillActive) {
+      clearStoredSessionKey()
+      return
+    }
+    try {
+      const secret = bs58.decode(stored.secretKey)
+      setSessionKeypair(Keypair.fromSecretKey(secret))
+    } catch {
+      clearStoredSessionKey()
+    }
+  }, [publicKey, data, sessionKeypair])
 
   // Helper, run a transaction-bearing action: api call → prepare →
   // sendTransaction → robustConfirm → emit receipt → refresh. Tracks
@@ -571,6 +676,7 @@ export function ConsoleStateProvider({
         }),
       (_result, signature) => {
         setSessionKeypair(sessionKeypair)
+        writeStoredSessionKey(publicKey, sessionKeypair)
         emitReceipt({
           action: 'SESSION GRANTED',
           description: `Session ${sessionKeypair.publicKey.toBase58().slice(0, 4)}…${sessionKeypair.publicKey.toBase58().slice(-4)} authorized for ${SESSION_DURATION_HOURS}h.`,
