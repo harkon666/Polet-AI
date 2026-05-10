@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import {
+  Keypair,
   LAMPORTS_PER_SOL,
   type BlockhashWithExpiryBlockHeight,
   type Connection,
@@ -18,7 +19,7 @@ import {
   initializeWallet as apiInitializeWallet,
   setupDemoCustody as apiSetupDemoCustody,
   setConfidentialPolicy as apiSetConfidentialPolicy,
-  registerAgent as apiRegisterAgent,
+  grantKey as apiGrantKey,
   runConfidentialDca as apiRunConfidentialDca,
   runMultichainIntent as apiRunMultichainIntent,
 } from '#shared/lib/api'
@@ -120,6 +121,13 @@ export type ConsoleState = {
   receipts: ReceiptEntry[]
   loading: ActionKey | null
   error: string | null
+  /**
+   * Client-side BYO agent keypair, minted on the first
+   * `grantAgentSession()` call and held only in this tab. Day 11.5
+   * exposes it for downstream consumers (Day 12 will use it to
+   * co-sign rail run transactions). Cleared on wallet disconnect.
+   */
+  sessionKeypair: Keypair | null
 }
 
 export type ConsoleActions = {
@@ -276,6 +284,10 @@ export function ConsoleStateProvider({
   const [receipts, setReceipts] = useState<ReceiptEntry[]>([])
   const [loading, setLoading] = useState<ActionKey | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Client-side BYO agent keypair, minted on grantAgentSession.
+  // Held only in component state so subsequent rail run transactions
+  // can co-sign as the session signer. Cleared on wallet disconnect.
+  const [sessionKeypair, setSessionKeypair] = useState<Keypair | null>(null)
 
   const emitReceipt = useCallback(
     (entry: Omit<ReceiptEntry, 'id' | 'timestamp'>) => {
@@ -314,6 +326,7 @@ export function ConsoleStateProvider({
       setData(null)
       setSolBalance(null)
       setError(null)
+      setSessionKeypair(null)
       return
     }
     void refresh()
@@ -444,24 +457,35 @@ export function ConsoleStateProvider({
 
   const grantAgentSession = useCallback(async () => {
     if (!publicKey) return
+    // BYO agent wallet: proxy is stateless and no longer generates
+    // session keypairs. The console mints a fresh client-side keypair,
+    // saves the secret in component state for later run actions to
+    // co-sign with, and grants the public key on-chain via grantKey.
+    // Production agents would be external SDK processes holding their
+    // own keypairs — this client-side mint mirrors that contract for
+    // the demo without requiring the operator to paste a pubkey.
+    const sessionKeypair = Keypair.generate()
     const expiresAt =
       Math.floor(Date.now() / 1000) + SESSION_DURATION_HOURS * 3600
     await runTxAction(
       'session',
       () =>
-        apiRegisterAgent({
+        apiGrantKey({
           owner: publicKey.toBase58(),
+          sessionKey: sessionKeypair.publicKey.toBase58(),
           expiresAt,
           dailyLimit: SESSION_DAILY_LIMIT_USDC,
         }),
-      (result, signature) =>
+      (_result, signature) => {
+        setSessionKeypair(sessionKeypair)
         emitReceipt({
           action: 'SESSION GRANTED',
-          description: `Session ${result.sessionKey.slice(0, 4)}…${result.sessionKey.slice(-4)} authorized for ${SESSION_DURATION_HOURS}h.`,
+          description: `Session ${sessionKeypair.publicKey.toBase58().slice(0, 4)}…${sessionKeypair.publicKey.toBase58().slice(-4)} authorized for ${SESSION_DURATION_HOURS}h.`,
           signature,
           status: 'info',
-          body: 'Agent received scoped temporary authority. The owner key is not exposed.',
-        }),
+          body: 'Agent received scoped temporary authority. The owner key is not exposed; the agent keypair is held only on this client tab.',
+        })
+      },
       (err, signature) =>
         emitReceipt({
           action: 'SESSION GRANT FAILED',
@@ -634,6 +658,7 @@ export function ConsoleStateProvider({
         receipts,
         loading,
         error,
+        sessionKeypair,
       },
       actions: {
         refresh,
@@ -655,6 +680,7 @@ export function ConsoleStateProvider({
       receipts,
       loading,
       error,
+      sessionKeypair,
       refresh,
       initializeWallet,
       registerCustody,

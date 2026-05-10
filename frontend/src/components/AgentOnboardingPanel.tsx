@@ -42,7 +42,7 @@ export function AgentOnboardingPanel({
 
   const agentConfigJson = useMemo(() => {
     if (stage.phase !== 'ready' && stage.phase !== 'granting' && stage.phase !== 'generated') return '';
-    const kp = stage.phase === 'idle' ? null : stage.keypair ?? null;
+    const kp = stage.keypair ?? null;
     if (!owner || !kp) return '';
     return JSON.stringify(
       {
