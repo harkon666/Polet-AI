@@ -270,6 +270,79 @@ body {
   filter: grayscale(0);
 }
 
+/* ============================================
+   Manifesto pattern animations — diagrammatic cards come alive.
+   Subtle continuous loops (~3-5s) so each pattern tells a tiny story.
+   ============================================ */
+
+/* Flowing dashes — used on agent→proxy arrow + bypass route + fan-out arrows.
+   stroke-dasharray on the path itself + animate dashoffset. */
+@keyframes pl-pat-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+/* Pulse-fade — used on broken-proxy fracture line + "no gate" indicator. */
+@keyframes pl-pat-pulse-fade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Chain-pulse — used on multi-chain fan-out target pills.
+   Cycle: chain stays muted 90% of time, briefly highlights teal. */
+@keyframes pl-pat-chain-pulse {
+  0%,
+  88%,
+  100% {
+    fill: rgb(10 26 22 / 0.6);
+    stroke: rgb(166 196 189 / 0.5);
+  }
+  6%,
+  18% {
+    fill: rgb(45 212 191 / 0.3);
+    stroke: rgb(45 212 191);
+  }
+}
+
+/* Scanline — vertical line sweeping across block-explorer card.
+   Suggests "anyone scanning the chain can read" (CCTV / X-ray feel). */
+@keyframes pl-pat-scanline {
+  0% {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(148px);
+    opacity: 0;
+  }
+}
+
+.pl-pat-flow {
+  animation: pl-pat-flow 1.5s linear infinite;
+}
+
+.pl-pat-pulse {
+  animation: pl-pat-pulse-fade 2s ease-in-out infinite;
+}
+
+.pl-pat-chain {
+  animation: pl-pat-chain-pulse 4s linear infinite;
+}
+
+.pl-pat-scanline {
+  animation: pl-pat-scanline 5s ease-in-out infinite;
+}
+
 /* Reduced-motion fallback — disable drift + reveal animations + cursor glow */
 @media (prefers-reduced-motion: reduce) {
   .pl-ambient-hero {
@@ -299,6 +372,13 @@ body {
     /* Static centered view: shift to show middle of duplicated set */
     transform: translateX(-25%);
     justify-content: center;
+  }
+
+  .pl-pat-flow,
+  .pl-pat-pulse,
+  .pl-pat-chain,
+  .pl-pat-scanline {
+    animation: none;
   }
 }
 
