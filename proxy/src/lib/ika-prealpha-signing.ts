@@ -256,7 +256,13 @@ export function deriveIkaMessageDigest(request: IkaBridgelessExecutionRequest): 
 }
 
 export function deriveIkaMessageHash(preimage: IkaMessageHashPreimage): string {
-  return Buffer.from(keccak_256(Buffer.from(JSON.stringify(preimage), 'utf8'))).toString('hex');
+  const preimageJson = JSON.stringify(preimage);
+  const digest = Buffer.from(keccak_256(Buffer.from(preimageJson, 'utf8'))).toString('hex');
+  if (process.env.POLET_LOG_IKA_PREIMAGE) {
+    console.error(`[ika-preimage] digest=${digest}`);
+    console.error(`[ika-preimage] preimage=${preimageJson}`);
+  }
+  return digest;
 }
 
 function buildIkaMessageHashPreimage(input: {

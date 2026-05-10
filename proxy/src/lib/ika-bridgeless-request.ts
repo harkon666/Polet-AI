@@ -29,6 +29,27 @@ import {
   type SharedIkaApprovalProgress,
 } from './shared-ika-approval';
 import { evaluateIkaChainAssetGuardrails } from './chain-asset-guardrails';
+import { IkaDWalletRegistry } from './ika-dwallet-registry';
+
+let _sharedRegistry: IkaDWalletRegistry | null = null;
+async function loadDwalletOverrideFromRegistry(owner: string): Promise<{
+  dwalletAccount?: string;
+  dwalletCurve?: number;
+  dwalletPublicKey?: string;
+}> {
+  try {
+    _sharedRegistry ??= new IkaDWalletRegistry();
+    const entry = await _sharedRegistry.findByOwner(owner);
+    if (!entry) return {};
+    return {
+      dwalletAccount: entry.dwalletAccount,
+      dwalletCurve: entry.curve,
+      dwalletPublicKey: entry.dwalletPublicKeyHex,
+    };
+  } catch {
+    return {};
+  }
+}
 import { evaluateBridgelessRiskGuardrails } from './bridgeless-risk-guardrails';
 import type { WalletData } from './wallet-store';
 import {
@@ -247,7 +268,10 @@ async function buildIkaAllowedResult(
 ): Promise<IkaBridgelessAllowed | IkaBridgelessNeedsApproval> {
   const amount = params.amount.toString();
   const smartWalletAuthority = wallet.walletPda || deriveWalletPda(intent.owner);
-  const preAlphaOverrides = getIkaPreAlphaOverrides(params);
+  const preAlphaOverrides = {
+    ...(await loadDwalletOverrideFromRegistry(intent.owner)),
+    ...getIkaPreAlphaOverrides(params),
+  };
   const canonicalOrder = buildCanonicalBridgelessOrder({
     intentId: intent.id,
     source: {

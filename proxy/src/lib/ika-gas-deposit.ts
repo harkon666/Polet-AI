@@ -137,12 +137,20 @@ export async function readIkaGasDepositStatus(
     minSolLamports: options.minSolLamports ?? getMinSolBalanceFloor(),
   };
   if (!info) {
+    // Demo bypass: when both floors are explicitly set to 0 (see
+    // POLET_IKA_GAS_MIN_IKA_BASE_UNITS / POLET_IKA_GAS_MIN_SOL_LAMPORTS),
+    // the operator has opted out of the gas guard. Pre-alpha's mock signer
+    // does not actually consume IKA/SOL, so letting the lifecycle proceed
+    // without a funded deposit is acceptable for demo / hackathon flows.
+    const bypass = floors.minIkaBaseUnits === 0n && floors.minSolLamports === 0n;
     return {
       exists: false,
       pda: pda.toString(),
       floors,
-      passes: false,
-      reason: 'GasDeposit account has not been created. Call CreateDeposit and fund it with IKA and SOL.',
+      passes: bypass,
+      reason: bypass
+        ? undefined
+        : 'GasDeposit account has not been created. Call CreateDeposit and fund it with IKA and SOL.',
     };
   }
   try {

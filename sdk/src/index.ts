@@ -1648,8 +1648,18 @@ async function signAndSendPoletTransaction(
 }
 
 async function resolveKitSigners(options: PoletAgentKitOptions): Promise<Signer[]> {
-  if (!options.signers) return [];
-  return typeof options.signers === 'function' ? await options.signers() : options.signers;
+  const listed = options.signers
+    ? typeof options.signers === 'function' ? await options.signers() : options.signers
+    : [];
+  // Fallback: when the caller only configured an `agentSigner` (the common
+  // MCP / Hermes setup), treat it as an available signer so lifecycle steps
+  // that need to sign + send can proceed without forcing the caller to
+  // duplicate the keypair into `signers`.
+  if (listed.length === 0 && options.agentSigner) {
+    const agent = typeof options.agentSigner === 'function' ? await options.agentSigner() : options.agentSigner;
+    if (agent) return [agent];
+  }
+  return listed;
 }
 
 async function resolveKitAgentSigner(options: PoletAgentKitOptions): Promise<Signer | undefined> {

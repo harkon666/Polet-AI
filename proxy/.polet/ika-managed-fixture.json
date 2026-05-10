@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "disclosure": "Polet demo managed dWallet — pre-alpha mock signer only; not a production MPC key.",
+  "dwallets": {
+    "curve25519": {
+      "curve": 2,
+      "dwalletAccount": "EQ51wKkStDfof8NSdEpY8bJLnKvDV8TQKZtT4qiiovAK",
+      "dwalletPublicKeyHex": "bf4009a55f24048f9cb34c41d9d8605a30d987c99ebb85d147a30b5cb8d467c1",
+      "transferredAuthority": "BhXAUn1enbGhqCiwT69VueGzC4RsuZpauUUisc3JyVAu",
+      "createdEpoch": "1",
+      "dwalletNetworkEncryptionPublicKeyHex": "ae574cfa320624c36e26428c81e65b24214b02a09373ae2a28714fd1d7a9c475",
+      "dwalletAttestation": {
+        "attestationDataHex": "00000000000000000000000000000000000000000000000000000000000000000020c409708c1b38f442493d66676ab73a11806c6d71bb048cd14b322eec20200c770220bf4009a55f24048f9cb34c41d9d8605a30d987c99ebb85d147a30b5cb8d467c120bf4009a55f24048f9cb34c41d9d8605a30d987c99ebb85d147a30b5cb8d467c10000",
+        "networkSignatureHex": "65585ea4751b54afbb1ac9b86c07c0851bdb7ec563f15ca82e1a53ac8a5c8a189ab10376309daea8ed7b6480b7bb777850efc6920c88479145390acb2303a60e",
+        "networkPublicKeyHex": "ae574cfa320624c36e26428c81e65b24214b02a09373ae2a28714fd1d7a9c475",
+        "epoch": "1"
+      },
+      "messageCentralizedSignatureHex": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}

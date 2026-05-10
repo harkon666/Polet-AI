@@ -168,76 +168,66 @@ export async function createTlsGrpcTransport(
   options: TlsGrpcTransportOptions = {}
 ): Promise<IkaGrpcTransport> {
   const endpoint = options.endpoint ?? process.env.IKA_GRPC_URL ?? IKA_PREALPHA_GRPC_URL;
+
+  // Build a unary grpc-js client manually using the correct fully-qualified
+  // path `/ika.dwallet.v1.DWalletService/submitTransaction`. We handle the
+  // protobuf serialization of `UserSignedRequest` / `TransactionResponse`
+  // ourselves (both use only two `bytes` fields — trivial to encode) so we
+  // avoid pulling in the ts-proto generated client.
+  const grpcJs = await import('@grpc/grpc-js');
   const url = normalizeEndpoint(endpoint, options.allowInsecure ?? false);
+  const creds = url.protocol === 'http:' && (options.allowInsecure ?? false)
+    ? grpcJs.credentials.createInsecure()
+    : grpcJs.credentials.createSsl();
+  const target = `${url.hostname}:${url.port || (url.protocol === 'http:' ? 80 : 443)}`;
+  const client = new grpcJs.Client(target, creds);
   const timeoutMs = options.timeoutMs ?? 30_000;
 
-  // Lazy-require node:http2 so unit tests that don't touch the transport keep
-  // working when http2 is not available (e.g. restricted sandboxes).
-  const http2 = await import('node:http2');
-  const client = http2.connect(url.origin, {
-    settings: { enablePush: false },
-  });
+  function serializeUserSignedRequest(userSig: Uint8Array, signed: Uint8Array): Buffer {
+    return Buffer.concat([
+      protobufEncodeBytesField(1, userSig),
+      protobufEncodeBytesField(2, signed),
+    ]);
+  }
+  function deserializeTransactionResponse(buf: Buffer): Buffer {
+    return Buffer.from(protobufDecodeSingleBytesField(buf, 1));
+  }
 
-  client.on('error', () => {
-    // Errors propagate to in-flight requests; nothing else to do at client level.
-  });
+  function submitTransaction(userSig: Uint8Array, signed: Uint8Array): Promise<Uint8Array> {
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const deadline = new Date(Date.now() + timeoutMs);
+      client.makeUnaryRequest(
+        '/ika.dwallet.v1.DWalletService/SubmitTransaction',
+        (req: Buffer) => req,
+        (buf: Buffer) => buf,
+        serializeUserSignedRequest(userSig, signed),
+        new grpcJs.Metadata(),
+        { deadline },
+        (err: any, respBuf: any) => {
+          if (err) {
+            reject(new Error(`Ika gRPC submitTransaction returned status ${err.code}: ${err.details ?? err.message ?? 'no message'}`));
+            return;
+          }
+          resolve(new Uint8Array(deserializeTransactionResponse(respBuf)));
+        },
+      );
+    });
+  }
 
   return {
     async unaryCall(pathname, payload) {
-      return new Promise<Uint8Array>((resolve, reject) => {
-        const req = client.request({
-          ':method': 'POST',
-          ':path': pathname,
-          ':scheme': url.protocol === 'https:' ? 'https' : 'http',
-          ':authority': options.authority ?? url.host,
-          'content-type': 'application/grpc',
-          te: 'trailers',
-          'grpc-encoding': 'identity',
-          'grpc-accept-encoding': 'identity',
-        });
-        const chunks: Buffer[] = [];
-        let headersReceived = false;
-        let grpcStatus: string | undefined;
-        let grpcMessage: string | undefined;
-        const timer = setTimeout(() => {
-          req.close(http2.constants.NGHTTP2_CANCEL);
-          reject(new Error(`Ika gRPC call ${pathname} timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-
-        req.on('response', (headers) => {
-          headersReceived = true;
-          const httpStatus = Number(headers[':status'] ?? 0);
-          if (httpStatus !== 200) {
-            reject(new Error(`Ika gRPC HTTP status ${httpStatus} for ${pathname}`));
-            req.close(http2.constants.NGHTTP2_CANCEL);
-          }
-          if (typeof headers['grpc-status'] === 'string') grpcStatus = headers['grpc-status'];
-          if (typeof headers['grpc-message'] === 'string') grpcMessage = headers['grpc-message'];
-        });
-        req.on('trailers', (trailers) => {
-          if (typeof trailers['grpc-status'] === 'string') grpcStatus = trailers['grpc-status'];
-          if (typeof trailers['grpc-message'] === 'string') grpcMessage = trailers['grpc-message'];
-        });
-        req.on('data', (chunk: Buffer) => chunks.push(chunk));
-        req.on('end', () => {
-          clearTimeout(timer);
-          if (!headersReceived) return reject(new Error(`Ika gRPC ${pathname} closed without response`));
-          if (grpcStatus !== undefined && grpcStatus !== '0') {
-            return reject(new Error(`Ika gRPC ${pathname} returned status ${grpcStatus}: ${grpcMessage ?? 'no message'}`));
-          }
-          try {
-            const buffer = Buffer.concat(chunks);
-            resolve(unwrapGrpcFrame(buffer));
-          } catch (error) {
-            reject(error);
-          }
-        });
-        req.on('error', (err: Error) => {
-          clearTimeout(timer);
-          reject(err);
-        });
-        req.end(Buffer.from(wrapGrpcFrame(payload)));
-      });
+      // Legacy path-based API: re-route the common SubmitTransaction call to
+      // the official client. `payload` is the proto-encoded UserSignedRequest
+      // our hand-rolled schema produced — we decode the two raw bytes fields
+      // and re-submit through the generated client.
+      if (pathname.endsWith('submitTransaction') || pathname.endsWith('SubmitTransaction')) {
+        const userSig = protobufDecodeSingleBytesField(payload, 1);
+        const signed = protobufDecodeSingleBytesField(payload, 2);
+        const resp = await submitTransaction(userSig, signed);
+        // Re-wrap as proto-encoded TransactionResponse ({ responseData: bytes }).
+        return protobufEncodeBytesField(1, resp);
+      }
+      throw new Error(`Unsupported Ika gRPC path via legacy transport: ${pathname}`);
     },
     async close() {
       client.close();
@@ -343,7 +333,7 @@ export class IkaGrpcClient {
 
   async submitTransaction(envelope: UserSignedRequest): Promise<TransactionResponseData> {
     const body = protobufEncodeUserSignedRequest(envelope);
-    const raw = await this.options.transport.unaryCall('/DWalletService/SubmitTransaction', body);
+    const raw = await this.options.transport.unaryCall('/ika.dwallet.v1.DWalletService/submitTransaction', body);
     const responseDataBytes = protobufDecodeSingleBytesField(raw, 1);
     const decoded = decodeTransactionResponseData(responseDataBytes);
     return decoded;
@@ -363,7 +353,7 @@ export class IkaGrpcClient {
   async getPresigns(userPubkey: Uint8Array): Promise<PresignSummary[]> {
     const requestPayload = protobufEncodeBytesField(1, userPubkey);
     const raw = await this.options.transport.unaryCall(
-      '/DWalletService/GetPresigns',
+      '/ika.dwallet.v1.DWalletService/getPresigns',
       requestPayload
     );
     return decodePresignList(raw);
@@ -378,7 +368,7 @@ export class IkaGrpcClient {
       protobufEncodeBytesField(2, dwalletId),
     ]);
     const raw = await this.options.transport.unaryCall(
-      '/DWalletService/GetPresignsForDWallet',
+      '/ika.dwallet.v1.DWalletService/getPresignsForDwallet',
       payload
     );
     return decodePresignList(raw);

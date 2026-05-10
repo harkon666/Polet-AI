@@ -404,9 +404,11 @@ ikaLifecycleRouter.post('/lifecycle/progress', async (c) => {
       },
     });
   } catch (error) {
+    console.error('[ika-lifecycle] /progress failed:', error instanceof Error ? error.stack ?? error.message : error);
     return c.json({
       success: false,
       error: error instanceof Error ? error.message : 'lifecycle/progress failed',
+      details: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
     }, 400);
   } finally {
     if (transportOpened) await transportOpened.close().catch(() => undefined);

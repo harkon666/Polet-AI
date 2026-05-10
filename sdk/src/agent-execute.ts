@@ -479,6 +479,22 @@ async function runIkaEndToEnd(
         message: err.message,
       };
     }
+    if (send.status === 'failed') {
+      // Broadcast or simulation failed (e.g. Ika dWallet not provisioned,
+      // stale blockhash, RPC refused). Surface as lifecycle-error so the
+      // agent can distinguish from "need explicit signer".
+      const reason = send.reason ?? 'Polet approval transaction failed to broadcast.';
+      const err = new PoletLifecycleError(reason);
+      if (options.throwOnFailure) throw err;
+      return {
+        status: 'lifecycle-error',
+        ok: false,
+        rail: 'ika',
+        trade,
+        reason,
+        message: `Polet approval transaction failed to broadcast: ${reason}`,
+      };
+    }
     const err = new PoletSignerRequiredError(
       send.reason ?? 'Polet approval transaction needs an agent signer.',
       send.requiredSigners ?? [],

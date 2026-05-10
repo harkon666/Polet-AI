@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-10T09:16:40.359Z",
+  "entries": [
+    {
+      "owner": "ECFFvJe8yPaTSH2qdXP1CkQTxWfWy5B3fZ7HEcCQPhSn",
+      "curve": 2,
+      "dwalletAccount": "EQ51wKkStDfof8NSdEpY8bJLnKvDV8TQKZtT4qiiovAK",
+      "dwalletPublicKeyHex": "bf4009a55f24048f9cb34c41d9d8605a30d987c99ebb85d147a30b5cb8d467c1",
+      "transferredAuthority": "BhXAUn1enbGhqCiwT69VueGzC4RsuZpauUUisc3JyVAu",
+      "createdEpoch": "1",
+      "label": "managed-curve25519",
+      "source": "managed-demo-mode"
+    }
+  ]
+}
