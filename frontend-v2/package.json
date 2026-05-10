@@ -15,6 +15,7 @@
   "dependencies": {
     "@encrypt.xyz/pre-alpha-solana-client": "^0.1.1",
     "@fontsource-variable/geist-mono": "^5.1.1",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.19.38",

@@ -1,4 +1,5 @@
 @import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/space-grotesk";
 @import "tailwindcss";
 
 /* ============================================
@@ -214,6 +215,61 @@ body {
   100% { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
 
+/* Trust strip — infinite right-to-left marquee of partner logos.
+   Continuous loop, no pause, starts from "middle" position via negative
+   animation-delay. Edge fade via mask-image. */
+.pl-trust-marquee {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+}
+
+.pl-trust-track {
+  display: flex;
+  gap: 4rem;
+  width: max-content;
+  align-items: center;
+  animation: pl-trust-scroll 40s linear infinite;
+  animation-delay: -20s;
+  will-change: transform;
+}
+
+@keyframes pl-trust-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.pl-trust-item {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  height: 48px;
+  opacity: 0.55;
+  filter: grayscale(0.4);
+  transition:
+    opacity 250ms ease-out,
+    filter 250ms ease-out;
+}
+
+.pl-trust-item:hover {
+  opacity: 1;
+  filter: grayscale(0);
+}
+
 /* Reduced-motion fallback — disable drift + reveal animations + cursor glow */
 @media (prefers-reduced-motion: reduce) {
   .pl-ambient-hero {
@@ -236,6 +292,13 @@ body {
 
   .pl-rotate-in {
     animation: none;
+  }
+
+  .pl-trust-track {
+    animation: none;
+    /* Static centered view: shift to show middle of duplicated set */
+    transform: translateX(-25%);
+    justify-content: center;
   }
 }
 
