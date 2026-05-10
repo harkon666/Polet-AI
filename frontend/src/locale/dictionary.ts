@@ -363,7 +363,16 @@ export type TranslationKey =
   | 'app.rail.ika.action.allow.loading'
   | 'app.log.kicker'
   | 'app.log.tagline'
-  | 'app.log.empty';
+  | 'app.log.empty'
+  // Polish bundle (Day 11.5): constraint tooltips, session keypair affordances, spinner labels
+  | 'app.constraint.numericLimit.tooltip'
+  | 'app.constraint.scopeMatch.tooltip'
+  | 'app.constraint.sessionActive.tooltip'
+  | 'app.session.download'
+  | 'app.session.copy.public'
+  | 'app.session.copy.secret'
+  | 'app.session.copied'
+  | 'app.session.devnetWarning';
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -781,6 +790,18 @@ const en: Dictionary = {
   'app.log.kicker': 'Receipt log',
   'app.log.tagline': 'nothing leaks, nothing bypasses',
   'app.log.empty': 'No actions yet, run a setup step or rail to begin.',
+  // Polish (Day 11.5)
+  'app.constraint.numericLimit.tooltip':
+    'pi_numeric_limit — confidential max-per-run and daily-cap check. Thresholds stay encrypted on-chain; only pass/fail leaves the gate.',
+  'app.constraint.scopeMatch.tooltip':
+    'pi_scope_match — source/target asset and chain allowlist plus route-risk guardrails (slippage, price impact, liquidity).',
+  'app.constraint.sessionActive.tooltip':
+    'pi_session_active — session not expired, not revoked, and grantedSlot is greater than or equal to the wallet last-revoked slot.',
+  'app.session.download': 'Download polet-agent.json',
+  'app.session.copy.public': 'Copy public key',
+  'app.session.copy.secret': 'Copy secret',
+  'app.session.copied': 'Copied',
+  'app.session.devnetWarning': 'Devnet key, do not use on mainnet',
 };
 
 // ---------------------------------------------------------------------------
@@ -1197,6 +1218,18 @@ const id: Dictionary = {
   'app.log.kicker': 'Receipt log',
   'app.log.tagline': 'tidak ada yang bocor, tidak ada yang lolos',
   'app.log.empty': 'Belum ada aksi, jalankan langkah setup atau rail untuk mulai.',
+  // Polish (Day 11.5)
+  'app.constraint.numericLimit.tooltip':
+    'pi_numeric_limit — pemeriksaan max-per-run dan daily-cap rahasia. Ambang batas tetap terenkripsi on-chain; hanya pass/fail yang keluar dari gate.',
+  'app.constraint.scopeMatch.tooltip':
+    'pi_scope_match — allowlist asset/chain sumber + target plus route-risk guardrails (slippage, price impact, likuiditas).',
+  'app.constraint.sessionActive.tooltip':
+    'pi_session_active — session belum expired, belum dicabut, dan grantedSlot >= last-revoked slot wallet.',
+  'app.session.download': 'Unduh polet-agent.json',
+  'app.session.copy.public': 'Salin public key',
+  'app.session.copy.secret': 'Salin secret',
+  'app.session.copied': 'Tersalin',
+  'app.session.devnetWarning': 'Kunci devnet, jangan dipakai di mainnet',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };

@@ -172,6 +172,13 @@ export type ReceiptEntry = {
 export type ConsoleData = {
   walletPda?: string
   policySeq?: number
+  /**
+   * On-chain confidential policy commitment, 32 bytes. Derived hash
+   * (first 6 bytes hex) feeds the EncryptedField in the SetupLedger
+   * POLICY row so the visible ciphertext correlates with the actual
+   * stored commitment, not a static placeholder.
+   */
+  policyCommitment?: number[]
   demoCustody?: {
     configured?: boolean
     usdcTokenAccount?: string

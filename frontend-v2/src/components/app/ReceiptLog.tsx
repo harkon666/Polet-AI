@@ -1,4 +1,5 @@
 import { useLocale } from '#shared/hooks/use-locale'
+import type { TranslationKey } from '#shared/locale/dictionary'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { KickerLabel } from '../primitives/KickerLabel'
 import {
@@ -127,13 +128,30 @@ export function ReceiptLog() {
 }
 
 function ReceiptRow({ entry, index }: { entry: ReceiptEntry; index: number }) {
+  const { t } = useLocale()
   const refs = entry.constraintRefs
   const refTags = refs
-    ? [
-        refs.numericLimit && { name: 'pi_numeric_limit', check: refs.numericLimit },
-        refs.scopeMatch && { name: 'pi_scope_match', check: refs.scopeMatch },
-        refs.sessionActive && { name: 'pi_session_active', check: refs.sessionActive },
-      ].filter(Boolean) as Array<{ name: string; check: 'pass' | 'fail' | 'unknown' }>
+    ? ([
+        refs.numericLimit && {
+          name: 'pi_numeric_limit',
+          check: refs.numericLimit,
+          tooltipKey: 'app.constraint.numericLimit.tooltip' as TranslationKey,
+        },
+        refs.scopeMatch && {
+          name: 'pi_scope_match',
+          check: refs.scopeMatch,
+          tooltipKey: 'app.constraint.scopeMatch.tooltip' as TranslationKey,
+        },
+        refs.sessionActive && {
+          name: 'pi_session_active',
+          check: refs.sessionActive,
+          tooltipKey: 'app.constraint.sessionActive.tooltip' as TranslationKey,
+        },
+      ].filter(Boolean) as Array<{
+        name: string
+        check: 'pass' | 'fail' | 'unknown'
+        tooltipKey: TranslationKey
+      }>)
     : []
 
   return (
@@ -164,13 +182,14 @@ function ReceiptRow({ entry, index }: { entry: ReceiptEntry; index: number }) {
             {refTags.map((ref) => (
               <span
                 key={ref.name}
-                className={
+                title={t(ref.tooltipKey)}
+                className={`cursor-help underline decoration-dotted decoration-line/40 underline-offset-2 ${
                   ref.check === 'pass'
                     ? 'text-palm'
                     : ref.check === 'fail'
                       ? 'text-coral'
                       : 'text-ink-mute'
-                }
+                }`}
               >
                 {ref.name}{' '}
                 <span aria-hidden="true">

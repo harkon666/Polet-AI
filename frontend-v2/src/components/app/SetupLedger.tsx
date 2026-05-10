@@ -1,9 +1,13 @@
+import { Fragment, useState } from 'react'
+import bs58 from 'bs58'
 import { useWallet } from '@solana/wallet-adapter-react'
+import type { Keypair } from '@solana/web3.js'
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { KickerLabel } from '../primitives/KickerLabel'
 import { EncryptedField } from '../EncryptedField'
+import { Spinner } from './Spinner'
 import {
   useConsole,
   type ActionKey,
@@ -99,6 +103,26 @@ const STATE_BADGE_CLASSES: Record<RowState, string> = {
   registered:  'inline-flex items-center rounded-full border border-palm/40 bg-palm/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-palm',
   sealed:      'inline-flex items-center rounded-full border border-lagoon-bright/40 bg-lagoon-bright/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-lagoon-bright',
   active:      'inline-flex items-center rounded-full border border-palm/40 bg-palm/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.22em] text-palm',
+}
+
+/**
+ * Derive a short visible hash from the on-chain policyCommitment so
+ * the EncryptedField in the POLICY row visibly correlates with each
+ * policy update. policyCommitment is a 32-byte number[] from
+ * `getWalletData(owner).policyCommitment`. Take the first 6 bytes,
+ * hex-encode, prepend `0x`, total 14 chars to match the Crypto-Blur
+ * Theater fixture width.
+ *
+ * Falls back to a stable placeholder for tests + the brief moment
+ * after wallet connect before the proxy returns the on-chain state.
+ */
+function derivePolicyHash(commitment: number[] | undefined): string {
+  if (!commitment || commitment.length < 6) return '0x4Vk8c2ed7a1b'
+  const hex = commitment
+    .slice(0, 6)
+    .map((b) => Math.max(0, Math.min(255, Math.trunc(b))).toString(16).padStart(2, '0'))
+    .join('')
+  return `0x${hex}`
 }
 
 const shortenPubkey = (s: string) =>
@@ -219,7 +243,7 @@ function OnboardingWizard() {
 function LedgerTable() {
   const { t } = useLocale()
   const { state, actions } = useConsole()
-  const { data, loading } = state
+  const { data, loading, sessionKeypair, publicKey } = state
 
   const rowState = deriveRowStates(data)
 
@@ -247,44 +271,157 @@ function LedgerTable() {
         const labelKey = isLoading ? row.actionLoadingKey : row.actionLabelKey
 
         return (
-          <article
-            key={row.id}
-            className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 px-6 py-5 hover:bg-surface/40 transition pl-reveal"
-            style={{ transitionDelay: `${80 * (i + 1)}ms` }}
-          >
-            <div className="sm:w-44 shrink-0 flex items-baseline gap-3">
-              <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-lagoon-bright">
-                {String(i + 1).padStart(2, '0')}
+          <Fragment key={row.id}>
+            <article
+              className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 px-6 py-5 hover:bg-surface/40 transition pl-reveal"
+              style={{ transitionDelay: `${80 * (i + 1)}ms` }}
+            >
+              <div className="sm:w-44 shrink-0 flex items-baseline gap-3">
+                <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-lagoon-bright">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span className="font-sans text-base font-semibold text-ink leading-tight">
+                  {t(row.labelKey)}
+                </span>
+              </div>
+
+              <div className="flex-1 min-w-0 font-mono text-sm text-ink-soft">
+                <RowValue row={row} state={state} data={data} />
+              </div>
+
+              <span className={STATE_BADGE_CLASSES[state]}>
+                {t(STATE_LABEL_KEY[state])}
               </span>
-              <span className="font-sans text-base font-semibold text-ink leading-tight">
-                {t(row.labelKey)}
-              </span>
-            </div>
 
-            <div className="flex-1 min-w-0 font-mono text-sm text-ink-soft">
-              <RowValue row={row} state={state} data={data} />
-            </div>
-
-            <span className={STATE_BADGE_CLASSES[state]}>
-              {t(STATE_LABEL_KEY[state])}
-            </span>
-
-            {showAction ? (
-              <button
-                type="button"
-                onClick={dispatch[row.id]}
-                disabled={isLoading || loading !== null}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-1.5 text-xs font-medium text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {t(labelKey)}
-                {!isLoading ? <span aria-hidden="true">→</span> : null}
-              </button>
-            ) : (
-              <span aria-hidden="true" className="w-[1px] sm:w-24" />
-            )}
-          </article>
+              {showAction ? (
+                <button
+                  type="button"
+                  onClick={dispatch[row.id]}
+                  disabled={isLoading || loading !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-1.5 text-xs font-medium text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? <Spinner size={11} /> : null}
+                  {t(labelKey)}
+                  {!isLoading ? <span aria-hidden="true">→</span> : null}
+                </button>
+              ) : (
+                <span aria-hidden="true" className="w-[1px] sm:w-24" />
+              )}
+            </article>
+            {row.id === 'session' &&
+            state === 'active' &&
+            sessionKeypair &&
+            publicKey ? (
+              <SessionKeypairAffordance
+                owner={publicKey.toBase58()}
+                sessionKeypair={sessionKeypair}
+              />
+            ) : null}
+          </Fragment>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * SessionKeypairAffordance, exposes the BYO agent keypair for SDK use.
+ *
+ * Once `grantAgentSession()` mints + grants a fresh keypair (Day 11
+ * behaviour), the agent secret lives in `useConsole()` state. Without
+ * this affordance the operator can't extract it, which means they
+ * can't run the SDK / MCP server / Hermes agent against the same
+ * authorized session.
+ *
+ * Three actions:
+ *   - Download `polet-agent.json` (matches v1 AgentOnboardingPanel format)
+ *   - Copy public key
+ *   - Copy secret base58 (with a brief reveal flow + Devnet warning)
+ *
+ * The keypair itself is generated client-side, so exposing the
+ * secret here doesn't widen the trust boundary — anyone with React
+ * DevTools could already extract it. Making it explicit is safer
+ * than hiding it.
+ */
+function SessionKeypairAffordance({
+  owner,
+  sessionKeypair,
+}: {
+  owner: string
+  sessionKeypair: Keypair
+}) {
+  const { t } = useLocale()
+  const [copied, setCopied] = useState<'public' | 'secret' | null>(null)
+
+  const publicKeyStr = sessionKeypair.publicKey.toBase58()
+  const secretKeyBase58 = bs58.encode(sessionKeypair.secretKey)
+  const proxyUrl =
+    (typeof window !== 'undefined' &&
+      (window as unknown as { __POLET_PROXY_URL__?: string })
+        .__POLET_PROXY_URL__) ||
+    'http://localhost:3001'
+  const rpcUrl = 'https://api.devnet.solana.com'
+
+  const handleDownload = () => {
+    const payload = {
+      POLET_OWNER: owner,
+      POLET_SESSION_KEY: publicKeyStr,
+      POLET_AGENT_KEYPAIR: secretKeyBase58,
+      POLET_PROXY_URL: proxyUrl,
+      POLET_RPC_URL: rpcUrl,
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'polet-agent.json'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const handleCopy = async (kind: 'public' | 'secret', value: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(kind)
+      window.setTimeout(() => setCopied(null), 1500)
+    } catch {
+      // Clipboard API blocked (insecure context / permissions); fall
+      // back to a quiet no-op rather than throw at the operator.
+    }
+  }
+
+  return (
+    <div className="pl-reveal flex flex-col sm:flex-row sm:items-center gap-3 px-6 py-3 bg-bg-base/40 border-t border-line/40">
+      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-coral whitespace-nowrap">
+        ⚠ {t('app.session.devnetWarning')}
+      </span>
+      <div className="flex flex-wrap items-center gap-2 ml-auto">
+        <button
+          type="button"
+          onClick={() => handleCopy('public', publicKeyStr)}
+          className="inline-flex items-center gap-1.5 rounded border border-line px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft hover:border-line-strong hover:text-ink transition"
+        >
+          {copied === 'public' ? t('app.session.copied') : t('app.session.copy.public')}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleCopy('secret', secretKeyBase58)}
+          className="inline-flex items-center gap-1.5 rounded border border-line px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft hover:border-line-strong hover:text-ink transition"
+        >
+          {copied === 'secret' ? t('app.session.copied') : t('app.session.copy.secret')}
+        </button>
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition"
+        >
+          ↓ {t('app.session.download')}
+        </button>
+      </div>
     </div>
   )
 }
@@ -318,16 +455,13 @@ function RowValue({
   }
 
   if (row.id === 'policy') {
-    // Visual hero — sealed policy renders with crypto-blur from DemoWidget.
-    // The hex placeholder mirrors policy_seq + commitment in spirit; Day 12
-    // can derive a real hash from on-chain commitment bytes.
-    const hex = data?.policySeq
-      ? `0x${data.policySeq.toString(16).padStart(4, '0')}c2ed7a1b`
-      : '0x4Vk8c2ed7a1b'
+    // Real hash derived from on-chain policyCommitment (first 6 bytes
+    // hex). Visibly correlates with each policy save so the operator
+    // can see the ciphertext change between policy_seq updates.
     return (
       <EncryptedField
         value="•••••••••••••••"
-        encryptedHash={hex}
+        encryptedHash={derivePolicyHash(data?.policyCommitment)}
         state="encrypted"
         monoSize="sm"
       />

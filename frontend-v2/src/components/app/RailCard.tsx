@@ -1,5 +1,6 @@
 import type { TranslationKey } from '#shared/locale/dictionary'
 import { useLocale } from '#shared/hooks/use-locale'
+import { Spinner } from './Spinner'
 import type { ActionKey } from './use-console-actions'
 
 export type Rail = {
@@ -107,6 +108,7 @@ export function RailCard({
           disabled={!enabled || anyLoading}
           className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-coral/40 bg-coral/5 px-3 py-2 text-xs font-medium text-coral hover:bg-coral/10 hover:border-coral transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
+          {blockLoading ? <Spinner size={11} /> : null}
           {blockLoading
             ? t(rail.blockActionLoadingKey)
             : t(rail.blockActionLabelKey)}
@@ -117,6 +119,7 @@ export function RailCard({
           disabled={!enabled || anyLoading}
           className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-2 text-xs font-medium text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
+          {allowLoading ? <Spinner size={11} /> : null}
           {allowLoading
             ? t(rail.allowActionLoadingKey)
             : t(rail.allowActionLabelKey)}
