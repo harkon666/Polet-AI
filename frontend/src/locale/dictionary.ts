@@ -313,7 +313,22 @@ export type TranslationKey =
   | 'themeToggle.aria.auto'
   | 'prefs.aria.trigger'
   | 'prefs.theme.label'
-  | 'prefs.locale.label';
+  | 'prefs.locale.label'
+  // App console (v2 /app redesign — Setup Ledger + Two-Rail Console chrome)
+  | 'app.ledger.kicker'
+  | 'app.ledger.row.wallet'
+  | 'app.ledger.row.custody'
+  | 'app.ledger.row.policy'
+  | 'app.ledger.row.session'
+  | 'app.ledger.state.initialized'
+  | 'app.ledger.state.registered'
+  | 'app.ledger.state.sealed'
+  | 'app.ledger.state.active'
+  | 'app.ledger.state.pending'
+  | 'app.ledger.empty.connectFirst'
+  | 'app.console.rails.kicker'
+  | 'app.rail.jupiter.disclaimer'
+  | 'app.rail.ika.disclaimer';
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -673,6 +688,22 @@ const en: Dictionary = {
   'prefs.aria.trigger': 'Preferences',
   'prefs.theme.label': 'Theme',
   'prefs.locale.label': 'Language',
+
+  // App console
+  'app.ledger.kicker': 'Setup ledger',
+  'app.ledger.row.wallet': 'Wallet',
+  'app.ledger.row.custody': 'Custody',
+  'app.ledger.row.policy': 'Policy',
+  'app.ledger.row.session': 'Session',
+  'app.ledger.state.initialized': 'INITIALIZED',
+  'app.ledger.state.registered': 'REGISTERED',
+  'app.ledger.state.sealed': 'SEALED',
+  'app.ledger.state.active': 'ACTIVE',
+  'app.ledger.state.pending': 'PENDING',
+  'app.ledger.empty.connectFirst': 'Connect a devnet wallet to begin.',
+  'app.console.rails.kicker': 'Operational rails',
+  'app.rail.jupiter.disclaimer': 'DEVNET PREVIEW · NOT MAINNET',
+  'app.rail.ika.disclaimer': 'PRE-ALPHA · NOT MPC SETTLEMENT',
 };
 
 // ---------------------------------------------------------------------------
@@ -1031,6 +1062,22 @@ const id: Dictionary = {
   'prefs.aria.trigger': 'Preferensi',
   'prefs.theme.label': 'Tema',
   'prefs.locale.label': 'Bahasa',
+
+  // App console
+  'app.ledger.kicker': 'Ledger setup',
+  'app.ledger.row.wallet': 'Wallet',
+  'app.ledger.row.custody': 'Custody',
+  'app.ledger.row.policy': 'Policy',
+  'app.ledger.row.session': 'Session',
+  'app.ledger.state.initialized': 'INITIALIZED',
+  'app.ledger.state.registered': 'REGISTERED',
+  'app.ledger.state.sealed': 'SEALED',
+  'app.ledger.state.active': 'ACTIVE',
+  'app.ledger.state.pending': 'PENDING',
+  'app.ledger.empty.connectFirst': 'Hubungkan wallet devnet untuk mulai.',
+  'app.console.rails.kicker': 'Rail operasional',
+  'app.rail.jupiter.disclaimer': 'DEVNET PREVIEW · NOT MAINNET',
+  'app.rail.ika.disclaimer': 'PRE-ALPHA · NOT MPC SETTLEMENT',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };

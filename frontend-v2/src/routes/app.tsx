@@ -1,25 +1,30 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { ClientWalletProvider } from '#shared/components/ClientWalletProvider'
+import { useLocale } from '#shared/hooks/use-locale'
 import { useScrollReveal } from '../hooks/useScrollReveal'
 import { KickerLabel } from '../components/primitives/KickerLabel'
 import { AppHeader } from '../components/app/AppHeader'
+import { SetupLedger } from '../components/app/SetupLedger'
+import { TwoRailConsole } from '../components/app/TwoRailConsole'
 import { WalletDashboard } from '../components/app/WalletDashboard'
 
 /**
- * /app, the confidential DCA control panel.
+ * /app, the operational console for Polet's confidential control layer.
  *
- * v2 port (Day 8). Wallet adapter lives ONLY in this route's tree, not in
- * the global root, so landing pages don't drag the ~1 MB wallet-adapter
- * bundle. TanStack Start file routing splits each route into its own
- * lazy-loaded chunk, so the cost is paid only when a user actually
- * navigates here.
+ * Day 9 redesign — the page now reads as the operational counterpart of
+ * the landing narrative ("Three rails. One gate.") rather than a second
+ * marketing brochure. Page order, top → bottom:
  *
- * Chrome:
- *   - `<AppHeader />` (sticky) replaces the landing marketing nav and
- *     hosts the WalletButton on the right.
- *   - `<AppShell />` is the operational page body (page hero,
- *     WalletDashboard, feature deck), wrapped in `.pl-app-shell` to
- *     map v1 CSS vars onto v2 dark tokens for cross-imported demo tabs.
+ *   1. <AppHeader />        (sticky console chrome — Day 8)
+ *   2. <ConsoleThesis />    (kicker + tagline, no big marketing h1)
+ *   3. <SetupLedger />      (4-row state ledger; POLICY uses EncryptedField)
+ *   4. <TwoRailConsole />   (Jupiter + Ika parallel cards on ParticleField)
+ *   5. <AdvancedFallback /> (cross-imported v1 WalletDashboard, temporary
+ *                            bridge until Day 10 wires the rails to real
+ *                            proxy actions and moves it into <details>)
+ *
+ * Wallet adapter still lives ONLY in this route's tree (Day 8 perf win),
+ * so landing pages don't drag the ~1 MB wallet-adapter bundle.
  */
 export const Route = createFileRoute('/app')({
   component: AppPage,
@@ -29,86 +34,75 @@ function AppPage() {
   return (
     <ClientWalletProvider>
       <AppHeader />
-      <AppShell />
+      <ConsoleThesis />
+      <SetupLedger />
+      <TwoRailConsole />
+      <AdvancedFallback />
     </ClientWalletProvider>
   )
 }
 
-const FEATURES: Array<{ title: string; desc: string }> = [
-  {
-    title: 'PDA custody',
-    desc: 'Deposit demo funds into a Polet smart wallet controlled by program policy. The agent never holds the keys.',
-  },
-  {
-    title: 'Confidential policy',
-    desc: 'Set private max-per-run and daily-cap rules. Limits stay encrypted on-chain; only the gate sees them.',
-  },
-  {
-    title: 'Jupiter preview',
-    desc: 'See route + build estimates for in-band USDC to SOL runs. Devnet preview only — no production swap claims.',
-  },
-  {
-    title: 'Safe blocks',
-    desc: 'Watch over-limit agent actions get blocked without ever revealing the threshold value to the agent or the log.',
-  },
-]
-
-function AppShell() {
+/**
+ * Console thesis, the /app counterpart to the landing marketing hero.
+ *
+ * Reuses the established Polet phrasing rather than coining a new line:
+ *   - kicker:   `rails.kicker`               → "Three rails. One gate."
+ *   - h1:       `footer.brand.tagline`       → "Confidential smart wallet for AI agents on Solana."
+ *   - subtitle: `footer.brand.subtagline`    → "Policy-gated. No unlimited authority."
+ *
+ * No 5xl marketing h1; this is operator chrome, not a brochure. Visual
+ * weight is intentionally lighter than the Hero so the operational
+ * sections below carry the page.
+ */
+function ConsoleThesis() {
   const containerRef = useScrollReveal()
+  const { t } = useLocale()
+  return (
+    <section
+      ref={containerRef}
+      aria-label="Polet console thesis"
+      className="border-b border-line bg-bg-base"
+    >
+      <div className="mx-auto max-w-6xl px-6 py-10 md:py-14">
+        <KickerLabel tone="accent" className="pl-reveal">
+          {t('rails.kicker')}
+        </KickerLabel>
+        <h1
+          className="pl-reveal mt-4 font-sans font-bold text-ink tracking-tight leading-[1.15] text-2xl sm:text-3xl md:text-4xl max-w-3xl"
+          style={{ transitionDelay: '80ms' }}
+        >
+          {t('footer.brand.tagline')}
+        </h1>
+        <p
+          className="pl-reveal mt-3 text-base md:text-lg text-ink-soft leading-relaxed max-w-3xl"
+          style={{ transitionDelay: '160ms' }}
+        >
+          {t('footer.brand.subtagline')}
+        </p>
+      </div>
+    </section>
+  )
+}
 
+/**
+ * Temporary fallback for the cross-imported v1 WalletDashboard.
+ *
+ * Day 9 ships the structural redesign (chrome + ledger + rails frame)
+ * with the legacy dashboard still mounted at the bottom so users can
+ * actually init the wallet, save the policy, grant a session, etc.
+ * Day 10 wires the new SetupLedger and TwoRailConsole to real proxy
+ * actions and moves this fallback into the Advanced `<details>`
+ * collapse, after which the redesign fully replaces the v1 surface.
+ */
+function AdvancedFallback() {
+  const containerRef = useScrollReveal()
   return (
     <div
       ref={containerRef}
-      className="pl-app-shell mx-auto max-w-6xl px-6 py-12 md:py-16 lg:py-20"
+      className="pl-app-shell mx-auto max-w-6xl px-6 py-12 md:py-16"
     >
-      {/* Page hero. WalletButton moved into AppHeader, so this collapses
-          to a single text column. */}
-      <div className="max-w-3xl">
-        <KickerLabel tone="accent" className="pl-reveal">
-          Wallet console
-        </KickerLabel>
-        <h1
-          className="pl-reveal mt-5 font-sans font-bold text-ink tracking-tight leading-[1.05] text-3xl sm:text-4xl md:text-5xl"
-          style={{ transitionDelay: '80ms' }}
-        >
-          Confidential DCA control panel
-        </h1>
-        <p
-          className="pl-reveal mt-5 text-base md:text-lg text-ink-soft leading-relaxed"
-          style={{ transitionDelay: '160ms' }}
-        >
-          Run the guarded USDC to SOL demo from one operational workflow.
-          Set up custody, save a private policy, test the 25 USDC block,
-          then preview the 5 USDC Jupiter route.
-        </p>
-      </div>
-
-      {/* Dashboard, full state machine: not-connected → init → tabs */}
-      <div
-        className="pl-reveal mt-10 md:mt-12"
-        style={{ transitionDelay: '240ms' }}
-      >
+      <div className="pl-reveal">
         <WalletDashboard />
-      </div>
-
-      {/* Feature deck — what /app does once wired up */}
-      <div
-        className="pl-reveal mt-12 md:mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
-        style={{ transitionDelay: '320ms' }}
-      >
-        {FEATURES.map((f) => (
-          <article
-            key={f.title}
-            className="rounded-xl border border-line bg-surface/40 p-5 transition hover:border-line-strong"
-          >
-            <h2 className="font-sans text-base font-semibold text-ink leading-tight">
-              {f.title}
-            </h2>
-            <p className="mt-2 text-sm text-ink-soft leading-relaxed">
-              {f.desc}
-            </p>
-          </article>
-        ))}
       </div>
     </div>
   )
