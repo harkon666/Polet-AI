@@ -293,7 +293,7 @@ describe('Ika bridgeless execution request', () => {
       expect(signing!.approveMessage).toMatchObject({
         instruction: 'approve_message',
         authority: expected.cpiAuthorityPda,
-        callerProgram: '5hy6S8v1Z1ZLUonPai6wQKcnm8u5RdrNgspeuPYBsP9G',
+        callerProgram: '9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc',
         accounts: {
           coordinator: expected.coordinatorPda,
           messageApproval: expected.messageApprovalPda,
@@ -955,7 +955,7 @@ describe('Ika bridgeless execution request', () => {
         wallet: fixture.wallet.walletPda,
         sessionKey: fixture.sessionKey,
         coordinator: result.ikaRequest.preAlphaSigning?.coordinatorPda,
-        callerProgram: '5hy6S8v1Z1ZLUonPai6wQKcnm8u5RdrNgspeuPYBsP9G',
+        callerProgram: '9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc',
         ikaMessageHash: result.ikaRequest.preAlphaSigning?.ikaMessageHash,
         sourceAmount: 5_000_000n,
         orderExpiresAt: result.ikaRequest.canonicalOrder.expiresAtUnix,

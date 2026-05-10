@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 
-export const PROGRAM_ID_STRING = '5hy6S8v1Z1ZLUonPai6wQKcnm8u5RdrNgspeuPYBsP9G';
+export const PROGRAM_ID_STRING = '9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc';
 export const PROGRAM_ID = new PublicKey(PROGRAM_ID_STRING);
 export const WALLET_SEED = 'polet_wallet';
 

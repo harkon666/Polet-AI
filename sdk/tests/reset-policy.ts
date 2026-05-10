@@ -14,7 +14,7 @@ import { Chain, createEncryptClient, DEVNET_PRE_ALPHA_GRPC_URL } from '@encrypt.
 import { encryptValue } from '@encrypt.xyz/pre-alpha-solana-client/grpc-web';
 
 const OWNER_SECRET = '2B2AvNGmpwSpZpnNj8m5RdaZnFTxbdGkTuUNLnZ1JTm1brcayfqTV5wT1mpfaqpVudfNevo6mqa1PmwCtnaeywie';
-const POLET_PROGRAM_ID = '5hy6S8v1Z1ZLUonPai6wQKcnm8u5RdrNgspeuPYBsP9G';
+const POLET_PROGRAM_ID = '9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc';
 const NEK = '2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur';
 const DEPOSIT = 'A8BQhbgAD7GuQCG6jorUH52Kh6T3ijbdE58JqJqespBj';
 const CONFIG = 'EyqsEJaq86kqAbF3bNKQ3ydzAFXJZ5e8tuNr89CcmcH3';

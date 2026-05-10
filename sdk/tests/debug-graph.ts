@@ -14,7 +14,7 @@ const result = await client.createInput({
     { ciphertextBytes: encryptValue(0n, 0), fheType: 0 },
     { ciphertextBytes: encryptValue(0n, 4), fheType: 4 },
   ],
-  authorized: Buffer.from(bs58.decode('F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p')),
+  authorized: Buffer.from(bs58.decode('9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc')),
   networkEncryptionPublicKey: Buffer.from(bs58.decode('2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur')),
 });
 const [srcCt, allowCt, dailyCt] = result.ciphertextIdentifiers.map((id: Uint8Array) => bs58.encode(id));

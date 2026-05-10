@@ -218,7 +218,7 @@ describe('Session Management Utils', () => {
       const owner = '11111111111111111111111111111112';
       const wallet = await deriveWalletPDA(owner);
 
-      expect(PROGRAM_ID).toBe('H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG');
+      expect(PROGRAM_ID).toBe('9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc');
       expect(wallet.toBase58()).toBe('5CEyBMu7a3SuY8sBX33cJPqvb32QVK492QtFmWadXLzR');
     });
   });

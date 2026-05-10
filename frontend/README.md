@@ -14,7 +14,7 @@ VITE_SOLANA_RPC_URL=https://api.devnet.solana.com
 The current Polet devnet program id surfaced by the frontend is:
 
 ```text
-H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG
+9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc
 ```
 
 The frontend receives transaction builders and wallet PDAs from the proxy, so the proxy must be running with the same program id.

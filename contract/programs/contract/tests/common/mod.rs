@@ -812,7 +812,7 @@ pub fn request_policy_value_decryption(
     };
     let ix_accounts = contract::accounts::RequestPolicyValueDecryption {
         wallet: wallet_pda,
-        owner: owner.pubkey(),
+        authority: owner.pubkey(),
         request: request.pubkey(),
         ciphertext,
         encrypt_program: mock_encrypt_id(),

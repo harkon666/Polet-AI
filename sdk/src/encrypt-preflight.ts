@@ -53,7 +53,7 @@ const ENCRYPT_PREALPHA_PROGRAM_ID = '4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND
  * ciphertext. Override with POLET_PROGRAM_ID env when using a different
  * deployment.
  */
-const POLET_PROGRAM_ID = process.env.POLET_PROGRAM_ID ?? '5hy6S8v1Z1ZLUonPai6wQKcnm8u5RdrNgspeuPYBsP9G';
+const POLET_PROGRAM_ID = process.env.POLET_PROGRAM_ID ?? '9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc';
 const NETWORK_ENCRYPTION_PUBLIC_KEY = '2YP2nxFoYcDFDBRygrN7C3Y3ENdcoaLjVeAmbX8HHwur';
 const ENCRYPT_PREALPHA_CONFIG = 'EyqsEJaq86kqAbF3bNKQ3ydzAFXJZ5e8tuNr89CcmcH3';
 const ENCRYPT_PREALPHA_EVENT_AUTHORITY = '6Lu2AnYtC1HQHYjAovF2yykDq5ESjy9rUfxNATBamgAQ';
@@ -434,6 +434,7 @@ async function requestAllowedOutputDecryption(input: {
     '/wallet/request-pending-allowed-output-decryption',
     {
       owner: input.options.owner,
+      sessionKey: input.options.sessionKey,
       wallet: input.policyRefs.wallet,
       request: requestKeypair.publicKey.toBase58(),
       encrypt: {
@@ -442,7 +443,7 @@ async function requestAllowedOutputDecryption(input: {
         deposit: input.depositContext.deposit ?? input.policyRefs.deposit ?? deriveEncryptDepositPda(input.options.owner),
         networkEncryptionKey: input.policyRefs.networkEncryptionKey ?? NETWORK_ENCRYPTION_PUBLIC_KEY,
         eventAuthority: input.depositContext.eventAuthority ?? input.policyRefs.eventAuthority ?? ENCRYPT_PREALPHA_EVENT_AUTHORITY,
-        payer: input.options.owner,
+        payer: input.options.sessionKey,
       },
     },
     input.baseUrl,
@@ -455,13 +456,8 @@ async function requestAllowedOutputDecryption(input: {
     );
   }
   const tx = parsePoletTransaction(envelope.data.transaction);
-  // Owner signs as fee payer + request keypair signs as new account.
-  if (input.options.owner !== input.options.sessionKey) {
-    throw new EncryptPreflightError(
-      'DECRYPTION_OWNER_SIGNER_REQUIRED',
-      'request-pending-allowed-output-decryption needs the owner to sign as fee payer; managed demo requires owner=session.'
-    );
-  }
+  // BYO-friendly: contract now accepts session as authority
+  // (require_owner_or_active_session). Agent signs + pays for everything.
   const sig = await signAndSend(tx, [input.options.agentSigner, requestKeypair], input.connection);
   return { decryptionSignature: sig, requestPubkey: requestKeypair.publicKey };
 }

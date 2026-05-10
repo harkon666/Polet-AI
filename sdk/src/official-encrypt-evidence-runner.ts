@@ -16,7 +16,7 @@ const env = (((globalThis as unknown as { Bun?: { env: RuntimeEnv }; process?: {
   ?? {}) as RuntimeEnv;
 
 const ENCRYPT_PROGRAM_ID = new PublicKey('4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8');
-const POLET_PROGRAM_ID = new PublicKey(env.POLET_PROGRAM_ID ?? 'H6hT33LKBLnN1G55iRtjmMuNMmyJagxfxsvd7jTjw5oG');
+const POLET_PROGRAM_ID = new PublicKey(env.POLET_PROGRAM_ID ?? '9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc');
 const SOLANA_RPC_URL = env.POLET_RPC_URL ?? 'https://api.devnet.solana.com';
 const NETWORK_ENCRYPTION_PUBLIC_KEY = parseNetworkKey(env.POLET_ENCRYPT_NETWORK_KEY_HEX);
 const FHE_UINT64 = 4;

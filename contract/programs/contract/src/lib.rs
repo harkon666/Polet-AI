@@ -15,7 +15,7 @@ pub mod execution_payload;
 pub mod ika_approval;
 pub mod state;
 
-declare_id!("5hy6S8v1Z1ZLUonPai6wQKcnm8u5RdrNgspeuPYBsP9G");
+declare_id!("9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc");
 
 use confidential_policy::enforce_confidential_numeric_policy;
 pub use constants::WALLET_SEED;
@@ -143,9 +143,13 @@ pub struct SetOfficialEncryptCiphertextPolicy<'info> {
 
 #[derive(Accounts)]
 pub struct RequestPolicyValueDecryption<'info> {
-    #[account(mut, has_one = owner @ ErrorCode::NotOwner)]
+    #[account(mut)]
     pub wallet: Account<'info, Wallet>,
-    pub owner: Signer<'info>,
+    /// Owner OR an active (non-revoked, non-expired) temporal session key.
+    /// Checked at runtime via `require_owner_or_active_session(...)`. This
+    /// lets AI agents running in BYO mode request per-trade policy-output
+    /// decryption without the human owner re-signing each time.
+    pub authority: Signer<'info>,
     /// CHECK: Fresh Encrypt decryption request keypair account.
     #[account(mut)]
     pub request: Signer<'info>,
@@ -471,6 +475,17 @@ fn validate_session(wallet: &Wallet, session_key: Pubkey) -> Result<usize> {
     );
 
     Ok(session_index)
+}
+
+/// Accept either the wallet owner or a currently-active session key as the
+/// instruction authority. Used for per-trade actions where requiring the
+/// human owner to sign every single call would defeat the AI-agent flow
+/// (e.g., `request_policy_value_decryption`).
+fn require_owner_or_active_session(wallet: &Wallet, authority: Pubkey) -> Result<()> {
+    if authority == wallet.owner {
+        return Ok(());
+    }
+    validate_session(wallet, authority).map(|_| ())
 }
 
 fn validate_session_and_attestation(
@@ -1401,6 +1416,15 @@ pub mod contract {
         kind: u8,
         cpi_authority_bump: u8,
     ) -> Result<()> {
+        // BYO-agent: accept either owner or an active temporal session
+        // key. The per-trade allowed-output bool decryption is the hottest
+        // per-trade action; requiring the human owner to re-sign every
+        // time would defeat the AI agent loop.
+        require_owner_or_active_session(
+            &ctx.accounts.wallet,
+            ctx.accounts.authority.key(),
+        )?;
+
         require_official_encrypt_context_accounts(
             ctx.accounts.encrypt_program.key(),
             ctx.accounts.program.key(),

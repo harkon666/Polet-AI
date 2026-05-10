@@ -958,9 +958,10 @@ walletRouter.post('/execute-encrypt-policy-graph', async (c) => {
         },
       },
       undefined,
-      ownerPubkey && sessionPubkey.toString() !== ownerPubkey.toString()
-        ? { feePayer: ownerPubkey.toString() }
-        : {}
+      // BYO-wallet model: agent (session) wallet pays gas from its own
+      // pre-funded balance. When session == owner (demo), collapses to
+      // owner paying — same effect.
+      {}
     );
 
     return c.json({
@@ -1031,7 +1032,7 @@ walletRouter.post('/request-policy-value-decryption', async (c) => {
     }
     const transaction = await buildRequestPolicyValueDecryptionTransaction({
       wallet: wallet || deriveWalletPda(parsePublicKey(owner, 'owner')).toString(),
-      owner,
+      authority: owner,
       request,
       kind,
       ciphertext: ciphertextPubkey.toString(),
@@ -1073,7 +1074,7 @@ walletRouter.post('/request-policy-value-decryption', async (c) => {
  */
 walletRouter.post('/request-pending-allowed-output-decryption', async (c) => {
   try {
-    const { owner, request, wallet, encrypt } = await c.req.json();
+    const { owner, sessionKey, request, wallet, encrypt, authority: authorityArg } = await c.req.json();
     const ownerPubkey = parsePublicKey(owner, 'owner');
     const walletData = await getWalletData(ownerPubkey.toString());
     if (!walletData) throw new Error('Wallet not found');
@@ -1083,6 +1084,16 @@ walletRouter.post('/request-pending-allowed-output-decryption', async (c) => {
     if (!hasPendingOfficialEncryptPolicyOutputs(walletData)) {
       throw new Error('Official Encrypt policy graph has no pending allowed-output ciphertext for this wallet');
     }
+
+    // BYO-friendly: authority can be owner OR an active session pubkey.
+    // Default picks sessionKey when supplied (BYO agent flow), falling
+    // back to owner. Contract validates via `require_owner_or_active_session`.
+    const sessionPubkey = sessionKey ? parsePublicKey(sessionKey, 'sessionKey') : null;
+    const authority = authorityArg
+      ? parsePublicKey(authorityArg, 'authority').toString()
+      : (sessionPubkey?.toString() ?? ownerPubkey.toString());
+    // Payer default: use session when we have one (agent pays gas).
+    const payer = encrypt?.payer ?? sessionPubkey?.toString() ?? ownerPubkey.toString();
 
     const ciphertext = walletData.confidentialPolicy.encryptCiphertexts!.pendingAllowedOutput;
     const ciphertextPubkey = parsePublicKey(ciphertext, 'pendingAllowedOutput');
@@ -1100,7 +1111,7 @@ walletRouter.post('/request-pending-allowed-output-decryption', async (c) => {
 
     const transaction = await buildRequestPolicyValueDecryptionTransaction({
       wallet: walletData.walletPda,
-      owner: ownerPubkey.toString(),
+      authority,
       request,
       kind: 'pending-allowed-output',
       ciphertext,
@@ -1110,7 +1121,7 @@ walletRouter.post('/request-pending-allowed-output-decryption', async (c) => {
         deposit: encrypt?.deposit,
         networkEncryptionKey: encrypt?.networkEncryptionKey,
         eventAuthority: encrypt?.eventAuthority,
-        payer: encrypt?.payer ?? ownerPubkey.toString(),
+        payer,
       },
     });
 
@@ -1120,6 +1131,8 @@ walletRouter.post('/request-pending-allowed-output-decryption', async (c) => {
         ...transaction,
         wallet: walletData.walletPda,
         request,
+        authority,
+        payer,
         status: 'allowed-output-decryption-requested',
         graph: 'polet_policy_guardrail_graph',
         policySequence: walletData.confidentialPolicy.encryptCiphertexts!.pendingPolicySeq || walletData.policySeq,
@@ -1127,8 +1140,12 @@ walletRouter.post('/request-pending-allowed-output-decryption', async (c) => {
         allowedOutputDigest: ciphertextStatus.digest,
         encryptProgram,
         grpcEndpoint: ENCRYPT_PREALPHA_GRPC_URL,
-        boundary: 'owner-signed-public-decryption-request',
-        warning: 'Encrypt pre-alpha decryption request accounts may expose plaintext output values publicly after the decryptor responds.',
+        boundary:
+          authority === ownerPubkey.toString()
+            ? 'owner-signed-public-decryption-request'
+            : 'session-signed-public-decryption-request',
+        warning:
+          'Encrypt pre-alpha decryption request accounts may expose plaintext output values publicly after the decryptor responds.',
       },
     });
   } catch (error) {

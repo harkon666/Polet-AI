@@ -12,10 +12,8 @@ import {
   Play,
   Shield,
   Trash2,
-  UserPlus,
   Wallet,
   X,
-  KeyRound,
 } from 'lucide-react';
 import {
   runConfidentialDca,
@@ -26,14 +24,10 @@ import {
   withdrawCustody,
   fundAgentGas,
   grantKey,
-  configureSharedIkaApprovers,
   getWalletData,
   getEncryptCiphertextStatus,
   revokeSession,
-  revokeSharedIkaApprover,
   runMultichainIntent,
-  setRecoveryAuthority,
-  recoverAccess,
   broadcastIkaDestination,
   createEncryptDeposit,
   executeEncryptPolicyGraph,
@@ -43,7 +37,6 @@ import {
   resolveEncryptPolicyDecision,
   type RunConfidentialDcaResult,
   type RunMultichainIntentResult,
-  type SharedIkaApproverConfigInput,
   type SetConfidentialPolicyInput,
   type SetOfficialEncryptCiphertextPolicyInput,
   type SetOfficialEncryptCiphertextPolicyResult,
@@ -105,12 +98,8 @@ interface DemoApi {
   depositCustody: (input: DepositCustodyInput) => Promise<DepositCustodyResult>;
   withdrawCustody: (input: WithdrawCustodyInput) => Promise<WithdrawCustodyResult>;
   fundAgentGas: (input: { owner: string; agentWallet: string; amount: string }) => Promise<{ transaction: string; source: string; destination: string; amountLamports: string; amountUi: string; boundary: string }>;
-  configureSharedIkaApprovers: (input: SharedIkaApproverConfigInput) => Promise<WalletTransactionResult & { threshold: number; approvers: string[] }>;
-  revokeSharedIkaApprover: (input: { owner: string; approver: string }) => Promise<WalletTransactionResult & { approver: string }>;
-  setRecoveryAuthority: (input: { owner: string; recoveryAuthority: string }) => Promise<WalletTransactionResult & { recoveryAuthority: string; activity: { type: string; status: string; privacy: string } }>;
-  recoverAccess: (input: { owner: string; authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string }) => Promise<WalletTransactionResult & { authority: string; compromisedSessions: string[]; sharedIkaThreshold: number; sharedIkaApprovers: string[]; pendingDwalletController: string; activity: { type: string; status: string; states: string[]; privacy: string; boundary: string } }>;
   revokeSession: typeof revokeSession;
-  broadcastIkaDestination: typeof import('../lib/api').broadcastIkaDestination;
+  broadcastIkaDestination: typeof broadcastIkaDestination;
   runConfidentialDca: typeof runConfidentialDca;
   runMultichainIntent: typeof runMultichainIntent;
   getWalletData: typeof getWalletData;
@@ -152,10 +141,6 @@ const DEFAULT_API: DemoApi = {
   depositCustody,
   withdrawCustody,
   fundAgentGas,
-  configureSharedIkaApprovers,
-  revokeSharedIkaApprover,
-  setRecoveryAuthority,
-  recoverAccess,
   revokeSession,
   broadcastIkaDestination,
   runConfidentialDca,
@@ -291,12 +276,6 @@ export function DemoTabContent({
     sessionKey: agentAddresses[0] ?? owner ?? '',
     hours: '24',
   }));
-  const [sharedIkaApproval, setSharedIkaApproval] = useState<{ threshold: number; approvers: string[] } | null>(null);
-  const [sharedDraft, setSharedDraft] = useState({
-    threshold: Math.max(1, Math.min(2, agentAddresses.length || 1)).toString(),
-    approvers: agentAddresses.slice(0, 2).join('\n'),
-  });
-  const [sharedApprovalProofs, setSharedApprovalProofs] = useState('');
   const [agentAddress, setAgentAddress] = useState(owner ?? agentAddresses[0] ?? '');
   const [authorizedSessionOptions, setAuthorizedSessionOptions] = useState<AuthorizedSessionOption[]>([]);
   const [strategy, setStrategy] = useState<DcaStrategy>({
@@ -312,28 +291,9 @@ export function DemoTabContent({
   const activitySeq = useRef(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [recoveryAuthority, setRecoveryAuthorityState] = useState<string | null>(null);
-  const [recoveryDraft, setRecoveryDraft] = useState({
-    recoveryAuthority: '',
-    compromisedSessions: '',
-    sharedIkaThreshold: '1',
-    sharedIkaApprovers: '',
-    pendingDwalletController: '',
-  });
-
-  const agentGasReadyThresholdSol = Number.isFinite(DEFAULT_AGENT_GAS_READY_THRESHOLD_SOL)
-    ? DEFAULT_AGENT_GAS_READY_THRESHOLD_SOL
-    : 0.05;
-  const agentGasBalanceNumber = agentGasBalance === null ? null : Number(agentGasBalance);
-  const agentGasReady = agentGasBalanceNumber !== null && agentGasBalanceNumber >= agentGasReadyThresholdSol;
   const [lastIkaBroadcastable, setLastIkaBroadcastable] = useState<{
     ikaRequest: import('../lib/api').IkaRequestPreview;
     producedSignature: { status: 'signature-produced-prealpha'; signature: string; publicKey: string; messageDigest: string; signatureScheme: string };
-  } | null>(null);
-  const [pendingConfirm, setPendingConfirm] = useState<{
-    action: string;
-    description: string;
-    onConfirm: () => void;
   } | null>(null);
   const [routeRiskDraft, setRouteRiskDraft] = useState({
     slippageBps: 100,
@@ -341,6 +301,16 @@ export function DemoTabContent({
     minLiquidityScore: 'medium' as 'low' | 'medium' | 'high',
     requireVerifiedRoute: true,
   });
+  const agentGasReadyThresholdSol = Number.isFinite(DEFAULT_AGENT_GAS_READY_THRESHOLD_SOL)
+    ? DEFAULT_AGENT_GAS_READY_THRESHOLD_SOL
+    : 0.05;
+  const agentGasBalanceNumber = agentGasBalance === null ? null : Number(agentGasBalance);
+  const agentGasReady = agentGasBalanceNumber !== null && agentGasBalanceNumber >= agentGasReadyThresholdSol;
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    action: string;
+    description: string;
+    onConfirm: () => void;
+  } | null>(null);
   const [revealedPolicyValues, setRevealedPolicyValues] = useState<Partial<Record<PolicyRevealKind, string>>>({});
 
   const t = COPY[locale];
@@ -364,7 +334,6 @@ export function DemoTabContent({
   const hasAllowedIkaEthRun = activity.some(
     (entry) => isAllowedStatus(entry.status) && entry.amountUsdc === '5' && entry.routePair?.includes('ETH')
   );
-  const hasRouteRiskBlock = activity.some((entry) => entry.route?.includes('IKA_RISK_GUARDRAIL_BLOCKED'));
   const strategyReady = strategy.inputMint === 'USDC' && strategy.outputMint === 'SOL' && Boolean(strategy.amountUsdc);
   const maxPerRun = Number(policyDraft.maxPerRunUsdc);
   const dailyCap = Number(policyDraft.dailyCapUsdc);
@@ -382,14 +351,11 @@ export function DemoTabContent({
     { label: t.stepAgent, done: hasActiveAgentSession, next: t.nextAgent },
     { label: t.stepAgentGas, done: agentGasReady, next: t.nextAgentGas },
     { label: t.stepSolReserve, done: solReserveSatisfied, next: t.nextSolReserve },
-    { label: t.stepSharedAccess, done: Boolean(sharedIkaApproval), next: t.nextSharedAccess },
-    { label: t.stepRecovery, done: Boolean(recoveryAuthority), next: t.nextRecovery },
     { label: t.stepStrategy, done: strategyReady, next: t.nextBlocked },
     { label: t.stepBlocked, done: hasBlockedRun, next: t.nextBlocked },
     { label: t.stepAllowed, done: hasAllowedRun, next: t.nextAllowed },
     { label: t.stepIkaSui, done: hasAllowedIkaSuiRun, next: t.nextIkaSui },
     { label: t.stepIkaEth, done: hasAllowedIkaEthRun, next: t.nextIkaEth },
-    { label: t.stepRouteRisk, done: hasRouteRiskBlock, next: t.nextRouteRisk },
     { label: t.stepLog, done: hasAllowedRun && hasSafeLog, next: t.nextLog },
   ];
   const nextStep = checklist.find((step) => !step.done);
@@ -580,19 +546,6 @@ export function DemoTabContent({
               });
             }
           }
-          const configuredShared = normalizeSharedIkaApproval(data.sharedIkaApprovals);
-          if (configuredShared) {
-            setSharedIkaApproval(configuredShared);
-            setSharedDraft({
-              threshold: configuredShared.threshold.toString(),
-              approvers: configuredShared.approvers.join('\n'),
-            });
-          } else {
-            setSharedIkaApproval(null);
-          }
-          if (data.recoveryAuthority) {
-            setRecoveryAuthorityState(data.recoveryAuthority);
-          }
         } else {
           setWalletPda(null);
           setPolicySaved(false);
@@ -646,9 +599,6 @@ export function DemoTabContent({
   useEffect(() => {
     refreshAgentGasBalance();
   }, [agentAddress]);
-
-  const normalizeApproverLines = (value: string) =>
-    Array.from(new Set(value.split(/\s+/).map((line) => line.trim()).filter(Boolean)));
 
   const setupCustodyAccounts = async () => {
     if (!owner) {
@@ -965,7 +915,6 @@ export function DemoTabContent({
               payer: owner,
             },
           });
-          console.log(`Hasil Result: ${JSON.stringify(result)}`);
           const signature = await signAndConfirmTransaction(result.transaction, [requestKeypair]);
           addActivity({
             status: 'setup',
@@ -973,7 +922,6 @@ export function DemoTabContent({
             route: `Official Encrypt owner reveal request: ${kind}`,
             signature,
           });
-          console.log(`Hasil Signature: ${signature}`);
           const decoded = await pollPolicyReveal(result.request);
           if (decoded) {
             setRevealedPolicyValues((prev) => ({ ...prev, [kind]: decoded }));
@@ -1107,95 +1055,6 @@ export function DemoTabContent({
     });
   };
 
-  const refreshSharedIkaApproval = async () => {
-    if (!owner) return;
-    const data = await api.getWalletData(owner);
-    if (!data) return;
-    const configuredShared = normalizeSharedIkaApproval(data?.sharedIkaApprovals);
-    setSharedIkaApproval(configuredShared);
-    if (configuredShared) {
-      setSharedDraft({
-        threshold: configuredShared.threshold.toString(),
-        approvers: configuredShared.approvers.join('\n'),
-      });
-    } else {
-      setSharedDraft((prev) => ({ ...prev, approvers: '' }));
-    }
-  };
-
-  const configureSharedApproval = async () => {
-    if (!owner) {
-      recordError(t.missingOwner);
-      return;
-    }
-    const approvers = normalizeApproverLines(sharedDraft.approvers);
-    const threshold = Number.parseInt(sharedDraft.threshold, 10);
-    if (!Number.isInteger(threshold) || threshold < 1 || threshold > approvers.length) {
-      recordError(t.invalidSharedApprover);
-      return;
-    }
-    setPendingConfirm({
-      action: t.configureShared,
-      description: `${t.confirmShared}: ${threshold}/${approvers.length}.`,
-      onConfirm: async () => {
-        setBusy('shared-config');
-        setError(null);
-        try {
-          const result = await api.configureSharedIkaApprovers({ owner, threshold, approvers });
-          const signature = await signAndConfirmTransaction(result.transaction);
-          const nextConfig = { threshold: result.threshold, approvers: result.approvers };
-          setSharedIkaApproval(nextConfig);
-          setSharedDraft({
-            threshold: result.threshold.toString(),
-            approvers: result.approvers.join('\n'),
-          });
-          await refreshSharedIkaApproval();
-          addActivity({
-            status: 'setup',
-            message: `${t.sharedReady}: ${signature.slice(0, 8)}...`,
-            route: 'Contract configure_shared_ika_approvers',
-            signature,
-          });
-        } catch (err) {
-          recordError(err instanceof Error ? err.message : 'Failed to configure shared Ika approval');
-        } finally {
-          setBusy(null);
-        }
-      },
-    });
-  };
-
-  const revokeSharedApproval = async (approver: string) => {
-    if (!owner) {
-      recordError(t.missingOwner);
-      return;
-    }
-
-    setPendingConfirm({
-      action: t.revokeShared,
-      description: `${t.confirmRevokeShared}: ${short(approver)}.`,
-      onConfirm: async () => {
-        setBusy(`shared-revoke-${approver}`);
-        setError(null);
-        try {
-          const result = await api.revokeSharedIkaApprover({ owner, approver });
-          const signature = await signAndConfirmTransaction(result.transaction);
-          await refreshSharedIkaApproval();
-          addActivity({
-            status: 'setup',
-            message: `${t.revokeShared}: ${short(result.approver)} ${signature.slice(0, 8)}...`,
-            route: 'Contract revoke_shared_ika_approver',
-            signature,
-          });
-        } catch (err) {
-          recordError(err instanceof Error ? err.message : 'Failed to revoke shared Ika approver');
-        } finally {
-          setBusy(null);
-        }
-      },
-    });
-  };
-
   const revokeAgentSession = async (sessionKey: string) => {
     if (!owner) {
       recordError(t.missingOwner);
@@ -1227,79 +1086,6 @@ export function DemoTabContent({
       },
     });
   };
-
-  const setRecoveryAuth = async () => {
-    if (!owner || !recoveryDraft.recoveryAuthority.trim()) {
-      return;
-    }
-    setPendingConfirm({
-      action: t.recoverySetAuthority,
-      description: `${t.confirmRecoveryAuthority}: ${short(recoveryDraft.recoveryAuthority.trim())}.`,
-      onConfirm: async () => {
-        setBusy('recovery-authority');
-        setError(null);
-        try {
-          const result = await api.setRecoveryAuthority({ owner, recoveryAuthority: recoveryDraft.recoveryAuthority.trim() });
-          const signature = await signAndConfirmTransaction(result.transaction);
-          setRecoveryAuthorityState(result.recoveryAuthority);
-          addActivity({
-            status: 'setup',
-            message: `${t.recoveryReady}: ${signature.slice(0, 8)}...`,
-            route: 'Contract set_recovery_authority',
-            signature,
-          });
-        } catch (err) {
-          recordError(err instanceof Error ? err.message : 'Failed to set recovery authority');
-        } finally {
-          setBusy(null);
-        }
-      },
-    });
-  };
-
-  const runRecoveryAccess = async () => {
-    if (!owner || !recoveryAuthority || !recoveryDraft.compromisedSessions.trim()) {
-      return;
-    }
-    const compromisedSessions = normalizeApproverLines(recoveryDraft.compromisedSessions);
-    const approvers = normalizeApproverLines(recoveryDraft.sharedIkaApprovers);
-    const threshold = Number.parseInt(recoveryDraft.sharedIkaThreshold, 10);
-    if (!Number.isInteger(threshold) || threshold < 1 || threshold > approvers.length) {
-      recordError(t.invalidSharedApprover);
-      return;
-    }
-    setPendingConfirm({
-      action: t.recoveryRecoveryAccess,
-      description: `${t.confirmRecoveryAccess}: ${compromisedSessions.length}.`,
-      onConfirm: async () => {
-        setBusy('recovery-access');
-        setError(null);
-        try {
-          const result = await api.recoverAccess({
-            owner,
-            authority: owner,
-            compromisedSessions,
-            sharedIkaThreshold: threshold,
-            sharedIkaApprovers: approvers,
-            pendingDwalletController: recoveryDraft.pendingDwalletController.trim(),
-          });
-          const signature = await signAndConfirmTransaction(result.transaction);
-          addActivity({
-            status: 'setup',
-            message: `Recovery: ${signature.slice(0, 8)}...`,
-            route: `Contract recover_wallet_access: ${result.activity.states.join(', ')}`,
-            signature,
-          });
-        } catch (err) {
-          recordError(err instanceof Error ? err.message : 'Failed to recover access');
-        } finally {
-          setBusy(null);
-        }
-      },
-    });
-  };
-
-
 
   const submitOfficialEncryptGraph = async (amountUsdc: string, routePair: string, route: string): Promise<OfficialEncryptPolicyPreview | null> => {
     if (!owner || !agentAddress.trim()) {
@@ -1564,7 +1350,7 @@ export function DemoTabContent({
         slippageBps: routeRiskDraft.slippageBps,
         routeRisk: { priceImpactBps: routeRiskDraft.maxPriceImpactBps, liquidityScore: routeRiskDraft.minLiquidityScore, verifiedRoute: routeRiskDraft.requireVerifiedRoute, provider: 'polet-demo-precheck' },
         riskGuardrails: { mode: 'bridgeless-route-risk', maxSlippageBps: 150, maxPriceImpactBps: 300, minLiquidityScore: routeRiskDraft.minLiquidityScore, requireVerifiedRoute: routeRiskDraft.requireVerifiedRoute },
-        sharedAccess: buildSharedAccess(sharedIkaApproval, sharedApprovalProofs, t.invalidSharedProofs),
+        sharedAccess: undefined,
         ...(officialEncryptForRequest && { officialEncrypt: officialEncryptForRequest }),
         routeGuardrails: {
           mode: 'chain-asset-allowlist',
@@ -2005,191 +1791,7 @@ export function DemoTabContent({
         </Panel>
       </section>
 
-      {/* Shared Ika Approval */}
-      <section>
-        <Panel icon={<UserPlus className="h-5 w-5" />} title={t.sharedTitle}>
-          <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.sharedBody}</p>
-          <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="grid gap-3">
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.sharedThreshold}</span>
-                <input
-                  value={sharedDraft.threshold}
-                  onChange={(event) => setSharedDraft((prev) => ({ ...prev, threshold: event.target.value }))}
-                  type="number"
-                  min="1"
-                  step="1"
-                  className="w-full rounded-lg px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.sharedApprovers}</span>
-                <textarea
-                  value={sharedDraft.approvers}
-                  onChange={(event) => setSharedDraft((prev) => ({ ...prev, approvers: event.target.value }))}
-                  placeholder={t.sharedApproverPlaceholder}
-                  rows={3}
-                  className="w-full rounded-lg px-3 py-2 font-mono text-xs"
-                />
-              </label>
-              <button
-                onClick={configureSharedApproval}
-                disabled={!owner || Boolean(busy)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                <UserPlus className="h-4 w-4" />
-                {busy === 'shared-config' ? 'Signing...' : t.configureShared}
-              </button>
-            </div>
 
-            <div className="grid gap-3">
-              <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
-                <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.sharedTitle}</p>
-                <p className="mt-1 text-sm font-black text-[var(--sea-ink)]">
-                  {sharedIkaApproval
-                    ? `${sharedIkaApproval.threshold}/${sharedIkaApproval.approvers.length} ${t.sharedReady}`
-                    : t.sharedNotConfigured}
-                </p>
-              </div>
-              {sharedIkaApproval && (
-                <div className="grid gap-2">
-                  {sharedIkaApproval.approvers.map((approver) => (
-                    <div key={approver} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
-                      <span className="break-all font-mono text-xs font-bold text-[var(--sea-ink)]">{approver}</span>
-                      <button
-                        onClick={() => revokeSharedApproval(approver)}
-                        disabled={Boolean(busy)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-2 py-1 text-xs font-bold text-red-500 disabled:opacity-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        {busy === `shared-revoke-${approver}` ? '...' : t.revokeShared}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.sharedProofs}</span>
-                <textarea
-                  value={sharedApprovalProofs}
-                  onChange={(event) => setSharedApprovalProofs(event.target.value)}
-                  placeholder='[{"approver":"...","signature":"...","encoding":"base64"}]'
-                  rows={3}
-                  className="w-full rounded-lg px-3 py-2 font-mono text-xs"
-                />
-                <span className="mt-1 block text-xs leading-5 text-[var(--sea-ink-soft)]">{t.sharedProofHelp}</span>
-              </label>
-            </div>
-          </div>
-        </Panel>
-      </section>
-
-      {/* Recovery Authority */}
-      <section>
-        <Panel icon={<KeyRound className="h-5 w-5" />} title={t.recoveryTitle}>
-          <p className="mb-4 text-sm leading-6 text-[var(--sea-ink-soft)]">{t.recoveryBody}</p>
-          <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="grid gap-3">
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoveryRecoveryAuthority}</span>
-                <input
-                  value={recoveryDraft.recoveryAuthority}
-                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, recoveryAuthority: event.target.value }))}
-                  placeholder={t.recoveryPlaceholder}
-                  className="w-full rounded-lg px-3 py-2 font-mono text-sm"
-                />
-              </label>
-              <button
-                onClick={setRecoveryAuth}
-                disabled={!owner || !recoveryDraft.recoveryAuthority.trim() || Boolean(busy)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--lagoon-deep)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                <KeyRound className="h-4 w-4" />
-                {busy === 'recovery-authority' ? '...' : t.recoverySetAuthority}
-              </button>
-            </div>
-
-            <div className="grid gap-3">
-              <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
-                <p className="text-xs font-semibold uppercase text-[var(--sea-ink-soft)]">{t.recoveryTitle}</p>
-                <p className="mt-1 text-sm font-black text-[var(--sea-ink)]">
-                  {recoveryAuthority ? t.recoveryReady : t.recoveryNotConfigured}
-                </p>
-              </div>
-              {recoveryAuthority && (
-                <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3">
-                  <p className="break-all font-mono text-xs font-bold text-[var(--sea-ink)]">{recoveryAuthority}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </Panel>
-      </section>
-
-      {/* Recovery Access */}
-      <section>
-        <Panel icon={<Shield className="h-5 w-5" />} title={t.recoveryRecoveryAccess}>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="grid gap-3">
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoveryCompromisedSessions}</span>
-                <textarea
-                  value={recoveryDraft.compromisedSessions}
-                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, compromisedSessions: event.target.value }))}
-                  placeholder={t.recoverySessionsPlaceholder}
-                  rows={3}
-                  className="w-full rounded-lg px-3 py-2 font-mono text-xs"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoverySharedIkaThreshold}</span>
-                <input
-                  value={recoveryDraft.sharedIkaThreshold}
-                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, sharedIkaThreshold: event.target.value }))}
-                  type="number"
-                  min="1"
-                  step="1"
-                  className="w-full rounded-lg px-3 py-2 text-sm"
-                />
-              </label>
-            </div>
-            <div className="grid gap-3">
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoverySharedIkaApprovers}</span>
-                <textarea
-                  value={recoveryDraft.sharedIkaApprovers}
-                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, sharedIkaApprovers: event.target.value }))}
-                  placeholder={t.recoveryApproversPlaceholder}
-                  rows={3}
-                  className="w-full rounded-lg px-3 py-2 font-mono text-xs"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-[var(--sea-ink-soft)]">{t.recoveryPendingDwalletController}</span>
-                <input
-                  value={recoveryDraft.pendingDwalletController}
-                  onChange={(event) => setRecoveryDraft((prev) => ({ ...prev, pendingDwalletController: event.target.value }))}
-                  placeholder={t.recoveryDwalletPlaceholder}
-                  className="w-full rounded-lg px-3 py-2 font-mono text-sm"
-                />
-              </label>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs font-medium text-amber-600">
-              {t.recoveryPrivacy}
-            </div>
-            <button
-              onClick={runRecoveryAccess}
-              disabled={!owner || !recoveryAuthority || !recoveryDraft.compromisedSessions.trim() || Boolean(busy)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-bold text-red-500 disabled:opacity-50"
-            >
-              <Shield className="h-4 w-4" />
-              {busy === 'recovery-access' ? '...' : t.recoveryRecoveryAccess}
-            </button>
-          </div>
-        </Panel>
-      </section>
 
 
 
@@ -2561,52 +2163,7 @@ export function DemoTabContent({
   );
 }
 
-function normalizeSharedIkaApproval(value: any): { threshold: number; approvers: string[] } | null {
-  if (!value?.enabled || !Number.isInteger(value.threshold)) return null;
-  const approvers = (value.approvers ?? [])
-    .filter((approver: any) => approver?.authorized !== false)
-    .map((approver: any) => (typeof approver === 'string' ? approver : approver.key))
-    .filter((approver: unknown): approver is string => typeof approver === 'string' && approver.length > 0);
-  return approvers.length > 0 ? { threshold: value.threshold, approvers } : null;
-}
 
-function buildSharedAccess(
-  config: { threshold: number; approvers: string[] } | null,
-  proofsText: string,
-  invalidMessage: string
-) {
-  if (!config) return undefined;
-  const trimmedProofs = proofsText.trim();
-  if (!trimmedProofs) {
-    return {
-      policy: {
-        mode: 'ika-approval-quorum' as const,
-        threshold: config.threshold,
-        approvers: config.approvers,
-        requireFor: 'all-ika' as const,
-      },
-    };
-  }
-
-  const parsed = JSON.parse(trimmedProofs);
-  if (!Array.isArray(parsed)) {
-    throw new Error(invalidMessage);
-  }
-
-  return {
-    policy: {
-      mode: 'ika-approval-quorum' as const,
-      threshold: config.threshold,
-      approvers: config.approvers,
-      requireFor: 'all-ika' as const,
-    },
-    approvals: parsed.map((proof: any) => ({
-      approver: String(proof.approver),
-      signature: String(proof.signature),
-      encoding: proof.encoding === 'base64' ? 'base64' as const : undefined,
-    })),
-  };
-}
 
 function sharedApproversFromResult(result: RunMultichainIntentResult) {
   const signers = result.ikaRequest?.poletApprovalTransaction?.signers ?? [];

@@ -1,5 +1,5 @@
 {
-  "address": "5hy6S8v1Z1ZLUonPai6wQKcnm8u5RdrNgspeuPYBsP9G",
+  "address": "9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc",
   "metadata": {
     "name": "contract",
     "version": "0.1.0",
@@ -428,6 +428,98 @@
       ]
     },
     {
+      "name": "execute_confidential_usdc_transfer_as_session",
+      "docs": [
+        "Session-signed confidential USDC SPL transfer from PDA custody to an arbitrary destination",
+        "USDC token account. Gated on-chain by the full Official Encrypt FHE path: the pending",
+        "allowed-output ciphertext on `wallet.usdc_dca_policy` must be FHE-verified allowed before",
+        "the SPL transfer is executed, and the pending daily-spent ciphertext rotates into place."
+      ],
+      "discriminator": [
+        200,
+        14,
+        66,
+        170,
+        206,
+        20,
+        88,
+        24
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  101,
+                  116,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet.owner",
+                "account": "Wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "session_key",
+          "signer": true
+        },
+        {
+          "name": "usdc_custody_account",
+          "writable": true
+        },
+        {
+          "name": "destination_usdc_account",
+          "writable": true
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "allowed_output_ciphertext"
+        },
+        {
+          "name": "daily_spent_output_ciphertext"
+        },
+        {
+          "name": "allowed_decryption_request"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_slot",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_policy_seq",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "execute_encrypt_policy_graph_as_session",
       "discriminator": [
         37,
@@ -575,112 +667,6 @@
         {
           "name": "cpi_authority_bump",
           "type": "u8"
-        }
-      ]
-    },
-    {
-      "name": "execute_policy_gated_custody_trade_as_session",
-      "discriminator": [
-        238,
-        59,
-        31,
-        202,
-        89,
-        85,
-        182,
-        102
-      ],
-      "accounts": [
-        {
-          "name": "wallet",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  111,
-                  108,
-                  101,
-                  116,
-                  95,
-                  119,
-                  97,
-                  108,
-                  108,
-                  101,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "wallet.owner",
-                "account": "Wallet"
-              }
-            ]
-          }
-        },
-        {
-          "name": "session_key",
-          "signer": true
-        },
-        {
-          "name": "usdc_token_account",
-          "writable": true
-        },
-        {
-          "name": "output_token_account",
-          "writable": true
-        },
-        {
-          "name": "usdc_mint"
-        },
-        {
-          "name": "token_program"
-        }
-      ],
-      "args": [
-        {
-          "name": "source_amount",
-          "type": "u64"
-        },
-        {
-          "name": "quoted_output_amount",
-          "type": "u64"
-        },
-        {
-          "name": "minimum_output_amount",
-          "type": "u64"
-        },
-        {
-          "name": "slippage_bps",
-          "type": "u16"
-        },
-        {
-          "name": "quote_issued_slot",
-          "type": "u64"
-        },
-        {
-          "name": "quote_max_age_slots",
-          "type": "u64"
-        },
-        {
-          "name": "attestation_slot",
-          "type": "u64"
-        },
-        {
-          "name": "attestation_policy_seq",
-          "type": "u64"
-        },
-        {
-          "name": "encryption_witness",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
         }
       ]
     },
@@ -848,6 +834,112 @@
             "array": [
               "u8",
               64
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "execute_policy_gated_custody_trade_as_session",
+      "discriminator": [
+        238,
+        59,
+        31,
+        202,
+        89,
+        85,
+        182,
+        102
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  108,
+                  101,
+                  116,
+                  95,
+                  119,
+                  97,
+                  108,
+                  108,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "wallet.owner",
+                "account": "Wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "session_key",
+          "signer": true
+        },
+        {
+          "name": "usdc_token_account",
+          "writable": true
+        },
+        {
+          "name": "output_token_account",
+          "writable": true
+        },
+        {
+          "name": "usdc_mint"
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "source_amount",
+          "type": "u64"
+        },
+        {
+          "name": "quoted_output_amount",
+          "type": "u64"
+        },
+        {
+          "name": "minimum_output_amount",
+          "type": "u64"
+        },
+        {
+          "name": "slippage_bps",
+          "type": "u16"
+        },
+        {
+          "name": "quote_issued_slot",
+          "type": "u64"
+        },
+        {
+          "name": "quote_max_age_slots",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_slot",
+          "type": "u64"
+        },
+        {
+          "name": "attestation_policy_seq",
+          "type": "u64"
+        },
+        {
+          "name": "encryption_witness",
+          "type": {
+            "array": [
+              "u8",
+              32
             ]
           }
         }
@@ -1073,11 +1165,14 @@
           "writable": true
         },
         {
-          "name": "owner",
-          "signer": true,
-          "relations": [
-            "wallet"
-          ]
+          "name": "authority",
+          "docs": [
+            "Owner OR an active (non-revoked, non-expired) temporal session key.",
+            "Checked at runtime via `require_owner_or_active_session(...)`. This",
+            "lets AI agents running in BYO mode request per-trade policy-output",
+            "decryption without the human owner re-signing each time."
+          ],
+          "signer": true
         },
         {
           "name": "request",
@@ -1265,130 +1360,6 @@
         70,
         33,
         183
-      ],
-      "accounts": [
-        {
-          "name": "wallet",
-          "writable": true
-        },
-        {
-          "name": "owner",
-          "signer": true,
-          "relations": [
-            "wallet"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "policy_commitment",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "encryption_witness_hash",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "encrypted_max_per_run",
-          "type": "u64"
-        },
-        {
-          "name": "encrypted_daily_cap",
-          "type": "u64"
-        },
-        {
-          "name": "encrypted_daily_spent",
-          "type": "u64"
-        },
-        {
-          "name": "spent_day_index",
-          "type": "i64"
-        }
-      ]
-    },
-    {
-      "name": "set_sol_transfer_confidential_policy",
-      "discriminator": [
-        159,
-        154,
-        233,
-        179,
-        11,
-        108,
-        102,
-        73
-      ],
-      "accounts": [
-        {
-          "name": "wallet",
-          "writable": true
-        },
-        {
-          "name": "owner",
-          "signer": true,
-          "relations": [
-            "wallet"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "policy_commitment",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "encryption_witness_hash",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "encrypted_max_per_run",
-          "type": "u64"
-        },
-        {
-          "name": "encrypted_daily_cap",
-          "type": "u64"
-        },
-        {
-          "name": "encrypted_daily_spent",
-          "type": "u64"
-        },
-        {
-          "name": "spent_day_index",
-          "type": "i64"
-        }
-      ]
-    },
-    {
-      "name": "set_usdc_dca_confidential_policy",
-      "discriminator": [
-        255,
-        165,
-        43,
-        36,
-        44,
-        66,
-        112,
-        57
       ],
       "accounts": [
         {
@@ -1733,6 +1704,130 @@
         {
           "name": "recovery_authority",
           "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_sol_transfer_confidential_policy",
+      "discriminator": [
+        159,
+        154,
+        233,
+        179,
+        11,
+        108,
+        102,
+        73
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "policy_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encryption_witness_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encrypted_max_per_run",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_cap",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_spent",
+          "type": "u64"
+        },
+        {
+          "name": "spent_day_index",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "set_usdc_dca_confidential_policy",
+      "discriminator": [
+        255,
+        165,
+        43,
+        36,
+        44,
+        66,
+        112,
+        57
+      ],
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "signer": true,
+          "relations": [
+            "wallet"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "policy_commitment",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encryption_witness_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encrypted_max_per_run",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_cap",
+          "type": "u64"
+        },
+        {
+          "name": "encrypted_daily_spent",
+          "type": "u64"
+        },
+        {
+          "name": "spent_day_index",
+          "type": "i64"
         }
       ]
     },

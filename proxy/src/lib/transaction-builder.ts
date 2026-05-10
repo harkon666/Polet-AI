@@ -130,7 +130,13 @@ export type PolicyValueRevealKind = 'max-per-run' | 'daily-cap' | 'daily-spent' 
 
 export interface RequestPolicyValueDecryptionTransactionRequest {
   wallet: string;
-  owner: string;
+  /**
+   * BYO-friendly: accepts owner OR an active session pubkey. Contract
+   * verifies via `require_owner_or_active_session`. Callers should pass
+   * the session pubkey when the agent is driving the flow so the owner
+   * doesn't have to re-sign each trade.
+   */
+  authority: string;
   request: string;
   kind: PolicyValueRevealKind;
   ciphertext: string;
@@ -463,14 +469,20 @@ export async function buildRequestPolicyValueDecryptionTransaction(
   request: RequestPolicyValueDecryptionTransactionRequest,
   programId = PROGRAM_ID_STRING
 ): Promise<BuiltTransaction> {
-  const ownerPubkey = new PublicKey(request.owner);
+  const authorityPubkey = new PublicKey(request.authority);
   const transaction = new Transaction().add(new TransactionInstruction({
     keys: buildRequestPolicyValueDecryptionAccounts(request, programId),
     programId: new PublicKey(programId),
     data: buildRequestPolicyValueDecryptionInstructionData(request, programId),
   }));
-  const signerSet = new Set([request.owner, request.encrypt.payer, request.request]);
-  return serializeBuiltTransaction(transaction, ownerPubkey, Array.from(signerSet));
+  // Authority + payer + new request keypair must all sign. Payer acts as
+  // feePayer so the agent wallet funds its own gas in BYO mode.
+  const signerSet = new Set([request.authority, request.encrypt.payer, request.request]);
+  return serializeBuiltTransaction(
+    transaction,
+    new PublicKey(request.encrypt.payer),
+    Array.from(signerSet),
+  );
 }
 
 export async function buildApproveIkaMessageWithVerifiedEncryptSessionTransaction(
@@ -609,14 +621,14 @@ export function buildExecuteEncryptPolicyGraphAsSessionAccounts(
 export function buildRequestPolicyValueDecryptionAccounts(
   request: Pick<
     RequestPolicyValueDecryptionTransactionRequest,
-    'wallet' | 'owner' | 'request' | 'ciphertext' | 'encrypt'
+    'wallet' | 'authority' | 'request' | 'ciphertext' | 'encrypt'
   >,
   programId = PROGRAM_ID_STRING
 ) {
   const [cpiAuthority] = deriveEncryptCpiAuthority(programId);
   return [
     { pubkey: new PublicKey(request.wallet), isSigner: false, isWritable: true },
-    { pubkey: new PublicKey(request.owner), isSigner: true, isWritable: false },
+    { pubkey: new PublicKey(request.authority), isSigner: true, isWritable: false },
     { pubkey: new PublicKey(request.request), isSigner: true, isWritable: true },
     { pubkey: new PublicKey(request.ciphertext), isSigner: false, isWritable: false },
     { pubkey: new PublicKey(request.encrypt.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING), isSigner: false, isWritable: false },

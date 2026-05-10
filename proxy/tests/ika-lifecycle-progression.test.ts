@@ -88,7 +88,7 @@ function fakeIkaRequest(overrides: Partial<IkaBridgelessExecutionRequest> = {}):
         programId: '87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY',
         instruction: 'approve_message',
         authority: CPI_AUTHORITY_PDA,
-        callerProgram: 'F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p',
+        callerProgram: '9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc',
         accounts: {
           coordinator: COORDINATOR_PDA,
           dwalletAccount: DWALLET_ACCOUNT,
