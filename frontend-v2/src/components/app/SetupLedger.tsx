@@ -357,17 +357,21 @@ function RowValue({
 /**
  * deriveRowStates, map the loose `getWalletData` payload into our
  * row state machine. Same logic the StatStrip uses.
+ *
+ * Field shape (post issue-080 refactor — see proxy/src/lib/wallet-store.ts):
+ *   - `walletPda`              top-level string
+ *   - `demoCustody.configured` boolean (true when USDC + wSOL accounts registered)
+ *   - `usdcDcaPolicy.enabled`  boolean (true when confidential policy saved)
+ *   - `sessions`/`temporalKeys` array of { key, expiresAt, authorized, … }
  */
 function deriveRowStates(
   data: ConsoleData | null,
 ): Record<RowDef['id'], RowState> {
   const wallet: RowState = data?.walletPda ? 'initialized' : 'pending'
   const custody: RowState =
-    data?.usdcAccount && data?.wsolAccount ? 'registered' : 'pending'
+    data?.demoCustody?.configured ? 'registered' : 'pending'
   const policy: RowState =
-    typeof data?.policySeq === 'number' && data.policySeq > 0
-      ? 'sealed'
-      : 'pending'
+    data?.usdcDcaPolicy?.enabled ? 'sealed' : 'pending'
   const sessions = data?.temporalKeys ?? data?.sessions ?? []
   const hasActive = sessions.some(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

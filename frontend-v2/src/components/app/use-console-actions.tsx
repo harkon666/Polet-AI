@@ -94,9 +94,18 @@ export type ReceiptEntry = {
 
 export type ConsoleData = {
   walletPda?: string
-  usdcAccount?: string
-  wsolAccount?: string
   policySeq?: number
+  demoCustody?: {
+    configured?: boolean
+    usdcTokenAccount?: string
+    solTokenAccount?: string
+    usdcMint?: string
+    solMint?: string
+  }
+  usdcDcaPolicy?: {
+    enabled?: boolean
+    encryptCiphertexts?: { configured?: boolean }
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   temporalKeys?: any[]
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
