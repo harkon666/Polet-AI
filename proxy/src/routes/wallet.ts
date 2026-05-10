@@ -18,7 +18,6 @@ import {
   getConnection,
 } from '../lib/transaction-builder';
 import idl from '../lib/idl.json' with { type: "json" };
-import { generateAndSaveKey, loadKey } from '../lib/kms';
 import { buildPolicyTree } from '../lib/merkle-tree';
 import { getWalletData } from '../lib/wallet-store';
 import { PROGRAM_ID, deriveWalletPda } from '../lib/program-identity';
@@ -243,12 +242,13 @@ walletRouter.post('/initialize', async (c) => {
     const ownerPubkey = new PublicKey(owner);
     const walletPda = deriveWalletPda(ownerPubkey);
 
-    // Generate and save proxy key
-    const proxyKeypair = generateAndSaveKey(owner, 'proxy');
-
     const program = getProgram();
-    
-    // Construct initialize instruction
+
+    // Construct initialize instruction. Polet does not generate a proxy
+    // keypair server-side anymore (BYO model — proxy is stateless re: secrets).
+    // `wallet.proxy_pk` stays at `Pubkey::default()` on-chain; it is not
+    // enforced anywhere on-chain today. If ever needed, expose a separate
+    // /wallet/set-proxy-key endpoint that accepts an owner-provided pubkey.
     const ix = await program.methods.initialize()
       .accounts({
         wallet: walletPda,
@@ -257,18 +257,10 @@ walletRouter.post('/initialize', async (c) => {
       })
       .instruction();
 
-    // Construct set_proxy_key instruction
-    const ixProxy = await program.methods.setProxyKey(proxyKeypair.publicKey)
-      .accounts({
-        wallet: walletPda,
-        owner: ownerPubkey,
-      })
-      .instruction();
-
     const connection = getConnection();
     const { blockhash } = await connection.getLatestBlockhash();
 
-    const tx = new Transaction().add(ix).add(ixProxy);
+    const tx = new Transaction().add(ix);
     tx.recentBlockhash = blockhash;
     tx.feePayer = ownerPubkey;
 
@@ -282,7 +274,6 @@ walletRouter.post('/initialize', async (c) => {
       data: {
         transaction: serialized.toString('base64'),
         wallet: walletPda.toString(),
-        proxyKey: proxyKeypair.publicKey.toString(),
       }
     });
   } catch (error) {
@@ -306,9 +297,6 @@ walletRouter.post('/create-encrypt-deposit', async (c) => {
 
     const ownerPubkey = parsePublicKey(owner, 'owner');
     const feePayerPubkey = feePayerOwner ? parsePublicKey(feePayerOwner, 'feePayerOwner') : null;
-    const kmsSessionKeypair = feePayerPubkey && ownerPubkey.toString() !== feePayerPubkey.toString()
-      ? loadKey(feePayerPubkey.toString(), 'session')
-      : null;
     const [depositPda] = deriveEncryptDepositPda(ownerPubkey.toString());
     const encryptProgram = new PublicKey(ENCRYPT_PREALPHA_PROGRAM_ID_STRING);
     const connection = getConnection();
@@ -330,14 +318,13 @@ walletRouter.post('/create-encrypt-deposit', async (c) => {
       });
     }
 
-    if (feePayerPubkey && ownerPubkey.toString() !== feePayerPubkey.toString() && kmsSessionKeypair?.publicKey.toString() !== ownerPubkey.toString()) {
-      return c.json({
-        success: false,
-        code: 'SESSION_SIGNER_UNAVAILABLE',
-        error:
-          `Encrypt deposit for selected session ${ownerPubkey.toString()} needs that session signature, but the proxy KMS does not have the key. ` +
-          `Use Generate Proxy Session in Agent Access, or authorize the connected owner wallet as the session for this frontend demo.`,
-      }, 409);
+    // BYO-wallet model: a separate session fee-payer is allowed, but the
+    // proxy never holds the session private key. Caller must sign the
+    // returned transaction with the session keypair they manage externally.
+    if (feePayerPubkey && ownerPubkey.toString() !== feePayerPubkey.toString()) {
+      // Nothing to do server-side — the unsigned tx built below names
+      // `feePayerPubkey` as an additional required signer. Caller is
+      // responsible for client-side signing with that keypair.
     }
 
     const infraStatus = await readEncryptInfraStatus(connection, ownerPubkey, encryptProgram);
@@ -365,8 +352,8 @@ walletRouter.post('/create-encrypt-deposit', async (c) => {
     const result = await buildCreateEncryptDepositTransaction(
       ownerPubkey.toString(),
       ENCRYPT_PREALPHA_PROGRAM_ID_STRING,
-      kmsSessionKeypair && feePayerPubkey
-        ? { feePayer: feePayerPubkey.toString(), partialSigners: [kmsSessionKeypair] }
+      feePayerPubkey && ownerPubkey.toString() !== feePayerPubkey.toString()
+        ? { feePayer: feePayerPubkey.toString() }
         : {}
     );
 
@@ -635,28 +622,15 @@ walletRouter.post('/execute-confidential-transfer', async (c) => {
       });
     }
 
-    const sessionKeypair = sessionPubkey.equals(ownerPubkey)
-      ? null
-      : loadKey(ownerPubkey.toString(), 'session');
-    if (sessionKeypair && !sessionKeypair.publicKey.equals(sessionPubkey)) {
-      return c.json({
-        success: false,
-        code: 'SESSION_SIGNER_UNAVAILABLE',
-        error:
-          `Selected session ${sessionPubkey.toString()} is authorized on-chain, but proxy KMS does not have that session key. ` +
-          `Use Generate Proxy Session, or authorize connected owner wallet as session for this demo.`,
-      }, 409);
-    }
-    if (!sessionPubkey.equals(ownerPubkey) && !sessionKeypair) {
-      return c.json({
-        success: false,
-        code: 'SESSION_SIGNER_UNAVAILABLE',
-        error:
-          `Selected session ${sessionPubkey.toString()} needs its signature. ` +
-          `Use Generate Proxy Session, or authorize connected owner wallet as session for this demo.`,
-      }, 409);
-    }
-
+    // BYO-wallet model: the proxy never holds the session private key.
+    // When session != owner, caller must sign the returned transaction
+    // with the session keypair they manage externally. The transaction
+    // builder names `sessionPubkey` as a required signer so it can't land
+    // on-chain without that signature.
+    //
+    // feePayer defaults to `sessionPubkey` (set inside the builder) so the
+    // agent wallet funds its own gas. When session == owner (demo mode)
+    // this collapses to owner paying — same effect as before.
     const connection = getConnection();
     const slot = Math.max(await connection.getSlot(), Number(walletData.lastRevokedSlot) + 1);
     const built = await buildConfidentialTransferSessionTransaction(
@@ -670,9 +644,7 @@ walletRouter.post('/execute-confidential-transfer', async (c) => {
         maskedWitnessDevFixture: witness,
       },
       PROGRAM_ID.toString(),
-      sessionKeypair
-        ? { feePayer: ownerPubkey.toString(), partialSigners: [sessionKeypair] }
-        : { feePayer: ownerPubkey.toString() }
+      {}
     );
 
     return c.json({
@@ -821,25 +793,10 @@ walletRouter.post('/execute-confidential-usdc-transfer', async (c) => {
       }));
     }
 
-    const sessionKeypair = sessionPubkey.equals(ownerPubkey)
-      ? null
-      : loadKey(ownerPubkey.toString(), 'session');
-    if (sessionKeypair && !sessionKeypair.publicKey.equals(sessionPubkey)) {
-      return c.json({
-        success: false,
-        code: 'SESSION_SIGNER_UNAVAILABLE',
-        error:
-          `Selected session ${sessionPubkey.toString()} is authorized on-chain, but the proxy KMS does not have that session key.`,
-      }, 409);
-    }
-    if (!sessionPubkey.equals(ownerPubkey) && !sessionKeypair) {
-      return c.json({
-        success: false,
-        code: 'SESSION_SIGNER_UNAVAILABLE',
-        error:
-          `Selected session ${sessionPubkey.toString()} needs its signature, but the proxy KMS does not have it.`,
-      }, 409);
-    }
+    // BYO-wallet model: proxy never holds the session private key. When
+    // session != owner, caller signs the returned unsigned tx with their
+    // own session keypair. feePayer defaults to sessionPubkey so the
+    // agent wallet funds its own gas from its pre-topped-up balance.
 
     const built = await buildConfidentialUsdcTransferSessionTransaction(
       {
@@ -857,9 +814,7 @@ walletRouter.post('/execute-confidential-usdc-transfer', async (c) => {
         attestationPolicySeq: walletData.policySeq,
       },
       PROGRAM_ID.toString(),
-      sessionKeypair
-        ? { feePayer: ownerPubkey.toString(), partialSigners: [sessionKeypair], preInstructions }
-        : { feePayer: ownerPubkey.toString(), preInstructions }
+      { preInstructions }
     );
 
     return c.json({
@@ -963,18 +918,8 @@ walletRouter.post('/execute-encrypt-policy-graph', async (c) => {
     const graphPayer = parsePublicKey(encrypt?.payer ?? sessionKey, 'encrypt.payer');
     const ownerPubkey = owner ? parsePublicKey(owner, 'owner') : null;
     const sessionPubkey = parsePublicKey(sessionKey, 'sessionKey');
-    const kmsSessionKeypair = ownerPubkey && sessionPubkey.toString() !== ownerPubkey.toString()
-      ? loadKey(ownerPubkey.toString(), 'session')
-      : null;
-    if (ownerPubkey && sessionPubkey.toString() !== ownerPubkey.toString() && kmsSessionKeypair?.publicKey.toString() !== sessionPubkey.toString()) {
-      return c.json({
-        success: false,
-        code: 'SESSION_SIGNER_UNAVAILABLE',
-        error:
-          `Selected session ${sessionPubkey.toString()} is authorized on-chain, but this browser cannot sign for it and the proxy KMS does not have that session key. ` +
-          `Use a session key generated by the proxy agent registration flow, or authorize the connected owner wallet as the session for this frontend demo.`,
-      }, 409);
-    }
+    // BYO-wallet model: proxy never holds the session private key. When
+    // session != owner, caller signs the returned tx externally.
     const connection = getConnection();
     const infraStatus = await readEncryptInfraStatus(connection, graphPayer, encryptProgram);
     if (!infraStatus.readyForGraphCpi) {
@@ -1013,8 +958,8 @@ walletRouter.post('/execute-encrypt-policy-graph', async (c) => {
         },
       },
       undefined,
-      kmsSessionKeypair && ownerPubkey
-        ? { feePayer: ownerPubkey.toString(), partialSigners: [kmsSessionKeypair] }
+      ownerPubkey && sessionPubkey.toString() !== ownerPubkey.toString()
+        ? { feePayer: ownerPubkey.toString() }
         : {}
     );
 
