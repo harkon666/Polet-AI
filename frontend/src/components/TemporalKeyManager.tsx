@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Key, Clock, Trash2, Copy, Check } from 'lucide-react';
+import { Key, Clock, Trash2, Copy, Check, Code, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface TemporalKey {
   id: string;
@@ -12,6 +12,7 @@ interface TemporalKey {
 }
 
 interface TemporalKeyManagerProps {
+  owner?: string;
   keys: TemporalKey[];
   onRevoke: (sessionKey: string) => void;
   onGrant: (sessionKey: string, expiresAt: number, dailyLimit: number) => void;
@@ -19,6 +20,7 @@ interface TemporalKeyManagerProps {
 }
 
 export function TemporalKeyManager({
+  owner,
   keys,
   onRevoke,
   onGrant,
@@ -29,6 +31,14 @@ export function TemporalKeyManager({
   const [expiresIn, setExpiresIn] = useState(24); // hours
   const [dailyLimit, setDailyLimit] = useState(0.05); // SOL
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedConfigKey, setExpandedConfigKey] = useState<string | null>(null);
+
+  const proxyUrl =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PROXY_URL) ||
+    'http://localhost:3001';
+  const rpcUrl =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SOLANA_RPC_URL) ||
+    'https://api.devnet.solana.com';
 
   const handleGrant = () => {
     if (!newAgentAddress.trim()) return;
@@ -43,6 +53,51 @@ export function TemporalKeyManager({
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
+
+  const buildPoletAgentJson = (sessionKey: string): string =>
+    JSON.stringify(
+      {
+        POLET_OWNER: owner ?? '<owner wallet pubkey>',
+        POLET_SESSION_KEY: sessionKey,
+        POLET_AGENT_KEYPAIR: '<PASTE YOUR AGENT WALLET PRIVATE KEY HERE>',
+        POLET_PROXY_URL: proxyUrl,
+        POLET_RPC_URL: rpcUrl,
+      },
+      null,
+      2,
+    );
+
+  const buildMcpConfigJson = (sessionKey: string): string =>
+    JSON.stringify(
+      {
+        mcpServers: {
+          polet: {
+            command: 'bunx',
+            args: ['@polet-ai/sdk', 'polet-mcp'],
+            env: {
+              POLET_OWNER: owner ?? '<owner wallet pubkey>',
+              POLET_SESSION_KEY: sessionKey,
+              POLET_AGENT_KEYPAIR: '<PASTE YOUR AGENT WALLET PRIVATE KEY HERE>',
+              POLET_PROXY_URL: proxyUrl,
+              POLET_RPC_URL: rpcUrl,
+            },
+          },
+        },
+      },
+      null,
+      2,
+    );
+
+  const buildHermesCommands = (sessionKey: string): string =>
+    [
+      'hermes config set mcp.servers.polet.command bunx',
+      `hermes config set mcp.servers.polet.args '["@polet-ai/sdk", "polet-mcp"]'`,
+      `hermes config set mcp.servers.polet.env.POLET_OWNER "${owner ?? '<owner wallet pubkey>'}"`,
+      `hermes config set mcp.servers.polet.env.POLET_SESSION_KEY "${sessionKey}"`,
+      `hermes config set mcp.servers.polet.env.POLET_AGENT_KEYPAIR "<PASTE YOUR AGENT WALLET PRIVATE KEY HERE>"`,
+      `hermes config set mcp.servers.polet.env.POLET_PROXY_URL "${proxyUrl}"`,
+      `hermes config set mcp.servers.polet.env.POLET_RPC_URL "${rpcUrl}"`,
+    ].join('\n');
 
   const formatExpiry = (timestamp: number) => {
     const date = new Date(timestamp);
@@ -232,6 +287,111 @@ export function TemporalKeyManager({
                   </span>
                 </div>
               </div>
+
+              {key.authorized && (
+                <div className="mt-4 border-t border-[var(--line)] pt-3">
+                  <button
+                    onClick={() =>
+                      setExpandedConfigKey(expandedConfigKey === key.id ? null : key.id)
+                    }
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm font-medium text-[var(--lagoon-deep)] transition hover:bg-[var(--link-bg-hover)]"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Code className="h-4 w-4" />
+                      Show Hermes / Claude / Cursor config
+                    </span>
+                    {expandedConfigKey === key.id ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
+
+                  {expandedConfigKey === key.id && (
+                    <div className="mt-3 space-y-4 rounded-md bg-[var(--foam)] p-3">
+                      <div className="rounded border border-yellow-300 bg-yellow-50 p-3 text-xs leading-5 text-yellow-900">
+                        <strong>Private key not generated server-side.</strong> Paste the
+                        agent wallet private key yourself (export from Phantom: Settings →
+                        Security → Export Private Key; or Backpack similar; or from your
+                        <code className="mx-1 rounded bg-yellow-100 px-1 font-mono">
+                          solana-keygen
+                        </code>
+                        file). Replace
+                        <code className="mx-1 rounded bg-yellow-100 px-1 font-mono">
+                          &lt;PASTE ...&gt;
+                        </code>
+                        below with the base58 secret key.
+                      </div>
+
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <h5 className="text-xs font-semibold uppercase text-[var(--sea-ink)]">
+                            polet-agent.json
+                          </h5>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(
+                                buildPoletAgentJson(key.sessionKey),
+                                `${key.id}-json`,
+                              )
+                            }
+                            className="rounded px-2 py-0.5 text-xs font-medium text-[var(--lagoon-deep)] transition hover:bg-[var(--link-bg-hover)]"
+                          >
+                            {copiedId === `${key.id}-json` ? 'Copied ✓' : 'Copy'}
+                          </button>
+                        </div>
+                        <pre className="overflow-x-auto rounded bg-white p-3 text-xs font-mono text-[var(--sea-ink)]">
+                          {buildPoletAgentJson(key.sessionKey)}
+                        </pre>
+                      </div>
+
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <h5 className="text-xs font-semibold uppercase text-[var(--sea-ink)]">
+                            Claude Desktop / Cursor / Zed MCP config
+                          </h5>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(
+                                buildMcpConfigJson(key.sessionKey),
+                                `${key.id}-mcp`,
+                              )
+                            }
+                            className="rounded px-2 py-0.5 text-xs font-medium text-[var(--lagoon-deep)] transition hover:bg-[var(--link-bg-hover)]"
+                          >
+                            {copiedId === `${key.id}-mcp` ? 'Copied ✓' : 'Copy'}
+                          </button>
+                        </div>
+                        <pre className="overflow-x-auto rounded bg-white p-3 text-xs font-mono text-[var(--sea-ink)]">
+                          {buildMcpConfigJson(key.sessionKey)}
+                        </pre>
+                      </div>
+
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <h5 className="text-xs font-semibold uppercase text-[var(--sea-ink)]">
+                            Hermes Agent (CLI commands)
+                          </h5>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(
+                                buildHermesCommands(key.sessionKey),
+                                `${key.id}-hermes`,
+                              )
+                            }
+                            className="rounded px-2 py-0.5 text-xs font-medium text-[var(--lagoon-deep)] transition hover:bg-[var(--link-bg-hover)]"
+                          >
+                            {copiedId === `${key.id}-hermes` ? 'Copied ✓' : 'Copy'}
+                          </button>
+                        </div>
+                        <pre className="overflow-x-auto rounded bg-white p-3 text-xs font-mono text-[var(--sea-ink)]">
+                          {buildHermesCommands(key.sessionKey)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

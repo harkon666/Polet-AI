@@ -276,6 +276,7 @@ export function WalletDashboard() {
       {activeTab === 'temporal' && (
         <div className="rounded-lg border border-[var(--line)] bg-[var(--island-bg)] p-6">
           <TemporalKeyManager
+            owner={publicKey.toBase58()}
             keys={temporalKeys}
             onRevoke={handleRevokeKey}
             onGrant={handleGrantKey}
