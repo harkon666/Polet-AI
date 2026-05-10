@@ -91,6 +91,47 @@ export type ConstraintCheck = 'pass' | 'fail' | 'unknown'
  *   - Pre-Alpha mock signer only fills `messageApprovalPda` once the
  *     dWallet authority transfer + smoke run is live.
  */
+/**
+ * Jupiter route preview artifacts from a successful confidential DCA.
+ *
+ * Per `docs/demo-script.md` outcome 2 the receipt should expose: the
+ * Jupiter route/build preview (token metadata + quote + slippage) and
+ * the unsigned smart-wallet transaction boundary so judges can verify
+ * Polet wraps Jupiter behind the policy gate without claiming a
+ * mainnet swap.
+ *
+ * All fields optional; populated only on the allowed branch.
+ */
+export type JupiterProof = {
+  executionPath?: string
+  smartWalletAuthority?: string
+  inputToken?: {
+    symbol?: string
+    decimals?: number
+    isVerified?: boolean
+    organicScoreLabel?: string
+  }
+  outputToken?: {
+    symbol?: string
+    decimals?: number
+    isVerified?: boolean
+    organicScoreLabel?: string
+  }
+  quote?: {
+    inputAmount?: string
+    expectedOutput?: string
+    minimumOutput?: string
+    slippageBps?: number
+    priceImpactPct?: string
+    routeLabel?: string
+  }
+  routeSteps?: number
+  primaryDex?: string
+  approvalSigners?: string[]
+  txBlockHash?: string
+  txSlot?: number
+}
+
 export type IkaProof = {
   dwalletAccount?: string
   messageApprovalPda?: string
@@ -124,6 +165,8 @@ export type ReceiptEntry = {
   }
   /** Ika pre-alpha proof artifacts. Populated only on Ika APPROVED entries. */
   ikaProof?: IkaProof
+  /** Jupiter route + unsigned tx artifacts. Populated only on Jupiter APPROVED entries. */
+  jupiterProof?: JupiterProof
 }
 
 export type ConsoleData = {
@@ -578,6 +621,32 @@ export function ConsoleStateProvider({
           maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
         })
         const allowed = result.allowed === true
+        // Extract Jupiter route + tx artifacts when approved. Field
+        // shape comes from RunConfidentialDcaResult (see api.ts).
+        const jupiterProof: JupiterProof | undefined =
+          allowed && (result.jupiterPlan || result.transaction || result.smartWalletAuthority)
+            ? {
+                executionPath: result.executionPath,
+                smartWalletAuthority: result.smartWalletAuthority,
+                inputToken: result.jupiterPlan?.inputToken,
+                outputToken: result.jupiterPlan?.outputToken,
+                quote: result.jupiterPlan?.quoteMetadata
+                  ? {
+                      inputAmount: result.jupiterPlan.quoteMetadata.inputAmount,
+                      expectedOutput: result.jupiterPlan.quoteMetadata.expectedOutput,
+                      minimumOutput: result.jupiterPlan.quoteMetadata.minimumOutput,
+                      slippageBps: result.jupiterPlan.quoteMetadata.slippageBps,
+                      priceImpactPct: result.jupiterPlan.quoteMetadata.priceImpactPct,
+                      routeLabel: result.jupiterPlan.quoteMetadata.routeLabel,
+                    }
+                  : undefined,
+                routeSteps: result.jupiterPlan?.build?.routePlan?.length,
+                primaryDex: result.jupiterPlan?.build?.routePlan?.[0]?.swapInfo?.label,
+                approvalSigners: result.transaction?.signers,
+                txBlockHash: result.transaction?.blockHash,
+                txSlot: result.transaction?.slot,
+              }
+            : undefined
         emitReceipt({
           action: allowed
             ? `${amount} USDC APPROVED (JUPITER)`
@@ -586,15 +655,13 @@ export function ConsoleStateProvider({
             ? 'Route + unsigned smart-wallet tx ready.'
             : 'Original amount stays sealed; the gate said no without ever reading the cleartext.',
           status: allowed ? 'allowed' : 'blocked',
-          signature: result.transaction?.signers
-            ? undefined
-            : undefined,
           constraintRefs: {
             numericLimit: allowed ? 'pass' : 'fail',
             scopeMatch: 'pass',
             sessionActive: 'pass',
           },
           body: result.reason,
+          ...(jupiterProof && { jupiterProof }),
         })
         await refresh()
       } catch (err) {
