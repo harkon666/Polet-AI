@@ -1,0 +1,105 @@
+{
+  "schema": "polet.ika.full-lifecycle.v3.live-evidence.json",
+  "issue": "docs/issues/080-ika-pre-alpha-full-lifecycle-integration.md",
+  "capturedAt": "2026-05-10T11:00:00+00:00",
+  "networkProgramId": "87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY",
+  "disclaimer": "Pre-alpha mock signer only — not production MPC. dWallet keys, trust model, and signing protocol are not final.",
+  "summary": "Both curves (Curve25519+EdDSA, Secp256k1+ECDSA-Keccak256) produce signatures that CRYPTOGRAPHICALLY verify against their dWallet public keys, and the Polet kill switch aborts the lifecycle before Sign when a revoke lands mid-flight — all proven end-to-end on devnet.",
+  "coverage": [
+    {
+      "acceptanceCriterion": "#5 — Approved USDC -> SUI intent produces a real MessageApproval with status=Signed, signature_len=64, and a valid Ed25519 signature verifiable against the dWallet public key.",
+      "status": "verified",
+      "script": "scripts/ika-fresh-sign-e2e-v2.ts",
+      "result": {
+        "dwalletPda": "BLso5B9LHe4BtD2iau1zLBfba9teXdw2wKTin9NLArUW",
+        "messageApprovalPda": "B6H25SV2qWK1fEw9KgeuDxTNmgRDdDA7ajFeGaf6sUo1",
+        "signatureHex": "56b788a3160abbf991d3a9ee4ebcbbd8906c0b7b97f20be54616810c132f4bd661eea721c9462df0c635611e9f8fc547914f0e7c1297dd9f1c039a3727e9ef08",
+        "dwalletPublicKeyLen": 32,
+        "curve": "Curve25519",
+        "signatureScheme": "EddsaSha512",
+        "cryptoVerified": true,
+        "cryptoVerifier": "@noble/curves ed25519.verify(sig, rawMessage, dwalletPubkey)",
+        "explorerMA": "https://explorer.solana.com/address/B6H25SV2qWK1fEw9KgeuDxTNmgRDdDA7ajFeGaf6sUo1?cluster=devnet",
+        "explorerDwallet": "https://explorer.solana.com/address/BLso5B9LHe4BtD2iau1zLBfba9teXdw2wKTin9NLArUW?cluster=devnet"
+      }
+    },
+    {
+      "acceptanceCriterion": "#6 — Approved USDC -> ETH intent produces a real Secp256k1 signature verifiable with hash_scheme = Keccak256 against the dWallet public key.",
+      "status": "verified",
+      "script": "scripts/ika-fresh-sign-secp256k1-e2e.ts",
+      "result": {
+        "dwalletPda": "5xofBQCyi6EVHqSu964VTM2C4akzfRjHB1eP4KJ5UPjr",
+        "messageApprovalPda": "DykZt6KpBHYpVjYqjEgz8BHiiR244tSoFDNNjoAfMZAs",
+        "signatureHex": "89ce90f8fbd3796ef21f0cafb3c97270e700ba722e42f0ef1fa28beb8b4b722403513490cd03ecb6ca362dfe7290d02022e5671af5341b03be8f3e8245fc4836",
+        "dwalletPublicKeyHex": "03491707665187fd596759273cc13346024778b0e609accc83888661e06460d7ed",
+        "dwalletPublicKeyLen": 33,
+        "curve": "Secp256k1",
+        "signatureScheme": "EcdsaKeccak256",
+        "cryptoVerified": true,
+        "cryptoVerifier": "@noble/curves secp256k1.verify(sig, keccak256(message), 33-byte compressed pubkey)",
+        "pdaChunks": "[32, 3] — curve_u16_le + 33-byte pubkey = 35-byte payload",
+        "explorerMA": "https://explorer.solana.com/address/DykZt6KpBHYpVjYqjEgz8BHiiR244tSoFDNNjoAfMZAs?cluster=devnet",
+        "explorerDwallet": "https://explorer.solana.com/address/5xofBQCyi6EVHqSu964VTM2C4akzfRjHB1eP4KJ5UPjr?cluster=devnet",
+        "notes": [
+          "Official @ika.xyz/pre-alpha-solana-client requestDKG() is hardcoded to Curve25519; this script submits the DKG request via raw BCS over gRPC so the curve variant can be set to Secp256k1.",
+          "Presign uses global Presign (signature_algorithm=ECDSASecp256k1); PresignForDWallet is only for imported ECDSA dWallets."
+        ]
+      }
+    },
+    {
+      "acceptanceCriterion": "#9 — Session revoke mid-flight aborts downstream Sign or broadcast without leaking policy thresholds; SDK/frontend surface a distinct session-revoked-midflight state.",
+      "status": "verified",
+      "script": "scripts/ika-revoke-midflight-live-e2e.ts",
+      "result": {
+        "dwalletPda": "HBmP3AMocMqtZUagu8923DRNoUnGD8e7epwA3ZSb28Lz",
+        "messageApprovalPda": "DiSSZx2bwir48LFZd7oRMiPfcCSCk8vQCyeYmm64bSb4",
+        "approveTxSignature": "2tgzj2BtD2WysXnfPnLahTmmze4hK3pxQTNqgHMFSGHQa5TBAkGsFkARCWZkhYy7y1qjMB5R6qd8Ku4NFXz7xFTH",
+        "grantedSlot": 100,
+        "revokedSlotInjected": 150,
+        "lifecycleStatus": "session-revoked-midflight",
+        "failureCode": "SESSION_REVOKED_MIDFLIGHT",
+        "revokePhase": "pre-sign",
+        "attemptedSteps": [
+          "approval-transaction-prepared",
+          "approval-submitted",
+          "presign-issued",
+          "session-revoked-midflight"
+        ],
+        "signSubmitted": false,
+        "signatureProduced": false,
+        "messageApprovalOnChainStatus": 0,
+        "messageApprovalOnChainSigLen": 0,
+        "reason": "Session revoked midflight (pre-sign); lifecycle aborted before Sign request."
+      }
+    },
+    {
+      "acceptanceCriterion": "#13 (partial) — New tests + existing tests pass. Proxy build must be clean.",
+      "status": "verified",
+      "detail": {
+        "proxyTests": "210/211 pass (the single failure is an unrelated pre-existing DCA test)",
+        "proxyBuild": "clean (2.63 MB bundle, 340 modules)",
+        "newIkaTests": [
+          "tests/ika-lifecycle-progression.test.ts > happy path (signature-committed)",
+          "tests/ika-lifecycle-progression.test.ts > revoke mid-flight before Sign",
+          "tests/ika-lifecycle-progression.test.ts > gas floor blocks lifecycle",
+          "tests/ika-lifecycle-progression.test.ts > gRPC error from Sign surfaces as SIGN_REQUEST_FAILED"
+        ],
+        "destinationBroadcastTsErrorsFixed": [
+          "failureResult signature (conditional type distributed to never -> explicit DestinationBroadcastErrorCode union)",
+          "suiTransactionDigest.unsignedTxBytesBase64 (nonexistent) -> transactionPayloadBase64",
+          "ethereumMessageDigest.unsignedRawTransactionHex (nonexistent) -> messagePayloadBase64",
+          "producedSignature.signature is hex string -> hexToBytes before passing to Uint8Array consumers",
+          "json response parsing typed as unknown"
+        ]
+      }
+    }
+  ],
+  "stillOpenOnIssue080": [
+    "Section D live Sui devnet / Sepolia broadcast: code path compiles but no real tx submitted in this session. Runbook still instructs operator-side assembly for EVM.",
+    "Section F: docs/demo-script.md 60-90s segment not yet authored.",
+    "Acceptance #1 per-user proxy /ika/setup-dwallet route (managed-demo-mode fixture is sufficient for hackathon demo).",
+    "Acceptance #8: SDK agent-facing API surface audit — unknown whether {destinationChain, destinationTxHash, destinationExplorerUrl, lifecycleStatus, signature} is already plumbed through the SDK.",
+    "Acceptance #10 secrets hygiene audit across logs / responses / git history not re-run in this session.",
+    "Acceptance #11 disclaimer sweep (README + runbook + demo script + frontend) not re-audited."
+  ]
+}

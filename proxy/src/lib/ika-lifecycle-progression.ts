@@ -19,6 +19,7 @@
  */
 
 import { Connection, PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
 import {
   APPROVE_MESSAGE_DISCRIMINATOR,
   bytesToHex,
@@ -29,6 +30,7 @@ import {
   hexToBytes,
   MESSAGE_APPROVAL_LAYOUT,
   MESSAGE_APPROVAL_STATUS,
+  BcsReader,
   type ChainIdValue,
   type DWalletCurveId,
   type DWalletSignatureAlgorithmId,
@@ -227,25 +229,51 @@ export async function progressIkaLifecycle(
   const epoch = input.dwalletAttestation.epoch
     ?? (deps.fetchEpoch ? await deps.fetchEpoch() : 0n);
 
+  // Presign + Sign via Polet's hand-rolled BCS gRPC client.
+  //
+  // Why not @ika.xyz/pre-alpha-solana-client? The official helper's
+  // `requestPresign()` uses `PresignForDWallet` (server rejects for
+  // Curve25519+EdDSA with "PresignForDWallet is only for imported ECDSA
+  // keys") and `requestSign()` hard-codes zero-filled `dwallet_attestation`
+  // (server rejects with "failed to decode dwallet_attestation: unexpected
+  // end of input"). See scripts/ika-fresh-sign-e2e-v2.ts for the working
+  // combination this path now implements:
+  //   1. sessionIdentifierPreimage = 32 zero bytes (MUST match DKG's preimage
+  //      — server uses it as the literal dWallet key lookup id).
+  //   2. Real `NetworkSignedAttestation` from DKG (threaded via fixture).
+  //   3. Global `Presign` for non-imported dWallets; `PresignForDWallet`
+  //      only when `input.importedKey === true` (ECDSA-only).
+  //   4. ApprovalProof::Solana { transaction_signature: bs58-decoded bytes,
+  //      slot }.
+  const senderPubkey = intendedChainSenderForTarget(input.ikaRequest);
+  const sessionIdentifierPreimage = new Uint8Array(32);
+  const chainId = resolveChainId(input.ikaRequest.target.chain);
+
   let presignSessionIdentifier: Uint8Array;
   if (input.existingPresignSessionIdentifier) {
     presignSessionIdentifier = input.existingPresignSessionIdentifier;
   } else {
     try {
-      const presignRequest = input.importedKey
-        ? buildPresignForDWalletRequest(curve, signatureAlgorithm, networkEncryptionPublicKey, dwalletPublicKey)
+      const presignRequestBody = input.importedKey
+        ? buildPresignForDWalletRequest(
+            curve,
+            signatureAlgorithm,
+            networkEncryptionPublicKey,
+            dwalletPublicKey
+          )
         : buildPresignRequest(curve, signatureAlgorithm, networkEncryptionPublicKey);
-      const { response, signedRequestData } = await deps.grpcClient.submitDWalletRequest({
+      const { response } = await deps.grpcClient.submitDWalletRequest({
+        sessionIdentifierPreimage,
         epoch,
-        chainId: resolveChainId(input.ikaRequest.target.chain),
-        intendedChainSender: intendedChainSenderForTarget(input.ikaRequest),
-        request: presignRequest,
+        chainId,
+        intendedChainSender: senderPubkey,
+        request: presignRequestBody,
       });
       if (response.kind !== 'attestation') {
-        return failure(attempted, 'lifecycle-error', 'GRPC_PROTOCOL_ERROR',
-          `Presign response expected Attestation, received ${response.kind}`);
+        return failure(attempted, 'lifecycle-error', 'PRESIGN_REQUEST_FAILED',
+          `Presign response returned kind=${response.kind} (expected attestation)`);
       }
-      presignSessionIdentifier = signedRequestData.sessionIdentifierPreimage;
+      presignSessionIdentifier = decodePresignSessionIdentifier(response.attestation.attestationData);
     } catch (error) {
       return failure(attempted, 'lifecycle-error', 'PRESIGN_REQUEST_FAILED',
         errorMessage(error, 'Presign request failed'));
@@ -260,32 +288,32 @@ export async function progressIkaLifecycle(
     return preSignRevoke(attempted);
   }
 
-  // Sign request -------------------------------------------------------------
+  // Sign request via Polet's local client ----------------------------------
   try {
-    const signRequest = buildSignRequest({
-      message: input.messageOverride ?? hexToBytes(input.ikaRequest.ikaMessageHash ?? ''),
+    const message = input.messageOverride ?? hexToBytes(input.ikaRequest.ikaMessageHash ?? '');
+    const approvalSignatureBytes = toSolanaSignatureBytes(input.approvalTransactionSignature);
+    const signRequestBody = buildSignRequest({
+      message,
       messageMetadata: input.messageMetadata ?? new Uint8Array(),
       presignSessionIdentifier,
       messageCentralizedSignature: input.messageCentralizedSignature,
       dwalletAttestation: input.dwalletAttestation,
       approvalProof: {
         chain: 'solana',
-        transactionSignature: toBytesSignature(input.approvalTransactionSignature),
+        transactionSignature: approvalSignatureBytes,
         slot: approvalSlot,
       },
     });
     const { response } = await deps.grpcClient.submitDWalletRequest({
+      sessionIdentifierPreimage,
       epoch,
-      chainId: resolveChainId(input.ikaRequest.target.chain),
-      intendedChainSender: intendedChainSenderForTarget(input.ikaRequest),
-      request: signRequest,
+      chainId,
+      intendedChainSender: senderPubkey,
+      request: signRequestBody,
     });
-    if (response.kind === 'error') {
-      return failure(attempted, 'lifecycle-error', 'SIGN_REQUEST_FAILED', response.message);
-    }
     if (response.kind !== 'signature') {
-      return failure(attempted, 'lifecycle-error', 'GRPC_PROTOCOL_ERROR',
-        `Sign response expected Signature, received ${response.kind}`);
+      return failure(attempted, 'lifecycle-error', 'SIGN_REQUEST_FAILED',
+        `Sign response returned kind=${response.kind} (expected signature)`);
     }
     if (response.signature.length !== 64) {
       return failure(attempted, 'lifecycle-error', 'INVALID_PRODUCED_SIGNATURE',
@@ -468,21 +496,56 @@ function intendedChainSenderForTarget(ikaRequest: IkaBridgelessExecutionRequest)
 
 function toBase58Signature(value: Uint8Array | string): string {
   if (typeof value === 'string') return value;
-  // Re-use bs58 via dynamic-less approach: accept only the base58 form for now.
-  return Buffer.from(value).toString('base64');
+  return bs58.encode(Buffer.from(value));
 }
 
-function toBytesSignature(value: Uint8Array | string): Uint8Array {
+/**
+ * Normalize an approval tx signature (Solana base58 string or raw bytes)
+ * into the raw 64-byte form the Ika gRPC Sign request expects for
+ * `approval_proof.Solana.transaction_signature`.
+ */
+function toSolanaSignatureBytes(value: Uint8Array | string): Uint8Array {
   if (value instanceof Uint8Array) return value;
-  // Detect base64 vs base58 by charset; default to base58.
-  if (/^[0-9a-fA-F]+$/.test(value) && value.length % 2 === 0) {
-    return hexToBytes(value);
+  // Solana tx signatures are base58 (~88 chars of the base58 alphabet).
+  // Try bs58 first; if that fails, fall back to hex / base64 for test
+  // compatibility.
+  try {
+    return new Uint8Array(bs58.decode(value));
+  } catch {
+    if (/^[0-9a-fA-F]+$/.test(value) && value.length % 2 === 0) {
+      return hexToBytes(value);
+    }
+    if (/^[A-Za-z0-9+/=]+$/.test(value)) {
+      return new Uint8Array(Buffer.from(value, 'base64'));
+    }
+    throw new Error(`Unable to decode approval transaction signature: ${value.slice(0, 16)}...`);
   }
-  if (/^[A-Za-z0-9+/=]+$/.test(value)) {
-    return new Uint8Array(Buffer.from(value, 'base64'));
+}
+
+/**
+ * Decode `VersionedPresignDataAttestation` (BCS-encoded inside
+ * `NetworkSignedAttestation.attestation_data`) just far enough to extract
+ * `V1.presign_session_identifier`. We skip past the earlier fields without
+ * allocating their payloads.
+ *
+ * Layout (all BCS):
+ *   u8 variant (0 = V1)
+ *   [u8; 32] session_identifier
+ *   u64 epoch
+ *   Vec<u8> presign_session_identifier   ← what we return
+ *   ... (rest unused)
+ */
+function decodePresignSessionIdentifier(attestationData: Uint8Array): Uint8Array {
+  const reader = new BcsReader(attestationData);
+  const variant = reader.u8();
+  if (variant !== 0) {
+    throw new Error(
+      `VersionedPresignDataAttestation: unsupported variant ${variant} (expected 0 for V1)`
+    );
   }
-  // Treat as already base58 string; caller should convert via bs58 outside.
-  return new TextEncoder().encode(value);
+  reader.fixedBytes(32); // session_identifier
+  reader.u64Le(); // epoch
+  return reader.byteSeq(); // presign_session_identifier
 }
 
 function errorMessage(error: unknown, fallback: string): string {

@@ -555,6 +555,26 @@ Issue 080 wires the complete Ika Pre-Alpha Common Flow (DKG → TransferOwnershi
 
 Pre-alpha disclaimer: Ika signing uses a single mock signer, not production MPC. Destination broadcast is Sui devnet / Ethereum Sepolia only. Polet does not claim production bridgeless settlement or real-asset finality.
 
+### Step 5 (signature-committed) live-devnet evidence (2026-05-10)
+
+Full DKG → approve_message → Presign → Sign → CommitSignature has been verified end-to-end on devnet via the production `progressIkaLifecycle` code path. Evidence capture: `docs/evidence/080-ika-fresh-sign-v2-live.json`.
+
+- Reproduce the isolated happy path (bypasses proxy): `cd proxy && bun run ../scripts/ika-fresh-sign-e2e-v2.ts` (requires `/tmp/fresh-owner.json`).
+- Reproduce the production code path: `cd proxy && bun run ../scripts/ika-proxy-progression-live-e2e.ts` — exercises `progressIkaLifecycle` with the real `IkaGrpcClient` against devnet.
+
+Working combination (do not change without re-running both scripts):
+
+- `session_identifier_preimage` for Presign and Sign must be `new Uint8Array(32)` (all zeros). The official `@ika.xyz/pre-alpha-solana-client.requestDKG()` hardcodes the same preimage; the server uses it verbatim as the dWallet key lookup id, so Sign must match.
+- `dwallet_attestation` on Sign must be the real `NetworkSignedAttestation` from the DKG response (`attestationDataHex`, `networkSignatureHex`, `networkPublicKeyHex`, `epoch`). Zero bytes trigger `"failed to decode dwallet_attestation"`.
+- For Curve25519 + EdDSA use global `DWalletRequest::Presign`. `PresignForDWallet` is rejected server-side with `"PresignForDWallet is only for imported ECDSA keys"` and is only valid for imported ECDSA dWallets.
+- `ApprovalProof::Solana.transaction_signature` must be the raw bytes of the `approve_message` Solana tx signature (bs58-decoded, not base64).
+- `DWalletCurve` is a BCS enum with a single-byte variant tag (0..3). The earlier hand-rolled encoder wrote it as `u16 LE` which produced `"invalid signed_request_data: remaining input"`; fixed in `proxy/src/lib/ika-grpc-schema.ts`.
+
+Known upstream gotchas (documented so future readers don't rediscover them):
+
+- `@ika.xyz/pre-alpha-solana-client@0.1.1`'s `requestSign()` hardcodes zero-filled `dwallet_attestation`. The helper is unusable for signing as published. Same bug in the `_shared/ika-setup.ts` helper inside the public Ika repo (`chains/solana/examples/_shared/ika-setup.ts`), so the voting E2E demo in docs likely does not work as written.
+- `DWalletCurve` is documented as "u16 (LE in on-chain accounts, BCS-serialized for gRPC)" in `docs/ika/raw.txt`. BCS serialization for enums is a single-byte variant tag, not a u16 scalar — the "u16 LE" note in docs only applies to on-chain DWallet account bytes.
+
 ### Managed Demo Mode (recommended for hackathon reviewers)
 
 Issue 080 ships a **managed demo mode** that collapses the per-user dWallet setup into one frontend button. The operator runs the Ika DKG + TransferOwnership **once** at deployment time, writes the resulting dWallet metadata to a JSON fixture, and the proxy reuses it for all demo users. This mirrors the "house signer" pattern and avoids forcing hackathon reviewers through a Rust CLI.

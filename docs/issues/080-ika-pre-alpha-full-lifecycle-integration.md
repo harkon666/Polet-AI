@@ -105,3 +105,51 @@ Work breaks into the following tightly coupled components. Build them in order; 
 - `docs/issues/050-contract-official-encrypt-verified-ika-cpi-lifecycle.md`
 - `docs/issues/035-shared-access-and-multisig-lite-ika-approvals.md`
 - `docs/issues/040-official-ika-message-hash-and-signing-lifecycle.md`
+
+## Progress
+
+### 2026-05-10 — Step 5 (signature-committed) verified live on devnet
+
+An earlier honest failure analysis claimed the Ika pre-alpha mock signer could not produce signatures for dWallets DKG'd via the official TS client with zero-filled crypto material ("no key for dwallet"). **That conclusion was wrong.** The real blockers were three orthogonal bugs in the Polet integration, not an upstream limitation:
+
+1. `session_identifier_preimage` mismatch between DKG and Sign. The server uses it verbatim as the dWallet key lookup id; DKG uses 32 zero bytes (hardcoded in `@ika.xyz/pre-alpha-solana-client.requestDKG`) so Sign must also use 32 zero bytes.
+2. `dwallet_attestation` on Sign must be the real `NetworkSignedAttestation` from the DKG response. The published `@ika.xyz/pre-alpha-solana-client@0.1.1`'s `requestSign` hardcodes zero bytes, which the server rejects with `"failed to decode dwallet_attestation"`. Same bug in the official `_shared/ika-setup.ts` helper inside the Ika repo, so the voting E2E in docs likely does not work as written.
+3. `PresignForDWallet` is rejected server-side for Curve25519 + EdDSA with `"PresignForDWallet is only for imported ECDSA keys"`. Non-imported Curve25519 / Ristretto / Secp256k1 / Secp256r1 dWallets must use global `Presign` instead.
+
+A minor BCS encoding bug in the hand-rolled Polet schema (`DWalletCurve` was serialized as `u16 LE` instead of a single BCS enum variant byte) produced `"invalid signed_request_data: remaining input"` once the local client was wired through. Fixed in `proxy/src/lib/ika-grpc-schema.ts`.
+
+Evidence captured end-to-end on devnet:
+
+- Isolated proof (bypasses proxy) via `scripts/ika-fresh-sign-e2e-v2.ts`:
+  - dWallet PDA: `6hb1rBcTsE6qez9VUhswmQ3PufDMcG3G6BZMNLCZ5b7w`
+  - MessageApproval PDA: `8Jz54b93FTaxr4isfYJmaX8M7eW9iGofB6AsjEB11Fap` (status=Signed, sigLen=64)
+  - Signature: `dfe5456c83bd937daf5c083a6adecae5d2e5e105bd0a463eaa2499ae7f0e5a200836fa5f5711bce8fe9ef98765d14daf678fffac2f5ab4ae4e1c002061bc8904`
+- Production code path proof via `scripts/ika-proxy-progression-live-e2e.ts` (exercises the refactored `progressIkaLifecycle`):
+  - dWallet PDA: `9oTmwRJgRKVuAgGxoVbxt5cxuBo6R7C5cdXhC8XJmb8R`
+  - MessageApproval PDA: `BteUu1Y1znHTmwK3T4nx96copJ4pfhQpR5BmsMGWVwXH`
+  - Signature: `19ef92d71f47802d1dc75b797912d48010e9898f82658075e9aa7f35f1c888db0c71d5ae4ae1fdf992fa6790002238ee435a96aee5c5154d8ed3659f8db82100`
+  - Attempted steps: `approval-transaction-prepared → approval-submitted → presign-issued → sign-submitted → signature-committed`
+
+On-chain bytes match the gRPC Sign response byte-for-byte in both runs. See `docs/evidence/080-ika-fresh-sign-v2-live.json` for the full capture.
+
+Proxy test suite: `ika-lifecycle-progression` 7/7 pass; overall 210/211 (1 unrelated pre-existing DCA failure).
+
+What still remains for this epic:
+
+- Destination broadcast (section D) on Sui devnet / Sepolia — signature bytes ready but `destination-broadcast.ts` has pre-existing TS errors to clean up.
+- Wire `/intent/multichain/run` to call `/ika/lifecycle/progress` automatically after `approve_message` lands.
+- Kill-switch midflight revoke test against the new code path (the existing unit test covers the code path but no devnet revoke has been exercised against the real Presign/Sign round).
+
+### 2026-05-10 (later) — Secp256k1, crypto verification, and kill switch verified live
+
+Follow-up slice that closes the remaining high-value gaps before committing:
+
+- **Acceptance #5 (Ed25519 valid against pubkey):** `scripts/ika-fresh-sign-e2e-v2.ts` now also runs `ed25519.verify(sig, message, dwalletPubkey)` via `@noble/curves`. Latest run signature `56b788a3160abbf991d3a9ee4ebcbbd8906c0b7b97f20be54616810c132f4bd661eea721c9462df0c635611e9f8fc547914f0e7c1297dd9f1c039a3727e9ef08` verifies cryptographically AND matches the on-chain MessageApproval (`B6H25SV2qWK1fEw9KgeuDxTNmgRDdDA7ajFeGaf6sUo1`).
+- **Acceptance #6 (Secp256k1 + Keccak256 valid against pubkey):** new `scripts/ika-fresh-sign-secp256k1-e2e.ts` drives DKG (Secp256k1) via raw BCS + approve_message (scheme=EcdsaKeccak256) + global Presign (ECDSASecp256k1) + Sign, then `secp256k1.verify(sig, keccak256(message), 33-byte compressed pubkey)` succeeds. dWallet PDA `5xofBQCyi6EVHqSu964VTM2C4akzfRjHB1eP4KJ5UPjr`; MessageApproval `DykZt6KpBHYpVjYqjEgz8BHiiR244tSoFDNNjoAfMZAs`; signature `89ce90f8fbd3796ef21f0cafb3c97270e700ba722e42f0ef1fa28beb8b4b722403513490cd03ecb6ca362dfe7290d02022e5671af5341b03be8f3e8245fc4836`. The official `@ika.xyz/pre-alpha-solana-client.requestDKG()` is hardcoded to Curve25519, so this script hand-builds the `DKG { curve: Secp256k1 }` BCS request over raw gRPC.
+- **Acceptance #9 (session revoke mid-flight aborts Sign):** new `scripts/ika-revoke-midflight-live-e2e.ts` runs the real Presign against the Ika mock signer, then simulates a mid-flight revoke by returning `grantedSlot + 50` from `readLatestRevokedSlot` on the pre-sign check. Lifecycle aborts with `status=session-revoked-midflight`, `revokePhase=pre-sign`, `attemptedSteps=[approval-transaction-prepared, approval-submitted, presign-issued, session-revoked-midflight]`, and the on-chain MessageApproval stays `status=0 (Pending)` with `sigLen=0`. Sign was never submitted to gRPC. Kill switch verified live.
+- **destination-broadcast.ts TS errors cleaned up:** `failureResult` conditional type distributed to `never` (replaced with explicit `DestinationBroadcastErrorCode` union); `suiTransactionDigest.unsignedTxBytesBase64` renamed to the real field `transactionPayloadBase64`; same for `ethereumMessageDigest.unsignedRawTransactionHex` → `messagePayloadBase64`; `producedSignature.signature` is a hex string so `hexToBytes` is now called before handing off to `Uint8Array` consumers. Proxy `bun run build` is fully clean; `bun test tests/destination-broadcast-demo.test.ts` + `tests/ika-lifecycle-progression.test.ts` → 12/12 pass.
+
+Still open on this epic: section D live Sui devnet / Sepolia broadcast (code path compiles but no real tx submitted), `docs/demo-script.md` 60-90s segment, per-user `POST /ika/setup-dwallet` route (managed-demo-mode fixture is sufficient for hackathon), SDK agent-facing API surface audit (acceptance #8), and the disclaimer-sweep + secrets-hygiene re-audit (acceptances #10 / #11).
+
+Full coverage capture with explorer URLs: `docs/evidence/080-ika-full-lifecycle-coverage.json`.
+

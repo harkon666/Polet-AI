@@ -1,0 +1,90 @@
+{
+  "schema": "polet.ika.full-lifecycle.v2.live-evidence.json",
+  "issue": "docs/issues/080-ika-pre-alpha-full-lifecycle-integration.md",
+  "capturedAt": "2026-05-10T10:17:00+00:00",
+  "networkProgramId": "87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY",
+  "disclaimer": "Pre-alpha mock signer only — not production MPC. dWallet keys, trust model, and signing protocol are not final.",
+  "summary": "Fresh DKG -> approve_message -> Presign -> Sign -> on-chain CommitSignature completes end-to-end on devnet via the Polet proxy's progressIkaLifecycle code path (production code, not a one-off script). Scripts/ika-fresh-sign-e2e-v2.ts and scripts/ika-proxy-progression-live-e2e.ts both return signature-committed with matching 64-byte Ed25519 signatures.",
+  "rootCause": {
+    "wrongPreviousConclusion": "Claimed upstream mock signer was blocked because DKG produced a dwallet on-chain but no usable key material. This was incorrect.",
+    "actualIssue": "Three unrelated bugs combined to make signing appear impossible: (1) Sign's session_identifier_preimage must match DKG's (the server uses it verbatim as the dwallet key lookup id). Scripts were passing messageDigest / owner.publicKey / zero-but-unsynchronized preimages. (2) Sign's dwallet_attestation must be the real NetworkSignedAttestation from the DKG response (zero bytes cause 'failed to decode'). @ika.xyz/pre-alpha-solana-client@0.1.1 requestSign hardcodes zero attestation — the published helper is unusable for signing. (3) PresignForDWallet is rejected for non-imported-ECDSA keys ('PresignForDWallet is only for imported ECDSA keys'); Curve25519 + EdDSA must use global Presign."
+  },
+  "fixes": {
+    "proxyLifecycleProgression": {
+      "file": "proxy/src/lib/ika-lifecycle-progression.ts",
+      "changes": [
+        "Dropped dynamic import of @ika.xyz/pre-alpha-solana-client/grpc requestPresign/requestSign.",
+        "Reuses the existing hand-rolled IkaGrpcClient (proxy/src/lib/ika-grpc-client.ts) to submit BCS-encoded Presign + Sign requests via raw gRPC.",
+        "session_identifier_preimage = new Uint8Array(32) (32 zeros, matching the DKG preimage hardcoded in @ika.xyz/pre-alpha-solana-client.requestDKG).",
+        "Real NetworkSignedAttestation threaded from input.dwalletAttestation (already persisted in managed fixture).",
+        "Global Presign for non-imported keys; PresignForDWallet only when input.importedKey === true.",
+        "ApprovalProof.Solana { transaction_signature: bs58-decoded bytes, slot } — toSolanaSignatureBytes now properly bs58-decodes Solana tx signatures."
+      ]
+    },
+    "proxyBcsSchema": {
+      "file": "proxy/src/lib/ika-grpc-schema.ts",
+      "changes": [
+        "encodeDWalletRequest: DWalletCurve is a BCS enum with single-byte variant tag (0..3), not a u16 LE scalar. Previous writer.u16Le(curve) produced 1 trailing byte that tripped the server's 'invalid signed_request_data: remaining input' check. Fixed to writer.u8(curve) for dkg, presign, and presign-for-dwallet variants."
+      ]
+    }
+  },
+  "v2ScriptEvidence": {
+    "script": "scripts/ika-fresh-sign-e2e-v2.ts",
+    "purpose": "Isolated Ika lifecycle (bypasses proxy) to confirm upstream is not blocked.",
+    "result": {
+      "status": "signature-committed",
+      "dwalletPda": "6hb1rBcTsE6qez9VUhswmQ3PufDMcG3G6BZMNLCZ5b7w",
+      "messageApprovalPda": "8Jz54b93FTaxr4isfYJmaX8M7eW9iGofB6AsjEB11Fap",
+      "signatureHex": "dfe5456c83bd937daf5c083a6adecae5d2e5e105bd0a463eaa2499ae7f0e5a200836fa5f5711bce8fe9ef98765d14daf678fffac2f5ab4ae4e1c002061bc8904",
+      "approveTxSignature": "2Jp9BciiuPJDdxVc9Z85wA8zmWvXBbSqE89LrjPiDqV2trGY1ec85sQ4RXGyg1KNPUF6i8yiBGD72EB4Ai5UxEWS",
+      "onChainSignatureMatchesGrpcResponse": true,
+      "signatureScheme": "EddsaSha512",
+      "curve": "Curve25519",
+      "explorerUrls": {
+        "messageApproval": "https://explorer.solana.com/address/8Jz54b93FTaxr4isfYJmaX8M7eW9iGofB6AsjEB11Fap?cluster=devnet",
+        "dwallet": "https://explorer.solana.com/address/6hb1rBcTsE6qez9VUhswmQ3PufDMcG3G6BZMNLCZ5b7w?cluster=devnet",
+        "approveTx": "https://explorer.solana.com/tx/2Jp9BciiuPJDdxVc9Z85wA8zmWvXBbSqE89LrjPiDqV2trGY1ec85sQ4RXGyg1KNPUF6i8yiBGD72EB4Ai5UxEWS?cluster=devnet"
+      }
+    }
+  },
+  "proxyProductionPathEvidence": {
+    "script": "scripts/ika-proxy-progression-live-e2e.ts",
+    "purpose": "Exercises the refactored progressIkaLifecycle function (production proxy code) against live devnet to prove the fix is in the proxy code path, not just a one-off script.",
+    "result": {
+      "status": "signature-committed",
+      "dwalletPda": "9oTmwRJgRKVuAgGxoVbxt5cxuBo6R7C5cdXhC8XJmb8R",
+      "messageApprovalPda": "BteUu1Y1znHTmwK3T4nx96copJ4pfhQpR5BmsMGWVwXH",
+      "signatureHex": "19ef92d71f47802d1dc75b797912d48010e9898f82658075e9aa7f35f1c888db0c71d5ae4ae1fdf992fa6790002238ee435a96aee5c5154d8ed3659f8db82100",
+      "messageDigestHex": "204ebadd999bf43bb57985d6c23503eb885228eed439c006502f400b06a8cd2a",
+      "approveTxSignature": "2yCYQeX1JuZErskFWTSCVWXWzrc3e4gEduAxThkrL4xbLEkPvTZ1ZQxGs7VWnzttRQ9WkxtP78HD42sUebDHkLKB",
+      "attemptedSteps": [
+        "approval-transaction-prepared",
+        "approval-submitted",
+        "presign-issued",
+        "sign-submitted",
+        "signature-committed"
+      ],
+      "explorerUrls": {
+        "messageApproval": "https://explorer.solana.com/address/BteUu1Y1znHTmwK3T4nx96copJ4pfhQpR5BmsMGWVwXH?cluster=devnet",
+        "dwallet": "https://explorer.solana.com/address/9oTmwRJgRKVuAgGxoVbxt5cxuBo6R7C5cdXhC8XJmb8R?cluster=devnet",
+        "approveTx": "https://explorer.solana.com/tx/2yCYQeX1JuZErskFWTSCVWXWzrc3e4gEduAxThkrL4xbLEkPvTZ1ZQxGs7VWnzttRQ9WkxtP78HD42sUebDHkLKB?cluster=devnet"
+      }
+    }
+  },
+  "docsStepMapping": [
+    { "docsStep": 1, "label": "Create dWallet (DKG)", "status": "verified-on-devnet", "evidence": "dwallet PDA live on-chain after CommitDWallet" },
+    { "docsStep": 2, "label": "Transfer authority (direct-signer path)", "status": "verified-on-devnet", "evidence": "owner remains authority in smoke tests — path also proven separately via managed fixture (CPI PDA transfer)" },
+    { "docsStep": 3, "label": "Approve message (approve_message)", "status": "verified-on-devnet", "evidence": "MessageApproval PDA at status=Pending visible on-chain" },
+    { "docsStep": 4, "label": "Network signs (2PC-MPC mock)", "status": "verified-on-devnet", "evidence": "64-byte Ed25519 signature returned from gRPC Sign" },
+    { "docsStep": 5, "label": "Signature stored on-chain", "status": "verified-on-devnet", "evidence": "MessageApproval status=Signed (1), sigLen=64, on-chain bytes byte-for-byte match gRPC Sign response" }
+  ],
+  "proxyTestSuite": {
+    "ika-lifecycle-progression": "7/7 pass",
+    "overall": "210/211 pass (1 unrelated pre-existing DCA test failure)"
+  },
+  "nextSteps": [
+    "Wire /intent/multichain/run to call /ika/lifecycle/progress automatically after approve_message lands so the SDK/frontend sees signature-committed status without extra round trips.",
+    "Update docs/ika-devnet-smoke-runbook.md Issue-080 section with these explorer URLs + the V2 script reference.",
+    "Retire or deprecate scripts/ika-fresh-sign-e2e.ts (v1 with zero-attestation bug) in favour of v2."
+  ]
+}

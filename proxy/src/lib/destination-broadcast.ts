@@ -31,6 +31,7 @@ import {
   type IkaPreAlphaProducedSignature,
 } from './destination-broadcast-demo';
 import type { IkaBridgelessExecutionRequest } from './ika-bridgeless-request';
+import { hexToBytes } from './ika-grpc-schema';
 
 export type DestinationBroadcastMode = 'auto' | 'live' | 'demo-memo' | 'disabled';
 
@@ -162,9 +163,14 @@ function disabledResult(
   };
 }
 
+type DestinationBroadcastErrorCode =
+  | DestinationBroadcastFailureCode
+  | 'UNSUPPORTED_DESTINATION_CHAIN'
+  | 'LIVE_BROADCAST_DISABLED';
+
 function failureResult(
   chain: DestinationBroadcastChain,
-  code: DestinationBroadcastResult extends { ok: false; code: infer C } ? C : never,
+  code: DestinationBroadcastErrorCode,
   reason: string
 ): DestinationBroadcastResult {
   return { ok: false, status: 'broadcast-failed', code, chain, reason };
@@ -239,12 +245,15 @@ async function broadcastSuiDevnet(
   if (!digestHex) {
     return failureResult('sui', 'INVALID_PREALPHA_SIGNATURE', 'Ika request is missing suiTransactionDigest');
   }
-  const txBytes = input.ikaRequest.suiTransactionDigest?.unsignedTxBytesBase64;
+  // `SuiTransactionDigestArtifact` exposes the unsigned tx bytes as
+  // `transactionPayloadBase64` (base64 of the TransactionData BCS bytes).
+  const txBytes = input.ikaRequest.suiTransactionDigest?.transactionPayloadBase64;
   const rpcUrl = input.config?.sui?.rpcUrl ?? process.env.POLET_SUI_DEVNET_RPC_URL ?? SUI_DEVNET_RPC_URL;
   const explorerBase = input.config?.sui?.explorerBase ?? SUI_DEVNET_EXPLORER_BASE;
+  const signatureBytes = hexToBytes(input.producedSignature.signature);
   // Sui expects a signature schema byte + signature (64) + pubkey (32) for Ed25519.
   const signatureBase64 = buildSuiEd25519SerializedSignature(
-    input.producedSignature.signature,
+    signatureBytes,
     input.dwalletPublicKey
   );
   const payload = {
@@ -267,7 +276,7 @@ async function broadcastSuiDevnet(
     if (!response.ok) {
       return failureResult('sui', 'RPC_FAILURE', `Sui RPC returned HTTP ${response.status}`);
     }
-    const parsed = await response.json();
+    const parsed = (await response.json()) as { result?: { digest?: string } };
     const txHash = parsed?.result?.digest;
     if (!txHash) {
       return failureResult('sui', 'RPC_FAILURE', `Sui RPC response missing digest: ${JSON.stringify(parsed)}`);
@@ -305,17 +314,25 @@ async function broadcastEthereumSepolia(
   input: DestinationBroadcastExecutionInput,
   rpcFetch: typeof fetch
 ): Promise<DestinationBroadcastResult> {
-  const rawTransactionHex = input.ikaRequest.ethereumMessageDigest?.unsignedRawTransactionHex;
-  if (!rawTransactionHex) {
+  // `EthereumMessageDigestArtifact` exposes the personal_sign-style message
+  // payload (not a full unsigned raw transaction) as `messagePayloadBase64`.
+  // Polet's Sepolia skeleton repackages that payload + the Ika-produced
+  // Secp256k1 signature into a proof string the runbook then assembles into
+  // a real signed transaction with an external tool (viem etc.). No real
+  // unsigned raw tx is built inside the proxy yet, so the runbook's manual
+  // Sepolia step remains the authoritative broadcast path.
+  const messagePayloadBase64 = input.ikaRequest.ethereumMessageDigest?.messagePayloadBase64;
+  if (!messagePayloadBase64) {
     return failureResult(
       'ethereum',
       'INVALID_PREALPHA_SIGNATURE',
-      'Ika request is missing ethereumMessageDigest.unsignedRawTransactionHex for Sepolia broadcast'
+      'Ika request is missing ethereumMessageDigest.messagePayloadBase64 for Sepolia broadcast'
     );
   }
+  const signatureBytes = hexToBytes(input.producedSignature.signature);
   const signedRaw = assembleEthereumRawTransaction(
-    rawTransactionHex,
-    input.producedSignature.signature,
+    messagePayloadBase64,
+    signatureBytes,
     input.config?.ethereum?.chainId ?? ETHEREUM_SEPOLIA_CHAIN_ID
   );
   const rpcUrl = input.config?.ethereum?.rpcUrl ?? process.env.POLET_ETHEREUM_SEPOLIA_RPC_URL ?? ETHEREUM_SEPOLIA_RPC_URL;
@@ -335,7 +352,7 @@ async function broadcastEthereumSepolia(
     if (!response.ok) {
       return failureResult('ethereum', 'RPC_FAILURE', `Sepolia RPC returned HTTP ${response.status}`);
     }
-    const parsed = await response.json();
+    const parsed = (await response.json()) as { error?: { message?: string }; result?: string };
     if (parsed?.error) {
       return failureResult(
         'ethereum',
@@ -377,7 +394,7 @@ async function broadcastEthereumSepolia(
  * Sepolia step.
  */
 function assembleEthereumRawTransaction(
-  rawTransactionHex: string,
+  messagePayloadBase64: string,
   signature: Uint8Array,
   chainId: number
 ): string {
@@ -389,7 +406,8 @@ function assembleEthereumRawTransaction(
   // external tool (e.g. viem) and re-submit through the lifecycle. Emit a
   // deterministic placeholder so higher layers can detect the skeleton state.
   const chainIdHex = chainId.toString(16).padStart(2, '0');
-  return `${rawTransactionHex}${Buffer.from(signature).toString('hex')}${chainIdHex}`;
+  const payloadHex = Buffer.from(messagePayloadBase64, 'base64').toString('hex');
+  return `${payloadHex}${Buffer.from(signature).toString('hex')}${chainIdHex}`;
 }
 
 function errorMessage(error: unknown, fallback: string): string {

@@ -10,6 +10,7 @@ import {
   MESSAGE_APPROVAL_STATUS,
   DWALLET_CURVE,
   DWALLET_SIGNATURE_SCHEME,
+  BcsWriter,
 } from '../src/lib/ika-grpc-schema';
 import type { IkaBridgelessExecutionRequest } from '../src/lib/ika-bridgeless-request';
 import type { IkaGasDepositStatus } from '../src/lib/ika-gas-deposit';
@@ -170,12 +171,25 @@ function gasDepositPassingStatus(): IkaGasDepositStatus {
   };
 }
 
+function buildFakePresignAttestationData(presignId: Uint8Array = Uint8Array.from([0xde, 0xad, 0xbe, 0xef])): Uint8Array {
+  // VersionedPresignDataAttestation.V1 minimal BCS encoding — only the first
+  // three fields (variant, session_identifier, epoch) are skipped by the
+  // decoder, so beyond the presign_session_identifier we don't need to
+  // produce valid bytes.
+  const writer = new BcsWriter();
+  writer.u8(0); // V1 variant
+  writer.bytes(new Uint8Array(32)); // session_identifier
+  writer.u64Le(0n); // epoch
+  writer.byteSeq(presignId); // presign_session_identifier
+  return writer.toUint8Array();
+}
+
 function makeDeps(options: {
   accountData: Buffer | null;
-  grpcResponses?: Array<{ kind: 'attestation' | 'signature' | 'error'; payload?: unknown; message?: string }>;
+  grpcResponses?: Array<{ kind: 'attestation' | 'signature' | 'error'; payload?: unknown; message?: string; presignId?: Uint8Array }>;
 }): IkaLifecycleDeps {
   const responses = options.grpcResponses ?? [
-    { kind: 'attestation', payload: { epoch: 1n } },
+    { kind: 'attestation' },
     { kind: 'signature', payload: new Uint8Array(64) },
   ];
   let grpcCallIndex = 0;
@@ -189,7 +203,15 @@ function makeDeps(options: {
         if (!r) throw new Error('Unexpected extra gRPC call in test');
         if (r.kind === 'attestation') {
           return {
-            response: { kind: 'attestation', attestation: { attestationData: new Uint8Array(), networkSignature: new Uint8Array(64), networkPublicKey: new Uint8Array(32), epoch: 1n } },
+            response: {
+              kind: 'attestation',
+              attestation: {
+                attestationData: buildFakePresignAttestationData(r.presignId),
+                networkSignature: new Uint8Array(64),
+                networkPublicKey: new Uint8Array(32),
+                epoch: 1n,
+              },
+            },
             signedRequestData: { sessionIdentifierPreimage: new Uint8Array(32), epoch: 0n, chainId: 0, intendedChainSender: new Uint8Array(), request: { kind: 'presign' } } as never,
           };
         }
@@ -199,10 +221,9 @@ function makeDeps(options: {
             signedRequestData: { sessionIdentifierPreimage: new Uint8Array(32), epoch: 0n, chainId: 0, intendedChainSender: new Uint8Array(), request: { kind: 'sign' } } as never,
           };
         }
-        return {
-          response: { kind: 'error', message: r.message ?? 'test error' },
-          signedRequestData: { sessionIdentifierPreimage: new Uint8Array(32), epoch: 0n, chainId: 0, intendedChainSender: new Uint8Array(), request: { kind: 'sign' } } as never,
-        };
+        // The orchestrator now raises `IkaGrpcRequestError` for error responses
+        // coming from `submitDWalletRequest`, so simulate that behaviour.
+        throw Object.assign(new Error(r.message ?? 'test error'), { name: 'IkaGrpcRequestError' });
       },
     } as unknown as IkaLifecycleDeps['grpcClient'],
     registry: {} as unknown as IkaLifecycleDeps['registry'],

@@ -377,7 +377,8 @@ export function encodeDWalletRequest(request: DWalletRequest, writer = new BcsWr
   switch (request.kind) {
     case 'dkg': {
       writer.byteSeq(request.dwalletNetworkEncryptionPublicKey);
-      writer.u16Le(request.curve);
+      // DWalletCurve is a BCS enum -> single-byte variant tag (0..3), not u16.
+      writer.u8(request.curve);
       writer.byteSeq(request.centralizedPublicKeyShareAndProof);
       encodeUserSecretKeyShare(request.userSecretKeyShare, writer);
       writer.byteSeq(request.userPublicOutput);
@@ -397,19 +398,20 @@ export function encodeDWalletRequest(request: DWalletRequest, writer = new BcsWr
     }
     case 'presign': {
       writer.byteSeq(request.dwalletNetworkEncryptionPublicKey);
-      writer.u16Le(request.curve);
+      // BCS enum variants — both single-byte tags.
+      writer.u8(request.curve);
       writer.u8(request.signatureAlgorithm);
       return writer;
     }
     case 'presign-for-dwallet': {
       writer.byteSeq(request.dwalletNetworkEncryptionPublicKey);
       writer.byteSeq(request.dwalletPublicKey);
-      writer.u16Le(request.curve);
+      writer.u8(request.curve);
       writer.u8(request.signatureAlgorithm);
       return writer;
     }
     default: {
-      throw new Error(`DWalletRequest variant ${request.kind} is not implemented in Polet's BCS encoder`);
+      throw new Error(`DWalletRequest variant ${(request as { kind: string }).kind} is not implemented in Polet's BCS encoder`);
     }
   }
 }
