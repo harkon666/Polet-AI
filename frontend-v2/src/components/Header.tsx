@@ -42,10 +42,10 @@ export function Header() {
     <header className="relative z-10">
       <div className="mx-auto max-w-7xl px-6">
         <div className="flex h-16 items-center justify-between gap-4">
-          {/* Brand */}
+          {/* Brand. The visible "Polet" wordmark serves as the accessible
+              name; explicit aria-label would violate label-content match. */}
           <Link
             to="/"
-            aria-label={t('header.nav.home')}
             onClick={closeMenu}
             className="inline-flex items-center gap-2 text-ink hover:text-lagoon transition"
           >

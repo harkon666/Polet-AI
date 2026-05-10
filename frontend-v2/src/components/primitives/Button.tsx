@@ -40,7 +40,7 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const base =
-    'inline-flex items-center justify-center gap-2 transition select-none focus-visible:outline-none disabled:opacity-50 disabled:pointer-events-none'
+    'inline-flex items-center justify-center gap-2 transition select-none disabled:opacity-50 disabled:pointer-events-none'
 
   return (
     <button

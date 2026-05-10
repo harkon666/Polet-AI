@@ -458,7 +458,7 @@ function PathCard({
 
   if (path.to) {
     return (
-      <Link to={path.to} className="group block focus:outline-none focus-visible:outline-none">
+      <Link to={path.to} className="group block rounded-2xl">
         {inner}
       </Link>
     )
@@ -468,7 +468,7 @@ function PathCard({
     return (
       <a
         href={path.href}
-        className="group block focus:outline-none focus-visible:outline-none"
+        className="group block rounded-2xl"
         {...(path.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       >
         {inner}

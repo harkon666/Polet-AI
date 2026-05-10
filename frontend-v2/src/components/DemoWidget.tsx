@@ -339,6 +339,7 @@ function EncryptedNoiseLayer() {
       {NOISE_FRAGMENTS.map((f, i) => (
         <span
           key={i}
+          aria-hidden="true"
           className="pl-noise-fragment"
           style={
             {

@@ -11,7 +11,7 @@ import { KickerLabel } from './primitives/KickerLabel'
  */
 export function NotFound() {
   return (
-    <main className="min-h-[80vh] flex items-center justify-center px-6">
+    <div className="min-h-[80vh] flex items-center justify-center px-6">
       <div className="text-center max-w-md">
         <KickerLabel tone="warning">Lost in transit</KickerLabel>
         <h1 className="mt-4 font-sans font-black text-ink text-5xl md:text-6xl tracking-tighter">
@@ -33,6 +33,6 @@ export function NotFound() {
           </Link>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

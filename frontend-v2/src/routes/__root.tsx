@@ -1,7 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { ClientWalletProvider } from '#shared/components/ClientWalletProvider'
 import { Header } from '../components/Header'
 import {
   SITE_URL,
@@ -73,9 +72,13 @@ export const Route = createRootRoute({
       { rel: 'alternate', hrefLang: 'en', href: SITE_URL },
       { rel: 'alternate', hrefLang: 'id', href: SITE_URL },
       { rel: 'alternate', hrefLang: 'x-default', href: SITE_URL },
-      { rel: 'icon', href: '/favicon.ico' },
-      { rel: 'apple-touch-icon', href: '/logo192.png' },
-      { rel: 'manifest', href: '/manifest.json' },
+      // Modern SVG favicon — scales for any DPI, single source of truth.
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      // Apple touch icon falls back to the same SVG; iOS rasterises it.
+      { rel: 'apple-touch-icon', href: '/favicon.svg' },
+      // LCP candidate: Hero ambient PNG. Preloading lets the browser kick
+      // off the request alongside CSS instead of waiting for paint.
+      { rel: 'preload', as: 'image', href: '/background-hero.png' },
     ],
   }),
   shellComponent: RootDocument,
@@ -96,10 +99,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <a href="#main-content" className="pl-skip-link">
           Skip to content
         </a>
-        <ClientWalletProvider>
-          <Header />
-          <div id="main-content">{children}</div>
-        </ClientWalletProvider>
+        <Header />
+        <main id="main-content">{children}</main>
         <TanStackDevtools
           config={{ position: 'bottom-right' }}
           plugins={[
