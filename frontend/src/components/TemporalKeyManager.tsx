@@ -15,7 +15,6 @@ interface TemporalKeyManagerProps {
   keys: TemporalKey[];
   onRevoke: (sessionKey: string) => void;
   onGrant: (sessionKey: string, expiresAt: number, dailyLimit: number) => void;
-  onGenerateProxySession?: (expiresAt: number, dailyLimit: number) => void;
   revokingSessionKey?: string | null;
 }
 
@@ -23,7 +22,6 @@ export function TemporalKeyManager({
   keys,
   onRevoke,
   onGrant,
-  onGenerateProxySession,
   revokingSessionKey,
 }: TemporalKeyManagerProps) {
   const [showGrantForm, setShowGrantForm] = useState(false);
@@ -36,14 +34,6 @@ export function TemporalKeyManager({
     if (!newAgentAddress.trim()) return;
     const expiresAt = Date.now() + expiresIn * 60 * 60 * 1000;
     onGrant(newAgentAddress.trim(), expiresAt, dailyLimit * 1_000_000_000);
-    setShowGrantForm(false);
-    setNewAgentAddress('');
-  };
-
-  const handleGenerateProxySession = () => {
-    if (!onGenerateProxySession) return;
-    const expiresAt = Date.now() + expiresIn * 60 * 60 * 1000;
-    onGenerateProxySession(expiresAt, dailyLimit * 1_000_000_000);
     setShowGrantForm(false);
     setNewAgentAddress('');
   };
@@ -148,14 +138,6 @@ export function TemporalKeyManager({
             >
               Authorize Agent
             </button>
-            {onGenerateProxySession && (
-              <button
-                onClick={handleGenerateProxySession}
-                className="flex-1 rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] py-2.5 text-sm font-semibold text-[var(--lagoon-deep)] transition hover:-translate-y-0.5"
-              >
-                Generate Proxy Session
-              </button>
-            )}
             <button
               onClick={() => setShowGrantForm(false)}
               className="rounded-full border border-[var(--line)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--sea-ink)] transition hover:-translate-y-0.5"
@@ -163,6 +145,11 @@ export function TemporalKeyManager({
               Cancel
             </button>
           </div>
+          <p className="mt-3 text-xs leading-5 text-[var(--sea-ink-soft)]">
+            Don't have an agent wallet yet? Generate one externally — for example, create a new account in Phantom/Backpack, derive a Ledger path, or run{' '}
+            <code className="rounded bg-[var(--link-bg-hover)] px-1 font-mono">solana-keygen new</code>. Paste that wallet's public key above; the private key stays on your device and is later exported into{' '}
+            <code className="rounded bg-[var(--link-bg-hover)] px-1 font-mono">polet-agent.json</code> for the Hermes/Claude/Cursor MCP config.
+          </p>
         </div>
       )}
 

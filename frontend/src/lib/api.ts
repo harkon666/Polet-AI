@@ -175,28 +175,6 @@ export async function grantKey(input: GrantKeyInput): Promise<GrantKeyResult> {
   return data.data;
 }
 
-export interface RegisterAgentInput {
-  owner: string;
-  expiresAt: number;
-  dailyLimit: number;
-}
-
-export interface RegisterAgentResult {
-  transaction: string;
-  sessionKey: string;
-}
-
-export async function registerAgent(input: RegisterAgentInput): Promise<RegisterAgentResult> {
-  const data = await fetchJson<{ success: boolean; data: RegisterAgentResult }>(
-    `${PROXY_URL}/agent/register`,
-    {
-      method: 'POST',
-      body: JSON.stringify(input),
-    }
-  );
-  return data.data;
-}
-
 export interface RevokeSessionInput {
   owner: string;
   sessionKey: string;

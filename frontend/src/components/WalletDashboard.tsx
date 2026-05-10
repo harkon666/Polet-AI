@@ -4,7 +4,7 @@ import { WalletButton } from './WalletButton';
 import { TemporalKeyManager } from './TemporalKeyManager';
 import { DemoTab } from './DemoTab';
 import { Shield, Clock, Key, AlertTriangle } from 'lucide-react';
-import { getWalletData, initializeWallet, grantKey, registerAgent, revokeSession } from '../lib/api';
+import { getWalletData, initializeWallet, grantKey, revokeSession } from '../lib/api';
 import { SimpleDemoTab } from './SimpleDemoTab';
 import { POLET_PROGRAM_ID, shortProgramId } from '../lib/program';
 import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
@@ -115,32 +115,6 @@ export function WalletDashboard() {
       refreshData();
     } catch (err) {
       console.error('Grant key failed:', err);
-    }
-  };
-
-  const handleGenerateProxySession = async (expiresAt: number, dailyLimit: number) => {
-    if (!publicKey) return;
-    setError(null);
-    setStatus('Generating proxy-held session key...');
-    try {
-      const result = await registerAgent({
-        owner: publicKey.toBase58(),
-        expiresAt: Math.floor(expiresAt / 1000),
-        dailyLimit,
-      });
-      setStatus(`Authorize generated session ${result.sessionKey.slice(0, 8)}...`);
-      const { transaction, latestBlockhash } = await prepareFreshTransaction(result.transaction, connection);
-      const signature = await sendTransaction(transaction, connection);
-      setStatus('Confirming generated session on-chain...');
-      await confirmFreshTransaction(connection, signature, latestBlockhash);
-      console.log('Proxy session authorized on-chain!', signature);
-      await refreshData();
-      setStatus('Proxy session authorized. Select it in the demo dropdown.');
-    } catch (err) {
-      console.error('Generate proxy session failed:', err);
-      setError(err instanceof Error ? err.message : 'Generate proxy session failed');
-    } finally {
-      setTimeout(() => setStatus(null), 3000);
     }
   };
 
@@ -305,7 +279,6 @@ export function WalletDashboard() {
             keys={temporalKeys}
             onRevoke={handleRevokeKey}
             onGrant={handleGrantKey}
-            onGenerateProxySession={handleGenerateProxySession}
             revokingSessionKey={revokingSessionKey}
           />
         </div>
