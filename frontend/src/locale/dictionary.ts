@@ -52,6 +52,7 @@ export type TranslationKey =
   | 'trust.kicker'
   | 'trust.colosseum.label'
   // Stats
+  | 'stats.kicker'
   | 'stats.1.label'
   | 'stats.1.sub'
   | 'stats.2.label'
@@ -307,6 +308,7 @@ const en: Dictionary = {
   'trust.colosseum.label': 'Participating in Colosseum Frontier',
 
   // Stats
+  'stats.kicker': 'By the numbers',
   'stats.1.label': 'Tests passing',
   'stats.1.sub': 'Frontend TS suite',
   'stats.2.label': 'Contract instructions',
@@ -606,6 +608,7 @@ const id: Dictionary = {
   'trust.colosseum.label': 'Berpartisipasi di Colosseum Frontier',
 
   // Stats
+  'stats.kicker': 'Dalam angka',
   'stats.1.label': 'Tes lulus',
   'stats.1.sub': 'Frontend TS suite',
   'stats.2.label': 'Instruksi contract',
