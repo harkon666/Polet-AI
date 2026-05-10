@@ -9,7 +9,12 @@ import { useEffect, useRef } from 'react'
  *   skipping the IntersectionObserver pipeline.
  * - Server-safe, no `window` access during SSR; the hook only attaches in
  *   `useEffect` which is client-only.
- * - One-shot, once revealed, observers unsubscribe so no re-trigger.
+ * - One-shot per element, once revealed an item unsubscribes so no re-trigger.
+ * - Picks up DYNAMIC children added after the initial mount via a
+ *   MutationObserver. Critical for /app where SetupLedger swaps from
+ *   OnboardingWizard → LedgerTable on wallet connect, and ReceiptLog
+ *   appends new entries as actions complete. Without this, rows added
+ *   after the initial query stay opacity:0 forever.
  *
  * Usage:
  *   const containerRef = useScrollReveal()
@@ -31,27 +36,61 @@ export function useScrollReveal(threshold = 0.15) {
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     if (prefersReducedMotion || typeof IntersectionObserver === 'undefined') {
-      container
-        .querySelectorAll('.pl-reveal')
-        .forEach((el) => el.classList.add('pl-reveal--in'))
-      return
+      // Reveal everything immediately, including any future children.
+      const revealAll = () =>
+        container
+          .querySelectorAll('.pl-reveal:not(.pl-reveal--in)')
+          .forEach((el) => el.classList.add('pl-reveal--in'))
+      revealAll()
+      const mutation = new MutationObserver(revealAll)
+      mutation.observe(container, { childList: true, subtree: true })
+      return () => mutation.disconnect()
     }
 
-    const observer = new IntersectionObserver(
+    const intersection = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add('pl-reveal--in')
-            observer.unobserve(entry.target)
+            intersection.unobserve(entry.target)
           }
         })
       },
-      { threshold, rootMargin: '0px 0px -60px 0px' }
+      { threshold, rootMargin: '0px 0px -60px 0px' },
     )
 
-    container.querySelectorAll('.pl-reveal').forEach((el) => observer.observe(el))
+    const observeReveals = (root: Element) => {
+      if (
+        root.classList?.contains('pl-reveal') &&
+        !root.classList.contains('pl-reveal--in')
+      ) {
+        intersection.observe(root)
+      }
+      root
+        .querySelectorAll?.('.pl-reveal:not(.pl-reveal--in)')
+        .forEach((el) => intersection.observe(el))
+    }
 
-    return () => observer.disconnect()
+    observeReveals(container)
+
+    // Watch for `.pl-reveal` children added AFTER the initial query
+    // (e.g. SetupLedger swapping wizard → table on wallet connect,
+    // ReceiptLog appending a new receipt).
+    const mutation = new MutationObserver((mutations) => {
+      mutations.forEach((m) => {
+        m.addedNodes.forEach((node) => {
+          if (node instanceof Element) {
+            observeReveals(node)
+          }
+        })
+      })
+    })
+    mutation.observe(container, { childList: true, subtree: true })
+
+    return () => {
+      intersection.disconnect()
+      mutation.disconnect()
+    }
   }, [threshold])
 
   return containerRef

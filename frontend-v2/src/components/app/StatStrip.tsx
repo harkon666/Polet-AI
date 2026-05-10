@@ -41,7 +41,11 @@ export function StatStrip() {
   const { connected, data, solBalance } = state
   const containerRef = useScrollReveal()
 
-  if (!connected) return null
+  // Always render the section so the ref attaches at mount and the
+  // scroll-reveal observer initialises before the wallet connects.
+  // When disconnected we just collapse the section visually via the
+  // `hidden` class — the element stays in the DOM so MutationObserver
+  // can pick up the tiles when they appear on connect.
 
   const sessions = data?.temporalKeys ?? data?.sessions ?? []
   const activeSessions = sessions.filter(
@@ -72,26 +76,32 @@ export function StatStrip() {
     <section
       ref={containerRef}
       aria-label="Polet wallet stats"
-      className="border-b border-line bg-bg-base py-4 md:py-5"
+      className={
+        connected
+          ? 'border-b border-line bg-bg-base py-4 md:py-5'
+          : 'hidden'
+      }
     >
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {TILES.map((tile, i) => (
-            <article
-              key={tile.id}
-              className="pl-reveal rounded-lg border border-line bg-bg-deep px-4 py-3 hover:border-line-strong transition"
-              style={{ transitionDelay: `${80 * (i + 1)}ms` }}
-            >
-              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute">
-                {t(tile.labelKey)}
-              </p>
-              <p className="mt-1 font-mono tabular-nums text-base text-ink truncate">
-                {tileValue(tile.id)}
-              </p>
-            </article>
-          ))}
+      {connected ? (
+        <div className="mx-auto max-w-6xl px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {TILES.map((tile, i) => (
+              <article
+                key={tile.id}
+                className="pl-reveal rounded-lg border border-line bg-bg-deep px-4 py-3 hover:border-line-strong transition"
+                style={{ transitionDelay: `${80 * (i + 1)}ms` }}
+              >
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute">
+                  {t(tile.labelKey)}
+                </p>
+                <p className="mt-1 font-mono tabular-nums text-base text-ink truncate">
+                  {tileValue(tile.id)}
+                </p>
+              </article>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
     </section>
   )
 }
