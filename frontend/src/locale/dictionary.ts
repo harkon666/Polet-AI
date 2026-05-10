@@ -372,7 +372,10 @@ export type TranslationKey =
   | 'app.session.copy.public'
   | 'app.session.copy.secret'
   | 'app.session.copied'
-  | 'app.session.devnetWarning';
+  | 'app.session.devnetWarning'
+  | 'app.session.lostKeyNote'
+  | 'app.action.regrant'
+  | 'app.action.regrant.loading';
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -802,6 +805,10 @@ const en: Dictionary = {
   'app.session.copy.secret': 'Copy secret',
   'app.session.copied': 'Copied',
   'app.session.devnetWarning': 'Devnet key, do not use on mainnet',
+  'app.session.lostKeyNote':
+    'Session was granted before the persistence fix. Re-grant to download polet-agent.json.',
+  'app.action.regrant': 'Re-grant for download',
+  'app.action.regrant.loading': 'Re-granting…',
 };
 
 // ---------------------------------------------------------------------------
@@ -1230,6 +1237,10 @@ const id: Dictionary = {
   'app.session.copy.secret': 'Salin secret',
   'app.session.copied': 'Tersalin',
   'app.session.devnetWarning': 'Kunci devnet, jangan dipakai di mainnet',
+  'app.session.lostKeyNote':
+    'Sesi di-grant sebelum fix persistensi. Re-grant untuk unduh polet-agent.json.',
+  'app.action.regrant': 'Re-grant untuk unduh',
+  'app.action.regrant.loading': 'Sedang re-grant…',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };

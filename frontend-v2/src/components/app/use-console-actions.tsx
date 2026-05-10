@@ -21,6 +21,7 @@ import {
   setupDemoCustody as apiSetupDemoCustody,
   setConfidentialPolicy as apiSetConfidentialPolicy,
   grantKey as apiGrantKey,
+  revokeSession as apiRevokeSession,
   runConfidentialDca as apiRunConfidentialDca,
   runMultichainIntent as apiRunMultichainIntent,
 } from '#shared/lib/api'
@@ -202,6 +203,7 @@ export type ActionKey =
   | 'custody'
   | 'policy'
   | 'session'
+  | 'regrant'
   | 'jupiter-block'
   | 'jupiter-allow'
   | 'ika-block'
@@ -230,6 +232,7 @@ export type ConsoleActions = {
   registerCustody: () => Promise<void>
   saveConfidentialPolicy: () => Promise<void>
   grantAgentSession: () => Promise<void>
+  regrantAgentSession: () => Promise<void>
   runJupiterBlock: () => Promise<void>
   runJupiterAllow: () => Promise<void>
   runIkaBlock: () => Promise<void>
@@ -695,6 +698,100 @@ export function ConsoleStateProvider({
     )
   }, [publicKey, runTxAction, emitReceipt])
 
+  // Re-grant a fresh BYO agent keypair when the in-memory one was lost
+  // (e.g. page refresh after Day 11.5's sessionStorage fix landed —
+  // the existing on-chain session predates the fix so no storage entry
+  // exists). Two-step orchestration:
+  //
+  //   1. revoke every currently-authorized session for this owner
+  //   2. grant a freshly-minted client-side keypair
+  //
+  // Each step emits its own receipt (revoke + grant). Loading stays as
+  // `'regrant'` for the full duration so the SetupLedger CTA shows a
+  // single spinner. Aborts cleanly if any revoke fails — the owner's
+  // existing session keeps working in that case.
+  const regrantAgentSession = useCallback(async () => {
+    if (!publicKey || !data) return
+    const sessions = (data.temporalKeys ?? data.sessions ?? []) as Array<{
+      key?: unknown
+      authorized?: unknown
+      expiresAt?: unknown
+    }>
+    const activeSessionKeys = sessions
+      .filter(
+        (s) =>
+          s &&
+          s.authorized === true &&
+          Number(s.expiresAt ?? 0) * 1000 > Date.now(),
+      )
+      .map((s) => String(s.key ?? ''))
+      .filter(Boolean)
+
+    for (const sessionKey of activeSessionKeys) {
+      let revokeOk = false
+      await runTxAction(
+        'regrant',
+        () =>
+          apiRevokeSession({
+            owner: publicKey.toBase58(),
+            sessionKey,
+          }),
+        (_result, signature) => {
+          revokeOk = true
+          emitReceipt({
+            action: 'SESSION REVOKED',
+            description: `Session ${sessionKey.slice(0, 4)}…${sessionKey.slice(-4)} revoked.`,
+            signature,
+            status: 'info',
+            body: 'Owner revoked agent access. Subsequent agent transactions will be rejected by the policy gate.',
+          })
+        },
+        (err, signature) =>
+          emitReceipt({
+            action: 'SESSION REVOKE FAILED',
+            description: describeError(err),
+            signature,
+            status: 'error',
+            body: 'Revoke transaction failed; existing session remains active.',
+          }),
+      )
+      if (!revokeOk) return
+    }
+
+    const sessionKeypair = Keypair.generate()
+    const expiresAt =
+      Math.floor(Date.now() / 1000) + SESSION_DURATION_HOURS * 3600
+    await runTxAction(
+      'regrant',
+      () =>
+        apiGrantKey({
+          owner: publicKey.toBase58(),
+          sessionKey: sessionKeypair.publicKey.toBase58(),
+          expiresAt,
+          dailyLimit: SESSION_DAILY_LIMIT_USDC,
+        }),
+      (_result, signature) => {
+        setSessionKeypair(sessionKeypair)
+        writeStoredSessionKey(publicKey, sessionKeypair)
+        emitReceipt({
+          action: 'SESSION GRANTED',
+          description: `Session ${sessionKeypair.publicKey.toBase58().slice(0, 4)}…${sessionKeypair.publicKey.toBase58().slice(-4)} authorized for ${SESSION_DURATION_HOURS}h.`,
+          signature,
+          status: 'info',
+          body: 'Fresh BYO agent keypair minted client-side. Download polet-agent.json to bridge to the SDK runner.',
+        })
+      },
+      (err, signature) =>
+        emitReceipt({
+          action: 'SESSION GRANT FAILED',
+          description: describeError(err),
+          signature,
+          status: 'error',
+          body: 'Grant transaction failed after revoke succeeded. Re-click Re-grant to retry.',
+        }),
+    )
+  }, [publicKey, data, runTxAction, emitReceipt])
+
   // ────────────────────────────── Rail actions ──────────────────────────────
 
   // Pull the first authorized non-expired session, or null.
@@ -927,6 +1024,7 @@ export function ConsoleStateProvider({
         registerCustody,
         saveConfidentialPolicy,
         grantAgentSession,
+        regrantAgentSession,
         runJupiterBlock,
         runJupiterAllow,
         runIkaBlock,
@@ -947,6 +1045,7 @@ export function ConsoleStateProvider({
       registerCustody,
       saveConfidentialPolicy,
       grantAgentSession,
+      regrantAgentSession,
       runJupiterBlock,
       runJupiterAllow,
       runIkaBlock,

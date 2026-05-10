@@ -308,14 +308,19 @@ function LedgerTable() {
                 <span aria-hidden="true" className="w-[1px] sm:w-24" />
               )}
             </article>
-            {row.id === 'session' &&
-            state === 'active' &&
-            sessionKeypair &&
-            publicKey ? (
-              <SessionKeypairAffordance
-                owner={publicKey.toBase58()}
-                sessionKeypair={sessionKeypair}
-              />
+            {row.id === 'session' && state === 'active' && publicKey ? (
+              sessionKeypair ? (
+                <SessionKeypairAffordance
+                  owner={publicKey.toBase58()}
+                  sessionKeypair={sessionKeypair}
+                />
+              ) : (
+                <SessionLostKeyStrip
+                  onRegrant={() => void actions.regrantAgentSession()}
+                  isRegranting={loading === 'regrant'}
+                  disabled={loading !== null}
+                />
+              )
             ) : null}
           </Fragment>
         )
@@ -420,6 +425,55 @@ function SessionKeypairAffordance({
           className="inline-flex items-center gap-1.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition"
         >
           ↓ {t('app.session.download')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * SessionLostKeyStrip, fallback affordance for stale session state.
+ *
+ * Appears below the SESSION row when an on-chain session is still
+ * authorized but `useConsole().sessionKeypair` is null. The most common
+ * cause is a page refresh AFTER the Day 11.5 polish landed but BEFORE
+ * the sessionStorage persistence fix landed — the operator's session
+ * was granted with the old code path, so no storage entry exists to
+ * restore from.
+ *
+ * One CTA: "Re-grant for download →" calls
+ * `actions.regrantAgentSession()` which revokes every authorized
+ * session on-chain and then grants a freshly-minted client-side
+ * keypair, populating the storage entry so future refreshes restore
+ * cleanly via `SessionKeypairAffordance`.
+ */
+function SessionLostKeyStrip({
+  onRegrant,
+  isRegranting,
+  disabled,
+}: {
+  onRegrant: () => void
+  isRegranting: boolean
+  disabled: boolean
+}) {
+  const { t } = useLocale()
+  return (
+    <div className="pl-reveal flex flex-col sm:flex-row sm:items-center gap-3 px-6 py-3 bg-bg-base/40 border-t border-line/40">
+      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute">
+        {t('app.session.lostKeyNote')}
+      </span>
+      <div className="ml-auto">
+        <button
+          type="button"
+          onClick={onRegrant}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isRegranting ? <Spinner size={11} /> : null}
+          {isRegranting
+            ? t('app.action.regrant.loading')
+            : t('app.action.regrant')}
+          {!isRegranting ? <span aria-hidden="true">→</span> : null}
         </button>
       </div>
     </div>
