@@ -65,6 +65,21 @@ const explorerAccountUrl = (address: string) =>
 const suiscanUrl = (digestBase58: string) =>
   `https://suiscan.xyz/devnet/tx/${digestBase58}`
 
+/**
+ * Trim Jupiter's `priceImpactPct` decimal string to 4 significant
+ * digits. Raw value can come back as 28+ char floating-point text
+ * ("0.0000434610542935942496423411") which overflows the receipt
+ * grid; this normalises it without losing readability for the
+ * normal sub-percent range Jupiter returns.
+ */
+function formatPriceImpactPct(raw: string): string {
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return raw
+  if (n === 0) return '0'
+  if (Math.abs(n) < 0.0001) return n.toExponential(2)
+  return n.toFixed(4).replace(/\.?0+$/, '')
+}
+
 export function ReceiptLog() {
   const { t } = useLocale()
   const containerRef = useScrollReveal()
@@ -308,7 +323,7 @@ function JupiterProofPanel({ proof }: { proof: JupiterProof }) {
         {proof.quote?.priceImpactPct ? (
           <ProofRow
             label="price impact"
-            value={`${proof.quote.priceImpactPct}%`}
+            value={`${formatPriceImpactPct(proof.quote.priceImpactPct)}%`}
             mono
           />
         ) : null}
