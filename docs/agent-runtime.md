@@ -277,3 +277,143 @@ Runtime handling rules:
 - If Ika returns `approval-transaction-prepared`, show the dWallet, MessageApproval, Ika message hash, Sui or Ethereum destination signing digest, signature scheme, and unsigned Polet approval transaction; do not claim settlement.
 - If a live `devnet-smoke-proof` is attached, show it as Pre-Alpha evidence only.
 - Never ask the model or user to paste private keys, seed phrases, or keypair files into the agent context.
+
+
+---
+
+## Framework recipes: bringing Polet into real AI agent runtimes
+
+The local scripted runtime above is the smoke-test target. The recipes below hook Polet into real-world autonomous agent runtimes via the Polet MCP server (`bunx @polet-ai/sdk polet-mcp`) and the Solana Agent Kit adapter. All examples assume the proxy is running at `POLET_PROXY_URL` and the demo user has configured a session key + agent keypair.
+
+### Shared env
+
+```bash
+export POLET_OWNER=<owner_pubkey>              # human user's Solana wallet
+export POLET_SESSION_KEY=<agent_session_pubkey> # granted via /wallet/grant-key
+export POLET_AGENT_KEYPAIR=<base58-or-json>    # secret key for the agent signer
+export POLET_PROXY_URL=http://localhost:3001
+export POLET_RPC_URL=https://api.devnet.solana.com
+```
+
+### Hermes Agent (Nous Research)
+
+Hermes supports MCP servers via its built-in MCP integration (`hermes` docs → MCP Integration).
+
+```bash
+hermes setup
+# follow the wizard; when it asks about MCP servers, add Polet:
+hermes config set mcp.servers.polet.command bunx
+hermes config set mcp.servers.polet.args '["@polet-ai/sdk", "polet-mcp"]'
+hermes config set mcp.servers.polet.env.POLET_OWNER "$POLET_OWNER"
+hermes config set mcp.servers.polet.env.POLET_SESSION_KEY "$POLET_SESSION_KEY"
+hermes config set mcp.servers.polet.env.POLET_AGENT_KEYPAIR "$POLET_AGENT_KEYPAIR"
+hermes config set mcp.servers.polet.env.POLET_PROXY_URL "$POLET_PROXY_URL"
+hermes
+```
+
+Inside the Hermes TUI the agent can invoke `polet_status`, `polet_enable_chain`, `polet_trade`, `polet_execute`. Example prompt: *"Check the Polet wallet status, then swap 5 USDC to SUI via Polet."*
+
+### OpenClaw
+
+OpenClaw skills can wrap an MCP client or call Polet via the skill's Python stdlib HTTP client.
+
+Option A — skill that shells out to the Polet MCP CLI (simplest):
+
+```python
+# ~/.openclaw/skills/polet/skill.py
+import subprocess, json, os
+
+def call_polet(tool_name: str, arguments: dict) -> dict:
+    req = json.dumps({
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": tool_name, "arguments": arguments},
+    })
+    proc = subprocess.run(
+        ["bunx", "@polet-ai/sdk", "polet-mcp"],
+        input=req + "\n",
+        capture_output=True, text=True, env={**os.environ},
+        check=True, timeout=90,
+    )
+    for line in proc.stdout.splitlines():
+        if line.strip():
+            return json.loads(line)
+    raise RuntimeError("polet-mcp produced no response")
+```
+
+Option B — have OpenClaw talk to a long-lived Polet MCP server exposed over a named pipe or SSE proxy. Use when Polet runs on a shared ops host.
+
+### Claude Desktop (Anthropic)
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "polet": {
+      "command": "bunx",
+      "args": ["@polet-ai/sdk", "polet-mcp"],
+      "env": {
+        "POLET_OWNER": "<owner_pubkey>",
+        "POLET_SESSION_KEY": "<agent_session_pubkey>",
+        "POLET_AGENT_KEYPAIR": "<base58-secret>",
+        "POLET_PROXY_URL": "http://localhost:3001"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. The Polet tools appear in the tool picker. Try: *"Use Polet to swap 5 USDC to Sui. Stop if the policy blocks it."*
+
+### Cursor / Zed
+
+Cursor and Zed read the same MCP config pattern. Cursor: Settings → MCP → add server. Zed: `.config/zed/settings.json` under `context_servers`. Same env vars as above.
+
+### Solana Agent Kit (SendAI)
+
+Solana Agent Kit runs natively in TypeScript so skip MCP and load the adapter directly:
+
+```ts
+import { SolanaAgentKit } from 'solana-agent-kit';
+import { createPoletAgentKit } from '@polet-ai/sdk';
+import { createPoletSolanaAgentKitActions } from '@polet-ai/sdk/adapters/solana-agent-kit';
+
+const sendai = new SolanaAgentKit(privateKey, rpcUrl, { OPENAI_API_KEY });
+const polet = createPoletAgentKit({ owner, sessionKey, agentSigner, baseUrl, rpcUrl });
+for (const action of createPoletSolanaAgentKitActions(polet)) sendai.actions[action.name] = action;
+```
+
+### Plain OpenAI / Anthropic function-calling
+
+```ts
+import OpenAI from 'openai';
+import { createPoletOpenAiTools, invokePoletOpenAiTool } from '@polet-ai/sdk/adapters/openai';
+
+const polet = createPoletOpenAiTools(kit);
+const completion = await openai.chat.completions.create({ model: 'gpt-4o-mini', messages, tools: polet.tools });
+for (const toolCall of completion.choices[0]?.message?.tool_calls ?? []) {
+  const result = await invokePoletOpenAiTool(polet, toolCall);
+  messages.push({ role: 'tool', tool_call_id: toolCall.id, content: result });
+}
+```
+
+### What the agent sees
+
+Every Polet tool returns a discriminated `status`:
+
+- `ok` / `executed` — success.
+- `policy-blocked` with `recoverable: true` — agent should replan (smaller amount / different rail).
+- `needs-approval` with counts — agent should wait for human quorum approvers.
+- `session-revoked-midflight` with `revokePhase` — owner pulled the kill switch.
+- `gas-floor-underfunded` — operator needs to top up the Ika GasDeposit.
+- `signer-required` — agent keypair missing or not authorized.
+- `lifecycle-error` / `broadcast-failed` — terminal.
+
+The agent never sees the private policy thresholds. Prompt injection cannot extract them through these tools.
+
+### Safety posture
+
+- The agent only holds `POLET_AGENT_KEYPAIR`, scoped by the session key's on-chain authority.
+- Maximum per-run + daily cap are enforced on-chain from a private witness. The agent's best-case compromise is bounded by the daily cap until the owner revokes.
+- `revoke_session` (owner action) lands in < 1 slot. The next lifecycle checkpoint (`pre-presign` / `pre-sign` / `post-sign-pre-broadcast`) aborts without broadcasting.
+- Polet proxy holds an Ika service keypair (for gRPC auth) and a subsidy keypair (optional GasDeposit funding); neither authorizes user asset movement.

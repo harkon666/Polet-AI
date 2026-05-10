@@ -59,6 +59,46 @@ export {
   solToLamports,
 } from './session.js';
 
+// Agent-friendly execute() + structured errors (re-exports).
+export {
+  executePoletTrade,
+  type PoletExecutionResult,
+  type PoletExecutionStatus,
+  type PoletExecutionExecuted,
+  type PoletExecutionExecutedPreview,
+  type PoletExecutionBlocked,
+  type PoletExecutionSessionRevoked,
+  type PoletExecutionSessionRevokedMidflight,
+  type PoletExecutionNeedsApproval,
+  type PoletExecutionGasFloor,
+  type PoletExecutionSignerRequired,
+  type PoletExecutionLifecycleError,
+  type PoletExecutionBroadcastDisabled,
+  type PoletExecutionBroadcastFailed,
+  type PoletExecutionUnsupportedRail,
+  type PoletExecuteOptions,
+} from './agent-execute.js';
+
+export {
+  PoletAgentError,
+  PoletPolicyBlockedError,
+  PoletSessionRevokedError,
+  PoletSessionRevokedMidflightError,
+  PoletNeedsApprovalError,
+  PoletGasFloorError,
+  PoletLifecycleError,
+  PoletBroadcastError,
+  PoletBroadcastDisabledError,
+  PoletSignerRequiredError,
+  PoletSimulationError,
+  PoletUnsupportedRailError,
+  PoletDwalletNotEnabledError,
+  PoletManagedFixtureMissingError,
+  PoletProxyUnreachableError,
+  toPoletAgentError,
+  type PoletAgentErrorCode,
+} from './agent-errors.js';
+
 export {
   CANONICAL_BRIDGELESS_ORDER_SCHEMA,
   assertCanonicalBridgelessOrderActive,
@@ -864,14 +904,16 @@ export interface ProgressIkaLifecycleInput {
   ikaRequest: unknown;
   approvalTransactionSignature: string;
   approvalTransactionSlot: string | number;
-  dwalletAttestation: {
+  /** When true (default), the proxy autoloads attestation / NEK / centralized sig from its managed fixture. */
+  managedFixture?: boolean;
+  dwalletAttestation?: {
     attestationDataHex: string;
     networkSignatureHex: string;
     networkPublicKeyHex: string;
     epoch: string;
   };
-  dwalletNetworkEncryptionPublicKeyHex: string;
-  messageCentralizedSignatureHex: string;
+  dwalletNetworkEncryptionPublicKeyHex?: string;
+  messageCentralizedSignatureHex?: string;
   importedKey?: boolean;
   polling?: { timeoutMs?: number; intervalMs?: number };
   broadcast?: {
@@ -1035,6 +1077,15 @@ export interface PoletAgentKit {
   autoExecuteTrade(input: PoletAutoExecuteInput): Promise<PoletAutoExecuteResult>;
   simulateTransaction(input: SimulatePoletTransactionInput): Promise<SimulatePoletTransactionResult>;
   signAndSendTransaction(input: PoletSignAndSendInput): Promise<PoletSignAndSendResult>;
+  /**
+   * Agent-friendly unified end-to-end executor. Wraps trade → sign → Ika
+   * lifecycle → destination broadcast into a single call that returns a
+   * machine-readable discriminated union via `PoletExecutionResult`.
+   * See `sdk/src/agent-execute.ts` for the full status taxonomy and error
+   * classes.
+   */
+  execute(input: PoletTradeInput, options?: import('./agent-execute.js').PoletExecuteOptions): Promise<import('./agent-execute.js').PoletExecutionResult>;
+  progressIkaLifecycle(input: ProgressIkaLifecycleInput): Promise<PoletIkaLifecycleOutcome>;
   tools(): PoletAgentToolDescriptor[];
   onboarding: {
     deriveSmartWalletPda(owner?: string): Promise<string | undefined>;
@@ -1063,6 +1114,20 @@ export function createPoletAgentKit(options: PoletAgentKitOptions): PoletAgentKi
       connection: input.connection ?? options.connection,
     }),
     signAndSendTransaction: (input) => signAndSendPoletTransaction(input, options),
+    execute: async (input, executeOptions) => {
+      const { executePoletTrade } = await import('./agent-execute.js');
+      return executePoletTrade(input, {
+        agent,
+        kitOptions: options,
+        signAndSendTransaction: (sendInput) => signAndSendPoletTransaction(sendInput, options),
+        simulateTransaction: (simInput) => simulatePoletTransaction({
+          ...simInput,
+          rpcUrl: simInput.rpcUrl ?? options.rpcUrl,
+          connection: simInput.connection ?? options.connection,
+        }),
+      }, executeOptions);
+    },
+    progressIkaLifecycle: (input) => agent.progressIkaLifecycle(input),
     tools: () => buildPoletAgentKitTools(options, agent),
     onboarding: {
       deriveSmartWalletPda: async (owner = options.owner) => {

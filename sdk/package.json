@@ -5,10 +5,29 @@
   "description": "Polet AI SDK - Intent JSON builder for AI agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "polet-mcp": "dist/mcp-server/cli.js"
+  },
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
+    },
+    "./mcp-server": {
+      "import": "./dist/mcp-server/server.js",
+      "types": "./dist/mcp-server/server.d.ts"
+    },
+    "./adapters/solana-agent-kit": {
+      "import": "./dist/adapters/solana-agent-kit.js",
+      "types": "./dist/adapters/solana-agent-kit.d.ts"
+    },
+    "./adapters/langchain": {
+      "import": "./dist/adapters/langchain.js",
+      "types": "./dist/adapters/langchain.d.ts"
+    },
+    "./adapters/openai": {
+      "import": "./dist/adapters/openai.js",
+      "types": "./dist/adapters/openai.d.ts"
     }
   },
   "scripts": {
@@ -17,6 +36,7 @@
     "encrypt:evidence": "bun run src/official-encrypt-evidence-runner.ts",
     "encrypt:live-e2e": "bun run src/official-encrypt-live-e2e-runner.ts",
     "send:polet-tx": "bun run src/send-polet-transaction.ts",
+    "mcp-server": "bun run src/mcp-server/cli.ts",
     "test": "bun test",
     "dev": "bun test --watch"
   },
@@ -24,6 +44,7 @@
     "@coral-xyz/anchor": "^0.32.1",
     "@encrypt.xyz/pre-alpha-solana-client": "^0.1.1",
     "@solana/web3.js": "^1.95.8",
+    "bs58": "^6.0.0",
     "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
