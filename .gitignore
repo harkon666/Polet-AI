@@ -45,3 +45,11 @@ test-ledger/
 
 
 plan.md
+# Staging / temporary assets (not for public)
+.tmp-v2-assets/
+
+# Proxy KMS keys (encrypted but should not be public)
+proxy/keys/
+
+# Screenshot folders (operator local artifacts)
+screen-issue/
