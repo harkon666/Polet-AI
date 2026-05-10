@@ -265,7 +265,15 @@ export function validateDestinationBroadcastInput(input: DestinationBroadcastInp
   }
 
   try {
-    new PublicKey(input.producedSignature.publicKey);
+    // `publicKey` arrives as a hex string from the dwallet registry; decode
+    // to raw bytes before constructing PublicKey (which otherwise tries to
+    // bs58-decode the hex string and fails).
+    const pkValue = typeof input.producedSignature.publicKey === 'string'
+      && /^[0-9a-fA-F]+$/.test(input.producedSignature.publicKey)
+      && input.producedSignature.publicKey.length === 64
+      ? Buffer.from(input.producedSignature.publicKey, 'hex')
+      : input.producedSignature.publicKey;
+    new PublicKey(pkValue);
   } catch {
     return failed('INVALID_PREALPHA_SIGNATURE', 'Produced signature public key must be a valid Solana public key.', 422);
   }

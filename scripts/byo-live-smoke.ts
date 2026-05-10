@@ -93,9 +93,9 @@ try {
 }
 console.log();
 
-console.log('=== 4. kit.execute({3 USDC -> SOL, jupiter}) — BYO Encrypt flow (no Ika gas deposit needed) ===');
+console.log('=== 4. kit.execute({1 USDC -> SUI, ika}) — BYO end-to-end Ika rail ===');
 try {
-  const exec = await kit.execute({ from: 'USDC', to: 'SOL', amount: 3, rail: 'jupiter' });
+  const exec = await kit.execute({ from: 'USDC', to: 'SUI', amount: 1, rail: 'ika' });
   console.log(
     JSON.stringify(
       {
@@ -103,6 +103,11 @@ try {
         ok: exec.ok,
         rail: exec.rail,
         message: exec.message,
+        approvalTxSignature: (exec as unknown as { approvalTxSignature?: string }).approvalTxSignature,
+        signatureHex: (exec as unknown as { signatureHex?: string }).signatureHex,
+        messageApprovalPda: (exec as unknown as { messageApprovalPda?: string }).messageApprovalPda,
+        lifecycleReason: (exec as unknown as { reason?: string }).reason,
+        lifecycleCode: (exec as unknown as { code?: string }).code,
         ...(exec.status === 'executed' && {
           destinationChain: exec.destinationChain,
           destinationTxHash: exec.destinationTxHash,

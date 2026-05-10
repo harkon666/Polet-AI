@@ -290,7 +290,18 @@ export async function progressIkaLifecycle(
 
   // Sign request via Polet's local client ----------------------------------
   try {
-    const message = input.messageOverride ?? hexToBytes(input.ikaRequest.ikaMessageHash ?? '');
+    // The Ika Sign gRPC receives the raw PREIMAGE bytes as `message`; the Ika
+    // server will keccak256(message) and match against the MessageApproval
+    // PDA stored on-chain. For the Polet production flow, the preimage is the
+    // JSON-stringified `ikaMessageHashPreimage` (matches `deriveIkaMessageHash`
+    // which does keccak256 over Buffer.from(JSON.stringify(preimage), 'utf8')).
+    // If only the hex digest is provided (e.g. isolated test scripts that
+    // pre-hash), fall back to that — the caller must then pass `messageOverride`.
+    const preimagePayload = input.ikaRequest.preAlphaSigning?.ikaMessageHashPreimage;
+    const message = input.messageOverride
+      ?? (preimagePayload
+        ? new TextEncoder().encode(JSON.stringify(preimagePayload))
+        : hexToBytes(input.ikaRequest.ikaMessageHash ?? ''));
     const approvalSignatureBytes = toSolanaSignatureBytes(input.approvalTransactionSignature);
     const signRequestBody = buildSignRequest({
       message,
