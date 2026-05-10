@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
+import { useScrollReveal } from '../hooks/useScrollReveal'
 import { KickerLabel } from './primitives/KickerLabel'
 
 /**
@@ -99,9 +100,11 @@ function CountUp({
  */
 export function StatsCounter() {
   const { t } = useLocale()
+  const containerRef = useScrollReveal()
 
   return (
     <section
+      ref={containerRef}
       aria-label="Polet stats"
       className="border-t border-line bg-bg-base py-16 md:py-20 lg:py-24"
     >

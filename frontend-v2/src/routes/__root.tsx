@@ -84,7 +84,7 @@ export const Route = createRootRoute({
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
+      <head suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: LOCALE_INIT_SCRIPT }} />
         <script
           type="application/ld+json"
@@ -92,7 +92,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         />
         <HeadContent />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <a href="#main-content" className="pl-skip-link">
           Skip to content
         </a>

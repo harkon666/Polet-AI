@@ -1,5 +1,6 @@
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
+import { useScrollReveal } from '../hooks/useScrollReveal'
 import { KickerLabel } from './primitives/KickerLabel'
 
 type Problem = {
@@ -23,9 +24,11 @@ const PROBLEMS: Problem[] = [
  */
 export function Manifesto() {
   const { t } = useLocale()
+  const containerRef = useScrollReveal()
 
   return (
     <section
+      ref={containerRef}
       id="manifesto"
       className="border-t border-line bg-bg-deep py-20 md:py-28 lg:py-32"
     >
