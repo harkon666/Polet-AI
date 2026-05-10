@@ -198,6 +198,50 @@ export type TranslationKey =
   | 'demoWidget.live.aria.jupiter'
   | 'demoWidget.live.aria.ika'
   | 'demoWidget.live.aria.block'
+  // DemoWidget v2 — Crypto-Blur Theater
+  | 'demoWidget.theater.header.title'
+  | 'demoWidget.theater.header.devnet'
+  | 'demoWidget.theater.idle.title'
+  | 'demoWidget.theater.idle.desc'
+  | 'demoWidget.theater.label.agentRequest'
+  | 'demoWidget.theater.label.sealing'
+  | 'demoWidget.theater.label.sealed'
+  | 'demoWidget.theater.label.evaluating'
+  | 'demoWidget.theater.label.decrypting'
+  | 'demoWidget.theater.label.revealed'
+  | 'demoWidget.theater.label.result'
+  | 'demoWidget.theater.hint.cleartext'
+  | 'demoWidget.theater.hint.encrypting'
+  | 'demoWidget.theater.hint.encrypted'
+  | 'demoWidget.theater.hint.evaluating'
+  | 'demoWidget.theater.hint.result'
+  | 'demoWidget.theater.hint.revealing'
+  | 'demoWidget.theater.hint.revealed'
+  | 'demoWidget.theater.field.action'
+  | 'demoWidget.theater.field.amount'
+  | 'demoWidget.theater.field.target'
+  | 'demoWidget.theater.field.route'
+  | 'demoWidget.theater.gate.title'
+  | 'demoWidget.theater.constraint.numericLimit'
+  | 'demoWidget.theater.constraint.scopeMatch'
+  | 'demoWidget.theater.constraint.sessionActive'
+  | 'demoWidget.theater.result.allowed'
+  | 'demoWidget.theater.result.allowed.body'
+  | 'demoWidget.theater.result.blocked'
+  | 'demoWidget.theater.result.blocked.body'
+  | 'demoWidget.theater.result.code'
+  | 'demoWidget.theater.result.tx'
+  | 'demoWidget.theater.reveal.cta'
+  | 'demoWidget.theater.reveal.confirmed'
+  | 'demoWidget.theater.reveal.note'
+  | 'demoWidget.theater.reset'
+  | 'demoWidget.theater.pick'
+  | 'demoWidget.scenario.block.label'
+  | 'demoWidget.scenario.block.hint'
+  | 'demoWidget.scenario.jupiter.label'
+  | 'demoWidget.scenario.jupiter.hint'
+  | 'demoWidget.scenario.ika.label'
+  | 'demoWidget.scenario.ika.hint'
   // Disclaimer
   | 'disclaimer.badge'
   | 'disclaimer.kicker'
@@ -497,6 +541,54 @@ const en: Dictionary = {
   'demoWidget.live.aria.jupiter': 'Open /app to run this Jupiter scenario on devnet',
   'demoWidget.live.aria.ika': 'Open /app to run this Ika scenario on devnet',
   'demoWidget.live.aria.block': 'Open /app to see the full blocked scenario on devnet',
+  // DemoWidget v2 — Crypto-Blur Theater
+  'demoWidget.theater.header.title': 'policy gate / 01',
+  'demoWidget.theater.header.devnet': 'devnet \u00b7 live',
+  'demoWidget.theater.idle.title': 'Pick a scenario to begin',
+  'demoWidget.theater.idle.desc':
+    'Watch the policy gate evaluate confidential numbers — the agent\u2019s amounts and routes glitch into ciphertext, the gate evaluates blind, and only you can decrypt.',
+  'demoWidget.theater.label.agentRequest': 'agent request · cleartext',
+  'demoWidget.theater.label.sealing': 'sealing · encrypting',
+  'demoWidget.theater.label.sealed': 'sealed · ciphertext',
+  'demoWidget.theater.label.evaluating': 'policy gate · evaluating',
+  'demoWidget.theater.label.decrypting': 'decrypting · your side',
+  'demoWidget.theater.label.revealed': 'revealed · cleartext',
+  'demoWidget.theater.label.result': 'result',
+  'demoWidget.theater.hint.cleartext': 'agent prepares request',
+  'demoWidget.theater.hint.encrypting': 'glitch \u2192 hex',
+  'demoWidget.theater.hint.encrypted': 'numbers private',
+  'demoWidget.theater.hint.evaluating': 'checking constraints\u2026',
+  'demoWidget.theater.hint.result': 'decision rendered',
+  'demoWidget.theater.hint.revealing': 'unscrambling locally',
+  'demoWidget.theater.hint.revealed': 'you saw \u2014 server didn\u2019t',
+  'demoWidget.theater.field.action': 'action',
+  'demoWidget.theater.field.amount': 'amount',
+  'demoWidget.theater.field.target': 'target',
+  'demoWidget.theater.field.route': 'route',
+  'demoWidget.theater.gate.title': 'policy gate \u00b7 evaluating ciphertext',
+  'demoWidget.theater.constraint.numericLimit': 'pi_numeric_limit',
+  'demoWidget.theater.constraint.scopeMatch': 'pi_scope_match',
+  'demoWidget.theater.constraint.sessionActive': 'pi_session_active',
+  'demoWidget.theater.result.allowed': 'approved',
+  'demoWidget.theater.result.allowed.body':
+    'Policy gate approved without seeing your numbers. Encrypted commitment recorded; the unsigned tx is ready.',
+  'demoWidget.theater.result.blocked': 'blocked',
+  'demoWidget.theater.result.blocked.body':
+    'Numeric limit exceeded. Original amount stays sealed \u2014 the gate said no without ever reading the cleartext.',
+  'demoWidget.theater.result.code': 'code',
+  'demoWidget.theater.result.tx': 'tx',
+  'demoWidget.theater.reveal.cta': 'Reveal cleartext',
+  'demoWidget.theater.reveal.confirmed': 'decrypted (you only)',
+  'demoWidget.theater.reveal.note':
+    'Server still sees only the ciphertext. Your session key decrypted locally \u2014 nobody else got the numbers.',
+  'demoWidget.theater.reset': 'Reset',
+  'demoWidget.theater.pick': 'pick a scenario',
+  'demoWidget.scenario.block.label': 'Block 25 USDC',
+  'demoWidget.scenario.block.hint': 'Over the daily limit',
+  'demoWidget.scenario.jupiter.label': 'Jupiter DCA \u00b7 5',
+  'demoWidget.scenario.jupiter.hint': 'In-band \u2192 unsigned tx',
+  'demoWidget.scenario.ika.label': 'Ika \u00b7 5 X-chain',
+  'demoWidget.scenario.ika.hint': 'Multi-chain via Ika',
 
   // Disclaimer
   'disclaimer.badge': 'Pre-Alpha',
@@ -802,6 +894,54 @@ const id: Dictionary = {
   'demoWidget.live.aria.jupiter': 'Buka /app untuk menjalankan skenario Jupiter di devnet',
   'demoWidget.live.aria.ika': 'Buka /app untuk menjalankan skenario Ika di devnet',
   'demoWidget.live.aria.block': 'Buka /app untuk melihat skenario blocked lengkap di devnet',
+  // DemoWidget v2 — Crypto-Blur Theater
+  'demoWidget.theater.header.title': 'policy gate / 01',
+  'demoWidget.theater.header.devnet': 'devnet \u00b7 live',
+  'demoWidget.theater.idle.title': 'Pilih skenario untuk mulai',
+  'demoWidget.theater.idle.desc':
+    'Lihat policy gate mengevaluasi angka rahasia \u2014 nominal & rute agent berubah jadi ciphertext, gate evaluasi tanpa decrypt, hanya kamu yang bisa membuka kembali.',
+  'demoWidget.theater.label.agentRequest': 'permintaan agent \u00b7 cleartext',
+  'demoWidget.theater.label.sealing': 'menyegel \u00b7 enkripsi',
+  'demoWidget.theater.label.sealed': 'tersegel \u00b7 ciphertext',
+  'demoWidget.theater.label.evaluating': 'policy gate \u00b7 evaluasi',
+  'demoWidget.theater.label.decrypting': 'membuka \u00b7 sisi kamu',
+  'demoWidget.theater.label.revealed': 'terbuka \u00b7 cleartext',
+  'demoWidget.theater.label.result': 'hasil',
+  'demoWidget.theater.hint.cleartext': 'agent menyiapkan',
+  'demoWidget.theater.hint.encrypting': 'glitch \u2192 hex',
+  'demoWidget.theater.hint.encrypted': 'angka tersegel',
+  'demoWidget.theater.hint.evaluating': 'cek constraint\u2026',
+  'demoWidget.theater.hint.result': 'putusan keluar',
+  'demoWidget.theater.hint.revealing': 'membuka lokal',
+  'demoWidget.theater.hint.revealed': 'kamu lihat \u2014 server tidak',
+  'demoWidget.theater.field.action': 'aksi',
+  'demoWidget.theater.field.amount': 'nominal',
+  'demoWidget.theater.field.target': 'target',
+  'demoWidget.theater.field.route': 'rute',
+  'demoWidget.theater.gate.title': 'policy gate \u00b7 evaluasi ciphertext',
+  'demoWidget.theater.constraint.numericLimit': 'pi_numeric_limit',
+  'demoWidget.theater.constraint.scopeMatch': 'pi_scope_match',
+  'demoWidget.theater.constraint.sessionActive': 'pi_session_active',
+  'demoWidget.theater.result.allowed': 'disetujui',
+  'demoWidget.theater.result.allowed.body':
+    'Policy gate menyetujui tanpa pernah melihat angka kamu. Komitmen ciphertext tercatat; unsigned tx siap.',
+  'demoWidget.theater.result.blocked': 'diblok',
+  'demoWidget.theater.result.blocked.body':
+    'Limit numerik terlampaui. Nominal asli tetap tersegel \u2014 gate menolak tanpa pernah membaca cleartext.',
+  'demoWidget.theater.result.code': 'kode',
+  'demoWidget.theater.result.tx': 'tx',
+  'demoWidget.theater.reveal.cta': 'Buka cleartext',
+  'demoWidget.theater.reveal.confirmed': 'terdekripsi (hanya kamu)',
+  'demoWidget.theater.reveal.note':
+    'Server tetap hanya lihat ciphertext. Session key kamu decrypt secara lokal \u2014 tidak ada yang lain dapat angkanya.',
+  'demoWidget.theater.reset': 'Reset',
+  'demoWidget.theater.pick': 'pilih skenario',
+  'demoWidget.scenario.block.label': 'Blok 25 USDC',
+  'demoWidget.scenario.block.hint': 'Lewati limit harian',
+  'demoWidget.scenario.jupiter.label': 'Jupiter DCA \u00b7 5',
+  'demoWidget.scenario.jupiter.hint': 'Aman \u2192 unsigned tx',
+  'demoWidget.scenario.ika.label': 'Ika \u00b7 5 X-chain',
+  'demoWidget.scenario.ika.hint': 'Multi-chain via Ika',
 
   // Disclaimer
   'disclaimer.badge': 'Pre-Alpha',

@@ -343,6 +343,76 @@ body {
   animation: pl-pat-scanline 5s ease-in-out infinite;
 }
 
+/* ============================================
+   Rails section background — continuous particle dust field across
+   the 3-card row + cursor-tracked teal glow that brightens dust near
+   the mouse pointer. Connects the cards visually so they read as one
+   canvas rather than three separate boxes.
+   ============================================ */
+
+.pl-rails-bg {
+  position: relative;
+}
+
+/* Cursor-tracked spotlight glow overlay */
+.pl-rails-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle 260px at var(--cursor-x, 50%) var(--cursor-y, 50%),
+    rgb(45 212 191 / 0.10) 0%,
+    rgb(45 212 191 / 0.02) 35%,
+    transparent 65%
+  );
+  mix-blend-mode: screen;
+  transition: background 220ms ease-out;
+  z-index: 1;
+}
+
+/* Particle layers — 2-layer parallax (foreground faster, background slower
+   in opposite direction). SVG is 12% larger than container with inset -6%
+   on each side so drift never exposes empty edges. Subtle rotation
+   adds organic movement on top of translate. */
+.pl-rails-particles-bg,
+.pl-rails-particles-fg {
+  position: absolute;
+  inset: -6%;
+  width: 112%;
+  height: 112%;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.pl-rails-particles-bg {
+  animation: pl-rails-drift-bg 20s ease-in-out infinite alternate;
+}
+
+.pl-rails-particles-fg {
+  animation: pl-rails-drift-fg 12s ease-in-out infinite alternate;
+}
+
+/* Background layer — drift right→left + counter-rotate slightly */
+@keyframes pl-rails-drift-bg {
+  0% {
+    transform: translate(3%, 1.4%) rotate(-0.3deg);
+  }
+  100% {
+    transform: translate(-3%, -1.4%) rotate(0.3deg);
+  }
+}
+
+/* Foreground layer — drift left→right + co-rotate slightly */
+@keyframes pl-rails-drift-fg {
+  0% {
+    transform: translate(-2.2%, -1.2%) rotate(0.4deg);
+  }
+  100% {
+    transform: translate(2.2%, 1.2%) rotate(-0.4deg);
+  }
+}
+
 /* Reduced-motion fallback — disable drift + reveal animations + cursor glow */
 @media (prefers-reduced-motion: reduce) {
   .pl-ambient-hero {
@@ -377,7 +447,426 @@ body {
   .pl-pat-flow,
   .pl-pat-pulse,
   .pl-pat-chain,
-  .pl-pat-scanline {
+  .pl-pat-scanline,
+  .pl-rails-particles-bg,
+  .pl-rails-particles-fg {
+    animation: none;
+  }
+}
+
+/* ============================================
+   Crypto-Blur Theater — Demo Widget v2
+   Confidential numeric policy visualisation.
+   ============================================ */
+
+/* Encrypted noise layer — scattered cipher fragments in section bg.
+   Tells encryption story even in negative space. Fragments breathe
+   (opacity + vertical sway) at varied durations for organic feel. */
+.pl-encrypted-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.pl-noise-fragment {
+  position: absolute;
+  font-family: var(--font-mono);
+  color: var(--color-lagoon-bright);
+  white-space: nowrap;
+  user-select: none;
+  letter-spacing: 0.04em;
+  opacity: var(--noise-opacity, 0.08);
+  animation: pl-noise-breathe var(--noise-duration, 6s) ease-in-out infinite;
+  animation-delay: var(--noise-delay, 0s);
+}
+
+@keyframes pl-noise-breathe {
+  0%, 100% {
+    opacity: var(--noise-opacity, 0.08);
+    transform: translateY(0);
+  }
+  50% {
+    opacity: calc(var(--noise-opacity, 0.08) * 1.7);
+    transform: translateY(-6px);
+  }
+}
+
+/* Glass Holographic Plate — replaces panel frame.
+   Outer "plate" is invisible. Content floats with:
+   - Radial halo backdrop (::before) — subtle teal aurora behind everything
+   - Top accent line (::after) — thin teal projection edge, evokes
+     holographic origin point. Glow shadow on the line for emphasis. */
+.pl-holographic-plate {
+  position: relative;
+}
+
+.pl-holographic-plate::before {
+  content: '';
+  position: absolute;
+  inset: -8% -4% -10% -4%;
+  background: radial-gradient(
+    ellipse 80% 60% at center 35%,
+    rgb(45 212 191 / 0.07) 0%,
+    rgb(45 212 191 / 0.025) 40%,
+    transparent 75%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pl-holographic-plate::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 25%;
+  width: 50%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgb(45 212 191 / 0.6) 30%,
+    rgb(165 243 252 / 0.85) 50%,
+    rgb(45 212 191 / 0.6) 70%,
+    transparent 100%
+  );
+  box-shadow: 0 0 16px rgb(45 212 191 / 0.5);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pl-holographic-plate > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Glass card — semi-transparent surface with backdrop blur.
+   Used for field grid, gate panel, result, scenario pills.
+   Subtle inset top highlight evokes glass catching light. */
+.pl-glass-card {
+  background-color: rgb(10 26 22 / 0.45);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  border: 1px solid rgb(30 184 164 / 0.15);
+  box-shadow:
+    0 8px 24px -12px rgb(0 0 0 / 0.5),
+    inset 0 1px 0 rgb(45 212 191 / 0.08);
+}
+
+.pl-glass-card-strong {
+  background-color: rgb(10 26 22 / 0.65);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgb(30 184 164 / 0.22);
+  box-shadow:
+    0 12px 32px -16px rgb(0 0 0 / 0.6),
+    inset 0 1px 0 rgb(45 212 191 / 0.12);
+}
+
+/* Demo widget panel — engineering blueprint frame.
+   Subtle border + corner brackets + soft halo. No mac chrome. */
+.pl-demo-panel {
+  box-shadow:
+    0 24px 80px -32px rgb(0 0 0 / 0.6),
+    0 0 60px -28px rgb(45 212 191 / 0.08);
+}
+
+/* Blueprint corner brackets — L-shaped marks at panel corners.
+   2 absolutely-positioned bars per corner; subtle teal glow. */
+.pl-blueprint-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pl-blueprint-corner::before,
+.pl-blueprint-corner::after {
+  content: '';
+  position: absolute;
+  background-color: var(--color-lagoon-bright);
+  opacity: 0.55;
+  box-shadow: 0 0 6px rgb(45 212 191 / 0.35);
+}
+
+/* Top-left: horizontal bar going right + vertical bar going down */
+.pl-blueprint-corner[data-corner="tl"] { top: 11px; left: 11px; }
+.pl-blueprint-corner[data-corner="tl"]::before { top: 0; left: 0; width: 100%; height: 1.5px; }
+.pl-blueprint-corner[data-corner="tl"]::after  { top: 0; left: 0; height: 100%; width: 1.5px; }
+
+/* Top-right */
+.pl-blueprint-corner[data-corner="tr"] { top: 11px; right: 11px; }
+.pl-blueprint-corner[data-corner="tr"]::before { top: 0; right: 0; width: 100%; height: 1.5px; }
+.pl-blueprint-corner[data-corner="tr"]::after  { top: 0; right: 0; height: 100%; width: 1.5px; }
+
+/* Bottom-left */
+.pl-blueprint-corner[data-corner="bl"] { bottom: 11px; left: 11px; }
+.pl-blueprint-corner[data-corner="bl"]::before { bottom: 0; left: 0; width: 100%; height: 1.5px; }
+.pl-blueprint-corner[data-corner="bl"]::after  { bottom: 0; left: 0; height: 100%; width: 1.5px; }
+
+/* Bottom-right */
+.pl-blueprint-corner[data-corner="br"] { bottom: 11px; right: 11px; }
+.pl-blueprint-corner[data-corner="br"]::before { bottom: 0; right: 0; width: 100%; height: 1.5px; }
+.pl-blueprint-corner[data-corner="br"]::after  { bottom: 0; right: 0; height: 100%; width: 1.5px; }
+
+/* Mid-edge alignment crosshairs (technical drawing detail) — small + marks */
+.pl-blueprint-tick {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  opacity: 0.4;
+  z-index: 1;
+}
+
+.pl-blueprint-tick::before,
+.pl-blueprint-tick::after {
+  content: '';
+  position: absolute;
+  background-color: var(--color-lagoon-bright);
+}
+
+.pl-blueprint-tick::before {
+  top: 50%; left: 0; width: 100%; height: 1px; transform: translateY(-50%);
+}
+
+.pl-blueprint-tick::after {
+  left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%);
+}
+
+/* Dashed divider for section separation — blueprint feel.
+   Replaces solid borders between header/stage/picker/footer. */
+.pl-blueprint-divider {
+  height: 1px;
+  background-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgb(30 184 164 / 0.18) 8%,
+    rgb(30 184 164 / 0.18) 92%,
+    transparent 100%
+  );
+  background-size: 6px 1px;
+  background-repeat: repeat-x;
+}
+
+/* Technical header label — section identifier in monospace caps */
+.pl-blueprint-id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Subtle blueprint grid background for the stage area */
+.pl-blueprint-grid {
+  background-image:
+    linear-gradient(rgb(45 212 191 / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(45 212 191 / 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -1px -1px;
+}
+
+/* Chromatic aberration on EncryptedField during encrypting/revealing.
+   Red+cyan offset shadows + horizontal jitter. Steps(4) for crisp glitch feel.
+   Color stays lagoon for the actual chars; aberration is the shadow layer. */
+.pl-aberration {
+  color: var(--color-lagoon-bright);
+  text-shadow:
+    1px 0 0 rgb(248 113 113 / 0.8),
+    -1px 0 0 rgb(45 212 191 / 0.8);
+  animation: pl-aberration-shift 220ms steps(4) infinite;
+}
+
+@keyframes pl-aberration-shift {
+  0%   { text-shadow: 1px 0 0 rgb(248 113 113 / 0.85), -1px 0 0 rgb(45 212 191 / 0.85); transform: translateX(0); }
+  25%  { text-shadow: 2px 0 0 rgb(248 113 113 / 0.8),  -2px 0 0 rgb(45 212 191 / 0.8);  transform: translateX(-1px); }
+  50%  { text-shadow: 0   0 0 rgb(248 113 113 / 0),     0   0 0 rgb(45 212 191 / 0);     transform: translateX(0); }
+  75%  { text-shadow: -1px 0 0 rgb(248 113 113 / 0.85), 1px 0 0 rgb(45 212 191 / 0.85); transform: translateX(1px); }
+}
+
+/* Settled encrypted state — soft teal glow + slow pulse */
+.pl-encrypted {
+  color: var(--color-lagoon-bright);
+  text-shadow: 0 0 8px rgb(45 212 191 / 0.4);
+  animation: pl-encrypted-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pl-encrypted-pulse {
+  0%, 100% { text-shadow: 0 0 8px rgb(45 212 191 / 0.4); }
+  50%      { text-shadow: 0 0 16px rgb(45 212 191 / 0.7); }
+}
+
+/* Constraint check row — staggered fade-in from left.
+   Use inline animation-delay to control stagger order. */
+.pl-constraint-row {
+  opacity: 0;
+  transform: translateX(-8px);
+  animation: pl-constraint-fade-in 360ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes pl-constraint-fade-in {
+  0%   { opacity: 0; transform: translateX(-8px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* Result panels — different entry animations per outcome */
+.pl-result-allow {
+  animation: pl-result-allow-in 540ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pl-result-allow-in {
+  0%   { opacity: 0; transform: scale(0.92); filter: blur(4px); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+.pl-result-block {
+  animation: pl-result-block-in 420ms ease-out;
+}
+
+@keyframes pl-result-block-in {
+  0%        { opacity: 0; transform: translateX(0); }
+  10%       { opacity: 1; }
+  20%, 40%  { transform: translateX(-5px); }
+  30%, 50%  { transform: translateX(5px); }
+  60%       { transform: translateX(-3px); }
+  70%       { transform: translateX(3px); }
+  100%      { opacity: 1; transform: translateX(0); }
+}
+
+/* Allow burst — radial particles emitting from origin */
+.pl-allow-burst {
+  position: relative;
+}
+
+.pl-allow-burst::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(
+    circle at center,
+    rgb(74 222 128 / 0.25) 0%,
+    rgb(45 212 191 / 0.12) 30%,
+    transparent 70%
+  );
+  pointer-events: none;
+  animation: pl-allow-burst-expand 900ms ease-out forwards;
+}
+
+@keyframes pl-allow-burst-expand {
+  0%   { opacity: 0; transform: scale(0.5); }
+  40%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+/* Block pulse — coral radial flash */
+.pl-block-pulse {
+  position: relative;
+}
+
+.pl-block-pulse::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(
+    circle at center,
+    rgb(248 113 113 / 0.22) 0%,
+    rgb(248 113 113 / 0.08) 35%,
+    transparent 65%
+  );
+  pointer-events: none;
+  animation: pl-block-pulse-expand 700ms ease-out forwards;
+}
+
+@keyframes pl-block-pulse-expand {
+  0%   { opacity: 0; transform: scale(0.6); }
+  40%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.3); }
+}
+
+/* Gate evaluation progress bar — sweeps left to right */
+.pl-progress-bar {
+  width: 100%;
+  height: 3px;
+  background: rgb(30 184 164 / 0.12);
+  border-radius: 1.5px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pl-progress-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--color-lagoon) 0%, var(--color-lagoon-bright) 50%, var(--color-palm) 100%);
+  transform-origin: left;
+  animation: pl-progress-fill 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes pl-progress-fill {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+/* Scenario pill (compact action trigger) — hover lift + active ring */
+.pl-scenario-pill {
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease-out, border-color 180ms ease-out;
+}
+
+.pl-scenario-pill:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.pl-scenario-pill[data-active="true"] {
+  box-shadow: 0 0 0 2px rgb(45 212 191 / 0.25);
+}
+
+/* Reduced-motion fallback for Crypto-Blur Theater — placed after defs so cascade order matches. */
+@media (prefers-reduced-motion: reduce) {
+  .pl-aberration {
+    animation: none;
+    text-shadow: none;
+  }
+
+  .pl-encrypted {
+    animation: none;
+  }
+
+  .pl-constraint-row {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .pl-result-allow,
+  .pl-result-block {
+    animation: none;
+  }
+
+  .pl-allow-burst::before,
+  .pl-block-pulse::before {
+    animation: none;
+    opacity: 0;
+  }
+
+  .pl-progress-bar::after {
+    animation: none;
+    transform: scaleX(1);
+  }
+
+  .pl-scenario-pill {
+    transition: none;
+  }
+
+  .pl-holographic-plate::before,
+  .pl-holographic-plate::after {
+    display: none;
+  }
+
+  .pl-noise-fragment {
     animation: none;
   }
 }

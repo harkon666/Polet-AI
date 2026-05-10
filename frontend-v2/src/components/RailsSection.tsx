@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
 import { useScrollReveal } from '../hooks/useScrollReveal'
@@ -5,154 +6,181 @@ import { KickerLabel } from './primitives/KickerLabel'
 
 type Rail = {
   id: 'encrypt' | 'ika' | 'jupiter'
+  brand: string
   titleKey: TranslationKey
   bodyKey: TranslationKey
-  bulletKeys: TranslationKey[]
   refKey: TranslationKey
-  mockTitleKey: TranslationKey
   /** Brand mark icon path served from /brand */
   iconSrc: string
-  /** Inline mockup content rendered in the bottom code/api panel */
-  mockup: React.ReactNode
-}
-
-/* ============================================
-   Per-rail mini-mockups: a tiny code/api preview
-   styled in Geist Mono with monospace tokens.
-   ============================================ */
-
-function EncryptMockup() {
-  return (
-    <div className="font-mono text-[11px] leading-[1.55] text-ink-soft space-y-1">
-      <div className="text-ink-mute">// contract/confidential_policy.rs</div>
-      <div>
-        <span className="text-coral">fn</span>{' '}
-        <span className="text-lagoon-bright">enforce_confidential_numeric_policy</span>
-        (
-      </div>
-      <div className="pl-4">witness: <span className="text-ink">&[u8]</span>,</div>
-      <div className="pl-4">amount: <span className="text-ink">u64</span>,</div>
-      <div>) -&gt; <span className="text-lagoon-bright">Result</span>&lt;<span className="text-ink">()</span>&gt; &#123;</div>
-      <div className="pl-4 text-ink-mute">// verify sha256 commitment</div>
-      <div className="pl-4">
-        <span className="text-coral">require</span>(
-        <span className="text-ink">verify_witness</span>(witness));
-      </div>
-      <div>&#125;</div>
-    </div>
-  )
-}
-
-function IkaMockup() {
-  return (
-    <div className="font-mono text-[11px] leading-[1.55] text-ink-soft space-y-1">
-      <div className="text-ink-mute">POST /intent/multichain/run</div>
-      <div>&#123;</div>
-      <div className="pl-3">
-        <span className="text-lagoon-bright">"executionRail"</span>:{' '}
-        <span className="text-ink">"ika"</span>,
-      </div>
-      <div className="pl-3">
-        <span className="text-lagoon-bright">"messageHash"</span>:{' '}
-        <span className="text-ink">"0xa1b2…f9e0"</span>,
-      </div>
-      <div className="pl-3">
-        <span className="text-lagoon-bright">"approvalPDA"</span>:{' '}
-        <span className="text-ink">"MsgApvl…D8q4"</span>,
-      </div>
-      <div className="pl-3">
-        <span className="text-lagoon-bright">"status"</span>:{' '}
-        <span className="text-palm">"approved"</span>,
-      </div>
-      <div>&#125;</div>
-    </div>
-  )
-}
-
-function JupiterMockup() {
-  return (
-    <div className="font-mono text-[11px] leading-[1.55] text-ink-soft space-y-1">
-      <div className="text-ink-mute">POST /intent/dca/run · 5 USDC → SOL</div>
-      <div>&#123;</div>
-      <div className="pl-3">
-        <span className="text-lagoon-bright">"input"</span>:{' '}
-        <span className="text-ink">"5.00 USDC"</span>,
-      </div>
-      <div className="pl-3">
-        <span className="text-lagoon-bright">"output"</span>:{' '}
-        <span className="text-ink">"~0.0287 SOL"</span>,
-      </div>
-      <div className="pl-3">
-        <span className="text-lagoon-bright">"route"</span>:{' '}
-        <span className="text-ink">"Whirlpool → Raydium"</span>,
-      </div>
-      <div className="pl-3">
-        <span className="text-lagoon-bright">"execution"</span>:{' '}
-        <span className="text-palm">"unsigned tx ready"</span>,
-      </div>
-      <div>&#125;</div>
-    </div>
-  )
 }
 
 const RAILS: Rail[] = [
   {
     id: 'encrypt',
+    brand: 'Encrypt',
     titleKey: 'rail.encrypt.title',
     bodyKey: 'rail.encrypt.body',
-    bulletKeys: [
-      'rail.encrypt.bullet.1',
-      'rail.encrypt.bullet.2',
-      'rail.encrypt.bullet.3',
-      'rail.encrypt.bullet.4',
-    ],
     refKey: 'rail.encrypt.ref',
-    mockTitleKey: 'rail.encrypt.mockTitle',
     iconSrc: '/brand/encrypt.svg',
-    mockup: <EncryptMockup />,
   },
   {
     id: 'ika',
+    brand: 'Ika',
     titleKey: 'rail.ika.title',
     bodyKey: 'rail.ika.body',
-    bulletKeys: [
-      'rail.ika.bullet.1',
-      'rail.ika.bullet.2',
-      'rail.ika.bullet.3',
-      'rail.ika.bullet.4',
-    ],
     refKey: 'rail.ika.ref',
-    mockTitleKey: 'rail.ika.mockTitle',
     iconSrc: '/brand/ika.svg',
-    mockup: <IkaMockup />,
   },
   {
     id: 'jupiter',
+    brand: 'Jupiter',
     titleKey: 'rail.jupiter.title',
     bodyKey: 'rail.jupiter.body',
-    bulletKeys: [
-      'rail.jupiter.bullet.1',
-      'rail.jupiter.bullet.2',
-      'rail.jupiter.bullet.3',
-      'rail.jupiter.bullet.4',
-    ],
     refKey: 'rail.jupiter.ref',
-    mockTitleKey: 'rail.jupiter.mockTitle',
     iconSrc: '/brand/jupiter.svg',
-    mockup: <JupiterMockup />,
   },
 ]
 
+type ParticleLayerProps = {
+  count: number
+  seed: number
+  sizeMin: number
+  sizeMax: number
+  opacityMin: number
+  opacityMax: number
+  twinkleRatio: number
+  className: string
+}
+
 /**
- * Rails section — 3 integration rails (Encrypt / Ika / Jupiter), each its
- * own card with brand mark + title + body + 4 bullets + mini mockup +
- * reference link.
+ * Seeded particle field — one layer of tiny dots scattered across the
+ * canvas. Stable seed = SSR-consistent positions.
+ *
+ * Two layers (foreground + background) compose a parallax dust field:
+ *   - foreground: bigger / more opaque / faster drift
+ *   - background: smaller / dimmer / slower drift, opposite direction
+ * The opposing motion creates a "depth" feel without absurd movement.
+ *
+ * Color: 70% lagoon-bright, 30% white-ish. ~6% have a slow opacity
+ * twinkle (SMIL-driven, staggered).
+ */
+function ParticleLayer({
+  count,
+  seed,
+  sizeMin,
+  sizeMax,
+  opacityMin,
+  opacityMax,
+  twinkleRatio,
+  className,
+}: ParticleLayerProps) {
+  const particles = useMemo(() => {
+    let s = seed
+    const rng = () => {
+      s = (s * 1664525 + 1013904223) % 4294967296
+      return s / 4294967296
+    }
+    return Array.from({ length: count }).map(() => {
+      const isTeal = rng() < 0.7
+      const isTwinkle = rng() < twinkleRatio
+      return {
+        cx: rng() * 100,
+        cy: rng() * 60,
+        r: sizeMin + rng() * (sizeMax - sizeMin),
+        opacity: opacityMin + rng() * (opacityMax - opacityMin),
+        color: isTeal ? 'rgb(45 212 191)' : 'rgb(255 255 255)',
+        twinkle: isTwinkle
+          ? {
+              dur: 2.4 + rng() * 3.6, // 2.4-6s
+              begin: -(rng() * 6), // negative offset = in-progress on mount
+            }
+          : null,
+      }
+    })
+  }, [count, seed, sizeMin, sizeMax, opacityMin, opacityMax, twinkleRatio])
+
+  return (
+    <svg
+      aria-hidden="true"
+      className={`${className} pointer-events-none`}
+      preserveAspectRatio="none"
+      viewBox="0 0 100 60"
+    >
+      {particles.map((p, i) => (
+        <circle
+          key={i}
+          cx={p.cx}
+          cy={p.cy}
+          r={p.r}
+          fill={p.color}
+          opacity={p.twinkle ? undefined : p.opacity}
+        >
+          {p.twinkle ? (
+            <animate
+              attributeName="opacity"
+              values={`${p.opacity};${(p.opacity * 0.1).toFixed(2)};${p.opacity}`}
+              dur={`${p.twinkle.dur}s`}
+              begin={`${p.twinkle.begin}s`}
+              repeatCount="indefinite"
+            />
+          ) : null}
+        </circle>
+      ))}
+    </svg>
+  )
+}
+
+/**
+ * Composite particle field — 2 layers stacked (background + foreground)
+ * for parallax depth.
+ */
+function ParticleField() {
+  return (
+    <>
+      <ParticleLayer
+        count={900}
+        seed={37}
+        sizeMin={0.025}
+        sizeMax={0.08}
+        opacityMin={0.10}
+        opacityMax={0.35}
+        twinkleRatio={0.04}
+        className="pl-rails-particles-bg"
+      />
+      <ParticleLayer
+        count={500}
+        seed={7}
+        sizeMin={0.04}
+        sizeMax={0.11}
+        opacityMin={0.20}
+        opacityMax={0.55}
+        twinkleRatio={0.08}
+        className="pl-rails-particles-fg"
+      />
+    </>
+  )
+}
+
+/**
+ * Rails section — 3 integration rails (Encrypt / Ika / Jupiter) presented
+ * as minimal editorial cards on top of a continuous particle dust field
+ * with cursor-tracked teal glow. The dust connects the 3 cards visually
+ * so they read as one canvas rather than three separate boxes.
  *
  * Anchor #rails so header nav scrolls here.
  */
 export function RailsSection() {
   const { t } = useLocale()
   const containerRef = useScrollReveal()
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.currentTarget
+    const rect = target.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    target.style.setProperty('--cursor-x', `${x}%`)
+    target.style.setProperty('--cursor-y', `${y}%`)
+  }
 
   return (
     <section
@@ -185,76 +213,62 @@ export function RailsSection() {
           {t('rails.body')}
         </p>
 
-        {/* 3 rail cards */}
-        <div className="mt-12 md:mt-16 grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-          {RAILS.map((rail, i) => (
-            <article
-              key={rail.id}
-              className="pl-reveal group relative rounded-2xl border border-line bg-surface overflow-hidden hover:border-line-strong transition flex flex-col"
-              style={{ transitionDelay: `${240 + i * 80}ms` }}
-            >
-              <div className="p-6 md:p-7 flex-1 flex flex-col">
-                {/* Brand mark */}
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="inline-flex items-center justify-center size-10 rounded-xl bg-bg-deep border border-line-strong">
-                    <img
-                      src={rail.iconSrc}
-                      alt=""
-                      className="h-5 w-auto"
-                      aria-hidden="true"
-                    />
-                  </div>
-                  <span className="font-mono text-xs uppercase tracking-wider text-ink-mute">
-                    Rail {String(i + 1).padStart(2, '0')}
-                  </span>
-                </div>
+        {/* 3 cards on continuous particle field */}
+        <div
+          onMouseMove={handleMouseMove}
+          className="pl-rails-bg pl-reveal mt-14 md:mt-20 relative rounded-2xl border border-line bg-bg-deep overflow-hidden"
+          style={{ transitionDelay: '240ms' }}
+        >
+          <ParticleField />
 
-                {/* Title + body */}
-                <h3 className="font-sans text-xl md:text-2xl font-bold text-ink leading-tight">
+          <div className="relative z-[2] grid grid-cols-1 md:grid-cols-3">
+            {RAILS.map((rail, i) => (
+              <article
+                key={rail.id}
+                className="group relative flex flex-col p-8 md:p-10 hover:bg-surface/40 transition"
+              >
+                {/* Hairline divider between cards (desktop only, except last) */}
+                {i < RAILS.length - 1 && (
+                  <span
+                    aria-hidden="true"
+                    className="hidden md:block absolute right-0 top-6 bottom-6 w-px bg-line"
+                  />
+                )}
+
+                {/* Brand mark — Encrypt is a square logo so bump slightly
+                    to match the visual weight of the wider Ika/Jupiter wordmarks. */}
+                <img
+                  src={rail.iconSrc}
+                  alt=""
+                  aria-hidden="true"
+                  className={`${rail.id === 'encrypt' ? 'h-9' : 'h-7'} w-auto opacity-90`}
+                />
+
+                {/* Brand name in mono uppercase kicker */}
+                <p className="mt-6 font-mono text-xs uppercase tracking-[0.18em] text-ink-mute">
+                  {rail.brand}
+                </p>
+
+                {/* Title */}
+                <h3 className="mt-2 font-sans text-xl md:text-2xl font-bold text-ink leading-tight">
                   {t(rail.titleKey)}
                 </h3>
-                <p className="mt-3 text-sm md:text-base text-ink-soft leading-relaxed">
+
+                {/* Body */}
+                <p className="mt-4 text-sm md:text-base text-ink-soft leading-relaxed flex-1">
                   {t(rail.bodyKey)}
                 </p>
 
-                {/* Bullets */}
-                <ul className="mt-5 space-y-2 text-sm text-ink-soft">
-                  {rail.bulletKeys.map((bk) => (
-                    <li key={bk} className="flex items-start gap-2">
-                      <span
-                        aria-hidden="true"
-                        className="mt-1.5 size-1 rounded-full bg-lagoon-bright shrink-0"
-                      />
-                      <span>{t(bk)}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {/* Mockup panel */}
-                <div className="mt-6 rounded-lg border border-line bg-bg-deep p-4">
-                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-line">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-ink-mute">
-                      {t(rail.mockTitleKey)}
-                    </span>
-                    <div className="flex gap-1.5">
-                      <span className="size-1.5 rounded-full bg-coral/60" />
-                      <span className="size-1.5 rounded-full bg-sunset/60" />
-                      <span className="size-1.5 rounded-full bg-palm/60" />
-                    </div>
-                  </div>
-                  {rail.mockup}
-                </div>
-
                 {/* Reference link */}
-                <div className="mt-auto pt-5">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-lagoon-bright">
+                <div className="mt-8">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-lagoon-bright group-hover:text-lagoon transition">
                     {t(rail.refKey)}
                     <span aria-hidden="true">→</span>
                   </span>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            ))}
+          </div>
         </div>
       </div>
     </section>
