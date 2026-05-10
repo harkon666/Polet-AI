@@ -210,6 +210,60 @@ async function robustConfirm(
   }
 }
 
+/**
+ * Best-effort error description for receipts.
+ *
+ * The wallet adapter wraps the underlying Phantom / Solana error in a
+ * `WalletSignTransactionError`, exposing the real message under `.error`
+ * (and sometimes `.cause`). Without unwrapping we end up rendering
+ * "Unexpected error" in the receipt log, which is useless for debugging.
+ *
+ * Special-cased substrings ("already in use", "Account already exists",
+ * etc.) get a hint that the operator should refresh the page — the most
+ * common cause is a previous transaction that landed on-chain even
+ * though the client surfaced a confirmation error.
+ */
+function describeError(err: unknown): string {
+  let message = 'Unknown error'
+  if (typeof err === 'string') {
+    message = err
+  } else if (err instanceof Error) {
+    message = err.message || 'Unknown error'
+    // WalletAdapter exposes the underlying provider error here.
+    const inner = (err as { error?: unknown }).error
+    if (inner instanceof Error && inner.message && inner.message !== err.message) {
+      message = `${message} · ${inner.message}`
+    } else if (typeof inner === 'string' && inner !== err.message) {
+      message = `${message} · ${inner}`
+    } else if (inner && typeof inner === 'object') {
+      const subMsg = (inner as { message?: string }).message
+      if (subMsg && subMsg !== err.message) message = `${message} · ${subMsg}`
+    }
+    const cause = (err as { cause?: unknown }).cause
+    if (cause instanceof Error && cause.message && !message.includes(cause.message)) {
+      message = `${message} · ${cause.message}`
+    }
+  } else if (err && typeof err === 'object') {
+    try {
+      message = JSON.stringify(err)
+    } catch {
+      message = 'Unknown error'
+    }
+  }
+
+  // Common cause: previous tx landed even though client errored. Hint
+  // the operator to refresh so getWalletData picks up the existing PDA.
+  if (
+    /already in use/i.test(message) ||
+    /already exists/i.test(message) ||
+    /custom program error: 0x0/i.test(message)
+  ) {
+    return `${message} · Hint: refresh the page; the previous transaction may have landed on-chain.`
+  }
+
+  return message
+}
+
 export function ConsoleStateProvider({
   children,
 }: {
@@ -292,8 +346,12 @@ export function ConsoleStateProvider({
         onSuccess(result, signature)
         await refresh()
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : 'Unknown error'
+        // Always log the full error object so DevTools console keeps
+        // the original stack + nested provider error for debugging,
+        // while the receipt log gets a human-readable summary.
+        // eslint-disable-next-line no-console
+        console.error('[Polet console action error]', { key, signature, err })
+        const message = describeError(err)
         setError(message)
         onFailure(err, signature)
       } finally {
@@ -320,7 +378,7 @@ export function ConsoleStateProvider({
       (err, signature) =>
         emitReceipt({
           action: 'WALLET INIT FAILED',
-          description: err instanceof Error ? err.message : 'Unknown error',
+          description: describeError(err),
           signature,
           status: 'error',
         }),
@@ -346,7 +404,7 @@ export function ConsoleStateProvider({
       (err, signature) =>
         emitReceipt({
           action: 'CUSTODY REGISTER FAILED',
-          description: err instanceof Error ? err.message : 'Unknown error',
+          description: describeError(err),
           signature,
           status: 'error',
         }),
@@ -377,7 +435,7 @@ export function ConsoleStateProvider({
       (err, signature) =>
         emitReceipt({
           action: 'POLICY SAVE FAILED',
-          description: err instanceof Error ? err.message : 'Unknown error',
+          description: describeError(err),
           signature,
           status: 'error',
         }),
@@ -407,7 +465,7 @@ export function ConsoleStateProvider({
       (err, signature) =>
         emitReceipt({
           action: 'SESSION GRANT FAILED',
-          description: err instanceof Error ? err.message : 'Unknown error',
+          description: describeError(err),
           signature,
           status: 'error',
         }),
@@ -473,7 +531,7 @@ export function ConsoleStateProvider({
         await refresh()
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : 'Unknown error'
+          describeError(err)
         setError(message)
         emitReceipt({
           action: 'JUPITER ERROR',
@@ -535,7 +593,7 @@ export function ConsoleStateProvider({
         await refresh()
       } catch (err) {
         const message =
-          err instanceof Error ? err.message : 'Unknown error'
+          describeError(err)
         setError(message)
         emitReceipt({
           action: 'IKA ERROR',
