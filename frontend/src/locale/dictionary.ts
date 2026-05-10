@@ -113,6 +113,10 @@ export type TranslationKey =
   | 'rail.encrypt.ref'
   | 'rail.encrypt.mockTitle'
   | 'rail.encrypt.mockAria'
+  | 'rails.kicker'
+  | 'rails.headline.lead'
+  | 'rails.headline.rest'
+  | 'rails.body'
   | 'rail.ika.title'
   | 'rail.ika.body'
   | 'rail.ika.bullet.1'
@@ -370,6 +374,11 @@ const en: Dictionary = {
   'howto.step.3.desc': 'Temporary signing authority with expires_at. The agent trades within your policy. Revoke any time in one transaction.',
 
   // Rails — Encrypt
+  'rails.kicker': 'Three rails. One gate.',
+  'rails.headline.lead': 'One policy gate.',
+  'rails.headline.rest': 'Three execution surfaces.',
+  'rails.body':
+    'Encrypt keeps the limits private. Ika carries the signing across chains. Jupiter routes the trade. All three pass through the same on-chain gate before a single lamport moves.',
   'rail.encrypt.title': 'Confidential numeric policy',
   'rail.encrypt.body':
     'Max-per-run and daily-cap stay encrypted on-chain. The contract enforces the guardrail before any spend without ever revealing your private thresholds — built against Encrypt pre-alpha.',
@@ -670,6 +679,11 @@ const id: Dictionary = {
   'howto.step.3.desc': 'Otoritas signing sementara dengan expires_at. Agent trading dalam batas policy-mu. Revoke kapan saja dalam satu transaksi.',
 
   // Rails — Encrypt
+  'rails.kicker': 'Tiga rail. Satu gate.',
+  'rails.headline.lead': 'Satu policy gate.',
+  'rails.headline.rest': 'Tiga rail eksekusi.',
+  'rails.body':
+    'Encrypt jaga limit tetap rahasia. Ika bawa signing lintas chain. Jupiter route trade-nya. Tiganya lewat gate on-chain yang sama sebelum satu lamport pun bergerak.',
   'rail.encrypt.title': 'Policy numeric rahasia',
   'rail.encrypt.body':
     'Max-per-run dan daily-cap tetap terenkripsi on-chain. Contract menegakkan guardrail sebelum spending apa pun tanpa pernah membocorkan threshold privat-mu — dibangun di atas Encrypt pre-alpha.',
