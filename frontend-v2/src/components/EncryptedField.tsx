@@ -8,7 +8,7 @@ const ENCRYPTING_DURATION_MS = 1000
 const REVEALING_DURATION_MS = 700
 
 /**
- * EncryptedField — text that scrambles between cleartext and encrypted hex.
+ * EncryptedField, text that scrambles between cleartext and encrypted hex.
  *
  * Used by the Demo Widget Crypto-Blur Theater to visualize confidential
  * numeric policy: digits glitch-scramble to hex blob, gate evaluates blind,

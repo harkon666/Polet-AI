@@ -2,6 +2,7 @@ import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
 import { useScrollReveal } from '../hooks/useScrollReveal'
 import { KickerLabel } from './primitives/KickerLabel'
+import { ParticleField } from './primitives/ParticleField'
 
 type SecurityFact = {
   n: string
@@ -13,7 +14,7 @@ type SecurityFact = {
 }
 
 /**
- * SecuritySection — 2×2 quadrant grid showing Polet's defensive
+ * SecuritySection, 2×2 quadrant grid showing Polet's defensive
  * primitives: smart-wallet PDA · session keys · anti-replay
  * (`policy_seq`) · multisig + recovery.
  *
@@ -31,6 +32,15 @@ type SecurityFact = {
 export function SecuritySection() {
   const { t } = useLocale()
   const containerRef = useScrollReveal()
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.currentTarget
+    const rect = target.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    target.style.setProperty('--cursor-x', `${x}%`)
+    target.style.setProperty('--cursor-y', `${y}%`)
+  }
 
   const facts: SecurityFact[] = [
     {
@@ -91,7 +101,7 @@ export function SecuritySection() {
           {t('security.body')}
         </p>
 
-        {/* Threat narrative — strong defensive framing */}
+        {/* Threat narrative, strong defensive framing */}
         <div
           className="pl-reveal mt-10 max-w-3xl rounded-lg border border-line bg-bg-deep px-5 py-4 mx-auto md:mx-0"
           style={{ transitionDelay: '240ms' }}
@@ -107,14 +117,27 @@ export function SecuritySection() {
           </p>
         </div>
 
-        {/* 2×2 quadrant grid — gap-px against bg-line forms the cross divider */}
+        {/* 2×2 quadrant card on continuous particle field (same treatment
+            as Rails). Hairline dividers live on each quadrant so the
+            cells can stay transparent and particles show through fully. */}
         <div
-          className="pl-reveal mt-12 md:mt-16 grid grid-cols-1 md:grid-cols-2 gap-px bg-line border border-line rounded-xl overflow-hidden"
+          onMouseMove={handleMouseMove}
+          className="pl-rails-bg pl-reveal mt-12 md:mt-16 relative rounded-2xl border border-line bg-bg-deep overflow-hidden"
           style={{ transitionDelay: '320ms' }}
         >
-          {facts.map((f) => (
-            <FactQuadrant key={f.n} fact={f} title={t(f.titleKey)} desc={t(f.descKey)} />
-          ))}
+          <ParticleField seedBg={19} seedFg={113} />
+
+          <div className="relative z-[2] grid grid-cols-1 md:grid-cols-2">
+            {facts.map((f, i) => (
+              <FactQuadrant
+                key={f.n}
+                fact={f}
+                title={t(f.titleKey)}
+                desc={t(f.descKey)}
+                index={i}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -125,15 +148,33 @@ function FactQuadrant({
   fact,
   title,
   desc,
+  index,
 }: {
   fact: SecurityFact
   title: string
   desc: string
+  index: number
 }) {
+  // Hairline dividers form the cross on desktop and a vertical stack on
+  // mobile. `isLast` skips the mobile bottom border on the last card.
+  const isFirstRow = index < 2
+  const isFirstCol = index % 2 === 0
+  const isLast = index === 3
+
+  const dividerClasses = [
+    !isLast ? 'border-b border-line' : '',
+    isFirstRow ? 'md:border-b md:border-line' : 'md:border-b-0',
+    isFirstCol ? 'md:border-r md:border-line' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className="bg-bg-base p-6 md:p-8 lg:p-10 transition-colors hover:bg-surface group">
+    <div
+      className={`group relative p-6 md:p-8 lg:p-10 transition-colors hover:bg-surface/40 ${dividerClasses}`}
+    >
       <div className="flex items-center gap-3">
-        <span className="inline-flex items-center justify-center size-9 rounded-md bg-bg-deep border border-line text-lagoon-bright transition-colors group-hover:border-lagoon group-hover:text-lagoon">
+        <span className="inline-flex items-center justify-center size-9 rounded-md bg-bg-deep/80 border border-line text-lagoon-bright transition-colors group-hover:border-lagoon group-hover:text-lagoon">
           {fact.icon}
         </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute">
@@ -149,7 +190,7 @@ function FactQuadrant({
 }
 
 /* ============================================
-   Inline SVG icons — small, line-style, lagoon
+   Inline SVG icons, small, line-style, lagoon
    ============================================ */
 
 function LockIcon() {

@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 const V1_APP_URL = 'http://localhost:3000/app'
 
 /**
- * Stub redirect to v1 console — `/app` lives in the legacy `frontend/`
+ * Stub redirect to v1 console, `/app` lives in the legacy `frontend/`
  * during the v2 transition. Replaced when the console is ported to v2
  * (Day 7+ cutover).
  */

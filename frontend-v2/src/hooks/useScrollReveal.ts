@@ -5,11 +5,11 @@ import { useEffect, useRef } from 'react'
  * `.pl-reveal--in` once they enter the viewport.
  *
  * Behaviour:
- * - Respects `prefers-reduced-motion: reduce` — reveals everything immediately,
+ * - Respects `prefers-reduced-motion: reduce`, reveals everything immediately,
  *   skipping the IntersectionObserver pipeline.
- * - Server-safe — no `window` access during SSR; the hook only attaches in
+ * - Server-safe, no `window` access during SSR; the hook only attaches in
  *   `useEffect` which is client-only.
- * - One-shot — once revealed, observers unsubscribe so no re-trigger.
+ * - One-shot, once revealed, observers unsubscribe so no re-trigger.
  *
  * Usage:
  *   const containerRef = useScrollReveal()

@@ -3,14 +3,14 @@
 @import "tailwindcss";
 
 /* ============================================
-   POLET v2 — DARK CANONICAL
+   POLET v2, DARK CANONICAL
    Visual north star: Linear marketing dark
    Brand: deep teal aurora + white "P" logomark
-   Display type: PP Mori (Pangram Pangram, free personal — hackathon scope)
+   Display type: PP Mori (Pangram Pangram, free personal, hackathon scope)
    Mono type:    Geist Mono (Vercel, free)
    ============================================ */
 
-/* PP Mori — self-hosted from /public/fonts/, OTF format */
+/* PP Mori, self-hosted from /public/fonts/, OTF format */
 @font-face {
   font-family: "PP Mori";
   src: url("/fonts/PPMori-Extralight.otf") format("opentype");
@@ -44,7 +44,7 @@
 }
 
 @theme {
-  /* Surfaces — true black with subtle teal undertone */
+  /* Surfaces, true black with subtle teal undertone */
   --color-bg-base: #000000;
   --color-bg-deep: #04100c;
   --color-surface: #0a1a16;
@@ -52,22 +52,22 @@
   --color-line: rgb(30 184 164 / 0.10);
   --color-line-strong: rgb(30 184 164 / 0.22);
 
-  /* Ink — match white logomark */
+  /* Ink, match white logomark */
   --color-ink: #ffffff;
   --color-ink-soft: #a6c4bd;
   --color-ink-mute: #5a7c75;
 
-  /* Accent — aurora glow teal in 3 registers */
+  /* Accent, aurora glow teal in 3 registers */
   --color-lagoon: #1eb8a4;
   --color-lagoon-bright: #2dd4bf;
   --color-lagoon-deep: #0d7d77;
 
-  /* Status — kept minimal, monochromatic discipline */
+  /* Status, kept minimal, monochromatic discipline */
   --color-coral: #f87171;
   --color-palm: #34d399;
   --color-sunset: #fbbf24;
 
-  /* Type — PP Mori for narrative, Geist Mono for engineering */
+  /* Type, PP Mori for narrative, Geist Mono for engineering */
   --font-display: "PP Mori", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "PP Mori", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", "JetBrains Mono", ui-monospace, monospace;
@@ -81,7 +81,7 @@
 }
 
 /* ============================================
-   Base reset — dark canvas defaults
+   Base reset, dark canvas defaults
    ============================================ */
 
 html {
@@ -105,12 +105,12 @@ body {
 }
 
 /* ============================================
-   pl-* custom classes — Rule 3 only
+   pl-* custom classes, Rule 3 only
    (multi-layer gradients, state-driven motion,
     composition >10 utility chain, ambient bg)
    ============================================ */
 
-/* Hero ambient bg — actual brand asset PNG with cursor-tracked teal glow
+/* Hero ambient bg, actual brand asset PNG with cursor-tracked teal glow
    overlay (Linear-class interaction) + slow 60s drift pan for "alive" feel.
    Reduced-motion disables drift + cursor glow. */
 .pl-ambient-hero {
@@ -134,7 +134,7 @@ body {
   100% { background-position: center, 58% 52%; }
 }
 
-/* Cursor-tracked spotlight glow — subtle teal halo follows mouse, calm.
+/* Cursor-tracked spotlight glow, subtle teal halo follows mouse, calm.
    CSS variables --cursor-x / --cursor-y are set by Hero.tsx onMouseMove. */
 .pl-ambient-hero::after {
   content: '';
@@ -158,7 +158,7 @@ body {
   z-index: 1;
 }
 
-/* Section ambient — subtle glow for transitions between sections */
+/* Section ambient, subtle glow for transitions between sections */
 .pl-ambient-section {
   background:
     radial-gradient(
@@ -169,7 +169,7 @@ body {
     var(--color-bg-base);
 }
 
-/* Scroll reveal — initial state. Add .pl-reveal--in via IntersectionObserver. */
+/* Scroll reveal, initial state. Add .pl-reveal--in via IntersectionObserver. */
 .pl-reveal {
   opacity: 0;
   transform: translateY(12px);
@@ -183,7 +183,7 @@ body {
   transform: translateY(0);
 }
 
-/* Glow button — primary CTA hover state with lagoon ambient shadow */
+/* Glow button, primary CTA hover state with lagoon ambient shadow */
 .pl-glow-button {
   position: relative;
   isolation: isolate;
@@ -204,7 +204,7 @@ body {
   transform: translateY(0);
 }
 
-/* Rotator fade-in — applied to punchline span when key changes (re-mount).
+/* Rotator fade-in, applied to punchline span when key changes (re-mount).
    Keyed re-mount means each new punchline animates from invisible→visible. */
 .pl-rotate-in {
   animation: pl-rotate-in 700ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -215,7 +215,7 @@ body {
   100% { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
 
-/* Trust strip — infinite right-to-left marquee of partner logos.
+/* Trust strip, infinite right-to-left marquee of partner logos.
    Continuous loop, no pause, starts from "middle" position via negative
    animation-delay. Edge fade via mask-image. */
 .pl-trust-marquee {
@@ -271,11 +271,11 @@ body {
 }
 
 /* ============================================
-   Manifesto pattern animations — diagrammatic cards come alive.
+   Manifesto pattern animations, diagrammatic cards come alive.
    Subtle continuous loops (~3-5s) so each pattern tells a tiny story.
    ============================================ */
 
-/* Flowing dashes — used on agent→proxy arrow + bypass route + fan-out arrows.
+/* Flowing dashes, used on agent→proxy arrow + bypass route + fan-out arrows.
    stroke-dasharray on the path itself + animate dashoffset. */
 @keyframes pl-pat-flow {
   to {
@@ -283,7 +283,7 @@ body {
   }
 }
 
-/* Pulse-fade — used on broken-proxy fracture line + "no gate" indicator. */
+/* Pulse-fade, used on broken-proxy fracture line + "no gate" indicator. */
 @keyframes pl-pat-pulse-fade {
   0%,
   100% {
@@ -294,7 +294,7 @@ body {
   }
 }
 
-/* Chain-pulse — used on multi-chain fan-out target pills.
+/* Chain-pulse, used on multi-chain fan-out target pills.
    Cycle: chain stays muted 90% of time, briefly highlights teal. */
 @keyframes pl-pat-chain-pulse {
   0%,
@@ -310,7 +310,7 @@ body {
   }
 }
 
-/* Scanline — vertical line sweeping across block-explorer card.
+/* Scanline, vertical line sweeping across block-explorer card.
    Suggests "anyone scanning the chain can read" (CCTV / X-ray feel). */
 @keyframes pl-pat-scanline {
   0% {
@@ -344,7 +344,7 @@ body {
 }
 
 /* ============================================
-   Rails section background — continuous particle dust field across
+   Rails section background, continuous particle dust field across
    the 3-card row + cursor-tracked teal glow that brightens dust near
    the mouse pointer. Connects the cards visually so they read as one
    canvas rather than three separate boxes.
@@ -371,7 +371,7 @@ body {
   z-index: 1;
 }
 
-/* Particle layers — 2-layer parallax (foreground faster, background slower
+/* Particle layers, 2-layer parallax (foreground faster, background slower
    in opposite direction). SVG is 12% larger than container with inset -6%
    on each side so drift never exposes empty edges. Subtle rotation
    adds organic movement on top of translate. */
@@ -393,7 +393,7 @@ body {
   animation: pl-rails-drift-fg 12s ease-in-out infinite alternate;
 }
 
-/* Background layer — drift right→left + counter-rotate slightly */
+/* Background layer, drift right→left + counter-rotate slightly */
 @keyframes pl-rails-drift-bg {
   0% {
     transform: translate(3%, 1.4%) rotate(-0.3deg);
@@ -403,7 +403,7 @@ body {
   }
 }
 
-/* Foreground layer — drift left→right + co-rotate slightly */
+/* Foreground layer, drift left→right + co-rotate slightly */
 @keyframes pl-rails-drift-fg {
   0% {
     transform: translate(-2.2%, -1.2%) rotate(0.4deg);
@@ -413,7 +413,7 @@ body {
   }
 }
 
-/* Reduced-motion fallback — disable drift + reveal animations + cursor glow */
+/* Reduced-motion fallback, disable drift + reveal animations + cursor glow */
 @media (prefers-reduced-motion: reduce) {
   .pl-ambient-hero {
     animation: none;
@@ -455,11 +455,11 @@ body {
 }
 
 /* ============================================
-   Crypto-Blur Theater — Demo Widget v2
+   Crypto-Blur Theater, Demo Widget v2
    Confidential numeric policy visualisation.
    ============================================ */
 
-/* Final CTA section — subtle aurora-radial backdrop */
+/* Final CTA section, subtle aurora-radial backdrop */
 .pl-cta-aurora::before {
   content: '';
   position: absolute;
@@ -471,7 +471,7 @@ body {
   z-index: 0;
 }
 
-/* Path card hover — lifts + halo glow */
+/* Path card hover, lifts + halo glow */
 .pl-cta-card {
   transition:
     transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -488,7 +488,7 @@ body {
     inset 0 1px 0 rgb(45 212 191 / 0.18);
 }
 
-/* Encrypted noise layer — scattered cipher fragments in section bg.
+/* Encrypted noise layer, scattered cipher fragments in section bg.
    Tells encryption story even in negative space. Fragments breathe
    (opacity + vertical sway) at varied durations for organic feel. */
 .pl-encrypted-noise {
@@ -522,10 +522,10 @@ body {
   }
 }
 
-/* Glass Holographic Plate — replaces panel frame.
+/* Glass Holographic Plate, replaces panel frame.
    Outer "plate" is invisible. Content floats with:
-   - Radial halo backdrop (::before) — subtle teal aurora behind everything
-   - Top accent line (::after) — thin teal projection edge, evokes
+   - Radial halo backdrop (::before), subtle teal aurora behind everything
+   - Top accent line (::after), thin teal projection edge, evokes
      holographic origin point. Glow shadow on the line for emphasis. */
 .pl-holographic-plate {
   position: relative;
@@ -570,7 +570,7 @@ body {
   z-index: 1;
 }
 
-/* Glass card — semi-transparent surface with backdrop blur.
+/* Glass card, semi-transparent surface with backdrop blur.
    Used for field grid, gate panel, result, scenario pills.
    Subtle inset top highlight evokes glass catching light. */
 .pl-glass-card {
@@ -593,7 +593,7 @@ body {
     inset 0 1px 0 rgb(45 212 191 / 0.12);
 }
 
-/* Demo widget panel — engineering blueprint frame.
+/* Demo widget panel, engineering blueprint frame.
    Subtle border + corner brackets + soft halo. No mac chrome. */
 .pl-demo-panel {
   box-shadow:
@@ -601,7 +601,7 @@ body {
     0 0 60px -28px rgb(45 212 191 / 0.08);
 }
 
-/* Blueprint corner brackets — L-shaped marks at panel corners.
+/* Blueprint corner brackets, L-shaped marks at panel corners.
    2 absolutely-positioned bars per corner; subtle teal glow. */
 .pl-blueprint-corner {
   position: absolute;
@@ -640,7 +640,7 @@ body {
 .pl-blueprint-corner[data-corner="br"]::before { bottom: 0; right: 0; width: 100%; height: 1.5px; }
 .pl-blueprint-corner[data-corner="br"]::after  { bottom: 0; right: 0; height: 100%; width: 1.5px; }
 
-/* Mid-edge alignment crosshairs (technical drawing detail) — small + marks */
+/* Mid-edge alignment crosshairs (technical drawing detail), small + marks */
 .pl-blueprint-tick {
   position: absolute;
   width: 8px;
@@ -665,7 +665,7 @@ body {
   left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%);
 }
 
-/* Dashed divider for section separation — blueprint feel.
+/* Dashed divider for section separation, blueprint feel.
    Replaces solid borders between header/stage/picker/footer. */
 .pl-blueprint-divider {
   height: 1px;
@@ -680,7 +680,7 @@ body {
   background-repeat: repeat-x;
 }
 
-/* Technical header label — section identifier in monospace caps */
+/* Technical header label, section identifier in monospace caps */
 .pl-blueprint-id {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -716,7 +716,7 @@ body {
   75%  { text-shadow: -1px 0 0 rgb(248 113 113 / 0.85), 1px 0 0 rgb(45 212 191 / 0.85); transform: translateX(1px); }
 }
 
-/* Settled encrypted state — soft teal glow + slow pulse */
+/* Settled encrypted state, soft teal glow + slow pulse */
 .pl-encrypted {
   color: var(--color-lagoon-bright);
   text-shadow: 0 0 8px rgb(45 212 191 / 0.4);
@@ -728,7 +728,7 @@ body {
   50%      { text-shadow: 0 0 16px rgb(45 212 191 / 0.7); }
 }
 
-/* Constraint check row — staggered fade-in from left.
+/* Constraint check row, staggered fade-in from left.
    Use inline animation-delay to control stagger order. */
 .pl-constraint-row {
   opacity: 0;
@@ -741,7 +741,7 @@ body {
   100% { opacity: 1; transform: translateX(0); }
 }
 
-/* Result panels — different entry animations per outcome */
+/* Result panels, different entry animations per outcome */
 .pl-result-allow {
   animation: pl-result-allow-in 540ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -766,7 +766,7 @@ body {
   100%      { opacity: 1; transform: translateX(0); }
 }
 
-/* Allow burst — radial particles emitting from origin */
+/* Allow burst, radial particles emitting from origin */
 .pl-allow-burst {
   position: relative;
 }
@@ -791,7 +791,7 @@ body {
   100% { opacity: 0; transform: scale(1.4); }
 }
 
-/* Block pulse — coral radial flash */
+/* Block pulse, coral radial flash */
 .pl-block-pulse {
   position: relative;
 }
@@ -816,7 +816,7 @@ body {
   100% { opacity: 0; transform: scale(1.3); }
 }
 
-/* Gate evaluation progress bar — sweeps left to right */
+/* Gate evaluation progress bar, sweeps left to right */
 .pl-progress-bar {
   width: 100%;
   height: 3px;
@@ -840,7 +840,7 @@ body {
   100% { transform: scaleX(1); }
 }
 
-/* Scenario pill (compact action trigger) — hover lift + active ring */
+/* Scenario pill (compact action trigger), hover lift + active ring */
 .pl-scenario-pill {
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease-out, border-color 180ms ease-out;
 }
@@ -853,7 +853,7 @@ body {
   box-shadow: 0 0 0 2px rgb(45 212 191 / 0.25);
 }
 
-/* Reduced-motion fallback for Crypto-Blur Theater — placed after defs so cascade order matches. */
+/* Reduced-motion fallback for Crypto-Blur Theater, placed after defs so cascade order matches. */
 @media (prefers-reduced-motion: reduce) {
   .pl-aberration {
     animation: none;
@@ -907,7 +907,7 @@ body {
 }
 
 /* ============================================
-   Focus visibility — WCAG AA on dark surface
+   Focus visibility, WCAG AA on dark surface
    ============================================ */
 
 :focus-visible {
@@ -916,7 +916,7 @@ body {
   border-radius: var(--radius-sm);
 }
 
-/* Skip-to-content link — visible only on focus */
+/* Skip-to-content link, visible only on focus */
 .pl-skip-link {
   position: absolute;
   left: 1rem;

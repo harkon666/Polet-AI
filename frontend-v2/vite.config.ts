@@ -14,11 +14,17 @@ const config = defineConfig(({ mode }) => ({
       '#': resolve(__dirname, './src'),
       '@': resolve(__dirname, './src'),
       '#shared': resolve(__dirname, '../frontend/src'),
-      // Force a single React instance even when cross-importing from
-      // ../frontend (which has its own React install). Without this, hooks
-      // executed in the imported `#shared` modules see a null dispatcher.
-      react: resolve(__dirname, 'node_modules/react'),
-      'react-dom': resolve(__dirname, 'node_modules/react-dom'),
+      // Force a single React instance ONLY in test mode. The cross-imported
+      // `#shared/...` modules would otherwise pull `frontend/node_modules/react`
+      // and end up with two React copies (null hooks dispatcher). Aliasing
+      // unconditionally breaks SSR module resolution (CJS index.js can't be
+      // loaded as ESM via vite's module-runner), so guard on `mode`.
+      ...(mode === 'test'
+        ? {
+            react: resolve(__dirname, 'node_modules/react'),
+            'react-dom': resolve(__dirname, 'node_modules/react-dom'),
+          }
+        : {}),
     },
     dedupe: ['react', 'react-dom'],
   },

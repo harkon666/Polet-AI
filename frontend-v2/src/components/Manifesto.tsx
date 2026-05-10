@@ -12,7 +12,7 @@ type Problem = {
 }
 
 /* ============================================
-   Per-card hero patterns — diagrammatic, engineering-blueprint feel.
+   Per-card hero patterns, diagrammatic, engineering-blueprint feel.
    Each visualises the problem with concrete domain elements (block-explorer
    data, server topology, multi-chain fan-out) rather than abstract noise.
    Colors: white/ink for primary, coral for failure markers, lagoon-bright
@@ -20,7 +20,7 @@ type Problem = {
    ============================================ */
 
 /* ============================================
-   Per-card hero patterns — artistic, identity-driven visuals.
+   Per-card hero patterns, artistic, identity-driven visuals.
    Each card has a distinct visual fingerprint that captures the problem
    feeling (not just diagrams). Premium magazine/editorial aesthetic.
      - 01 Voronoi-style hex grid + one cell exposed (coral)
@@ -30,7 +30,7 @@ type Problem = {
    ============================================ */
 
 function Pattern01() {
-  // "Your limits are public" — dense hex grid, one cell exposed in coral.
+  // "Your limits are public", dense hex grid, one cell exposed in coral.
   // Every cell = data point on-chain. One cell highlighted = your limit.
   return (
     <svg
@@ -65,7 +65,7 @@ function Pattern01() {
       <rect width="320" height="180" fill="url(#pl-pat-01-hex)" />
       <rect width="320" height="180" fill="url(#pl-pat-01-vignette)" />
 
-      {/* Highlighted hex — "your data is exposed" */}
+      {/* Highlighted hex, "your data is exposed" */}
       <g transform="translate(160, 90)">
         <polygon
           points="0,-15 13,-7.5 13,7.5 0,15 -13,7.5 -13,-7.5"
@@ -101,7 +101,7 @@ function Pattern01() {
         </circle>
       </g>
 
-      {/* Subtle scatter dots — surrounding "data points" */}
+      {/* Subtle scatter dots, surrounding "data points" */}
       <g fill="rgb(166 196 189 / 0.35)">
         <circle cx="40" cy="30" r="0.8" />
         <circle cx="80" cy="20" r="0.6" />
@@ -111,7 +111,7 @@ function Pattern01() {
         <circle cx="60" cy="120" r="0.5" />
       </g>
 
-      {/* Corner annotation — "256 records visible" */}
+      {/* Corner annotation, "256 records visible" */}
       <text
         x="280"
         y="170"
@@ -127,7 +127,7 @@ function Pattern01() {
 }
 
 function Pattern02() {
-  // "Off-chain rules are bypass-able" — cracks radiating from a failure
+  // "Off-chain rules are bypass-able", cracks radiating from a failure
   // origin. Single fracture point shatters the entire surface.
   return (
     <svg
@@ -204,7 +204,7 @@ function Pattern02() {
 }
 
 function Pattern03() {
-  // "Cross-chain signing has no gate" — 360° particle starburst with bright
+  // "Cross-chain signing has no gate", 360° particle starburst with bright
   // core. Lines fan out in every direction = signing without containment.
   return (
     <svg
@@ -263,7 +263,7 @@ function Pattern03() {
         })}
       </g>
 
-      {/* Core orb — bright glowing dot */}
+      {/* Core orb, bright glowing dot */}
       <g transform="translate(160, 90)">
         <circle cx="0" cy="0" r="12" fill="rgb(45 212 191 / 0.20)">
           <animate attributeName="r" values="10;16;10" dur="3s" repeatCount="indefinite" />
@@ -303,7 +303,7 @@ const PROBLEMS: Problem[] = [
 ]
 
 /**
- * Manifesto section — kicker + 2-line headline + intro paragraph + 3
+ * Manifesto section, kicker + 2-line headline + intro paragraph + 3
  * problem cards (Gitcoin-inspired card pattern: hero visual + pills +
  * title + desc + learn-more link).
  *
@@ -351,7 +351,7 @@ export function Manifesto() {
           {t('manifesto.body')}
         </p>
 
-        {/* 3 problem cards — Gitcoin-style with hero visual */}
+        {/* 3 problem cards, Gitcoin-style with hero visual */}
         <div className="mt-12 md:mt-16 grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
           {PROBLEMS.map((problem, i) => (
             <article
@@ -359,7 +359,7 @@ export function Manifesto() {
               className="pl-reveal group relative rounded-2xl border border-line bg-surface overflow-hidden hover:border-line-strong transition flex flex-col"
               style={{ transitionDelay: `${240 + i * 80}ms` }}
             >
-              {/* Hero visual area — aspect 5/3, pattern + pills overlay */}
+              {/* Hero visual area, aspect 5/3, pattern + pills overlay */}
               <div className="relative aspect-[5/3] bg-bg-deep overflow-hidden">
                 {problem.pattern}
                 {/* Pills overlay */}

@@ -40,7 +40,7 @@ vi.mock('@tanstack/react-router', () => ({
     children: React.ReactNode
     to?: string
   } & Record<string, unknown>) => (
-    // Render as a plain anchor — keeps tests SSR-/router-free
+    // Render as a plain anchor, keeps tests SSR-/router-free
     // while preserving href semantics for a11y assertions.
     // eslint-disable-next-line jsx-a11y/anchor-has-content, react/no-children-prop
     <a href={to ?? '#'} {...(props as Record<string, unknown>)} children={children} />
@@ -60,23 +60,23 @@ beforeEach(() => {
   try {
     window.localStorage.removeItem('polet.locale')
   } catch {
-    // Ignore — localStorage may be blocked in test env
+    // Ignore, localStorage may be blocked in test env
   }
   document.documentElement.setAttribute('lang', 'en')
 })
 
-describe('Landing page (v2) — content per section', () => {
+describe('Landing page (v2), content per section', () => {
   test('renders EN content across all 9 sections', () => {
     render(<LandingPage />)
     const body = document.body.textContent ?? ''
 
     // Hero
-    expect(body).toContain('Confidential Solana control layer')
+    expect(body).toContain('Confidential wallet layer for AI agents')
 
-    // Trust strip — brand wordmarks
+    // Trust strip, brand wordmarks
     expect(body).toMatch(/Solana|Anchor|Ika|Jupiter|Encrypt|Colosseum/i)
 
-    // Stats counter — at least one of the headline numbers
+    // Stats counter, at least one of the headline numbers
     expect(body).toMatch(/49|8|2|1/)
 
     // Manifesto cards
@@ -100,11 +100,9 @@ describe('Landing page (v2) — content per section', () => {
     // Final CTA
     expect(body).toContain('Try the policy gate on devnet.')
     expect(body).toContain('Build')
-    expect(body).toContain('Review')
     expect(body).toContain('Explore')
 
     // Footer
-    expect(body).toContain('Devnet · Live')
     expect(body).toContain('F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p')
     expect(body).toContain('87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY')
     expect(body).toMatch(/All rights reserved/i)
@@ -124,7 +122,7 @@ describe('Landing page (v2) — content per section', () => {
     expect(body).toContain('Coba policy gate di devnet.')
 
     // Footer column heading (ID)
-    expect(body).toContain('Sistem')
+    expect(body).toContain('Sumber')
 
     // Footer copyright text (ID)
     expect(body).toMatch(/Hak cipta dilindungi/i)

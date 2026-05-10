@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 /**
- * Uppercase mono micro-label — used as section kicker above headlines
+ * Uppercase mono micro-label, used as section kicker above headlines
  * and meta strips. Matches Linear's marketing kicker treatment.
  *
  * Tone is set via `tone`:

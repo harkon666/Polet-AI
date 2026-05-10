@@ -7,18 +7,24 @@ const LOCALES: { value: Locale; label: string }[] = [
 ]
 
 /**
- * Locale toggle pill — switches between ID and EN.
- * Persists via localStorage and broadcasts to all `useLocale()` instances
- * via the custom event in `#shared/hooks/use-locale.ts`.
+ * LocaleToggle, a quiet 2-state segmented control for ID/EN.
+ *
+ * Calm visual: active button gets a subtle teal halo (bg-lagoon-bright/10)
+ * with lagoon-bright text. Inactive sits at ink-mute, lifts to ink-soft
+ * on hover. 200ms colour crossfade so the locale switch reads as
+ * deliberate rather than abrupt.
+ *
+ * Touch targets are ~36 px outer (32 px tap area + container padding)
+ * with `touch-manipulation` to suppress double-tap zoom on mobile.
  */
 export function LocaleToggle() {
   const { locale, setLocale, t } = useLocale()
 
   return (
     <div
-      className="inline-flex items-center rounded-full border border-line p-0.5 bg-surface/50 backdrop-blur-sm"
       role="group"
       aria-label={t('localeToggle.aria')}
+      className="inline-flex w-fit items-center gap-0.5 rounded-full border border-line bg-surface/40 p-0.5 backdrop-blur-sm"
     >
       {LOCALES.map(({ value, label }) => {
         const isActive = locale === value
@@ -28,10 +34,10 @@ export function LocaleToggle() {
             type="button"
             onClick={() => setLocale(value)}
             aria-pressed={isActive}
-            className={`px-3 py-1 text-xs font-mono uppercase tracking-wider rounded-full transition ${
+            className={`inline-flex items-center justify-center min-w-[36px] min-h-[32px] rounded-full px-3 font-mono text-xs uppercase tracking-wider transition-colors duration-200 touch-manipulation ${
               isActive
-                ? 'bg-lagoon text-bg-base font-semibold'
-                : 'text-ink-soft hover:text-ink'
+                ? 'bg-lagoon-bright/10 text-lagoon-bright'
+                : 'text-ink-mute hover:text-ink-soft'
             }`}
           >
             {label}

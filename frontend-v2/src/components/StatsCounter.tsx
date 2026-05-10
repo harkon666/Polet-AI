@@ -5,7 +5,7 @@ import { useScrollReveal } from '../hooks/useScrollReveal'
 import { KickerLabel } from './primitives/KickerLabel'
 
 /**
- * Stats counter — 4 metrics row that count up from 0 to target on first
+ * Stats counter, 4 metrics row that count up from 0 to target on first
  * scroll into view. Static values for hackathon simplicity (mirror v1's
  * landing-stats.json structure but inlined).
  */
@@ -27,7 +27,7 @@ const STATS: Stat[] = [
 const COUNTUP_DURATION_MS = 1500
 
 /**
- * Count-up number — animates from 0 to `value` over `durationMs` once the
+ * Count-up number, animates from 0 to `value` over `durationMs` once the
  * element scrolls into view. Respects prefers-reduced-motion (renders
  * the target value immediately, no animation).
  */
@@ -95,7 +95,7 @@ function CountUp({
 }
 
 /**
- * Stats section — 4-column grid (1 col mobile, 2 col tablet, 4 col desktop).
+ * Stats section, 4-column grid (1 col mobile, 2 col tablet, 4 col desktop).
  * Each stat: BIG number (PP Mori Black, count-up) + label + Geist Mono sub.
  */
 export function StatsCounter() {

@@ -1,7 +1,7 @@
 import { useLocale } from '#shared/hooks/use-locale'
 
 /**
- * Trust strip — infinite right-to-left marquee of partner/integration logos.
+ * Trust strip, infinite right-to-left marquee of partner/integration logos.
  *
  * Behaviour:
  * - Continuous loop: animation runs forever, no pause-on-hover.
@@ -15,7 +15,7 @@ import { useLocale } from '#shared/hooks/use-locale'
  * - Solana, Jupiter, Colosseum (white-on-dark variants from official kits)
  * - Anchor (icon + circle gradient from anchor-lang.com)
  * - Ika (white icon from docs.ika.xyz)
- * - Encrypt (E-mark SVG, dark by default — inverted via CSS filter)
+ * - Encrypt (E-mark SVG, dark by default, inverted via CSS filter)
  */
 
 type TrustItem = {

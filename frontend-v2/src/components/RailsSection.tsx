@@ -1,8 +1,8 @@
-import { useMemo } from 'react'
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
 import { useScrollReveal } from '../hooks/useScrollReveal'
 import { KickerLabel } from './primitives/KickerLabel'
+import { ParticleField } from './primitives/ParticleField'
 
 type Rail = {
   id: 'encrypt' | 'ika' | 'jupiter'
@@ -41,128 +41,8 @@ const RAILS: Rail[] = [
   },
 ]
 
-type ParticleLayerProps = {
-  count: number
-  seed: number
-  sizeMin: number
-  sizeMax: number
-  opacityMin: number
-  opacityMax: number
-  twinkleRatio: number
-  className: string
-}
-
 /**
- * Seeded particle field — one layer of tiny dots scattered across the
- * canvas. Stable seed = SSR-consistent positions.
- *
- * Two layers (foreground + background) compose a parallax dust field:
- *   - foreground: bigger / more opaque / faster drift
- *   - background: smaller / dimmer / slower drift, opposite direction
- * The opposing motion creates a "depth" feel without absurd movement.
- *
- * Color: 70% lagoon-bright, 30% white-ish. ~6% have a slow opacity
- * twinkle (SMIL-driven, staggered).
- */
-function ParticleLayer({
-  count,
-  seed,
-  sizeMin,
-  sizeMax,
-  opacityMin,
-  opacityMax,
-  twinkleRatio,
-  className,
-}: ParticleLayerProps) {
-  const particles = useMemo(() => {
-    let s = seed
-    const rng = () => {
-      s = (s * 1664525 + 1013904223) % 4294967296
-      return s / 4294967296
-    }
-    return Array.from({ length: count }).map(() => {
-      const isTeal = rng() < 0.7
-      const isTwinkle = rng() < twinkleRatio
-      return {
-        cx: rng() * 100,
-        cy: rng() * 60,
-        r: sizeMin + rng() * (sizeMax - sizeMin),
-        opacity: opacityMin + rng() * (opacityMax - opacityMin),
-        color: isTeal ? 'rgb(45 212 191)' : 'rgb(255 255 255)',
-        twinkle: isTwinkle
-          ? {
-              dur: 2.4 + rng() * 3.6, // 2.4-6s
-              begin: -(rng() * 6), // negative offset = in-progress on mount
-            }
-          : null,
-      }
-    })
-  }, [count, seed, sizeMin, sizeMax, opacityMin, opacityMax, twinkleRatio])
-
-  return (
-    <svg
-      aria-hidden="true"
-      className={`${className} pointer-events-none`}
-      preserveAspectRatio="none"
-      viewBox="0 0 100 60"
-    >
-      {particles.map((p, i) => (
-        <circle
-          key={i}
-          cx={p.cx}
-          cy={p.cy}
-          r={p.r}
-          fill={p.color}
-          opacity={p.twinkle ? undefined : p.opacity}
-        >
-          {p.twinkle ? (
-            <animate
-              attributeName="opacity"
-              values={`${p.opacity};${(p.opacity * 0.1).toFixed(2)};${p.opacity}`}
-              dur={`${p.twinkle.dur}s`}
-              begin={`${p.twinkle.begin}s`}
-              repeatCount="indefinite"
-            />
-          ) : null}
-        </circle>
-      ))}
-    </svg>
-  )
-}
-
-/**
- * Composite particle field — 2 layers stacked (background + foreground)
- * for parallax depth.
- */
-function ParticleField() {
-  return (
-    <>
-      <ParticleLayer
-        count={900}
-        seed={37}
-        sizeMin={0.025}
-        sizeMax={0.08}
-        opacityMin={0.10}
-        opacityMax={0.35}
-        twinkleRatio={0.04}
-        className="pl-rails-particles-bg"
-      />
-      <ParticleLayer
-        count={500}
-        seed={7}
-        sizeMin={0.04}
-        sizeMax={0.11}
-        opacityMin={0.20}
-        opacityMax={0.55}
-        twinkleRatio={0.08}
-        className="pl-rails-particles-fg"
-      />
-    </>
-  )
-}
-
-/**
- * Rails section — 3 integration rails (Encrypt / Ika / Jupiter) presented
+ * Rails section, 3 integration rails (Encrypt / Ika / Jupiter) presented
  * as minimal editorial cards on top of a continuous particle dust field
  * with cursor-tracked teal glow. The dust connects the 3 cards visually
  * so they read as one canvas rather than three separate boxes.
@@ -235,7 +115,7 @@ export function RailsSection() {
                   />
                 )}
 
-                {/* Brand mark — Encrypt is a square logo so bump slightly
+                {/* Brand mark, Encrypt is a square logo so bump slightly
                     to match the visual weight of the wider Ika/Jupiter wordmarks. */}
                 <img
                   src={rail.iconSrc}

@@ -1,7 +1,7 @@
 /**
  * Translation dictionaries for Polet AI marketing surfaces.
  *
- * - `en` is the canonical source — every key MUST exist here. This is what
+ * - `en` is the canonical source, every key MUST exist here. This is what
  *   `t()` falls back to when the active locale is missing a key.
  * - `id` is the Indonesian translation.
  *
@@ -11,7 +11,7 @@
  *   localeToggle.* · themeToggle.*
  *
  * Dynamic interpolation (e.g. the footer copyright year) is handled in the
- * call site — dictionary values use `{placeholder}` strings and the caller
+ * call site, dictionary values use `{placeholder}` strings and the caller
  * does the replace. See `Footer.tsx` for the pattern.
  */
 
@@ -25,6 +25,8 @@ export type TranslationKey =
   | 'header.nav.rails'
   | 'header.nav.demo'
   | 'header.nav.docs'
+  | 'header.nav.menu.open'
+  | 'header.nav.menu.close'
   | 'header.devnetPill'
   | 'header.cta.openApp'
   // Hero
@@ -198,7 +200,7 @@ export type TranslationKey =
   | 'demoWidget.live.aria.jupiter'
   | 'demoWidget.live.aria.ika'
   | 'demoWidget.live.aria.block'
-  // DemoWidget v2 — Crypto-Blur Theater
+  // DemoWidget v2, Crypto-Blur Theater
   | 'demoWidget.theater.header.title'
   | 'demoWidget.theater.header.devnet'
   | 'demoWidget.theater.idle.title'
@@ -276,6 +278,8 @@ export type TranslationKey =
   | 'cta.path.explore.cta'
   // Footer
   | 'footer.brand.desc'
+  | 'footer.brand.tagline'
+  | 'footer.brand.subtagline'
   | 'footer.badges.devnetLive'
   | 'footer.col.system.heading'
   | 'footer.col.system.network.label'
@@ -325,6 +329,8 @@ const en: Dictionary = {
   'header.nav.rails': 'Rails',
   'header.nav.demo': 'Demo',
   'header.nav.docs': 'Docs',
+  'header.nav.menu.open': 'Open menu',
+  'header.nav.menu.close': 'Close menu',
   'header.devnetPill': 'Devnet',
   'header.cta.openApp': 'Open App',
 
@@ -336,7 +342,7 @@ const en: Dictionary = {
   'hero.headline.line2.b': 'Hide the limits.',
   'hero.headline.line2.c': 'Skip the seed.',
   'hero.subhead':
-    'Set a private spending limit on a Solana smart-wallet PDA. Grant a temporary session key. Jupiter DCA and Ika dWallet signings all pass the same on-chain policy gate — nothing leaks, nothing bypasses.',
+    'Set a private spending limit on a Solana smart-wallet PDA. Grant a temporary session key. Jupiter DCA and Ika dWallet signings all pass the same on-chain policy gate, nothing leaks, nothing bypasses.',
   'hero.cta.primary': 'Start building',
   'hero.cta.secondary': 'See the policy gate →',
   'hero.meta.devnet': 'Solana Devnet',
@@ -372,7 +378,7 @@ const en: Dictionary = {
   'manifesto.headlineLead': 'You built a DCA bot that works.',
   'manifesto.headlineRest': 'Now it needs signing power.',
   'manifesto.body':
-    'Giving your agent a wallet means giving up everything — spending, allowlists, cross-chain signing, all under one key. Three structural problems every team rebuilds from scratch:',
+    'Giving your agent a wallet means giving up everything, spending, allowlists, cross-chain signing, all under one key. Three structural problems every team rebuilds from scratch:',
   'manifesto.problem1.title': 'Your limits are public',
   'manifesto.problem1.desc':
     'Plaintext spending caps and allowlists on-chain are observable, front-runnable, and exploitable. The agent\'s competitor sees exactly where it stops.',
@@ -388,7 +394,7 @@ const en: Dictionary = {
   'flow.headline.lead': 'One contract. One policy gate.',
   'flow.headline.rest': 'Two execution rails.',
   'flow.body':
-    'Owner deposits funds, sets a confidential policy, grants the AI agent a temporary session key. Every agent action — Solana DCA or cross-chain dWallet signing — passes through the same on-chain guardrail before execution.',
+    'Owner deposits funds, sets a confidential policy, grants the AI agent a temporary session key. Every agent action, Solana DCA or cross-chain dWallet signing, passes through the same on-chain guardrail before execution.',
   'flow.aria':
     'Polet AI architecture: owner sets confidential policy on a Solana smart wallet PDA, grants an AI agent a session key, then a policy gate enforces guardrails before either Jupiter DCA or Ika dWallet signing executes.',
   'flow.node.owner.label': 'Owner',
@@ -412,13 +418,13 @@ const en: Dictionary = {
   'howto.kicker': 'How you use Polet',
   'howto.headline': 'Minute to first value.',
   'howto.step.1.title': 'Deposit to your smart wallet',
-  'howto.step.1.desc': 'USDC and SOL into a PDA the contract controls. No agent access yet — funds custody under program-derived address.',
+  'howto.step.1.desc': 'USDC and SOL into a PDA the contract controls. No agent access yet, funds custody under program-derived address.',
   'howto.step.2.title': 'Save a confidential policy',
   'howto.step.2.desc': 'Max-per-run and daily-cap encrypted on-chain. The threshold never leaves the contract. You can change it anytime.',
   'howto.step.3.title': 'Grant an agent session key',
   'howto.step.3.desc': 'Temporary signing authority with expires_at. The agent trades within your policy. Revoke any time in one transaction.',
 
-  // Rails — Encrypt
+  // Rails, Encrypt
   'rails.kicker': 'Three rails. One gate.',
   'rails.headline.lead': 'One policy gate.',
   'rails.headline.rest': 'Three execution surfaces.',
@@ -426,7 +432,7 @@ const en: Dictionary = {
     'Encrypt keeps the limits private. Ika carries the signing across chains. Jupiter routes the trade. All three pass through the same on-chain gate before a single lamport moves.',
   'rail.encrypt.title': 'Confidential numeric policy',
   'rail.encrypt.body':
-    'Max-per-run and daily-cap stay encrypted on-chain. The contract enforces the guardrail before any spend without ever revealing your private thresholds — built against Encrypt pre-alpha.',
+    'Max-per-run and daily-cap stay encrypted on-chain. The contract enforces the guardrail before any spend without ever revealing your private thresholds, built against Encrypt pre-alpha.',
   'rail.encrypt.bullet.1': 'Masked witness flow with sha256 commitment',
   'rail.encrypt.bullet.2': 'EUint64 graph executor migration in flight (issue 041)',
   'rail.encrypt.bullet.3': 'policy_seq anti-replay on every state change',
@@ -436,10 +442,10 @@ const en: Dictionary = {
   'rail.encrypt.mockAria':
     'Rust source showing Polet enforce_confidential_numeric_policy verifying a witness hash and decrypting masked max-per-run, daily-cap, daily-spent before checking an over-limit amount.',
 
-  // Rails — Ika
+  // Rails, Ika
   'rail.ika.title': 'Bridgeless cross-chain signing',
   'rail.ika.body':
-    'After Polet policy approves, the contract CPI-calls Ika `approve_message` so a dWallet can sign multi-chain intents. No bridge, no asset wrapping — pure cryptographic signing.',
+    'After Polet policy approves, the contract CPI-calls Ika `approve_message` so a dWallet can sign multi-chain intents. No bridge, no asset wrapping, pure cryptographic signing.',
   'rail.ika.bullet.1': 'Multi-chain support',
   'rail.ika.bullet.2': 'Official Ika Pre-Alpha SDK with CPI authority PDA',
   'rail.ika.bullet.3': 'MessageApproval PDA verification on devnet',
@@ -449,10 +455,10 @@ const en: Dictionary = {
   'rail.ika.mockAria':
     'Mock Ika dWallet approval response showing an approved bridgeless order, message hash, MessageApproval PDA, and signature scheme metadata for a multi-chain intent.',
 
-  // Rails — Jupiter
+  // Rails, Jupiter
   'rail.jupiter.title': 'Solana DCA strategy rail',
   'rail.jupiter.body':
-    'Tokens v2, Price v3, and Swap v2 build composed into a route preview. The smart wallet PDA executes the approved instruction with raw control — no off-chain signing trust.',
+    'Tokens v2, Price v3, and Swap v2 build composed into a route preview. The smart wallet PDA executes the approved instruction with raw control, no off-chain signing trust.',
   'rail.jupiter.bullet.1': 'USDC → SOL DCA strategy (extensible to other pairs)',
   'rail.jupiter.bullet.2': 'Tokens v2 metadata + verification pre-check',
   'rail.jupiter.bullet.3': 'Swap v2 /build for raw instruction composition',
@@ -471,7 +477,7 @@ const en: Dictionary = {
     "Assume the agent is compromised. Assume the proxy is compromised. Assume a session key leaks. Polet's smart-wallet PDA still owns the funds, the confidential policy still blocks over-limit spends, and policy_seq still rejects replayed attestations.",
   'security.fact.pda.title': 'Smart wallet PDA',
   'security.fact.pda.desc':
-    'Funds custody under a program-derived address. The contract — not the agent — controls execution.',
+    'Funds custody under a program-derived address. The contract, not the agent, controls execution.',
   'security.fact.session.title': 'Session keys',
   'security.fact.session.desc':
     'Temporary signing authority with expires_at and granted_slot. Revoke single keys or all sessions in one tx.',
@@ -488,11 +494,11 @@ const en: Dictionary = {
   'demo.body':
     'Run the three demo outcomes against a mock API. The block scenario shows how Polet rejects an over-limit agent action without revealing your private threshold.',
   'demo.pill.dca.desc':
-    'In-limit Jupiter DCA — Polet approves and returns an unsigned route/build.',
+    'In-limit Jupiter DCA, Polet approves and returns an unsigned route/build.',
   'demo.pill.ika.desc':
-    'In-limit multi-chain Ika — Polet approves and prepares an Ika dWallet approval transaction.',
+    'In-limit multi-chain Ika, Polet approves and prepares an Ika dWallet approval transaction.',
   'demo.pill.block.desc':
-    'Over-limit — blocked. No threshold leak. No dWallet approval data created.',
+    'Over-limit, blocked. No threshold leak. No dWallet approval data created.',
 
   // Demo widget
   'demoWidget.header.badge': 'polet · mock api',
@@ -542,12 +548,12 @@ const en: Dictionary = {
   'demoWidget.live.aria.jupiter': 'Open /app to run this Jupiter scenario on devnet',
   'demoWidget.live.aria.ika': 'Open /app to run this Ika scenario on devnet',
   'demoWidget.live.aria.block': 'Open /app to see the full blocked scenario on devnet',
-  // DemoWidget v2 — Crypto-Blur Theater
+  // DemoWidget v2, Crypto-Blur Theater
   'demoWidget.theater.header.title': 'policy gate / 01',
   'demoWidget.theater.header.devnet': 'devnet \u00b7 live',
   'demoWidget.theater.idle.title': 'Pick a scenario to begin',
   'demoWidget.theater.idle.desc':
-    'Watch the policy gate evaluate confidential numbers — the agent\u2019s amounts and routes glitch into ciphertext, the gate evaluates blind, and only you can decrypt.',
+    'Watch the policy gate evaluate confidential numbers, the agent\u2019s amounts and routes glitch into ciphertext, the gate evaluates blind, and only you can decrypt.',
   'demoWidget.theater.label.agentRequest': 'agent request · cleartext',
   'demoWidget.theater.label.sealing': 'sealing · encrypting',
   'demoWidget.theater.label.sealed': 'sealed · ciphertext',
@@ -561,7 +567,7 @@ const en: Dictionary = {
   'demoWidget.theater.hint.evaluating': 'checking constraints\u2026',
   'demoWidget.theater.hint.result': 'decision rendered',
   'demoWidget.theater.hint.revealing': 'unscrambling locally',
-  'demoWidget.theater.hint.revealed': 'you saw \u2014 server didn\u2019t',
+  'demoWidget.theater.hint.revealed': 'you saw, server didn\u2019t',
   'demoWidget.theater.field.action': 'action',
   'demoWidget.theater.field.amount': 'amount',
   'demoWidget.theater.field.target': 'target',
@@ -575,13 +581,13 @@ const en: Dictionary = {
     'Policy gate approved without seeing your numbers. Encrypted commitment recorded; the unsigned tx is ready.',
   'demoWidget.theater.result.blocked': 'blocked',
   'demoWidget.theater.result.blocked.body':
-    'Numeric limit exceeded. Original amount stays sealed \u2014 the gate said no without ever reading the cleartext.',
+    'Numeric limit exceeded. Original amount stays sealed, the gate said no without ever reading the cleartext.',
   'demoWidget.theater.result.code': 'code',
   'demoWidget.theater.result.tx': 'tx',
   'demoWidget.theater.reveal.cta': 'Reveal cleartext',
   'demoWidget.theater.reveal.confirmed': 'decrypted (you only)',
   'demoWidget.theater.reveal.note':
-    'Server still sees only the ciphertext. Your session key decrypted locally \u2014 nobody else got the numbers.',
+    'Server still sees only the ciphertext. Your session key decrypted locally, nobody else got the numbers.',
   'demoWidget.theater.reset': 'Reset',
   'demoWidget.theater.pick': 'pick a scenario',
   'demoWidget.scenario.block.label': 'Block 25 USDC',
@@ -596,7 +602,7 @@ const en: Dictionary = {
   'disclaimer.kicker': 'Pre-alpha transparency',
   'disclaimer.headline': 'Every claim is verifiable on devnet.',
   'disclaimer.intro':
-    'We don\'t hide pre-alpha status — we show you exactly what works now, and what we deliberately haven\'t built yet. Both lists are short on purpose.',
+    'We don\'t hide pre-alpha status, we show you exactly what works now, and what we deliberately haven\'t built yet. Both lists are short on purpose.',
   'disclaimer.real.heading': '● Verified on devnet',
   'disclaimer.real.item.1': 'Solana smart wallet PDA, custody, session-key flow',
   'disclaimer.real.item.2': 'Confidential numeric policy enforcement on-chain (devnet)',
@@ -630,6 +636,8 @@ const en: Dictionary = {
   // Footer
   'footer.brand.desc':
     'Confidential Solana control layer for AI agents. Private spending guardrails stay hidden, agents never receive unlimited wallet authority, and cross-chain signing requests cannot bypass on-chain policy.',
+  'footer.brand.tagline': 'Confidential smart wallet for AI agents on Solana.',
+  'footer.brand.subtagline': 'Policy-gated. No unlimited authority.',
   'footer.badges.devnetLive': 'Devnet · Live',
   'footer.col.system.heading': 'System',
   'footer.col.system.network.label': 'Network',
@@ -679,6 +687,8 @@ const id: Dictionary = {
   'header.nav.rails': 'Rails',
   'header.nav.demo': 'Demo',
   'header.nav.docs': 'Docs',
+  'header.nav.menu.open': 'Buka menu',
+  'header.nav.menu.close': 'Tutup menu',
   'header.devnetPill': 'Devnet',
   'header.cta.openApp': 'Buka App',
 
@@ -686,11 +696,11 @@ const id: Dictionary = {
   'hero.kicker': 'Lapisan wallet rahasia untuk AI agent',
   'hero.headline.line1': 'Kasih agent-mu budget.',
   'hero.headline.line2': 'Bukan wallet-mu.',
-  'hero.headline.line2.a': 'Bukan kunci-mu.',
-  'hero.headline.line2.b': 'Sembunyikan limit-nya.',
+  'hero.headline.line2.a': 'Wallet utuh.',
+  'hero.headline.line2.b': 'Limit rahasia.',
   'hero.headline.line2.c': 'Tanpa seed.',
   'hero.subhead':
-    'Atur limit spending rahasia di smart-wallet PDA Solana. Kasih agent session key sementara. Jupiter DCA dan Ika dWallet signing lewat policy gate yang sama — tidak ada yang bocor, tidak ada yang bypass.',
+    'Atur limit spending rahasia di smart-wallet PDA Solana. Kasih agent session key sementara. Jupiter DCA dan Ika dWallet signing lewat policy gate yang sama, tidak ada yang bocor, tidak ada yang bypass.',
   'hero.cta.primary': 'Mulai bangun',
   'hero.cta.secondary': 'Lihat policy gate-nya →',
   'hero.meta.devnet': 'Solana Devnet',
@@ -726,7 +736,7 @@ const id: Dictionary = {
   'manifesto.headlineLead': 'Kamu bangun DCA bot yang berjalan.',
   'manifesto.headlineRest': 'Sekarang dia butuh signing power.',
   'manifesto.body':
-    'Ngasih wallet ke agent berarti menyerahkan segalanya — spending, allowlist, signing cross-chain, semua di bawah satu kunci. Tiga masalah struktural yang tiap tim bangun ulang dari nol:',
+    'Ngasih wallet ke agent berarti menyerahkan segalanya, spending, allowlist, signing cross-chain, semua di bawah satu kunci. Tiga masalah struktural yang tiap tim bangun ulang dari nol:',
   'manifesto.problem1.title': 'Limit-mu ke-publish',
   'manifesto.problem1.desc':
     'Spending cap dan allowlist plaintext on-chain bisa diamati, di-front-run, dan dieksploitasi. Kompetitor agent tahu persis kapan dia berhenti.',
@@ -742,7 +752,7 @@ const id: Dictionary = {
   'flow.headline.lead': 'Satu contract. Satu policy gate.',
   'flow.headline.rest': 'Dua rail eksekusi.',
   'flow.body':
-    'Owner deposit dana, set policy rahasia, kasih AI agent session key sementara. Setiap aksi agent — Solana DCA atau signing dWallet cross-chain — lewat guardrail on-chain yang sama sebelum dieksekusi.',
+    'Owner deposit dana, set policy rahasia, kasih AI agent session key sementara. Setiap aksi agent, Solana DCA atau signing dWallet cross-chain, lewat guardrail on-chain yang sama sebelum dieksekusi.',
   'flow.aria':
     'Arsitektur Polet AI: owner set policy rahasia di smart wallet PDA Solana, kasih AI agent session key, lalu policy gate menegakkan guardrail sebelum Jupiter DCA atau signing Ika dWallet dijalankan.',
   'flow.node.owner.label': 'Owner',
@@ -766,13 +776,13 @@ const id: Dictionary = {
   'howto.kicker': 'Cara memakai Polet',
   'howto.headline': 'Minute to first value.',
   'howto.step.1.title': 'Deposit ke smart wallet',
-  'howto.step.1.desc': 'USDC dan SOL ke PDA yang dikontrol contract. Belum ada akses agent — dana di-custody di bawah program-derived address.',
+  'howto.step.1.desc': 'USDC dan SOL ke PDA yang dikontrol contract. Belum ada akses agent, dana di-custody di bawah program-derived address.',
   'howto.step.2.title': 'Set policy rahasia',
   'howto.step.2.desc': 'Max-per-run dan daily-cap terenkripsi on-chain. Threshold-nya tidak pernah keluar dari contract. Kamu bisa ubah kapan saja.',
   'howto.step.3.title': 'Kasih agent session key',
   'howto.step.3.desc': 'Otoritas signing sementara dengan expires_at. Agent trading dalam batas policy-mu. Revoke kapan saja dalam satu transaksi.',
 
-  // Rails — Encrypt
+  // Rails, Encrypt
   'rails.kicker': 'Tiga rail. Satu gate.',
   'rails.headline.lead': 'Satu policy gate.',
   'rails.headline.rest': 'Tiga rail eksekusi.',
@@ -780,7 +790,7 @@ const id: Dictionary = {
     'Encrypt jaga limit tetap rahasia. Ika bawa signing lintas chain. Jupiter route trade-nya. Tiganya lewat gate on-chain yang sama sebelum satu lamport pun bergerak.',
   'rail.encrypt.title': 'Policy numeric rahasia',
   'rail.encrypt.body':
-    'Max-per-run dan daily-cap tetap terenkripsi on-chain. Contract menegakkan guardrail sebelum spending apa pun tanpa pernah membocorkan threshold privat-mu — dibangun di atas Encrypt pre-alpha.',
+    'Max-per-run dan daily-cap tetap terenkripsi on-chain. Contract menegakkan guardrail sebelum spending apa pun tanpa pernah membocorkan threshold privat-mu, dibangun di atas Encrypt pre-alpha.',
   'rail.encrypt.bullet.1': 'Masked witness flow dengan sha256 commitment',
   'rail.encrypt.bullet.2': 'Migrasi EUint64 graph executor sedang berjalan (issue 041)',
   'rail.encrypt.bullet.3': 'policy_seq anti-replay di setiap perubahan state',
@@ -790,10 +800,10 @@ const id: Dictionary = {
   'rail.encrypt.mockAria':
     'Source Rust yang menunjukkan Polet enforce_confidential_numeric_policy memverifikasi witness hash dan men-decrypt max-per-run, daily-cap, daily-spent ter-masking sebelum mengecek amount yang melebihi limit.',
 
-  // Rails — Ika
+  // Rails, Ika
   'rail.ika.title': 'Signing cross-chain tanpa bridge',
   'rail.ika.body':
-    'Setelah policy Polet approve, contract CPI-call Ika `approve_message` sehingga dWallet bisa signing multi-chain intent. Tanpa bridge, tanpa wrapping asset — murni signing kriptografis.',
+    'Setelah policy Polet approve, contract CPI-call Ika `approve_message` sehingga dWallet bisa signing multi-chain intent. Tanpa bridge, tanpa wrapping asset, murni signing kriptografis.',
   'rail.ika.bullet.1': 'Dukungan multi-chain',
   'rail.ika.bullet.2': 'Official Ika Pre-Alpha SDK dengan CPI authority PDA',
   'rail.ika.bullet.3': 'Verifikasi MessageApproval PDA di devnet',
@@ -803,10 +813,10 @@ const id: Dictionary = {
   'rail.ika.mockAria':
     'Mock response approval Ika dWallet menampilkan bridgeless order yang disetujui, message hash, MessageApproval PDA, dan metadata signature scheme untuk intent multi-chain.',
 
-  // Rails — Jupiter
+  // Rails, Jupiter
   'rail.jupiter.title': 'Rail strategi DCA Solana',
   'rail.jupiter.body':
-    'Tokens v2, Price v3, dan Swap v2 build dikombinasikan jadi route preview. Smart wallet PDA mengeksekusi instruction yang disetujui dengan kontrol penuh — tanpa kepercayaan signing off-chain.',
+    'Tokens v2, Price v3, dan Swap v2 build dikombinasikan jadi route preview. Smart wallet PDA mengeksekusi instruction yang disetujui dengan kontrol penuh, tanpa kepercayaan signing off-chain.',
   'rail.jupiter.bullet.1': 'Strategi USDC → SOL DCA (bisa diperluas ke pair lain)',
   'rail.jupiter.bullet.2': 'Metadata Tokens v2 + pre-check verifikasi',
   'rail.jupiter.bullet.3': 'Swap v2 /build untuk komposisi instruction mentah',
@@ -825,7 +835,7 @@ const id: Dictionary = {
     'Anggap agent-nya dikompromikan. Anggap proxy-nya dikompromikan. Anggap session key bocor. Smart-wallet PDA Polet tetap yang memegang dana, policy rahasia tetap memblokir spend di atas limit, dan policy_seq tetap menolak attestation yang direplay.',
   'security.fact.pda.title': 'Smart wallet PDA',
   'security.fact.pda.desc':
-    'Dana di-custody di bawah program-derived address. Contract — bukan agent — yang mengontrol eksekusi.',
+    'Dana di-custody di bawah program-derived address. Contract, bukan agent, yang mengontrol eksekusi.',
   'security.fact.session.title': 'Session keys',
   'security.fact.session.desc':
     'Otoritas signing sementara dengan expires_at dan granted_slot. Revoke satu key atau semua sesi dalam satu transaksi.',
@@ -842,11 +852,11 @@ const id: Dictionary = {
   'demo.body':
     'Jalankan tiga skenario demo melawan mock API. Skenario block menunjukkan bagaimana Polet menolak aksi agent di atas limit tanpa membocorkan threshold rahasia-mu.',
   'demo.pill.dca.desc':
-    'Jupiter DCA dalam limit — Polet approve dan mengembalikan route/build tanpa signature.',
+    'Jupiter DCA dalam limit, Polet approve dan mengembalikan route/build tanpa signature.',
   'demo.pill.ika.desc':
-    'Ika multi-chain dalam limit — Polet approve dan menyiapkan transaksi approval Ika dWallet.',
+    'Ika multi-chain dalam limit, Polet approve dan menyiapkan transaksi approval Ika dWallet.',
   'demo.pill.block.desc':
-    'Di atas limit — diblokir. Tidak ada threshold yang bocor. Tidak ada data approval dWallet dibuat.',
+    'Di atas limit, diblokir. Tidak ada threshold yang bocor. Tidak ada data approval dWallet dibuat.',
 
   // Demo widget
   'demoWidget.header.badge': 'polet · mock api',
@@ -896,12 +906,12 @@ const id: Dictionary = {
   'demoWidget.live.aria.jupiter': 'Buka /app untuk menjalankan skenario Jupiter di devnet',
   'demoWidget.live.aria.ika': 'Buka /app untuk menjalankan skenario Ika di devnet',
   'demoWidget.live.aria.block': 'Buka /app untuk melihat skenario blocked lengkap di devnet',
-  // DemoWidget v2 — Crypto-Blur Theater
+  // DemoWidget v2, Crypto-Blur Theater
   'demoWidget.theater.header.title': 'policy gate / 01',
   'demoWidget.theater.header.devnet': 'devnet \u00b7 live',
   'demoWidget.theater.idle.title': 'Pilih skenario untuk mulai',
   'demoWidget.theater.idle.desc':
-    'Lihat policy gate mengevaluasi angka rahasia \u2014 nominal & rute agent berubah jadi ciphertext, gate evaluasi tanpa decrypt, hanya kamu yang bisa membuka kembali.',
+    'Lihat policy gate mengevaluasi angka rahasia, nominal & rute agent berubah jadi ciphertext, gate evaluasi tanpa decrypt, hanya kamu yang bisa membuka kembali.',
   'demoWidget.theater.label.agentRequest': 'permintaan agent \u00b7 cleartext',
   'demoWidget.theater.label.sealing': 'menyegel \u00b7 enkripsi',
   'demoWidget.theater.label.sealed': 'tersegel \u00b7 ciphertext',
@@ -915,7 +925,7 @@ const id: Dictionary = {
   'demoWidget.theater.hint.evaluating': 'cek constraint\u2026',
   'demoWidget.theater.hint.result': 'putusan keluar',
   'demoWidget.theater.hint.revealing': 'membuka lokal',
-  'demoWidget.theater.hint.revealed': 'kamu lihat \u2014 server tidak',
+  'demoWidget.theater.hint.revealed': 'kamu lihat, server tidak',
   'demoWidget.theater.field.action': 'aksi',
   'demoWidget.theater.field.amount': 'nominal',
   'demoWidget.theater.field.target': 'target',
@@ -929,13 +939,13 @@ const id: Dictionary = {
     'Policy gate menyetujui tanpa pernah melihat angka kamu. Komitmen ciphertext tercatat; unsigned tx siap.',
   'demoWidget.theater.result.blocked': 'diblok',
   'demoWidget.theater.result.blocked.body':
-    'Limit numerik terlampaui. Nominal asli tetap tersegel \u2014 gate menolak tanpa pernah membaca cleartext.',
+    'Limit numerik terlampaui. Nominal asli tetap tersegel, gate menolak tanpa pernah membaca cleartext.',
   'demoWidget.theater.result.code': 'kode',
   'demoWidget.theater.result.tx': 'tx',
   'demoWidget.theater.reveal.cta': 'Buka cleartext',
   'demoWidget.theater.reveal.confirmed': 'terdekripsi (hanya kamu)',
   'demoWidget.theater.reveal.note':
-    'Server tetap hanya lihat ciphertext. Session key kamu decrypt secara lokal \u2014 tidak ada yang lain dapat angkanya.',
+    'Server tetap hanya lihat ciphertext. Session key kamu decrypt secara lokal, tidak ada yang lain dapat angkanya.',
   'demoWidget.theater.reset': 'Reset',
   'demoWidget.theater.pick': 'pilih skenario',
   'demoWidget.scenario.block.label': 'Blok 25 USDC',
@@ -950,7 +960,7 @@ const id: Dictionary = {
   'disclaimer.kicker': 'Transparansi pre-alpha',
   'disclaimer.headline': 'Setiap klaim bisa diverifikasi di devnet.',
   'disclaimer.intro':
-    'Kami tidak menyembunyikan status pre-alpha — kami tunjukkan persis apa yang bekerja sekarang, dan apa yang sengaja belum kami bangun. Kedua list ini memang sengaja pendek.',
+    'Kami tidak menyembunyikan status pre-alpha, kami tunjukkan persis apa yang bekerja sekarang, dan apa yang sengaja belum kami bangun. Kedua list ini memang sengaja pendek.',
   'disclaimer.real.heading': '● Terverifikasi di devnet',
   'disclaimer.real.item.1': 'Smart wallet PDA Solana, custody, flow session-key',
   'disclaimer.real.item.2': 'Enforcement policy numeric rahasia on-chain (devnet)',
@@ -984,6 +994,8 @@ const id: Dictionary = {
   // Footer
   'footer.brand.desc':
     'Lapisan kontrol Solana yang rahasia untuk AI agent. Guardrail spending privat tetap tersembunyi, agent tidak pernah menerima otoritas wallet tak terbatas, dan request signing cross-chain tidak bisa bypass policy on-chain.',
+  'footer.brand.tagline': 'Smart wallet rahasia untuk AI agent di Solana.',
+  'footer.brand.subtagline': 'Policy-gated. Tanpa otoritas tak terbatas.',
   'footer.badges.devnetLive': 'Devnet · Live',
   'footer.col.system.heading': 'Sistem',
   'footer.col.system.network.label': 'Network',

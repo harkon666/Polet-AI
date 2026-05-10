@@ -9,14 +9,14 @@ import { KickerLabel } from './primitives/KickerLabel'
 const PROGRAM_ID_SHORT = 'F7Xd…rS99p'
 
 /**
- * Cycling punchlines for the hero — each ends "Give your agent a budget."
+ * Cycling punchlines for the hero, each ends "Give your agent a budget."
  * with a different value-prop ending. Rotates every 4s with fade animation
  * (skipped when prefers-reduced-motion is on).
  */
 const PUNCHLINE_KEYS: TranslationKey[] = [
-  'hero.headline.line2.a', // "Not your keys." — session-key model
-  'hero.headline.line2.b', // "Hide the limits." — confidential policy
-  'hero.headline.line2.c', // "Skip the seed." — no seed exposure
+  'hero.headline.line2.a', // "Not your keys.", session-key model
+  'hero.headline.line2.b', // "Hide the limits.", confidential policy
+  'hero.headline.line2.c', // "Skip the seed.", no seed exposure
 ]
 
 const PUNCHLINE_INTERVAL_MS = 4000
@@ -71,15 +71,15 @@ export function Hero() {
     <section
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      className="pl-ambient-hero relative overflow-hidden"
+      className="pl-ambient-hero relative overflow-hidden -mt-16"
       aria-labelledby="hero-heading"
     >
-      <div className="mx-auto max-w-6xl px-6 pt-20 pb-24 sm:pt-28 sm:pb-32 md:pt-36 md:pb-40">
+      <div className="mx-auto max-w-6xl px-6 pt-36 pb-24 sm:pt-44 sm:pb-32 md:pt-52 md:pb-40">
         <div className="text-center space-y-8 md:space-y-10">
           {/* Kicker */}
           <KickerLabel className="pl-reveal">{t('hero.kicker')}</KickerLabel>
 
-          {/* Headline — hierarchy split: small setup + GIANT punchline */}
+          {/* Headline, hierarchy split: small setup + GIANT punchline */}
           <h1
             id="hero-heading"
             className="pl-reveal font-sans"
@@ -90,7 +90,7 @@ export function Hero() {
             </span>
             <span
               key={currentPunchlineKey}
-              className="pl-rotate-in block text-4xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl text-ink font-black tracking-tighter leading-[0.9]"
+              className="pl-rotate-in block text-4xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl text-ink font-black tracking-tighter leading-[0.9] min-h-[1em] text-balance"
             >
               {t(currentPunchlineKey)}
             </span>

@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 const V1_ABOUT_URL = 'http://localhost:3000/about'
 
 /**
- * Stub redirect to v1 about page — `/about` (How It Works) stays in the
+ * Stub redirect to v1 about page, `/about` (How It Works) stays in the
  * legacy `frontend/` until v2 ports the deep-tech page (Day 7+ cutover).
  */
 export const Route = createFileRoute('/about')({

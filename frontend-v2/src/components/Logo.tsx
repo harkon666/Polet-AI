@@ -1,5 +1,5 @@
 /**
- * Polet logomark — inline SVG traced from `frontend/public/polet-logo.png`
+ * Polet logomark, inline SVG traced from `frontend/public/polet-logo.png`
  * via potrace 1.16. Single white "P" glyph (chevron + foot + dot), pure
  * geometric construction with constant stroke width.
  *
@@ -7,7 +7,7 @@
  * utility (e.g. `text-ink`, `text-lagoon`). Sized via `className` (typically
  * `h-7 w-auto` for header, `h-12 w-auto` for footer).
  *
- * Aspect ratio: 376.6 × 577.6 (portrait, ~0.65 ratio) — authentic to the
+ * Aspect ratio: 376.6 × 577.6 (portrait, ~0.65 ratio), authentic to the
  * source asset; do NOT pad to square in the SVG itself, let parent decide.
  */
 export function Logo({

@@ -15,11 +15,11 @@ import {
 
 import appCss from '../styles.css?url'
 
-// Locale init — runs before hydration to avoid FOUC.
+// Locale init, runs before hydration to avoid FOUC.
 // Reads localStorage 'polet.locale' first, falls back to navigator.language.
 const LOCALE_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('polet.locale');var locale=(stored==='id'||stored==='en')?stored:((navigator.language||'en').toLowerCase().startsWith('id')?'id':'en');document.documentElement.setAttribute('lang',locale);}catch(e){}})();`
 
-const PAGE_TITLE = `${SITE_NAME} — Confidential Solana control layer for AI agents`
+const PAGE_TITLE = `${SITE_NAME}, Confidential Solana control layer for AI agents`
 const OG_IMAGE_URL = `${SITE_URL}${OG_IMAGE_PATH}`
 
 // JSON-LD structured data for search engines.
@@ -57,7 +57,7 @@ export const Route = createRootRoute({
       { property: 'og:image', content: OG_IMAGE_URL },
       { property: 'og:image:width', content: String(OG_IMAGE_WIDTH) },
       { property: 'og:image:height', content: String(OG_IMAGE_HEIGHT) },
-      { property: 'og:image:alt', content: `${SITE_NAME} — confidential Solana control layer` },
+      { property: 'og:image:alt', content: `${SITE_NAME}, confidential Solana control layer` },
       { property: 'og:locale', content: 'en_US' },
       { property: 'og:locale:alternate', content: 'id_ID' },
       // Twitter
@@ -65,7 +65,7 @@ export const Route = createRootRoute({
       { name: 'twitter:title', content: PAGE_TITLE },
       { name: 'twitter:description', content: SITE_DESCRIPTION },
       { name: 'twitter:image', content: OG_IMAGE_URL },
-      { name: 'twitter:image:alt', content: `${SITE_NAME} — confidential Solana control layer` },
+      { name: 'twitter:image:alt', content: `${SITE_NAME}, confidential Solana control layer` },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },

@@ -17,7 +17,7 @@ type Phase =
   | 'revealed'
 
 /**
- * DemoWidget — Crypto-Blur Theater.
+ * DemoWidget, Crypto-Blur Theater.
  *
  * Visualizes Polet's confidential numeric policy: agent request fields
  * (amount, target, route) GLITCH-SCRAMBLE to encrypted hex; policy gate
@@ -26,13 +26,13 @@ type Phase =
  *
  * Phase machine:
  *   idle       → user picks scenario
- *   cleartext  → show fields in clear (1000ms — "this is what the agent sees")
- *   encrypting → fields glitch-scramble to hex (1000ms — chromatic aberration)
- *   encrypted  → settled hex blobs glow (500ms — sealed)
+ *   cleartext  → show fields in clear (1000ms, "this is what the agent sees")
+ *   encrypting → fields glitch-scramble to hex (1000ms, chromatic aberration)
+ *   encrypted  → settled hex blobs glow (500ms, sealed)
  *   evaluating → policy gate progress + constraint rows stagger (1200ms)
  *   result     → ALLOWED/BLOCKED badge + reset/reveal CTAs
  *   revealing  → un-scramble back (700ms, allow only)
- *   revealed   → cleartext visible — "you decrypted, server can't"
+ *   revealed   → cleartext visible, "you decrypted, server can't"
  *
  * Anchor #demo so header nav scrolls here.
  */
@@ -192,13 +192,13 @@ export function DemoWidget() {
           </p>
         </div>
 
-        {/* Theater — Glass Holographic Plate (no outer frame).
+        {/* Theater, Glass Holographic Plate (no outer frame).
             Content floats on radial halo backdrop with top accent line. */}
         <div
           className="pl-reveal pl-holographic-plate relative max-w-3xl mx-auto mt-10 md:mt-12"
           style={{ transitionDelay: '240ms' }}
         >
-          {/* Header — floating identifier strip, no container */}
+          {/* Header, floating identifier strip, no container */}
           <div className="px-2 md:px-3 pt-6 pb-5">
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <span className="pl-blueprint-id text-lagoon-bright">
@@ -214,7 +214,7 @@ export function DemoWidget() {
             </div>
           </div>
 
-          {/* Stage — glass card */}
+          {/* Stage, glass card */}
           <div className="pl-glass-card-strong rounded-xl px-5 md:px-6 pt-5 pb-5 min-h-[340px] flex flex-col">
             {phase === 'idle' ? (
               <IdleStage />
@@ -229,7 +229,7 @@ export function DemoWidget() {
             )}
           </div>
 
-          {/* Scenario picker — header + pill grid, no outer card */}
+          {/* Scenario picker, header + pill grid, no outer card */}
           <div className="mt-5 px-2 md:px-3">
             <div className="flex items-center gap-2 mb-2.5">
               <span className="pl-blueprint-id text-ink-mute">
@@ -265,7 +265,7 @@ export function DemoWidget() {
             </div>
           </div>
 
-          {/* Footer — floating, no container */}
+          {/* Footer, floating, no container */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-5 px-2 md:px-3">
             <span className="inline-flex items-center gap-2 pl-blueprint-id text-ink-soft">
               <span className="relative flex size-1.5">
@@ -295,7 +295,7 @@ export function DemoWidget() {
    ============================================ */
 
 /**
- * Encrypted noise layer — scattered cipher fragments in section bg.
+ * Encrypted noise layer, scattered cipher fragments in section bg.
  * Tells encryption story even in negative space. Each fragment has its
  * own opacity, duration, and delay for organic varied breathing.
  *
@@ -459,7 +459,7 @@ function ActiveStage({
       {/* Field grid */}
       <FieldGrid scenario={scenario} fieldState={fieldState} />
 
-      {/* Gate process — appears from evaluating phase */}
+      {/* Gate process, appears from evaluating phase */}
       {showGate && (
         <GatePanel
           scenario={scenario}
@@ -564,7 +564,7 @@ function GatePanel({
   const isEvaluating = phase === 'evaluating'
   const isSettled = phase === 'result' || phase === 'revealing' || phase === 'revealed'
 
-  // Constraint check rows — block scenario fails numeric_limit
+  // Constraint check rows, block scenario fails numeric_limit
   const constraints: Array<{ key: string; label: string; outcome: 'pass' | 'fail' }> = [
     {
       key: 'numericLimit',
@@ -609,7 +609,7 @@ function GatePanel({
       {/* Progress bar */}
       <div className="pl-progress-bar mb-3" aria-hidden="true" />
 
-      {/* Constraint check rows — staggered */}
+      {/* Constraint check rows, staggered */}
       <div className="space-y-1.5 font-mono text-[11px]">
         {constraints.map((c, i) => (
           <div
@@ -772,7 +772,7 @@ function ResultBadge({
         </div>
       </div>
 
-      {/* Reveal note — appears after reveal */}
+      {/* Reveal note, appears after reveal */}
       {isRevealed && (
         <p className="mt-3 pt-3 border-t border-lagoon-bright/15 font-mono text-[11px] text-ink-mute relative z-10">
           {t('demoWidget.theater.reveal.note')}

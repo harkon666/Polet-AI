@@ -3,7 +3,7 @@ import { Button } from './primitives/Button'
 import { KickerLabel } from './primitives/KickerLabel'
 
 /**
- * Default 404 page — shown when a route doesn't match. Routes the user
+ * Default 404 page, shown when a route doesn't match. Routes the user
  * back to the landing or to /app.
  *
  * Quietly satisfies TanStack Router's `defaultNotFoundComponent` config
