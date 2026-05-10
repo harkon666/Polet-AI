@@ -7,6 +7,7 @@ import { walletRouter } from './routes/wallet';
 import { agentRouter } from './routes/agent';
 import { legacyIntentRouter } from './routes/legacy-intent';
 import { passkeyRouter } from './routes/passkey';
+import { ikaLifecycleRouter } from './routes/ika-lifecycle';
 
 const app = new Hono();
 
@@ -25,6 +26,7 @@ app.route('/legacy/template', templateRouter);
 app.route('/wallet', walletRouter);
 app.route('/agent', agentRouter);
 app.route('/passkey', passkeyRouter);
+app.route('/ika', ikaLifecycleRouter);
 
 // Error handling middleware
 app.onError((err, c) => {

@@ -199,5 +199,5 @@ Then open `http://localhost:3000`, connect a devnet wallet, initialize the Polet
 - Jupiter DX report: `docs/jupiter-dx-report.md`
 - Demo script: `docs/demo-script.md`
 - Local agent runtime: `docs/agent-runtime.md`
-- Ika devnet smoke runbook: `docs/ika-devnet-smoke-runbook.md`
+- Ika devnet smoke runbook: `docs/ika-devnet-smoke-runbook.md` (the "Issue 080 — Full Ika Pre-Alpha Lifecycle" section covers the end-to-end DKG → TransferOwnership → Approve → Presign → Sign → CommitSignature → destination broadcast flow with kill-switch evidence)
 - Local issue specs: `docs/issues/`

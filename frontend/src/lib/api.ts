@@ -1227,4 +1227,218 @@ export async function broadcastIkaDestination(
   return data.data;
 }
 
+// ---------- Managed Ika setup (Opsi A) ----------
+
+export type IkaManagedChain = 'sui' | 'ethereum';
+export type IkaManagedCurve = 'curve25519' | 'secp256k1';
+export type IkaGasDepositAction =
+  | 'already-funded'
+  | 'funded-by-subsidy'
+  | 'gas-deposit-required'
+  | 'funding-skipped';
+
+export interface IkaEnableChainInput {
+  owner: string;
+  chain: IkaManagedChain;
+  curve?: IkaManagedCurve;
+  subsidy?: { ikaBaseUnits?: string; solLamports?: string };
+}
+
+export interface IkaManagedDwalletRegistration {
+  owner: string;
+  dwalletAccount: string;
+  dwalletPublicKeyHex: string;
+  transferredAuthority: string;
+  curve: number;
+  createdEpoch: string;
+  label?: string;
+  source?: string;
+}
+
+export interface IkaManagedGasDepositSummary {
+  pda: string;
+  action: IkaGasDepositAction;
+  subsidyTxSignature?: string;
+  status: {
+    exists: boolean;
+    passes: boolean;
+    reason?: string;
+    floors: { minIkaBaseUnits: string; minSolLamports: string };
+    observed: { ikaBalance?: string; solBalance?: string } | null;
+  };
+}
+
+export interface IkaEnableChainResult {
+  status: 'enabled';
+  chain: IkaManagedChain;
+  curve: IkaManagedCurve;
+  registry: IkaManagedDwalletRegistration;
+  fixtureDisclosure: string;
+  gasDeposit: IkaManagedGasDepositSummary;
+  authorityVerification:
+    | { ok: true; onchain: string }
+    | { ok: false; onchain: string | null; expected: string; warning: string };
+}
+
+export async function enableIkaChain(input: IkaEnableChainInput): Promise<IkaEnableChainResult> {
+  const data = await fetchJson<{ success: boolean; data: IkaEnableChainResult }>(
+    `${PROXY_URL}/ika/enable-chain`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }
+  );
+  return data.data;
+}
+
+export async function getIkaDwalletRegistration(
+  owner: string
+): Promise<IkaManagedDwalletRegistration | null> {
+  const res = await fetch(`${PROXY_URL}/ika/dwallet/${owner}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      typeof body?.error === 'string'
+        ? body.error
+        : body?.error?.message || `HTTP ${res.status}`
+    );
+  }
+  const payload = await res.json();
+  return payload?.data ?? null;
+}
+
+export async function getIkaGasDepositStatus(
+  owner: string
+): Promise<IkaManagedGasDepositSummary['status'] & { pda: string }> {
+  const payload = await fetchJson<{
+    success: boolean;
+    data: IkaManagedGasDepositSummary['status'] & { pda: string };
+  }>(`${PROXY_URL}/ika/gas-deposit/${owner}`);
+  return payload.data;
+}
+
+export interface IkaManagedFixtureStatus {
+  version: 1;
+  disclosure: string;
+  entries: Array<{
+    curveKey: IkaManagedCurve;
+    dwalletAccount?: string;
+    dwalletPublicKeyHex?: string;
+    transferredAuthority?: string;
+    createdEpoch?: string;
+  }>;
+}
+
+export async function getIkaManagedFixtureStatus(): Promise<IkaManagedFixtureStatus | null> {
+  const res = await fetch(`${PROXY_URL}/ika/managed-fixture/status`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (res.status === 503) return null; // fixture missing
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(
+      typeof body?.error === 'string'
+        ? body.error
+        : body?.error?.message || `HTTP ${res.status}`
+    );
+  }
+  const payload = await res.json();
+  return payload?.data ?? null;
+}
+
+// ---------- Managed lifecycle progression ----------
+
+export type IkaLifecycleStatus =
+  | 'approval-transaction-prepared'
+  | 'signature-committed'
+  | 'session-revoked-midflight'
+  | 'gas-floor-blocked'
+  | 'lifecycle-error'
+  | 'broadcast-disabled';
+
+export type IkaLifecycleRevokePhase = 'pre-presign' | 'pre-sign' | 'post-sign-pre-broadcast';
+
+export interface IkaLifecycleBroadcastSummary {
+  ok: boolean;
+  status: string;
+  chain: string;
+  receipt?: {
+    transactionHash?: string;
+    explorerUrl?: string;
+    cluster?: string;
+    productionSettlement?: boolean;
+  } | null;
+  code?: string;
+  reason?: string;
+  productionSettlement: false;
+}
+
+export interface ProgressIkaLifecycleInput {
+  ikaRequest: IkaRequestPreview;
+  approvalTransactionSignature: string;
+  approvalTransactionSlot: string | number;
+  /** Default true: proxy loads attestation / NEK / centralized sig from managed fixture. */
+  managedFixture?: boolean;
+  /** Override fields; only needed outside managed demo mode. */
+  dwalletAttestation?: {
+    attestationDataHex: string;
+    networkSignatureHex: string;
+    networkPublicKeyHex: string;
+    epoch: string;
+  };
+  dwalletNetworkEncryptionPublicKeyHex?: string;
+  messageCentralizedSignatureHex?: string;
+  importedKey?: boolean;
+  polling?: { timeoutMs?: number; intervalMs?: number };
+  broadcast?: {
+    mode?: 'auto' | 'live' | 'demo-memo' | 'disabled';
+    suiRpcUrl?: string;
+    ethereumRpcUrl?: string;
+  };
+}
+
+export interface IkaLifecycleOutcome {
+  lifecycleStatus: IkaLifecycleStatus;
+  signatureHex?: string;
+  messageDigestHex?: string;
+  messageApprovalPda?: string;
+  dwalletAccount?: string;
+  signatureScheme?: number | string;
+  epoch?: string;
+  revokePhase?: IkaLifecycleRevokePhase;
+  attemptedSteps?: string[];
+  broadcast?: IkaLifecycleBroadcastSummary | null;
+  code?: string;
+  reason?: string;
+}
+
+export async function progressIkaLifecycle(input: ProgressIkaLifecycleInput): Promise<IkaLifecycleOutcome> {
+  const res = await fetch(`${PROXY_URL}/ika/lifecycle/progress`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (res.ok && payload?.success) {
+    return payload.data as IkaLifecycleOutcome;
+  }
+  // Unified failure shape: proxy either returns success=false with data.code, or an error string.
+  const data = (payload?.data ?? {}) as Partial<IkaLifecycleOutcome>;
+  return {
+    lifecycleStatus: (data.lifecycleStatus as IkaLifecycleStatus) ?? 'lifecycle-error',
+    code: (data.code as string | undefined) ?? payload?.code,
+    reason:
+      (data.reason as string | undefined)
+      ?? (typeof payload?.error === 'string' ? payload.error : 'Lifecycle progression failed'),
+    revokePhase: data.revokePhase as IkaLifecycleRevokePhase | undefined,
+    attemptedSteps: data.attemptedSteps as string[] | undefined,
+    broadcast: (data.broadcast as IkaLifecycleBroadcastSummary | null | undefined) ?? null,
+  };
+}
+
 export { PROXY_URL };

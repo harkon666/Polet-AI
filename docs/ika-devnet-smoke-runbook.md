@@ -545,3 +545,265 @@ cd frontend && bun run test
 ```
 
 The local contract tests use `mock_ika` to prove policy-gated CPI behavior. The devnet smoke only adds live Pre-Alpha evidence when the external network is available.
+
+
+---
+
+## Issue 080 — Full Ika Pre-Alpha Lifecycle (Polet wiring)
+
+Issue 080 wires the complete Ika Pre-Alpha Common Flow (DKG → TransferOwnership → Approve → Presign → Sign → CommitSignature → destination broadcast) into Polet. The steps below cover the additions produced by that issue on top of the smoke runbook above.
+
+Pre-alpha disclaimer: Ika signing uses a single mock signer, not production MPC. Destination broadcast is Sui devnet / Ethereum Sepolia only. Polet does not claim production bridgeless settlement or real-asset finality.
+
+### Managed Demo Mode (recommended for hackathon reviewers)
+
+Issue 080 ships a **managed demo mode** that collapses the per-user dWallet setup into one frontend button. The operator runs the Ika DKG + TransferOwnership **once** at deployment time, writes the resulting dWallet metadata to a JSON fixture, and the proxy reuses it for all demo users. This mirrors the "house signer" pattern and avoids forcing hackathon reviewers through a Rust CLI.
+
+Trade-offs:
+- All demo users share the same underlying dWallet. Acceptable because Ika pre-alpha is mock-signer anyway.
+- Clear disclosure copy in the frontend (`IkaSetupPanel`) and `GET /ika/managed-fixture/status` make the mode explicit.
+- Production roadmap still points at per-user WASM DKG; see "Advanced self-custody path" below.
+
+#### Operator one-time setup
+
+1. Run `scripts/ika-setup-dwallet.ts --owner <OPERATOR_PUBKEY> --curve curve25519 --dkg-material ./dkg.json` (once per curve).
+2. Capture the DKG attestation (`attestationDataHex`, `networkSignatureHex`, `networkPublicKeyHex`, `epoch`), network encryption key, dWallet pubkey + account, and the `messageCentralizedSignature` the DKG tooling returns.
+3. Submit TransferOwnership so the dWallet's `authority` becomes Polet's `__ika_cpi_authority` PDA. Verify on-chain.
+4. Write `.polet/ika-managed-fixture.json` (or point `POLET_IKA_MANAGED_FIXTURE_PATH` at a chosen path) with the shape:
+
+   ```json
+   {
+     "version": 1,
+     "disclosure": "Polet demo managed dWallet — pre-alpha mock signer only.",
+     "dwallets": {
+       "curve25519": {
+         "curve": 2,
+         "dwalletAccount": "…",
+         "dwalletPublicKeyHex": "…",
+         "transferredAuthority": "<Polet CPI authority PDA>",
+         "createdEpoch": "<epoch>",
+         "dwalletNetworkEncryptionPublicKeyHex": "…",
+         "dwalletAttestation": {
+           "attestationDataHex": "…",
+           "networkSignatureHex": "…",
+           "networkPublicKeyHex": "…",
+           "epoch": "<epoch>"
+         },
+         "messageCentralizedSignatureHex": "…"
+       },
+       "secp256k1": { "…": "optional; required only for Ethereum broadcast" }
+     }
+   }
+   ```
+
+5. Optionally fund a subsidy keypair and expose it via `POLET_IKA_SUBSIDY_KEYPAIR_PATH` (json array) or `POLET_IKA_SUBSIDY_KEYPAIR` (base58) so `/ika/enable-chain` can auto-fund user `GasDeposit` PDAs. Without this, the endpoint returns `gasDeposit.action = 'gas-deposit-required'` and the frontend surfaces a faucet hint.
+
+6. Sanity-check with `curl http://localhost:3001/ika/managed-fixture/status`.
+
+#### Per-user demo click path
+
+1. User connects wallet in the frontend and lands on the Demo Tab.
+2. `IkaSetupPanel` auto-fetches `/ika/dwallet/:owner`, `/ika/gas-deposit/:owner`, and `/ika/managed-fixture/status` on mount. Status tiles show `dWallet`, `CPI authority`, `curve`, `gas deposit`.
+3. User clicks **Enable Sui devnet** (or **Enable Ethereum Sepolia**). Frontend posts `/ika/enable-chain { owner, chain }`.
+4. Proxy:
+   - loads the managed fixture entry for the requested curve,
+   - verifies on-chain that `dwallet.authority == transferredAuthority` (warning only if drifted),
+   - upserts `registry[owner] -> dwallet`,
+   - funds GasDeposit via `CreateDeposit` / `TopUp` if a subsidy keypair is configured,
+   - returns `{ registry, gasDeposit, authorityVerification, fixtureDisclosure }`.
+5. Demo Tab now unlocks the Ika trade buttons. No CLI, no DKG material upload, no local keypair.
+
+#### Per-trade click path (after setup)
+
+1. Agent submits a 5 USDC Ika intent via `/intent/multichain/run`.
+2. Session signer lands `poletApprovalTransaction` on Solana devnet; frontend captures `signature + slot`.
+3. Frontend calls `progressIkaLifecycle({ ikaRequest, approvalTransactionSignature, approvalTransactionSlot, managedFixture: true })`. With `managedFixture: true` (default), the proxy fills `dwalletAttestation`, `dwalletNetworkEncryptionPublicKeyHex`, and `messageCentralizedSignatureHex` from the fixture, so the browser never handles cryptographic material.
+4. Proxy runs Presign → Sign → CommitSignature → destination broadcast as described below.
+5. Frontend renders `lifecycleStatus`, the 64-byte signature, and the destination explorer URL (Sui or Sepolia).
+
+#### Advanced self-custody path
+
+Operators or reviewers who want a per-user zero-trust dWallet can skip the managed fixture and run:
+
+```bash
+bun run scripts/ika-setup-dwallet.ts \
+  --owner <USER_PUBKEY> \
+  --curve curve25519 \
+  --dkg-material ./dkg.json
+```
+
+Then call `POST /ika/setup-dwallet/commit` with the resulting pubkey/authority, and supply `dwalletAttestation` + `dwalletNetworkEncryptionPublicKeyHex` + `messageCentralizedSignatureHex` explicitly on every `/ika/lifecycle/progress` call (`managedFixture: false`). This is the production-shaped path; it is deferred behind the managed demo mode for hackathon UX.
+
+### Prerequisites specific to 080
+
+- Devnet IKA + devnet SOL funded on the proxy service keypair that will authenticate Ika gRPC calls.
+- Proxy environment:
+  - `POLET_IKA_SERVICE_KEYPAIR_HEX` — 64-byte hex tweetnacl Ed25519 secret key (used to sign `SignedRequestData`).
+  - `IKA_GRPC_URL` — defaults to `pre-alpha-dev-1.ika.ika-network.net:443`.
+  - `POLET_IKA_GAS_MIN_IKA_BASE_UNITS` / `POLET_IKA_GAS_MIN_SOL_LAMPORTS` — floor guards for `Presign` / `Sign`.
+  - `POLET_DESTINATION_BROADCAST_MODE` — one of `auto|live|demo-memo|disabled`. `auto` defaults to `demo-memo`.
+  - `POLET_SUI_DEVNET_RPC_URL` / `POLET_ETHEREUM_SEPOLIA_RPC_URL` — override the public RPCs when needed.
+- A DKG material JSON produced by the official `ika-dwallet` CLI. File shape:
+
+  ```json
+  {
+    "dwalletNetworkEncryptionPublicKeyHex": "…",
+    "centralizedPublicKeyShareAndProofHex": "…",
+    "userPublicOutputHex": "…",
+    "share": {
+      "mode": "encrypted",
+      "encryptedCentralizedSecretShareAndProofHex": "…",
+      "encryptionKeyHex": "…",
+      "signerPublicKeyHex": "…"
+    }
+  }
+  ```
+
+  Zero-trust `encrypted` mode is the default. `{"mode":"public", "publicUserSecretKeyShareHex":"…"}` is allowed for demo simplicity only.
+
+### 1. Create the dWallet and transfer authority
+
+Run the Polet setup helper:
+
+```bash
+bun run scripts/ika-setup-dwallet.ts \
+  --owner <SOLANA_OWNER_PUBKEY> \
+  --curve curve25519 \
+  --dkg-material ./dkg.json
+```
+
+What it does:
+
+1. Prints the Polet CPI authority PDA derived from seed `__ika_cpi_authority` under the Polet program id.
+2. Submits `DWalletRequest::DKG` to the Ika gRPC endpoint using the service keypair.
+3. Prints the BCS-serialized `TransferOwnership` (disc `24`) instruction data so the operator can submit it with the dWallet's current authority signer.
+4. Instructs the operator to call `POST /ika/setup-dwallet/commit` after verifying `dwallet.authority == cpi_authority_pda` on-chain.
+
+Commit endpoint example:
+
+```bash
+curl -X POST http://localhost:3001/ika/setup-dwallet/commit \
+  -H 'content-type: application/json' \
+  -d '{
+    "owner": "<OWNER>",
+    "dwalletAccount": "<DWALLET_PDA>",
+    "dwalletPublicKeyHex": "<32 or 33 bytes hex>",
+    "curve": "curve25519",
+    "createdEpoch": "<epoch>",
+    "transferredAuthority": "<cpi_authority_pda>"
+  }'
+```
+
+The mapping is persisted to `.polet/ika-dwallets.json` (override with `POLET_IKA_REGISTRY_PATH`). Secret key share material is not written.
+
+### 2. Provision the GasDeposit PDA
+
+Use the official Ika CLI (or `CreateDeposit` / `TopUp` with discriminators `36` / `37`) to create and fund the `GasDeposit` PDA derived from seeds `["gas_deposit", owner_pubkey]`. Inspect status:
+
+```bash
+curl http://localhost:3001/ika/gas-deposit/<OWNER>
+```
+
+The response surfaces the on-chain balances and whether they pass `POLET_IKA_GAS_MIN_IKA_BASE_UNITS` / `POLET_IKA_GAS_MIN_SOL_LAMPORTS`. Polet refuses `Presign` / `Sign` below the floor; the refusal names only the gas thresholds, never the confidential policy values.
+
+### 3. Run the confidential policy gate
+
+Follow the existing smoke runbook to submit `/intent/multichain/run` with a 5 USDC-equivalent Ika intent. The response includes:
+
+- `ikaRequest.preAlphaSigning` with the `messageApprovalPda`, `cpiAuthorityPda`, `coordinatorPda`, `ikaMessageHash`, `signatureScheme`.
+- `ikaRequest.poletApprovalTransaction` — the unsigned Polet `approve_ika_message_as_session` (or `approve_ika_with_verified_encrypt`) transaction.
+
+Sign and submit `poletApprovalTransaction` with the session signer. Capture the resulting Solana transaction signature + slot.
+
+### 4. Progress Presign → Sign → CommitSignature
+
+Call the Polet lifecycle endpoint:
+
+```bash
+curl -X POST http://localhost:3001/ika/lifecycle/progress \
+  -H 'content-type: application/json' \
+  -d @lifecycle-input.json
+```
+
+Body fields:
+
+- `ikaRequest` — the exact object returned by `/intent/multichain/run`.
+- `approvalTransactionSignature` — base58/base64/hex of the Solana approval tx.
+- `approvalTransactionSlot` — the slot that landed the approval tx.
+- `dwalletAttestation` — `{ attestationDataHex, networkSignatureHex, networkPublicKeyHex, epoch }` returned during the DKG response.
+- `dwalletNetworkEncryptionPublicKeyHex` — same NEK used during DKG.
+- `messageCentralizedSignatureHex` — the user's centralized partial signature for Sign.
+- Optional `importedKey` (for ECDSA imports), `polling.timeoutMs`, `polling.intervalMs`, `broadcast.mode`.
+
+Polet's proxy then:
+
+1. Reads `GasDeposit` and rejects under-floor requests with `code=GAS_FLOOR_UNDERFUNDED` (never leaking policy values).
+2. Checks Polet session revoke state before `Presign` (`pre-presign`), before `Sign` (`pre-sign`), and after `CommitSignature` before broadcast (`post-sign-pre-broadcast`). Any revoke returns `status=session-revoked-midflight` + `revokePhase`.
+3. Submits `DWalletRequest::Presign` (or `PresignForDWallet` when `importedKey=true`) for the curve-inferred `signature_algorithm`.
+4. Submits `DWalletRequest::Sign` with `ApprovalProof::Solana { transaction_signature, slot }` and the `dwallet_attestation`.
+5. Polls the on-chain `MessageApproval` account (seeds `["dwallet", chunks…, "message_approval", scheme_u16_le, message_digest]`) until `status = Signed` with `signature_len = 64`.
+
+Successful response excerpt:
+
+```json
+{
+  "success": true,
+  "data": {
+    "lifecycleStatus": "signature-committed",
+    "signatureHex": "…",
+    "messageApprovalPda": "…",
+    "signatureScheme": 5,
+    "broadcast": {
+      "ok": true,
+      "chain": "sui",
+      "receipt": {
+        "transactionHash": "…",
+        "explorerUrl": "https://suiscan.xyz/devnet/tx/…",
+        "productionSettlement": false
+      }
+    }
+  }
+}
+```
+
+### 5. Destination broadcast
+
+The dispatcher in `proxy/src/lib/destination-broadcast.ts` handles the final hop:
+
+- `sui` — serializes an Ed25519 flag-prefixed signature (`0x00 || sig(64) || pubkey(32)`) and POSTs `sui_executeTransactionBlock` to `POLET_SUI_DEVNET_RPC_URL` (default `https://fullnode.devnet.sui.io:443`). Explorer links go through `https://suiscan.xyz/devnet/tx/<hash>`.
+- `ethereum` — expects `ikaRequest.ethereumMessageDigest.unsignedRawTransactionHex` (RLP body without signature fields). Polet's current skeleton appends the Secp256k1 compact signature bytes; operators wanting a fully valid Sepolia transaction should re-RLP the v/r/s fields with an external tool (viem, ethers) before resubmitting through this endpoint. This is intentional for the pre-alpha slice so Sepolia broadcasts remain clearly operator-driven.
+- `solana-demo` — memo-proof fallback from `destination-broadcast-demo.ts`, active when `POLET_DESTINATION_BROADCAST_MODE=demo-memo` or the `demo-memo` mode is selected at runtime.
+
+When broadcast is disabled (`mode=disabled`), the response carries `status=broadcast-disabled` without contacting any RPC.
+
+### 6. Kill switch evidence
+
+To reproduce the session-revoke mid-flight scenarios:
+
+1. Send `revoke_session` for the session key **before** `approve_message` lands — the existing contract path rejects; `/intent/multichain/run` returns `blocked` with `SESSION_STALE`.
+2. Send `revoke_session` **after** `approve_message` but before `/ika/lifecycle/progress` — Polet aborts at the `pre-sign` checkpoint and returns `status=session-revoked-midflight`.
+3. Send `revoke_session` **after** `Sign` completes but before broadcast — Polet aborts at the `post-sign-pre-broadcast` checkpoint; the on-chain `MessageApproval` may still show `Signed` (it was produced before the revoke), but no destination transaction is submitted.
+
+### 7. Failure states to capture
+
+| Lifecycle status | Trigger | Expected payload |
+|---|---|---|
+| `gas-floor-blocked` | GasDeposit balance < floor | `code=GAS_FLOOR_UNDERFUNDED`, gas thresholds surfaced, policy values absent |
+| `session-revoked-midflight` | revoke after approval | `revokePhase` set to `pre-presign`/`pre-sign`/`post-sign-pre-broadcast` |
+| `lifecycle-error` + `PRESIGN_REQUEST_FAILED` | gRPC returned Error or non-Attestation | `reason` contains the Ika error message |
+| `lifecycle-error` + `SIGN_REQUEST_FAILED` | gRPC returned Error on Sign | `reason` contains the Ika error message |
+| `lifecycle-error` + `COMMIT_SIGNATURE_TIMEOUT` | NOA didn't CommitSignature within polling window | `reason` includes the timeout value |
+| `broadcast-disabled` / `broadcast-failed` | destination RPC path | `chain` identifies Sui/Ethereum/Solana-demo |
+
+Captured evidence for each case goes under `docs/evidence/080-ika-lifecycle-*.json` alongside a short narrative in the issue thread.
+
+### Tests covering these paths
+
+- `proxy/tests/ika-grpc-schema.test.ts` — BCS encoding + `TransactionResponseData` decoding against known fixtures for all three response variants.
+- `proxy/tests/ika-lifecycle-progression.test.ts` — lifecycle happy path, `session-revoked-midflight` (pre-sign), gas-floor-blocked, `SIGN_REQUEST_FAILED`, destination broadcast disabled / Sui live fetch / demo-memo fallback.
+
+Run locally:
+
+```bash
+cd proxy && bun test tests/ika-grpc-schema.test.ts tests/ika-lifecycle-progression.test.ts
+```

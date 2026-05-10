@@ -811,8 +811,74 @@ export interface PoletTradeResult {
     requestId?: string;
     payload?: unknown;
   };
+  /**
+   * Populated after `/ika/lifecycle/progress` has driven the request through
+   * Presign -> Sign -> CommitSignature and (optionally) destination broadcast.
+   * Present only when the lifecycle runs end-to-end on the Ika rail; Jupiter
+   * and pending / blocked contracts remain unchanged.
+   */
+  ikaLifecycle?: PoletIkaLifecycleOutcome;
+  /** Convenience mirror fields for callers that do not want to reach into `ikaLifecycle`. */
+  destinationChain?: string;
+  destinationTxHash?: string;
+  destinationExplorerUrl?: string;
+  lifecycleStatus?: PoletIkaLifecycleStatus;
+  signature?: string;
   details?: Record<string, unknown>;
   raw?: unknown;
+}
+
+export type PoletIkaLifecycleStatus =
+  | 'approval-transaction-prepared'
+  | 'signature-committed'
+  | 'session-revoked-midflight'
+  | 'gas-floor-blocked'
+  | 'lifecycle-error'
+  | 'broadcast-disabled';
+
+export interface PoletIkaLifecycleOutcome {
+  status: PoletIkaLifecycleStatus;
+  signatureHex?: string;
+  messageDigestHex?: string;
+  messageApprovalPda?: string;
+  dwalletAccount?: string;
+  signatureScheme?: string;
+  epoch?: string;
+  revokePhase?: 'pre-presign' | 'pre-sign' | 'post-sign-pre-broadcast';
+  broadcast?: {
+    ok: boolean;
+    status: string;
+    chain: string;
+    transactionHash?: string;
+    explorerUrl?: string;
+    code?: string;
+    reason?: string;
+    productionSettlement: false;
+  };
+  attemptedSteps?: string[];
+  reason?: string;
+  code?: string;
+}
+
+export interface ProgressIkaLifecycleInput {
+  ikaRequest: unknown;
+  approvalTransactionSignature: string;
+  approvalTransactionSlot: string | number;
+  dwalletAttestation: {
+    attestationDataHex: string;
+    networkSignatureHex: string;
+    networkPublicKeyHex: string;
+    epoch: string;
+  };
+  dwalletNetworkEncryptionPublicKeyHex: string;
+  messageCentralizedSignatureHex: string;
+  importedKey?: boolean;
+  polling?: { timeoutMs?: number; intervalMs?: number };
+  broadcast?: {
+    mode?: 'auto' | 'live' | 'demo-memo' | 'disabled';
+    suiRpcUrl?: string;
+    ethereumRpcUrl?: string;
+  };
 }
 
 export type RedactedPoletIntent = Omit<PoletIntent, 'params'> & {
@@ -842,6 +908,14 @@ export interface IkaAgentProof {
 
 export interface PoletAgent {
   trade(input: PoletTradeInput): Promise<PoletTradeResult>;
+  /**
+   * Drive an approved Ika bridgeless intent through Presign -> Sign ->
+   * CommitSignature -> destination broadcast via
+   * `POST /ika/lifecycle/progress` on the proxy. Returns the full lifecycle
+   * outcome so callers can populate `destinationChain/destinationTxHash` on
+   * their trade result or surface a `session-revoked-midflight` state.
+   */
+  progressIkaLifecycle(input: ProgressIkaLifecycleInput): Promise<PoletIkaLifecycleOutcome>;
 }
 
 export interface PoletAgentKitOptions extends PoletAgentOptions {
@@ -1105,6 +1179,47 @@ export function createPoletAgent(options: PoletAgentOptions): PoletAgent {
       if (rail === 'jupiter') return tradeWithJupiter(input, options);
       if (rail === 'ika') return tradeWithIka(input, options);
       return Promise.resolve(notSupportedTradeResult(rail as PoletExecutionRail, 'Unsupported execution rail.'));
+    },
+    async progressIkaLifecycle(input: ProgressIkaLifecycleInput): Promise<PoletIkaLifecycleOutcome> {
+      const envelope = await fetchProxyPost<{ success?: boolean; data?: Record<string, unknown>; error?: string }>(
+        '/ika/lifecycle/progress',
+        input as unknown as Record<string, unknown>,
+        options
+      );
+      if (envelope?.success === false) {
+        const data = (envelope.data ?? {}) as Record<string, unknown>;
+        return {
+          status: (data.lifecycleStatus as PoletIkaLifecycleStatus) ?? 'lifecycle-error',
+          reason: (data.reason as string) ?? envelope.error ?? 'Ika lifecycle progression failed',
+          code: data.code as string | undefined,
+          revokePhase: data.revokePhase as PoletIkaLifecycleOutcome['revokePhase'],
+          attemptedSteps: data.attemptedSteps as string[] | undefined,
+        };
+      }
+      const data = (envelope?.data ?? {}) as Record<string, unknown>;
+      const broadcast = data.broadcast as Record<string, unknown> | null | undefined;
+      return {
+        status: (data.lifecycleStatus as PoletIkaLifecycleStatus) ?? 'signature-committed',
+        signatureHex: data.signatureHex as string | undefined,
+        messageDigestHex: data.messageDigestHex as string | undefined,
+        messageApprovalPda: data.messageApprovalPda as string | undefined,
+        dwalletAccount: data.dwalletAccount as string | undefined,
+        signatureScheme: data.signatureScheme as string | undefined,
+        epoch: data.epoch as string | undefined,
+        attemptedSteps: data.attemptedSteps as string[] | undefined,
+        broadcast: broadcast
+          ? {
+              ok: broadcast.ok === true,
+              status: broadcast.status as string,
+              chain: broadcast.chain as string,
+              transactionHash: (broadcast.receipt as Record<string, unknown> | undefined)?.transactionHash as string | undefined,
+              explorerUrl: (broadcast.receipt as Record<string, unknown> | undefined)?.explorerUrl as string | undefined,
+              code: broadcast.code as string | undefined,
+              reason: broadcast.reason as string | undefined,
+              productionSettlement: false,
+            }
+          : undefined,
+      };
     },
   };
 }
@@ -1508,6 +1623,20 @@ async function fetchProxyGet<TResponse>(path: string, options: ProxyClientOption
   const response = await fetchImpl(new URL(path, normalizeBaseUrl(options.baseUrl)), {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
+  });
+  return await response.json() as TResponse;
+}
+
+async function fetchProxyPost<TResponse>(
+  path: string,
+  body: Record<string, unknown>,
+  options: ProxyClientOptions
+): Promise<TResponse> {
+  const fetchImpl = options.fetch ?? fetch;
+  const response = await fetchImpl(new URL(path, normalizeBaseUrl(options.baseUrl)), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   });
   return await response.json() as TResponse;
 }

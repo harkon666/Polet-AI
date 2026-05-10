@@ -408,6 +408,16 @@ Ralph execution queue. Pick the first incomplete unblocked issue:
   - Verification: `bun run test src/components/DemoTab.test.tsx` passes in `frontend/` with 14 tests and the existing Vitest/Vite `module is not defined` plus close-timeout warnings; `bun run build` passes in `frontend/`.
   - Note: no legacy public policy route was exposed in the primary UI. Policy values remain redacted after save, and Ika/Jupiter outputs stay preview/unsigned unless a separate flow explicitly signs or broadcasts.
 
+### Ika Pre-Alpha Full Lifecycle Integration
+
+Target: close the Ika Pre-Alpha Common Flow gap so approved multichain intents produce real `MessageApproval` signatures and real Sui / Ethereum destination transactions instead of `demo-sig-...` placeholders. Tracked as a single epic in `docs/issues/080-ika-pre-alpha-full-lifecycle-integration.md`; do not split until the first end-to-end path is green.
+
+- [ ] `080-ika-pre-alpha-full-lifecycle-integration` — Wire the full Ika Pre-Alpha lifecycle end-to-end: (A) dWallet DKG + authority transfer to Polet CPI PDA, (B) `GasDeposit` provisioning + authenticated Ika gRPC client, (C) real `Presign` + `Sign` + `CommitSignature` polling so `MessageApproval.status = Signed` with a valid 64-byte signature, (D) destination-chain broadcast returning real Sui / Sepolia tx hashes plus SDK cross-chain executor surface, (E) session-revoke mid-flight abort with a `session-revoked-midflight` observability state, (F) runbook and 60-90s demo segment.
+  - Status: TODO. New session window will pick this up.
+  - Scope boundary: `ImportedKeyVerification`, `FutureSign`, `SignWithPartialUserSig`, `ReEncryptShare`, and `MakeSharePublic` are acknowledged at the wire level but integration is deferred. Passkeys, multisig dWallet co-approval beyond existing Polet shared quorum (issue 035), and any changes to the confidential numeric policy layer (issues 041 / 050) are out of scope.
+  - Pre-alpha boundary: pinned Ika program id `87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY`, Encrypt program id `4ebfzWdKnrnGseuQpezXdG8yCdHqwQ1SSBHD3bWArND8`, Ika gRPC `pre-alpha-dev-1.ika.ika-network.net:443`. No production MPC, no production settlement, no real-asset bridgeless finality claims. Destination broadcast is devnet / Sepolia only.
+  - Blocked by: `050-contract-official-encrypt-verified-ika-cpi-lifecycle`, `035-shared-access-and-multisig-lite-ika-approvals`, `040-official-ika-message-hash-and-signing-lifecycle` (all already DONE; relation is reference only).
+
 ### Planning
 
 - [x] PRD created at `docs/prd.md`.

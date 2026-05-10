@@ -128,6 +128,22 @@ Use this timing if recording a judge-facing video:
 
    If live devnet is unavailable, show the recorded issue `059` blocker instead of claiming Encrypt success. Say: "Official Encrypt pre-alpha evidence is blocked by external devnet/gRPC/faucet/executor availability. Local mocks prove Polet's control flow, but the hackathon Encrypt integration will be retried against the official ciphertext and graph lifecycle."
 
+9a. 60-90 second full Ika Pre-Alpha lifecycle segment (issue 080, managed demo mode).
+
+    Prereq: operator has already produced the managed fixture (`docs/ika-devnet-smoke-runbook.md` → "Managed Demo Mode") and set `POLET_IKA_SERVICE_KEYPAIR_HEX` + optional `POLET_IKA_SUBSIDY_KEYPAIR_PATH` on the proxy.
+
+    Script (approx. 75 seconds):
+
+    - 0-10s. "Policy + quorum setup." Show `/wallet/set-confidential-policy` and, if enabled, `/wallet/configure-shared-ika-approval` from prior steps. Emphasize that max-per-run / daily-cap remain private.
+    - 10-25s. "Enable multi-chain signer." Click `Enable Sui devnet` in the `IkaSetupPanel`. The panel shows a single spinner, then flips to green with `dWallet`, `CPI authority`, and `gas deposit` tiles populated. Call out the disclosure banner ("Demo managed mode — pre-alpha mock signer only"). No CLI, no uploads.
+    - 25-40s. "Agent submits a 5 USDC -> SUI Ika intent." Run `/intent/multichain/run` with `executionRail: 'ika'` and show the unsigned `poletApprovalTransaction` plus `preAlphaSigning.messageApprovalPda`. Do not read the policy values aloud.
+    - 40-55s. "Session signer lands the Polet approval." Sign and send `poletApprovalTransaction`, capture `signature` + `slot`.
+    - 55-75s. "Polet drives the Ika lifecycle." POST to `/ika/lifecycle/progress` with `managedFixture: true`. Narrate the Presign → Sign → CommitSignature polling. Show the response `lifecycleStatus: 'signature-committed'` with the 64-byte `signatureHex`, then the destination broadcast block: `broadcast.chain: 'sui'`, `broadcast.receipt.transactionHash`, and open the explorer URL live. Call out `productionSettlement: false`.
+
+    Say: "Polet acts as the confidential policy + custody layer on Solana; the Ika managed dWallet is its cross-chain signer. The user never sees DKG material, the session key never sees policy thresholds, and a session revoke at any point aborts the lifecycle without leaking anything. Signatures come from the Pre-Alpha mock signer; production MPC and settlement finality are explicitly out of scope."
+
+    Optional kill-switch beat (adds 15-20s): send `revoke_session` between Presign and Sign, replay `/ika/lifecycle/progress`, and show `status: 'session-revoked-midflight'` with `revokePhase: 'pre-sign'`.
+
 10. Optional CLI agent proof.
 
     Run the scripted runtime from `sdk/`:

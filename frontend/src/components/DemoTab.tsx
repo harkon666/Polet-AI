@@ -78,6 +78,7 @@ import {
 import { confirmFreshTransaction, prepareFreshTransaction } from '../lib/solana-transaction';
 import { Panel } from './ui/Panel';
 import { InfoTile } from './ui/InfoTile';
+import { IkaSetupPanel } from './IkaSetupPanel';
 import { InfoRow } from './ui/InfoRow';
 import { PrivatePolicyTile } from './ui/PrivatePolicyTile';
 import { ActivityCard } from './ActivityCard';
@@ -2190,6 +2191,11 @@ export function DemoTabContent({
       </section>
 
 
+
+      {/* Ika managed demo setup */}
+      <section>
+        <IkaSetupPanel owner={owner ?? undefined} />
+      </section>
 
       {/* Strategy + Activity Row */}
       <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
