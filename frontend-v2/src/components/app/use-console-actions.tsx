@@ -77,6 +77,38 @@ const ALLOW_AMOUNT_USDC = '5'
 export type ReceiptStatus = 'info' | 'allowed' | 'blocked' | 'pending' | 'error'
 export type ConstraintCheck = 'pass' | 'fail' | 'unknown'
 
+/**
+ * Ika Pre-Alpha proof artifacts from a successful multichain run.
+ *
+ * Per `docs/demo-script.md` outcome 3 the receipt should expose:
+ * dWallet, MessageApproval PDA, message hash, signature scheme, CPI
+ * authority, destination digest, and an explicit settlement boundary.
+ *
+ * All fields are optional because:
+ *   - Blocked runs don't produce any of these.
+ *   - Sui-target runs have `destinationDigest.chain === 'sui'`,
+ *     ethereum-target runs have `'ethereum'`.
+ *   - Pre-Alpha mock signer only fills `messageApprovalPda` once the
+ *     dWallet authority transfer + smoke run is live.
+ */
+export type IkaProof = {
+  dwalletAccount?: string
+  messageApprovalPda?: string
+  cpiAuthorityPda?: string
+  ikaMessageHash?: string
+  destinationDigest?: {
+    chain: 'sui' | 'ethereum'
+    digestHex?: string
+    digestBase58?: string
+    hashScheme?: string
+  }
+  signatureScheme?: string
+  settlement?: string
+  policyAttestationHash?: string
+  poletApprovalSigners?: string[]
+  canonicalOrderHash?: string
+}
+
 export type ReceiptEntry = {
   id: string
   timestamp: number
@@ -90,6 +122,8 @@ export type ReceiptEntry = {
     scopeMatch?: ConstraintCheck
     sessionActive?: ConstraintCheck
   }
+  /** Ika pre-alpha proof artifacts. Populated only on Ika APPROVED entries. */
+  ikaProof?: IkaProof
 }
 
 export type ConsoleData = {
@@ -610,6 +644,41 @@ export function ConsoleStateProvider({
           maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
         })
         const allowed = result.allowed === true
+        // Extract Ika pre-alpha proof artifacts when approved. Field
+        // shape comes from the proxy's IkaRequestPreview (see
+        // proxy/src/lib/ika-bridgeless-request.ts and frontend api.ts
+        // IkaRequestPreview interface).
+        const ikaProof: IkaProof | undefined = allowed && result.ikaRequest
+          ? {
+              dwalletAccount: result.ikaRequest.preAlphaSigning?.dwalletAccount,
+              messageApprovalPda: result.ikaRequest.preAlphaSigning?.messageApprovalPda,
+              cpiAuthorityPda: result.ikaRequest.preAlphaSigning?.cpiAuthorityPda,
+              ikaMessageHash:
+                result.ikaRequest.ikaMessageHash ??
+                result.ikaRequest.preAlphaSigning?.ikaMessageHash,
+              destinationDigest: result.ikaRequest.suiTransactionDigest
+                ? {
+                    chain: 'sui',
+                    digestBase58: result.ikaRequest.suiTransactionDigest.digestBase58,
+                    digestHex: result.ikaRequest.suiTransactionDigest.digestHex,
+                    hashScheme: 'blake2b-256',
+                  }
+                : result.ikaRequest.ethereumMessageDigest
+                  ? {
+                      chain: 'ethereum',
+                      digestHex: result.ikaRequest.ethereumMessageDigest.digestHex,
+                      hashScheme: 'eth-personal-sign',
+                    }
+                  : undefined,
+              signatureScheme: result.ikaRequest.preAlphaSigning?.signatureScheme,
+              settlement: result.ikaRequest.settlement,
+              policyAttestationHash:
+                result.ikaRequest.policyAttestation?.attestationHash,
+              poletApprovalSigners:
+                result.ikaRequest.poletApprovalTransaction?.signers,
+              canonicalOrderHash: result.ikaRequest.canonicalOrderHash,
+            }
+          : undefined
         emitReceipt({
           action: allowed
             ? `${amount} USDC APPROVED (IKA)`
@@ -624,6 +693,7 @@ export function ConsoleStateProvider({
             sessionActive: 'pass',
           },
           body: result.reason,
+          ...(ikaProof && { ikaProof }),
         })
         await refresh()
       } catch (err) {

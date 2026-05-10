@@ -3,6 +3,7 @@ import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { KickerLabel } from '../primitives/KickerLabel'
 import {
   useConsole,
+  type IkaProof,
   type ReceiptEntry,
   type ReceiptStatus,
 } from './use-console-actions'
@@ -56,6 +57,12 @@ const formatTime = (epochMs: number) => {
 
 const explorerUrl = (signature: string) =>
   `https://explorer.solana.com/tx/${signature}?cluster=devnet`
+
+const explorerAccountUrl = (address: string) =>
+  `https://explorer.solana.com/address/${address}?cluster=devnet`
+
+const suiscanUrl = (digestBase58: string) =>
+  `https://suiscan.xyz/devnet/tx/${digestBase58}`
 
 export function ReceiptLog() {
   const { t } = useLocale()
@@ -157,6 +164,7 @@ function ReceiptRow({ entry, index }: { entry: ReceiptEntry; index: number }) {
             ))}
           </p>
         ) : null}
+        {entry.ikaProof ? <IkaProofPanel proof={entry.ikaProof} /> : null}
       </div>
 
       {/* Status badge + explorer arrow */}
@@ -178,5 +186,125 @@ function ReceiptRow({ entry, index }: { entry: ReceiptEntry; index: number }) {
         ) : null}
       </div>
     </li>
+  )
+}
+
+/**
+ * IkaProofPanel, expose the Ika Pre-Alpha proof artifacts produced by
+ * a successful multichain run on the rail card.
+ *
+ * Per `docs/demo-script.md` outcome 3, the receipt should surface
+ * dWallet, MessageApproval PDA, message hash, signature scheme, CPI
+ * authority, destination digest, and an explicit settlement boundary.
+ *
+ * Solana account fields (dWallet, MessageApproval PDA, CPI authority,
+ * Polet approval signers) link to Solana Explorer devnet. Sui digest
+ * links to suiscan devnet. Hashes are non-linkable and rendered
+ * truncated with full value as the tooltip.
+ */
+function IkaProofPanel({ proof }: { proof: IkaProof }) {
+  return (
+    <div className="mt-3 rounded-lg border border-line/60 bg-bg-deep/60 p-3">
+      <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-lagoon-bright mb-2">
+        Ika pre-alpha proof
+      </p>
+      <dl className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto_1fr] gap-x-4 gap-y-1.5 font-mono text-[11px]">
+        {proof.dwalletAccount ? (
+          <ProofRow label="dwallet" value={proof.dwalletAccount} link={explorerAccountUrl(proof.dwalletAccount)} />
+        ) : null}
+        {proof.messageApprovalPda ? (
+          <ProofRow label="message approval" value={proof.messageApprovalPda} link={explorerAccountUrl(proof.messageApprovalPda)} />
+        ) : null}
+        {proof.cpiAuthorityPda ? (
+          <ProofRow label="cpi authority" value={proof.cpiAuthorityPda} link={explorerAccountUrl(proof.cpiAuthorityPda)} />
+        ) : null}
+        {proof.ikaMessageHash ? (
+          <ProofRow label="ika message hash" value={proof.ikaMessageHash} />
+        ) : null}
+        {proof.destinationDigest ? (
+          <ProofRow
+            label={`dest digest (${proof.destinationDigest.chain})`}
+            value={
+              proof.destinationDigest.digestBase58 ??
+              proof.destinationDigest.digestHex ??
+              '—'
+            }
+            link={
+              proof.destinationDigest.chain === 'sui' &&
+              proof.destinationDigest.digestBase58
+                ? suiscanUrl(proof.destinationDigest.digestBase58)
+                : undefined
+            }
+          />
+        ) : null}
+        {proof.signatureScheme ? (
+          <ProofRow label="sig scheme" value={proof.signatureScheme} mono />
+        ) : null}
+        {proof.canonicalOrderHash ? (
+          <ProofRow label="canonical order" value={proof.canonicalOrderHash} />
+        ) : null}
+        {proof.policyAttestationHash ? (
+          <ProofRow label="attestation" value={proof.policyAttestationHash} />
+        ) : null}
+        {proof.poletApprovalSigners?.length ? (
+          <ProofRow
+            label="approval signers"
+            value={proof.poletApprovalSigners[0] ?? ''}
+            link={
+              proof.poletApprovalSigners[0]
+                ? explorerAccountUrl(proof.poletApprovalSigners[0])
+                : undefined
+            }
+          />
+        ) : null}
+        {proof.settlement ? (
+          <ProofRow label="settlement" value={proof.settlement} mono />
+        ) : null}
+      </dl>
+    </div>
+  )
+}
+
+/**
+ * Render one key/value row in the Ika proof panel. Long values
+ * truncate to first-4 / last-4 with the full value preserved as the
+ * `title` tooltip; if a `link` is provided, the value becomes a
+ * clickable Solana Explorer / suiscan anchor.
+ */
+function ProofRow({
+  label,
+  value,
+  link,
+  mono,
+}: {
+  label: string
+  value: string
+  link?: string
+  mono?: boolean
+}) {
+  const display = mono
+    ? value
+    : value.length > 12
+      ? `${value.slice(0, 4)}…${value.slice(-4)}`
+      : value
+  return (
+    <>
+      <dt className="text-ink-mute uppercase tracking-[0.18em]">{label}</dt>
+      <dd className="text-ink-soft tabular-nums truncate">
+        {link ? (
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-lagoon-bright transition"
+            title={value}
+          >
+            {display} <span aria-hidden="true">↗</span>
+          </a>
+        ) : (
+          <span title={value}>{display}</span>
+        )}
+      </dd>
+    </>
   )
 }
