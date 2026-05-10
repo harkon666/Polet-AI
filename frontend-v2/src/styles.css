@@ -1,0 +1,200 @@
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "tailwindcss";
+
+/* ============================================
+   POLET v2 — DARK CANONICAL
+   Visual north star: Linear marketing dark
+   Brand: deep teal aurora + white "P" logomark
+   ============================================ */
+
+@theme {
+  /* Surfaces — true black with subtle teal undertone */
+  --color-bg-base: #000000;
+  --color-bg-deep: #04100c;
+  --color-surface: #0a1a16;
+  --color-surface-raised: #0e2520;
+  --color-line: rgb(30 184 164 / 0.10);
+  --color-line-strong: rgb(30 184 164 / 0.22);
+
+  /* Ink — match white logomark */
+  --color-ink: #ffffff;
+  --color-ink-soft: #a6c4bd;
+  --color-ink-mute: #5a7c75;
+
+  /* Accent — aurora glow teal in 3 registers */
+  --color-lagoon: #1eb8a4;
+  --color-lagoon-bright: #2dd4bf;
+  --color-lagoon-deep: #0d7d77;
+
+  /* Status — kept minimal, monochromatic discipline */
+  --color-coral: #f87171;
+  --color-palm: #34d399;
+  --color-sunset: #fbbf24;
+
+  /* Type */
+  --font-sans: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+}
+
+/* ============================================
+   Base reset — dark canvas defaults
+   ============================================ */
+
+html {
+  color-scheme: dark;
+  background-color: var(--color-bg-base);
+}
+
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: rgb(30 184 164 / 0.32);
+  color: var(--color-ink);
+}
+
+/* ============================================
+   pl-* custom classes — Rule 3 only
+   (multi-layer gradients, state-driven motion,
+    composition >10 utility chain, ambient bg)
+   ============================================ */
+
+/* Hero ambient bg — replicates background-hero.png via 3-layer gradient.
+   Drift slowly to add subtle "alive" feel; respects reduced-motion. */
+.pl-ambient-hero {
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 75% 70%,
+      rgb(45 212 191 / 0.18) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse 70% 50% at 20% 30%,
+      rgb(13 125 119 / 0.22) 0%,
+      transparent 55%
+    ),
+    linear-gradient(
+      180deg,
+      var(--color-bg-base) 0%,
+      var(--color-bg-deep) 100%
+    );
+  background-size: 200% 200%;
+  background-position: 0% 50%;
+  animation: pl-ambient-drift 20s ease-in-out infinite alternate;
+}
+
+@keyframes pl-ambient-drift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Section ambient — subtle glow for transitions between sections */
+.pl-ambient-section {
+  background:
+    radial-gradient(
+      ellipse 60% 40% at 50% 50%,
+      rgb(13 125 119 / 0.08) 0%,
+      transparent 60%
+    ),
+    var(--color-bg-base);
+}
+
+/* Scroll reveal — initial state. Add .pl-reveal--in via IntersectionObserver. */
+.pl-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 600ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pl-reveal--in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Glow button — primary CTA hover state with lagoon ambient shadow */
+.pl-glow-button {
+  position: relative;
+  isolation: isolate;
+  transition:
+    box-shadow 280ms ease-out,
+    transform 180ms ease-out;
+}
+
+.pl-glow-button:hover {
+  box-shadow:
+    0 0 0 1px rgb(45 212 191 / 0.35),
+    0 8px 32px -8px rgb(45 212 191 / 0.40),
+    0 16px 48px -12px rgb(30 184 164 / 0.20);
+  transform: translateY(-1px);
+}
+
+.pl-glow-button:active {
+  transform: translateY(0);
+}
+
+/* Reduced-motion fallback — disable drift + reveal animations */
+@media (prefers-reduced-motion: reduce) {
+  .pl-ambient-hero {
+    animation: none;
+  }
+
+  .pl-reveal {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .pl-glow-button {
+    transition: none;
+  }
+}
+
+/* ============================================
+   Focus visibility — WCAG AA on dark surface
+   ============================================ */
+
+:focus-visible {
+  outline: 2px solid var(--color-lagoon-bright);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Skip-to-content link — visible only on focus */
+.pl-skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-lagoon);
+  color: var(--color-bg-base);
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transform: translateY(-200%);
+  transition: transform 180ms ease-out;
+}
+
+.pl-skip-link:focus {
+  transform: translateY(0);
+}
