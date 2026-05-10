@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 import { Logo } from './Logo'
 import { useLocale } from '#shared/hooks/use-locale'
 
 const DOCS_URL = 'https://github.com/harkon666/Polet-AI'
 
 /**
- * Polet v2 Header.
+ * Polet v2 Header (landing chrome).
  *
  * Anatomy (desktop ≥ md):
  *   1. Brand: logo + "Polet" wordmark (left, links home)
@@ -20,9 +20,13 @@ const DOCS_URL = 'https://github.com/harkon666/Polet-AI'
  * Header is `relative z-10` (not sticky), so it scrolls out with the
  * page. Background is intentionally transparent so the Hero ambient
  * PNG bleeds through the top of the page (same treatment as Footer).
+ *
+ * On `/app` this returns `null`; the route mounts `<AppHeader />`
+ * (a sticky console chrome with WalletButton) instead.
  */
 export function Header() {
   const { t } = useLocale()
+  const { pathname } = useLocation()
   const [isOpen, setIsOpen] = useState(false)
 
   // Close mobile menu on Escape
@@ -34,6 +38,11 @@ export function Header() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [isOpen])
+
+  // /app gets its own console header (AppHeader). All hooks above run
+  // unconditionally; this early-return must come after them to satisfy
+  // the Rules of Hooks across navigation re-renders.
+  if (pathname.startsWith('/app')) return null
 
   const closeMenu = () => setIsOpen(false)
   const toggleMenu = () => setIsOpen((v) => !v)

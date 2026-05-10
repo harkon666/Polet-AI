@@ -455,6 +455,41 @@ body {
 }
 
 /* ============================================
+   /app shell, v1 token shim.
+   Cross-imported v1 dashboard components (WalletDashboard,
+   SimpleDemoTab, DemoTab, TemporalKeyManager) reference v1 CSS
+   variables (`--sea-ink`, `--island-bg`, `--lagoon-deep`, etc.). The
+   `.pl-app-shell` wrapper redefines those names to the v2 dark-theme
+   equivalents so the components render correctly without a 3500+ LOC
+   re-port. Scoped to /app so the landing page is unaffected.
+   ============================================ */
+
+.pl-app-shell {
+  --sea-ink: var(--color-ink);
+  --sea-ink-soft: var(--color-ink-soft);
+  --line: var(--color-line);
+  --line-strong: var(--color-line-strong);
+  --lagoon: var(--color-lagoon);
+  --lagoon-deep: var(--color-lagoon-bright);
+  --island-bg: var(--color-bg-deep);
+  --surface: var(--color-surface);
+  --surface-strong: var(--color-surface-raised);
+  --chip-bg: var(--color-surface);
+  --chip-line: var(--color-line);
+  --link-bg-hover: rgb(45 212 191 / 0.1);
+}
+
+/* island-kicker, small uppercase mono caption used by v1 components. */
+.pl-app-shell .island-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-lagoon-bright);
+}
+
+/* ============================================
    Crypto-Blur Theater, Demo Widget v2
    Confidential numeric policy visualisation.
    ============================================ */
