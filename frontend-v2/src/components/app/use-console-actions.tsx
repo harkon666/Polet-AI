@@ -541,6 +541,7 @@ export function ConsoleStateProvider({
           sessionKey,
           amountUsdc: amount,
           slippageBps: 100,
+          maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
         })
         const allowed = result.allowed === true
         emitReceipt({
@@ -606,6 +607,7 @@ export function ConsoleStateProvider({
           executionRail: 'ika',
           strategy: 'dca',
           slippageBps: 150,
+          maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
         })
         const allowed = result.allowed === true
         emitReceipt({
