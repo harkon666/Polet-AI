@@ -435,7 +435,7 @@ describe('local scripted agent runtime', () => {
     expect(JSON.stringify(blocked)).not.toContain('10 USDC');
     expect(JSON.stringify(blocked)).not.toContain('20 USDC');
     expect(revoked.status).toBe('not-executed');
-    expect(revoked.outcome.decision).toBe('blocked');
+    expect(revoked.outcome.decision).toBe('revoked-session');
     expect(revoked.trade.policy.code).toBe('SESSION_NOT_AUTHORIZED');
   });
 

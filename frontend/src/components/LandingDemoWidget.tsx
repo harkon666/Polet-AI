@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { useLocale } from '../hooks/use-locale';
 
 type DemoScenario = 'block' | 'jupiter' | 'ika';
 type DemoState =
   | { kind: 'idle' }
   | { kind: 'running'; scenario: DemoScenario }
-  | { kind: 'blocked'; scenario: DemoScenario; reason: string }
+  | { kind: 'blocked'; scenario: DemoScenario; reasonVariant: 'jupiter' | 'ika' }
   | {
       kind: 'allowed-jupiter';
       amount: string;
@@ -20,14 +22,8 @@ type DemoState =
 
 const TRUNC = (s: string, n = 8) => `${s.slice(0, n)}…${s.slice(-4)}`;
 
-async function mockRunBlock(scenario: 'block-jupiter' | 'block-ika'): Promise<{ reason: string }> {
+async function mockRunBlock(): Promise<void> {
   await sleep(420);
-  return {
-    reason:
-      scenario === 'block-jupiter'
-        ? 'Confidential policy rejected this run. Threshold and remaining cap stay private.'
-        : 'Confidential policy rejected this Ika request. No dWallet approval data created.',
-  };
 }
 
 async function mockRunJupiter(): Promise<{
@@ -61,12 +57,13 @@ function sleep(ms: number) {
 }
 
 export function LandingDemoWidget() {
+  const { t } = useLocale();
   const [state, setState] = useState<DemoState>({ kind: 'idle' });
 
   const runBlock = async () => {
     setState({ kind: 'running', scenario: 'block' });
-    const { reason } = await mockRunBlock('block-jupiter');
-    setState({ kind: 'blocked', scenario: 'block', reason });
+    await mockRunBlock();
+    setState({ kind: 'blocked', scenario: 'block', reasonVariant: 'jupiter' });
   };
 
   const runJupiter = async () => {
@@ -101,10 +98,15 @@ export function LandingDemoWidget() {
         <div className="flex items-center gap-2">
           <span className="qe-status-dot text-[var(--palm)]" aria-hidden="true" />
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--sea-ink-soft)]">
-            polet · mock api
+            {t('demoWidget.header.badge')}
           </span>
         </div>
-        <span className="qe-badge text-mono">no wallet</span>
+        <span
+          className="qe-pill"
+          style={{ color: 'var(--sunset)', borderColor: 'var(--sunset)', background: 'var(--sunset-soft)' }}
+        >
+          {t('demoWidget.simulation.badge')}
+        </span>
       </div>
 
       {/* Scenario buttons */}
@@ -114,11 +116,13 @@ export function LandingDemoWidget() {
           onClick={runBlock}
           disabled={isBusy}
           className="qe-button qe-button--secondary justify-start text-left disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Run blocked 25 USDC scenario"
+          aria-label={t('demoWidget.button.block.ariaLabel')}
         >
           <span className="flex flex-col items-start">
             <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--coral)]">
-              {state.kind === 'running' && state.scenario === 'block' ? 'running…' : 'block'}
+              {state.kind === 'running' && state.scenario === 'block'
+                ? t('demoWidget.button.block.state.running')
+                : t('demoWidget.button.block.state.idle')}
             </span>
             <span className="text-sm font-semibold">25 USDC</span>
           </span>
@@ -129,11 +133,13 @@ export function LandingDemoWidget() {
           onClick={runJupiter}
           disabled={isBusy}
           className="qe-button qe-button--secondary justify-start text-left disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Run allowed 5 USDC Jupiter scenario"
+          aria-label={t('demoWidget.button.jupiter.ariaLabel')}
         >
           <span className="flex flex-col items-start">
             <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--palm)]">
-              {state.kind === 'running' && state.scenario === 'jupiter' ? 'running…' : 'allow'}
+              {state.kind === 'running' && state.scenario === 'jupiter'
+                ? t('demoWidget.button.jupiter.state.running')
+                : t('demoWidget.button.jupiter.state.idle')}
             </span>
             <span className="text-sm font-semibold">5 USDC · Jupiter</span>
           </span>
@@ -144,11 +150,13 @@ export function LandingDemoWidget() {
           onClick={runIka}
           disabled={isBusy}
           className="qe-button qe-button--secondary justify-start text-left disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Run allowed 5 USDC multi-chain Ika scenario"
+          aria-label={t('demoWidget.button.ika.ariaLabel')}
         >
           <span className="flex flex-col items-start">
             <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--palm)]">
-              {state.kind === 'running' && state.scenario === 'ika' ? 'running…' : 'allow'}
+              {state.kind === 'running' && state.scenario === 'ika'
+                ? t('demoWidget.button.ika.state.running')
+                : t('demoWidget.button.ika.state.idle')}
             </span>
             <span className="text-sm font-semibold">5 USDC · Multi-chain Ika</span>
           </span>
@@ -160,10 +168,10 @@ export function LandingDemoWidget() {
         {state.kind === 'idle' && (
           <div className="flex h-full min-h-[180px] flex-col items-center justify-center gap-2 text-center">
             <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--kicker)]">
-              awaiting scenario
+              {t('demoWidget.state.idle.title')}
             </p>
             <p className="text-xs text-[var(--sea-ink-soft)]">
-              Pick one of the three runs above. Mock API responds in ~500ms.
+              {t('demoWidget.state.idle.desc')}
             </p>
           </div>
         )}
@@ -172,7 +180,7 @@ export function LandingDemoWidget() {
           <div className="flex h-full min-h-[180px] flex-col items-center justify-center gap-3 text-center">
             <span className="qe-status-dot" aria-hidden="true" />
             <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--sea-ink-soft)]">
-              policy gate evaluating
+              {t('demoWidget.state.running.label')}
             </p>
           </div>
         )}
@@ -181,91 +189,114 @@ export function LandingDemoWidget() {
           <article className="space-y-3">
             <header className="flex items-center justify-between">
               <span className="qe-pill" style={{ color: 'var(--coral)', borderColor: 'var(--coral)' }}>
-                Blocked
+                {t('demoWidget.state.blocked.badge')}
               </span>
               <button type="button" onClick={reset} className="qe-link text-xs">
-                Reset <span className="qe-link__arrow">↺</span>
+                {t('demoWidget.reset')} <span className="qe-link__arrow">↺</span>
               </button>
             </header>
-            <p className="text-sm leading-6 text-[var(--sea-ink)]">{state.reason}</p>
+            <p className="text-sm leading-6 text-[var(--sea-ink)]">
+              {state.reasonVariant === 'jupiter'
+                ? t('demoWidget.state.blocked.reason.jupiter')
+                : t('demoWidget.state.blocked.reason.ika')}
+            </p>
             <ul className="space-y-1 font-mono text-[11px] text-[var(--sea-ink-soft)]">
-              <li>· code: <span className="text-[var(--coral)]">CONFIDENTIAL_POLICY_BLOCKED</span></li>
-              <li>· threshold leak: <span className="text-[var(--palm)]">none</span></li>
-              <li>· dWallet approval: <span className="text-[var(--coral)]">not created</span></li>
+              <li>· {t('demoWidget.state.blocked.field.code')} <span className="text-[var(--coral)]">CONFIDENTIAL_POLICY_BLOCKED</span></li>
+              <li>· {t('demoWidget.state.blocked.field.leak')} <span className="text-[var(--palm)]">{t('demoWidget.state.blocked.field.leakValue')}</span></li>
+              <li>· {t('demoWidget.state.blocked.field.approval')} <span className="text-[var(--coral)]">{t('demoWidget.state.blocked.field.approvalValue')}</span></li>
             </ul>
+            <Link
+              to="/app"
+              className="qe-link text-xs"
+              aria-label={t('demoWidget.live.aria.block')}
+            >
+              {t('demoWidget.live.cta')}
+            </Link>
           </article>
         )}
 
         {state.kind === 'allowed-jupiter' && (
           <article className="space-y-3">
             <header className="flex items-center justify-between">
-              <span className="qe-pill qe-pill--success">Approved · Jupiter</span>
+              <span className="qe-pill qe-pill--success">{t('demoWidget.state.allowed.jupiter.badge')}</span>
               <button type="button" onClick={reset} className="qe-link text-xs">
-                Reset <span className="qe-link__arrow">↺</span>
+                {t('demoWidget.reset')} <span className="qe-link__arrow">↺</span>
               </button>
             </header>
             <p className="text-sm leading-6 text-[var(--sea-ink)]">
-              In-limit DCA approved. Polet returns an unsigned smart-wallet transaction with the
-              Jupiter route preview.
+              {t('demoWidget.state.allowed.jupiter.body')}
             </p>
             <dl className="space-y-1 font-mono text-[11px]">
               <div className="flex justify-between">
-                <dt className="text-[var(--sea-ink-soft)]">input</dt>
+                <dt className="text-[var(--sea-ink-soft)]">{t('demoWidget.state.allowed.jupiter.field.input')}</dt>
                 <dd className="text-[var(--sea-ink)]">{state.amount} USDC</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-[var(--sea-ink-soft)]">est. output</dt>
+                <dt className="text-[var(--sea-ink-soft)]">{t('demoWidget.state.allowed.jupiter.field.output')}</dt>
                 <dd className="text-[var(--sea-ink)]">~{state.outAmount} SOL</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-[var(--sea-ink-soft)]">route</dt>
+                <dt className="text-[var(--sea-ink-soft)]">{t('demoWidget.state.allowed.jupiter.field.route')}</dt>
                 <dd className="text-[var(--sea-ink)]">{state.route}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-[var(--sea-ink-soft)]">execution</dt>
+                <dt className="text-[var(--sea-ink-soft)]">{t('demoWidget.state.allowed.jupiter.field.execution')}</dt>
                 <dd className="text-[var(--lagoon-deep)]">swap-build-fallback</dd>
               </div>
             </dl>
+            <Link
+              to="/app"
+              className="qe-link text-xs"
+              aria-label={t('demoWidget.live.aria.jupiter')}
+            >
+              {t('demoWidget.live.cta')}
+            </Link>
           </article>
         )}
 
         {state.kind === 'allowed-ika' && (
           <article className="space-y-3">
             <header className="flex items-center justify-between">
-              <span className="qe-pill qe-pill--success">Approved · Ika</span>
+              <span className="qe-pill qe-pill--success">{t('demoWidget.state.allowed.ika.badge')}</span>
               <button type="button" onClick={reset} className="qe-link text-xs">
-                Reset <span className="qe-link__arrow">↺</span>
+                {t('demoWidget.reset')} <span className="qe-link__arrow">↺</span>
               </button>
             </header>
             <p className="text-sm leading-6 text-[var(--sea-ink)]">
-              In-limit multi-chain Ika approved. Polet prepares an unsigned <code>approve_ika_message_as_session</code>{' '}
-              transaction and destination-chain digest. Settlement not executed.
+              {t('demoWidget.state.allowed.ika.body')}
             </p>
             <dl className="space-y-1 font-mono text-[11px]">
               <div className="flex justify-between">
-                <dt className="text-[var(--sea-ink-soft)]">amount</dt>
+                <dt className="text-[var(--sea-ink-soft)]">{t('demoWidget.state.allowed.ika.field.amount')}</dt>
                 <dd className="text-[var(--sea-ink)]">{state.amount} USDC eq.</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-[var(--sea-ink-soft)]">target</dt>
-                <dd className="text-[var(--sea-ink)]">Multi-chain</dd>
+                <dt className="text-[var(--sea-ink-soft)]">{t('demoWidget.state.allowed.ika.field.target')}</dt>
+                <dd className="text-[var(--sea-ink)]">{t('demoWidget.state.allowed.ika.field.targetValue')}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-[var(--sea-ink-soft)]">message hash</dt>
+                <dt className="text-[var(--sea-ink-soft)]">{t('demoWidget.state.allowed.ika.field.messageHash')}</dt>
                 <dd className="text-[var(--sea-ink)]">{TRUNC(state.messageHash)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-[var(--sea-ink-soft)]">scheme</dt>
+                <dt className="text-[var(--sea-ink-soft)]">{t('demoWidget.state.allowed.ika.field.scheme')}</dt>
                 <dd className="text-[var(--lagoon-deep)]">{state.sigScheme}</dd>
               </div>
             </dl>
+            <Link
+              to="/app"
+              className="qe-link text-xs"
+              aria-label={t('demoWidget.live.aria.ika')}
+            >
+              {t('demoWidget.live.cta')}
+            </Link>
           </article>
         )}
       </div>
 
       {/* Footer note */}
       <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--kicker)]">
-        Mock API · No private key · No real funds · Run on /app for the live devnet flow
+        {t('demoWidget.footer.note')}
       </p>
     </div>
   );

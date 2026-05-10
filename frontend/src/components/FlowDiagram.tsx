@@ -1,3 +1,5 @@
+import { useLocale } from '../hooks/use-locale';
+
 /**
  * SVG architecture diagram showing Polet's policy gate flow:
  *
@@ -7,15 +9,18 @@
  *                                  /         \
  *                          Jupiter DCA     Ika dWallet
  *
- * Static SVG, no JS animation. Inline component for landing.
+ * Static SVG, no JS animation. Reads node labels and ARIA description
+ * through `useLocale` so the diagram renders in the user's active language.
  */
 export function FlowDiagram() {
+  const { t } = useLocale();
+
   return (
     <svg
       viewBox="0 0 1080 380"
       className="qe-flow-diagram"
       role="img"
-      aria-label="Polet AI architecture: owner sets confidential policy on a Solana smart wallet PDA, grants an AI agent a session key, then a policy gate enforces guardrails before either Jupiter DCA or Ika dWallet signing executes."
+      aria-label={t('flow.aria')}
       preserveAspectRatio="xMidYMid meet"
     >
       <defs>
@@ -33,26 +38,26 @@ export function FlowDiagram() {
       </defs>
 
       {/* Top row: Owner → PDA → Policy → Session → Agent */}
-      <Node x={20} y={40} num="01" label="Owner" sub="signs setup" />
+      <Node x={20} y={40} num="01" label={t('flow.node.owner.label')} sub={t('flow.node.owner.sub')} />
       <Edge from={[140, 75]} to={[200, 75]} />
 
-      <Node x={200} y={40} num="02" label="Smart Wallet PDA" sub="seed: polet_wallet" />
+      <Node x={200} y={40} num="02" label={t('flow.node.pda.label')} sub={t('flow.node.pda.sub')} />
       <Edge from={[380, 75]} to={[440, 75]} />
 
       <Node
         x={440}
         y={40}
         num="03"
-        label="Confidential Policy"
-        sub="masked numeric guardrail"
+        label={t('flow.node.policy.label')}
+        sub={t('flow.node.policy.sub')}
         accent
       />
       <Edge from={[620, 75]} to={[680, 75]} />
 
-      <Node x={680} y={40} num="04" label="Session Key" sub="expires_at, slot" />
+      <Node x={680} y={40} num="04" label={t('flow.node.session.label')} sub={t('flow.node.session.sub')} />
       <Edge from={[860, 75]} to={[920, 75]} />
 
-      <Node x={920} y={40} num="05" label="AI Agent" sub="submits intent" />
+      <Node x={920} y={40} num="05" label={t('flow.node.agent.label')} sub={t('flow.node.agent.sub')} />
 
       {/* Connector down from Policy to Gate */}
       <Edge from={[530, 110]} to={[530, 175]} accent />
@@ -64,8 +69,8 @@ export function FlowDiagram() {
         w={260}
         h={70}
         num="06"
-        label="Policy Gate"
-        sub="policy_seq · session · numeric guardrail"
+        label={t('flow.node.gate.label')}
+        sub={t('flow.node.gate.sub')}
         accent
       />
 
@@ -80,8 +85,8 @@ export function FlowDiagram() {
         w={240}
         h={60}
         num="07"
-        label="Jupiter DCA"
-        sub="route/build preview"
+        label={t('flow.node.jupiter.label')}
+        sub={t('flow.node.jupiter.sub')}
         rail
       />
       <Node
@@ -90,8 +95,8 @@ export function FlowDiagram() {
         w={240}
         h={60}
         num="08"
-        label="Ika dWallet"
-        sub="approve_message CPI"
+        label={t('flow.node.ika.label')}
+        sub={t('flow.node.ika.sub')}
         rail
       />
     </svg>
@@ -137,7 +142,6 @@ function Edge({ from, to, accent }: { from: [number, number]; to: [number, numbe
   const [x1, y1] = from;
   const [x2, y2] = to;
 
-  // Use a slight curve when there's vertical offset; straight for axis-aligned
   const sameAxis = x1 === x2 || y1 === y2;
   const path = sameAxis
     ? `M${x1} ${y1} L${x2} ${y2}`

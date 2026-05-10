@@ -4,11 +4,20 @@ import { StatsCounter } from '../components/StatsCounter';
 import { FlowDiagram } from '../components/FlowDiagram';
 import { RailMockup } from '../components/RailMockup';
 import { BrandLogo } from '../components/BrandLogo';
+import { HeroPreview } from '../components/HeroPreview';
+import { useLocale } from '../hooks/use-locale';
 import { useScrollReveal } from '../hooks/useScrollReveal';
+import type { TranslationKey } from '../locale/dictionary';
+import landingStatsJson from '../data/landing-stats.json';
 
 export const Route = createFileRoute('/')({
   component: HomePage,
 });
+
+// ---------------------------------------------------------------------------
+// Static data — brand identifiers and structure only. All user-facing copy
+// is referenced via TranslationKey and resolved through t() at render time.
+// ---------------------------------------------------------------------------
 
 const TRUST_PARTNERS = [
   { brand: 'solana', label: 'Solana' },
@@ -18,177 +27,170 @@ const TRUST_PARTNERS = [
   { brand: 'anchor', label: 'Anchor 1.0' },
 ] as const;
 
-const STATS = [
-  { value: 49, label: 'Tests passing', sub: 'Frontend TS suite' },
-  { value: 8, label: 'Contract instructions', sub: 'Single program ID' },
-  { value: 2, label: 'Execution rails', sub: 'Jupiter + Ika' },
-  { value: 1, label: 'Policy gate', sub: 'Confidential, on-chain' },
+const STATS: Array<{ value: number; labelKey: TranslationKey; subKey: TranslationKey }> = (
+  landingStatsJson.items as Array<{ key: string; value: number }>
+).map((item) => ({
+  value: item.value,
+  labelKey: `${item.key}.label` as TranslationKey,
+  subKey: `${item.key}.sub` as TranslationKey,
+}));
+
+const PROBLEMS: Array<{ n: string; titleKey: TranslationKey; descKey: TranslationKey }> = [
+  { n: '01', titleKey: 'manifesto.problem1.title', descKey: 'manifesto.problem1.desc' },
+  { n: '02', titleKey: 'manifesto.problem2.title', descKey: 'manifesto.problem2.desc' },
+  { n: '03', titleKey: 'manifesto.problem3.title', descKey: 'manifesto.problem3.desc' },
 ];
 
-const PROBLEMS = [
-  {
-    n: '01',
-    title: 'Public rules are exploitable',
-    desc: 'Plaintext spending limits, allowlists, and daily caps on-chain are observable, front-runnable, and exploitable by adversarial actors.',
-  },
-  {
-    n: '02',
-    title: 'Off-chain enforcement is bypass-able',
-    desc: 'Trusted-server enforcement is a single point of failure. A compromised proxy or signer means a compromised user.',
-  },
-  {
-    n: '03',
-    title: 'Cross-chain signing without policy',
-    desc: 'A dWallet that approves any incoming message means a compromised agent can drain assets through bridge-less rails.',
-  },
+const SECURITY_FACTS: Array<{ icon: string; titleKey: TranslationKey; descKey: TranslationKey }> = [
+  { icon: 'PDA', titleKey: 'security.fact.pda.title', descKey: 'security.fact.pda.desc' },
+  { icon: 'KEY', titleKey: 'security.fact.session.title', descKey: 'security.fact.session.desc' },
+  { icon: '↻', titleKey: 'security.fact.replay.title', descKey: 'security.fact.replay.desc' },
+  { icon: 'M·N', titleKey: 'security.fact.quorum.title', descKey: 'security.fact.quorum.desc' },
 ];
 
-const SECURITY_FACTS = [
-  {
-    icon: 'PDA',
-    title: 'Smart wallet PDA',
-    desc: 'Funds custody under a program-derived address. The contract — not the agent — controls execution.',
-  },
-  {
-    icon: 'KEY',
-    title: 'Session keys',
-    desc: 'Temporary signing authority with expires_at and granted_slot. Revoke single keys or all sessions in one tx.',
-  },
-  {
-    icon: '↻',
-    title: 'Anti-replay',
-    desc: 'policy_seq increments on every change. Stale attestations are rejected before any spend.',
-  },
-  {
-    icon: 'M·N',
-    title: 'Multisig & recovery',
-    desc: 'Optional M-of-N quorum for Ika approvals. Recovery authority rotates compromised sessions and dWallet controllers.',
-  },
-];
+type RailId = 'encrypt' | 'ika' | 'jupiter';
 
-const RAILS = [
+interface RailConfig {
+  id: RailId;
+  n: string;
+  label: string;
+  titleKey: TranslationKey;
+  bodyKey: TranslationKey;
+  bulletKeys: TranslationKey[];
+  refKey: TranslationKey;
+  href: string;
+  railClass: string;
+}
+
+const RAILS: RailConfig[] = [
   {
-    id: 'encrypt' as const,
+    id: 'encrypt',
     n: '01',
     label: 'Encrypt',
-    title: 'Confidential numeric policy',
-    body: 'Max-per-run and daily-cap stay encrypted on-chain. The contract enforces the guardrail before any spend without ever revealing your private thresholds — built against Encrypt pre-alpha.',
-    bullets: [
-      'Masked witness flow with sha256 commitment',
-      'EUint64 graph executor migration in flight (issue 041)',
-      'policy_seq anti-replay on every state change',
-      'No plaintext threshold ever leaves the contract',
+    titleKey: 'rail.encrypt.title',
+    bodyKey: 'rail.encrypt.body',
+    bulletKeys: [
+      'rail.encrypt.bullet.1',
+      'rail.encrypt.bullet.2',
+      'rail.encrypt.bullet.3',
+      'rail.encrypt.bullet.4',
     ],
+    refKey: 'rail.encrypt.ref',
     href: 'https://github.com/dwallet-labs/encrypt-pre-alpha',
     railClass: 'qe-rail--encrypt',
   },
   {
-    id: 'ika' as const,
+    id: 'ika',
     n: '02',
     label: 'Ika dWallet',
-    title: 'Bridgeless cross-chain signing',
-    body: 'After Polet policy approves, the contract CPI-calls Ika `approve_message` so a dWallet can sign multi-chain intents. No bridge, no asset wrapping — pure cryptographic signing.',
-    bullets: [
-      'Multi-chain support',
-      'Official Ika Pre-Alpha SDK with CPI authority PDA',
-      'MessageApproval PDA verification on devnet',
-      'Shared M-of-N approval quorum supported',
+    titleKey: 'rail.ika.title',
+    bodyKey: 'rail.ika.body',
+    bulletKeys: [
+      'rail.ika.bullet.1',
+      'rail.ika.bullet.2',
+      'rail.ika.bullet.3',
+      'rail.ika.bullet.4',
     ],
+    refKey: 'rail.ika.ref',
     href: 'https://docs.ika.xyz/',
     railClass: 'qe-rail--ika',
   },
   {
-    id: 'jupiter' as const,
+    id: 'jupiter',
     n: '03',
     label: 'Jupiter',
-    title: 'Solana DCA strategy rail',
-    body: 'Tokens v2, Price v3, and Swap v2 build composed into a route preview. The smart wallet PDA executes the approved instruction with raw control — no off-chain signing trust.',
-    bullets: [
-      'USDC → SOL DCA strategy (extensible to other pairs)',
-      'Tokens v2 metadata + verification pre-check',
-      'Swap v2 /build for raw instruction composition',
-      'PDA-owned ATAs for direct custody execution',
+    titleKey: 'rail.jupiter.title',
+    bodyKey: 'rail.jupiter.body',
+    bulletKeys: [
+      'rail.jupiter.bullet.1',
+      'rail.jupiter.bullet.2',
+      'rail.jupiter.bullet.3',
+      'rail.jupiter.bullet.4',
     ],
+    refKey: 'rail.jupiter.ref',
     href: 'https://jup.ag/',
     railClass: 'qe-rail--jupiter',
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 export function HomePage() {
   const revealRef = useScrollReveal();
+  const { t } = useLocale();
 
   return (
     <main ref={revealRef}>
       {/* ============================================================
-          HERO — Walrus-pattern: type-driven, single column, single CTA
+          HERO — type-driven + product preview (2-col on md+)
          ============================================================ */}
       <section className="qe-hero qe-hero--type">
         <div className="page-wrap relative px-4 pb-16 pt-12 md:pb-20 md:pt-16 lg:pt-20">
-          {/* Tagline kicker (Walrus: "Your Verifiable Data Platform") */}
-          <p className="qe-hero-kicker">Your confidential control layer</p>
+          <div className="grid gap-10 md:grid-cols-[1.1fr_1fr] md:items-center md:gap-12 lg:gap-16">
+            <div>
+              <p className="qe-hero-kicker">{t('hero.kicker')}</p>
 
-          {/* Massive 2-line headline (Walrus: "Infra for data / that matters") */}
-          <h1 className="qe-hero-headline">
-            <span className="block">Confidential control</span>
-            <span className="block">for AI agents</span>
-          </h1>
+              <h1 className="qe-hero-headline">
+                <span className="block">{t('hero.headline.line1')}</span>
+                <span className="block">{t('hero.headline.line2')}</span>
+              </h1>
 
-          {/* Subhead with bold inline emphasis */}
-          <p className="qe-hero-subhead">
-            Polet is a confidential control layer on Solana for AI agents.
-            Finally, every spending rule stays{' '}
-            <strong className="qe-hero-bold">private</strong>, every session
-            stays <strong className="qe-hero-bold">temporary</strong>, and every
-            cross-chain action stays{' '}
-            <strong className="qe-hero-bold">policy-gated</strong> — without
-            giving up wallet authority.
-          </p>
+              <p className="qe-hero-subhead">{t('hero.subhead')}</p>
 
-          {/* Single primary CTA */}
-          <div className="qe-hero-cta-row">
-            <Link to="/app" className="qe-button qe-button--primary qe-button--xl">
-              Start building
-              <span aria-hidden="true">→</span>
-            </Link>
-          </div>
+              <div className="qe-hero-cta-row">
+                <Link to="/app" className="qe-button qe-button--primary qe-button--xl">
+                  {t('hero.cta.primary')}
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <a
+                  href="#demo-widget"
+                  className="qe-button qe-button--secondary qe-button--xl"
+                >
+                  {t('hero.cta.secondary')}
+                </a>
+              </div>
 
-          {/* Footer meta strip — small, dismissible */}
-          <div className="qe-hero-meta">
-            <span className="qe-badge qe-badge--devnet">
-              <span className="qe-status-dot" aria-hidden="true" />
-              Solana Devnet
-            </span>
-            <span className="qe-badge qe-badge--alpha">Pre-Alpha</span>
-            <span className="qe-hero-meta__sep">·</span>
-            <span className="qe-hero-meta__item">Program 3bJjt…bkeN</span>
-            <span className="qe-hero-meta__sep">·</span>
-            <span className="qe-hero-meta__item">49+ tests passing</span>
-            <span className="qe-hero-meta__sep">·</span>
-            <span className="qe-hero-meta__item">Jupiter + Ika devnet verified</span>
+              <div className="qe-hero-meta">
+                <span className="qe-badge qe-badge--devnet">
+                  <span className="qe-status-dot" aria-hidden="true" />
+                  {t('hero.meta.devnet')}
+                </span>
+                <span className="qe-badge qe-badge--alpha">{t('hero.meta.preAlpha')}</span>
+                <span className="qe-hero-meta__sep">·</span>
+                <span className="qe-hero-meta__item">{t('hero.meta.programLabel')} 3bJjt…bkeN</span>
+                <span className="qe-hero-meta__sep">·</span>
+                <span className="qe-hero-meta__item">{t('hero.meta.testsPassing')}</span>
+                <span className="qe-hero-meta__sep">·</span>
+                <span className="qe-hero-meta__item">{t('hero.meta.e2eVerified')}</span>
+              </div>
+            </div>
+
+            <div className="md:pl-4">
+              <HeroPreview />
+            </div>
           </div>
         </div>
       </section>
 
       {/* ============================================================
-          TRUST STRIP — partner logos / integration marks (marquee)
+          TRUST STRIP
          ============================================================ */}
       <section className="qe-trust-strip qe-reveal">
         <div className="page-wrap px-4">
           <p className="mt-7 mb-2 text-center font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--kicker)]">
-            Built on · Integrated with
+            {t('trust.kicker')}
           </p>
         </div>
-        <div className="qe-trust-strip__marquee" aria-label="Polet AI partners and integrations">
+        <div className="qe-trust-strip__marquee" aria-label={t('trust.kicker')}>
           <div className="qe-trust-strip__track">
-            {/* First copy */}
             {TRUST_PARTNERS.map((p) => (
               <span key={`a-${p.label}`} className="qe-trust-strip__item">
                 <BrandLogo brand={p.brand} size={22} />
                 {p.label}
               </span>
             ))}
-            {/* Second copy — duplicated for seamless infinite loop. Hidden
-                from assistive tech to avoid double-reading partner names. */}
             {TRUST_PARTNERS.map((p) => (
               <span
                 key={`b-${p.label}`}
@@ -201,41 +203,59 @@ export function HomePage() {
             ))}
           </div>
         </div>
+
+        {/* Colosseum badge — separate "participating in" signal */}
+        <div className="page-wrap mt-4 flex justify-center px-4 pb-6">
+          <a
+            href="https://colosseum.com/frontier"
+            target="_blank"
+            rel="noreferrer"
+            className="qe-colosseum-badge"
+          >
+            <img
+              src="/brand/colosseum-symbol.svg"
+              alt=""
+              width={18}
+              height={18}
+              aria-hidden="true"
+            />
+            <span>{t('trust.colosseum.label')}</span>
+          </a>
+        </div>
       </section>
 
       {/* ============================================================
-          STATS COUNTER — engineering credibility numbers
+          STATS COUNTER
          ============================================================ */}
       <section className="page-wrap px-4 py-16 md:py-24">
         <div className="qe-stats qe-reveal-stagger">
           {STATS.map((s) => (
-            <div key={s.label} className="qe-stat">
+            <div key={s.labelKey} className="qe-stat">
               <span className="qe-stat__value">
                 <StatsCounter target={s.value} />
               </span>
-              <span className="qe-stat__label">{s.label}</span>
-              <span className="qe-stat__sub">{s.sub}</span>
+              <span className="qe-stat__label">{t(s.labelKey)}</span>
+              <span className="qe-stat__sub">{t(s.subKey)}</span>
             </div>
           ))}
         </div>
       </section>
 
       {/* ============================================================
-          MANIFESTO / PROBLEM — narrative + 3 problem cards
+          MANIFESTO / PROBLEM
          ============================================================ */}
       <section className="border-y border-[var(--line)] bg-[var(--foam)] qe-reveal">
         <div className="page-wrap grid gap-12 px-4 py-16 md:grid-cols-[5fr_7fr] md:gap-16 md:py-24">
           <div>
-            <p className="island-kicker mb-4">The delegation problem</p>
+            <p className="island-kicker mb-4">{t('manifesto.kicker')}</p>
             <h2 className="display-title text-3xl font-bold leading-[1.1] tracking-tight text-[var(--sea-ink)] sm:text-4xl md:text-5xl">
-              AI agents need wallets.{' '}
+              {t('manifesto.headlineLead')}{' '}
               <span className="text-[var(--sea-ink-soft)]">
-                But unlimited authority is dangerous.
+                {t('manifesto.headlineRest')}
               </span>
             </h2>
             <p className="mt-6 max-w-md text-base leading-7 text-[var(--sea-ink-soft)]">
-              Letting an agent automate DeFi means giving it signing power. Today, that comes with
-              three structural risks every team rebuilds from scratch.
+              {t('manifesto.body')}
             </p>
           </div>
           <ul className="space-y-3">
@@ -248,8 +268,8 @@ export function HomePage() {
                   {p.n}
                 </span>
                 <div>
-                  <h3 className="text-base font-semibold text-[var(--sea-ink)]">{p.title}</h3>
-                  <p className="mt-1.5 text-sm leading-6 text-[var(--sea-ink-soft)]">{p.desc}</p>
+                  <h3 className="text-base font-semibold text-[var(--sea-ink)]">{t(p.titleKey)}</h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[var(--sea-ink-soft)]">{t(p.descKey)}</p>
                 </div>
               </li>
             ))}
@@ -258,15 +278,46 @@ export function HomePage() {
       </section>
 
       {/* ============================================================
+          HOW YOU USE POLET — 3 steps before the architecture diagram
+         ============================================================ */}
+      <section className="page-wrap px-4 pt-16 md:pt-24 qe-reveal">
+        <div className="mb-10 max-w-3xl">
+          <p className="island-kicker mb-3">{t('howto.kicker')}</p>
+          <h2 className="display-title text-3xl font-bold leading-tight tracking-tight text-[var(--sea-ink)] sm:text-4xl md:text-5xl">
+            {t('howto.headline')}
+          </h2>
+        </div>
+        <ol className="grid gap-4 md:grid-cols-3 md:gap-6 qe-reveal-stagger">
+          {[
+            { n: '01', titleKey: 'howto.step.1.title' as const, descKey: 'howto.step.1.desc' as const },
+            { n: '02', titleKey: 'howto.step.2.title' as const, descKey: 'howto.step.2.desc' as const },
+            { n: '03', titleKey: 'howto.step.3.title' as const, descKey: 'howto.step.3.desc' as const },
+          ].map((step) => (
+            <li key={step.n} className="qe-card flex flex-col gap-3 p-6">
+              <span className="font-mono text-2xl font-extrabold leading-none text-[var(--lagoon)]" aria-hidden="true">
+                {step.n}
+              </span>
+              <h3 className="text-base font-semibold leading-tight text-[var(--sea-ink)]">
+                {t(step.titleKey)}
+              </h3>
+              <p className="text-sm leading-6 text-[var(--sea-ink-soft)]">
+                {t(step.descKey)}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* ============================================================
           ARCHITECTURE FLOW DIAGRAM
          ============================================================ */}
       <section className="page-wrap px-4 py-16 md:py-24 qe-reveal-scale">
         <div className="mb-10 max-w-3xl">
-          <p className="island-kicker mb-3">How it works</p>
+          <p className="island-kicker mb-3">{t('flow.kicker')}</p>
           <h2 className="display-title text-3xl font-bold leading-tight tracking-tight text-[var(--sea-ink)] sm:text-4xl md:text-5xl">
-            One contract. One policy gate.
+            {t('flow.headline.lead')}
             <br />
-            <span className="text-[var(--lagoon)]">Two execution rails.</span>
+            <span className="text-[var(--lagoon)]">{t('flow.headline.rest')}</span>
           </h2>
         </div>
 
@@ -275,14 +326,12 @@ export function HomePage() {
         </div>
 
         <p className="mt-6 max-w-3xl text-sm leading-6 text-[var(--sea-ink-soft)]">
-          Owner deposits funds, sets a confidential policy, grants the AI agent a temporary session
-          key. Every agent action — Solana DCA or cross-chain dWallet signing — passes through the
-          same on-chain guardrail before execution.
+          {t('flow.body')}
         </p>
       </section>
 
       {/* ============================================================
-          RAIL SECTIONS — alternating left/right with terminal mockups
+          RAIL SECTIONS — alternating left/right
          ============================================================ */}
       {RAILS.map((rail, idx) => {
         const reversed = idx % 2 === 1;
@@ -302,12 +351,10 @@ export function HomePage() {
                 reversed ? 'md:grid-cols-[7fr_5fr]' : 'md:grid-cols-[5fr_7fr]'
               }`}
             >
-              {/* Mockup column (alternates L/R) */}
               <div className={reversed ? 'md:order-2' : 'md:order-1'}>
                 <RailMockup variant={rail.id} />
               </div>
 
-              {/* Text column */}
               <div className={reversed ? 'md:order-1' : 'md:order-2'}>
                 <span className="qe-rail-kicker mb-5">
                   <span className="qe-rail-kicker__icon" aria-hidden="true">
@@ -318,18 +365,18 @@ export function HomePage() {
                   <span>{rail.label}</span>
                 </span>
                 <h3 className="display-title mt-4 text-2xl font-bold leading-tight tracking-tight text-[var(--sea-ink)] sm:text-3xl md:text-4xl">
-                  {rail.title}
+                  {t(rail.titleKey)}
                 </h3>
                 <p className="mt-5 max-w-xl text-base leading-7 text-[var(--sea-ink-soft)]">
-                  {rail.body}
+                  {t(rail.bodyKey)}
                 </p>
                 <ul className="mt-7 space-y-1.5">
-                  {rail.bullets.map((b) => (
+                  {rail.bulletKeys.map((bKey) => (
                     <li
-                      key={b}
+                      key={bKey}
                       className="qe-rail-bullet text-sm leading-6 text-[var(--sea-ink)]"
                     >
-                      <span>{b}</span>
+                      <span>{t(bKey)}</span>
                     </li>
                   ))}
                 </ul>
@@ -339,7 +386,7 @@ export function HomePage() {
                   rel="noreferrer"
                   className="qe-link mt-7 text-sm"
                 >
-                  {rail.label} reference
+                  {t(rail.refKey)}
                   <span className="qe-link__arrow">↗</span>
                 </a>
               </div>
@@ -355,27 +402,32 @@ export function HomePage() {
         <div className="page-wrap px-4 py-16 md:py-24">
           <div className="mb-10 grid gap-6 md:grid-cols-[1fr_1fr] md:items-end">
             <div>
-              <p className="island-kicker mb-3">Security model</p>
+              <p className="island-kicker mb-3">{t('security.kicker')}</p>
               <h2 className="display-title text-3xl font-bold leading-tight tracking-tight text-[var(--sea-ink)] sm:text-4xl md:text-5xl">
-                Layered defenses, no unilateral authority.
+                {t('security.headline')}
               </h2>
             </div>
             <p className="text-base leading-7 text-[var(--sea-ink-soft)] md:max-w-md md:justify-self-end">
-              Polet's smart wallet PDA, session-key model, anti-replay, and multisig-lite quorum
-              compose into one defensive system that no single party can override.
+              {t('security.body')}
+            </p>
+          </div>
+
+          <div className="mb-10 max-w-3xl rounded-xl border-l-4 border-[var(--lagoon)] bg-[var(--lagoon-soft)] px-5 py-4">
+            <p className="text-sm leading-6 text-[var(--sea-ink)]">
+              {t('security.threat.intro')}
             </p>
           </div>
 
           <div className="qe-quadrant qe-reveal-stagger">
             {SECURITY_FACTS.map((f) => (
-              <div key={f.title} className="qe-quadrant__cell">
+              <div key={f.titleKey} className="qe-quadrant__cell">
                 <span className="qe-quadrant__icon" aria-hidden="true">
                   {f.icon}
                 </span>
                 <h3 className="text-lg font-semibold leading-tight text-[var(--sea-ink)]">
-                  {f.title}
+                  {t(f.titleKey)}
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-[var(--sea-ink-soft)]">{f.desc}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--sea-ink-soft)]">{t(f.descKey)}</p>
               </div>
             ))}
           </div>
@@ -385,28 +437,27 @@ export function HomePage() {
       {/* ============================================================
           INTERACTIVE DEMO WIDGET
          ============================================================ */}
-      <section className="border-b border-[var(--line)] bg-[var(--foam)] qe-reveal">
+      <section id="demo-widget" className="border-b border-[var(--line)] bg-[var(--foam)] qe-reveal">
         <div className="page-wrap grid gap-12 px-4 py-16 md:grid-cols-[5fr_7fr] md:gap-12 md:py-24">
           <div>
-            <p className="island-kicker mb-3">Try it · no wallet needed</p>
+            <p className="island-kicker mb-3">{t('demo.kicker')}</p>
             <h2 className="display-title text-3xl font-bold leading-tight tracking-tight text-[var(--sea-ink)] sm:text-4xl md:text-5xl">
-              See the policy gate in 30 seconds.
+              {t('demo.headline')}
             </h2>
             <p className="mt-5 max-w-md text-base leading-7 text-[var(--sea-ink-soft)]">
-              Run the three demo outcomes against a mock API. The block scenario shows how Polet
-              rejects an over-limit agent action without revealing your private threshold.
+              {t('demo.body')}
             </p>
             <div className="mt-7 space-y-3">
               <div className="flex items-start gap-3">
                 <span className="qe-pill qe-pill--success mt-0.5 flex-shrink-0">5 USDC</span>
                 <p className="text-sm leading-6 text-[var(--sea-ink-soft)]">
-                  In-limit Jupiter DCA — Polet approves and returns an unsigned route/build.
+                  {t('demo.pill.dca.desc')}
                 </p>
               </div>
               <div className="flex items-start gap-3">
                 <span className="qe-pill qe-pill--success mt-0.5 flex-shrink-0">5 USDC</span>
                 <p className="text-sm leading-6 text-[var(--sea-ink-soft)]">
-                  In-limit multi-chain Ika — Polet approves and prepares an Ika dWallet approval transaction.
+                  {t('demo.pill.ika.desc')}
                 </p>
               </div>
               <div className="flex items-start gap-3">
@@ -417,7 +468,7 @@ export function HomePage() {
                   25 USDC
                 </span>
                 <p className="text-sm leading-6 text-[var(--sea-ink-soft)]">
-                  Over-limit — blocked. No threshold leak. No dWallet approval data created.
+                  {t('demo.pill.block.desc')}
                 </p>
               </div>
             </div>
@@ -435,25 +486,28 @@ export function HomePage() {
       <section className="page-wrap px-4 py-16 md:py-24 qe-reveal">
         <div className="qe-card border-2 border-dashed border-[var(--line-strong)] bg-[var(--sand)]">
           <div className="mb-3 flex items-center gap-3">
-            <span className="qe-badge qe-badge--alpha">Pre-Alpha</span>
+            <span className="qe-badge qe-badge--alpha">{t('disclaimer.badge')}</span>
             <p className="island-kicker m-0" style={{ color: 'var(--sunset)' }}>
-              Honest disclaimer
+              {t('disclaimer.kicker')}
             </p>
           </div>
           <h2 className="display-title text-2xl font-bold leading-tight tracking-tight text-[var(--sea-ink)] sm:text-3xl">
-            What is real, and what is not.
+            {t('disclaimer.headline')}
           </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--sea-ink-soft)]">
+            {t('disclaimer.intro')}
+          </p>
           <div className="mt-6 grid gap-8 md:grid-cols-2">
             <div>
               <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[var(--palm)]">
-                ● Real in this build
+                {t('disclaimer.real.heading')}
               </h3>
               <ul className="space-y-2 text-sm leading-6 text-[var(--sea-ink-soft)]">
-                <li>· Solana smart wallet PDA, custody, session-key flow</li>
-                <li>· Confidential numeric policy enforcement on-chain (devnet)</li>
-                <li>· 25 USDC blocked / 5 USDC allowed end-to-end on devnet</li>
-                <li>· Jupiter Tokens, Price, and Swap v2 build preview</li>
-                <li>· Ika `approve_message` CPI lifecycle (Pre-Alpha SDK)</li>
+                <li>· {t('disclaimer.real.item.1')}</li>
+                <li>· {t('disclaimer.real.item.2')}</li>
+                <li>· {t('disclaimer.real.item.3')}</li>
+                <li>· {t('disclaimer.real.item.4')}</li>
+                <li>· {t('disclaimer.real.item.5')}</li>
               </ul>
             </div>
             <div>
@@ -461,14 +515,14 @@ export function HomePage() {
                 className="mb-3 text-sm font-semibold uppercase tracking-wider"
                 style={{ color: 'var(--coral)' }}
               >
-                ○ Not claimed in this build
+                {t('disclaimer.notclaimed.heading')}
               </h3>
               <ul className="space-y-2 text-sm leading-6 text-[var(--sea-ink-soft)]">
-                <li>· Production-grade FHE privacy (Encrypt is pre-alpha)</li>
-                <li>· Production MPC (Ika Pre-Alpha uses a single mock signer)</li>
-                <li>· Mainnet swap or settled bridgeless asset movement</li>
-                <li>· Verified Ika settlement of native cross-chain assets</li>
-                <li>· Audit, KYC, or regulated custody guarantees</li>
+                <li>· {t('disclaimer.notclaimed.item.1')}</li>
+                <li>· {t('disclaimer.notclaimed.item.2')}</li>
+                <li>· {t('disclaimer.notclaimed.item.3')}</li>
+                <li>· {t('disclaimer.notclaimed.item.4')}</li>
+                <li>· {t('disclaimer.notclaimed.item.5')}</li>
               </ul>
             </div>
           </div>
@@ -476,30 +530,36 @@ export function HomePage() {
       </section>
 
       {/* ============================================================
-          FINAL CTA — gradient panel
+          FINAL CTA — audience-split 3-path
          ============================================================ */}
       <section className="page-wrap px-4 pt-16 pb-16 md:pt-24 md:pb-24 qe-reveal-scale">
         <div className="qe-cta-panel">
           <h2 className="display-title mx-auto max-w-2xl text-3xl font-extrabold sm:text-4xl md:text-5xl">
-            Try the policy gate on devnet.
+            {t('cta.heading')}
           </h2>
           <p className="mx-auto max-w-xl text-base leading-7 md:text-lg">
-            Connect a devnet wallet, set a confidential policy, grant an agent session key, and run
-            the three demo outcomes.
+            {t('cta.body')}
           </p>
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/app" className="qe-button qe-button--primary qe-button--xl">
-              Open App
-              <span aria-hidden="true">→</span>
+          <div className="mt-10 grid gap-3 md:grid-cols-3 md:gap-4">
+            <Link to="/app" className="qe-cta-path qe-cta-path--primary">
+              <span className="qe-cta-path__kicker">{t('cta.path.build.audience')}</span>
+              <span className="qe-cta-path__title">{t('cta.path.build.title')}</span>
+              <span className="qe-cta-path__action">{t('cta.path.build.cta')}</span>
             </Link>
             <a
-              href="https://github.com/harkon666/Polet-AI"
+              href="https://github.com/harkon666/Polet-AI/blob/main/docs/demo-script.md"
               target="_blank"
               rel="noreferrer"
-              className="qe-button qe-button--secondary qe-button--xl"
+              className="qe-cta-path"
             >
-              View on GitHub
-              <span aria-hidden="true">↗</span>
+              <span className="qe-cta-path__kicker">{t('cta.path.review.audience')}</span>
+              <span className="qe-cta-path__title">{t('cta.path.review.title')}</span>
+              <span className="qe-cta-path__action">{t('cta.path.review.cta')}</span>
+            </a>
+            <a href="#demo-widget" className="qe-cta-path">
+              <span className="qe-cta-path__kicker">{t('cta.path.explore.audience')}</span>
+              <span className="qe-cta-path__title">{t('cta.path.explore.title')}</span>
+              <span className="qe-cta-path__action">{t('cta.path.explore.cta')}</span>
             </a>
           </div>
         </div>

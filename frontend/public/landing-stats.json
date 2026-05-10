@@ -1,0 +1,10 @@
+{
+  "lastUpdated": "2026-05-10",
+  "comment": "Update manually per release. Values here surface in the landing stats section.",
+  "items": [
+    { "key": "stats.1", "value": 49 },
+    { "key": "stats.2", "value": 8 },
+    { "key": "stats.3", "value": 2 },
+    { "key": "stats.4", "value": 1 }
+  ]
+}

@@ -1,10 +1,12 @@
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme {
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
 }
@@ -142,6 +144,12 @@
   box-sizing: border-box;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 html,
 body,
 #app {
@@ -211,7 +219,7 @@ pre code {
 }
 
 .display-title {
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   letter-spacing: -0.02em;
 }
 
@@ -317,11 +325,11 @@ a {
   font-family: var(--font-mono);
 }
 
-/* Wordmark — soft, type-driven */
+/* Wordmark — soft, type-driven, image-backed mark */
 .qe-wordmark {
   display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
   text-decoration: none;
   color: var(--sea-ink);
   line-height: 1;
@@ -331,24 +339,31 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   background: var(--lagoon);
   color: white;
-  font-family: var(--font-sans);
-  font-weight: 800;
-  font-size: 0.75rem;
-  letter-spacing: -0.04em;
-  border-radius: 6px;
-  margin-right: 2px;
-  transform: translateY(-1px);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow:
+    0 1px 2px rgba(13, 125, 119, 0.12),
+    0 2px 8px rgba(13, 125, 119, 0.08);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.qe-wordmark__mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .qe-wordmark__name {
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1rem;
-  letter-spacing: -0.015em;
+  font-size: 1.02rem;
+  letter-spacing: -0.018em;
 }
 
 .qe-wordmark__tag {
@@ -357,10 +372,164 @@ a {
   font-size: 0.72rem;
   color: var(--sea-ink-soft);
   letter-spacing: 0;
+  margin-left: 2px;
 }
 
 .qe-wordmark:hover .qe-wordmark__mark {
-  background: var(--lagoon-deep);
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgba(13, 125, 119, 0.16),
+    0 6px 16px rgba(13, 125, 119, 0.1);
+}
+
+/* Large variant — used in footer brand block */
+.qe-wordmark--lg {
+  gap: 12px;
+}
+
+.qe-wordmark--lg .qe-wordmark__mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+.qe-wordmark--lg .qe-wordmark__name {
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.qe-wordmark--lg .qe-wordmark__tag {
+  font-size: 0.88rem;
+}
+
+/* Condensed / uppercase variant — used in compact header.
+   POLET as typographic wordmark, no /AI tag. */
+.qe-wordmark--condensed .qe-wordmark__name {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+  font-size: 0.92rem;
+}
+
+.qe-wordmark--condensed .qe-wordmark__tag {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qe-wordmark__mark {
+    transition: none;
+  }
+  .qe-wordmark:hover .qe-wordmark__mark {
+    transform: none;
+  }
+}
+
+/* ============================================
+   PREFERENCES MENU — combined theme + locale popover
+   ============================================ */
+
+.qe-prefs {
+  position: relative;
+  display: inline-flex;
+}
+
+.qe-prefs__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--sea-ink-soft);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.qe-prefs__trigger:hover {
+  border-color: var(--line-strong);
+  color: var(--sea-ink);
+  background: var(--foam);
+}
+
+.qe-prefs__trigger:focus-visible {
+  outline: 2px solid var(--lagoon);
+  outline-offset: 2px;
+}
+
+.qe-prefs__trigger[aria-expanded="true"] {
+  border-color: var(--lagoon);
+  color: var(--lagoon);
+  background: var(--lagoon-soft);
+}
+
+.qe-prefs__trigger svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.qe-prefs__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 230px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  animation: qe-prefs-enter 140ms ease-out;
+}
+
+@keyframes qe-prefs-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.qe-prefs__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.qe-prefs__label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--kicker);
+}
+
+.qe-prefs__divider {
+  height: 1px;
+  margin: 14px 0;
+  background: var(--line);
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qe-prefs__panel {
+    animation: none;
+  }
+  .qe-prefs__trigger {
+    transition: none;
+  }
 }
 
 /* Nav link — quiet underline reveal */
@@ -1303,6 +1472,33 @@ footer {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  /* Hero background image — IMG_3787.png served from /public.
+     Gradient overlay keeps the headline, kicker, and subhead readable
+     by pushing the image toward the edges while text sits against a
+     theme-matched tint. Override overlay RGB in dark theme below. */
+  background-image:
+    linear-gradient(
+      180deg,
+      var(--hero-bg-overlay-top, rgba(250, 250, 249, 0.88)) 0%,
+      var(--hero-bg-overlay-bottom, rgba(250, 250, 249, 0.62)) 100%
+    ),
+    url("/IMG_3787.png");
+  background-size: auto, cover;
+  background-position: top, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+:root[data-theme="dark"] .qe-hero--type,
+:root.dark .qe-hero--type {
+  --hero-bg-overlay-top: rgba(14, 17, 23, 0.8);
+  --hero-bg-overlay-bottom: rgba(14, 17, 23, 0.48);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .qe-hero--type {
+    --hero-bg-overlay-top: rgba(14, 17, 23, 0.8);
+    --hero-bg-overlay-bottom: rgba(14, 17, 23, 0.48);
+  }
 }
 
 @media (min-width: 1024px) {
@@ -1322,7 +1518,9 @@ footer {
     radial-gradient(ellipse 50% 40% at 50% 110%, color-mix(in oklab, var(--rail-ika) 8%, transparent) 0%, transparent 60%);
   z-index: -2;
   pointer-events: none;
-  opacity: 0.9;
+  /* Reduced from 0.9 so the background image reads as the primary
+     visual, and the radial blobs act as subtle colour flavour only. */
+  opacity: 0.35;
 }
 
 .qe-hero--type::after {
@@ -1336,7 +1534,9 @@ footer {
   background-position: 50% 50%;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 70%);
   z-index: -1;
-  opacity: 0.35;
+  /* Reduced from 0.35 to keep the grid a subtle texture over the image
+     rather than a dominant pattern. */
+  opacity: 0.15;
   pointer-events: none;
 }
 
@@ -1361,7 +1561,7 @@ footer {
 /* Massive headline — 2 lines, very tight tracking, very large, CENTERED */
 .qe-hero-headline {
   margin: 0 auto 24px;
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   font-weight: 800;
   font-size: 2.25rem;
   line-height: 1;
@@ -1793,4 +1993,683 @@ html {
   .animate-fadeIn {
     animation: none;
   }
+}
+
+/* ============================================
+   SEGMENTED TOGGLE — shared primitive
+   ============================================
+   Used by LocaleToggle (EN/ID) and ThemeToggle (Light/Dark/Auto).
+   Radio-group semantics: each segment is an individually clickable
+   <button role="radio">. Active segment fills with lagoon accent. */
+
+.qe-seg-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  transition: border-color 160ms ease;
+}
+
+.qe-seg-toggle:hover {
+  border-color: var(--line-strong);
+}
+
+.qe-seg-toggle:focus-within {
+  border-color: var(--lagoon);
+}
+
+.qe-seg-toggle__seg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sea-ink-soft);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.qe-seg-toggle__seg:hover:not(.qe-seg-toggle__seg--active) {
+  color: var(--sea-ink);
+  background: var(--foam);
+}
+
+.qe-seg-toggle__seg:focus-visible {
+  outline: 2px solid var(--lagoon);
+  outline-offset: 2px;
+}
+
+.qe-seg-toggle__seg--active {
+  background: var(--lagoon);
+  color: #ffffff;
+}
+
+/* Icon-only variant (ThemeToggle) — square-ish segments, slightly larger
+   tap target, tighter padding than text segments. */
+.qe-seg-toggle--icons .qe-seg-toggle__seg {
+  padding: 5px 7px;
+  min-width: 28px;
+}
+
+.qe-seg-toggle--icons .qe-seg-toggle__seg svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qe-seg-toggle,
+  .qe-seg-toggle__seg {
+    transition: none;
+  }
+}
+
+/* ============================================
+   Back-compat alias — .qe-locale-toggle was the older class name.
+   Kept so existing selectors in downstream CSS or tests still work.
+   New code should prefer .qe-seg-toggle directly.
+   ============================================ */
+.qe-locale-toggle {
+  /* stylelint-disable-next-line */
+}
+
+
+/* ============================================
+   HERO PRODUCT PREVIEW — macOS-style window frame
+   ============================================ */
+
+.qe-product-frame {
+  display: block;
+  max-width: 420px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(13, 125, 119, 0.06),
+    0 8px 24px rgba(13, 125, 119, 0.08),
+    0 24px 56px rgba(0, 0, 0, 0.06);
+  animation: qe-hero-preview-enter 400ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qe-product-frame {
+    animation: none;
+  }
+}
+
+@keyframes qe-hero-preview-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.qe-product-frame__chrome {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--foam);
+  border-bottom: 1px solid var(--line);
+}
+
+.qe-product-frame__dots {
+  display: inline-flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.qe-product-frame__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: block;
+}
+
+.qe-product-frame__dot--close {
+  background: #ff5f56;
+}
+.qe-product-frame__dot--min {
+  background: #ffbd2e;
+}
+.qe-product-frame__dot--max {
+  background: #27c93f;
+}
+
+.qe-product-frame__url {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--sea-ink-soft);
+  letter-spacing: 0.02em;
+  padding: 3px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qe-product-frame__viewport {
+  padding: 20px;
+  background: var(--bg-base);
+}
+
+/* Preview card inside the frame */
+
+.qe-preview-card {
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qe-preview-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qe-preview-card__kicker {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--kicker);
+}
+
+.qe-preview-card__alpha-badge {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--sunset);
+  background: var(--sunset-soft);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.qe-preview-card__rows {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qe-preview-card__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.qe-preview-card__row dt {
+  color: var(--sea-ink-soft);
+}
+
+.qe-preview-card__masked {
+  margin: 0;
+  color: var(--sea-ink);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.qe-preview-card__divider {
+  height: 1px;
+  margin: 0;
+  background: var(--line);
+  border: 0;
+}
+
+.qe-preview-card__session {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--sea-ink-soft);
+}
+
+.qe-preview-card__session-label {
+  color: var(--palm);
+  font-weight: 600;
+}
+
+.qe-preview-card__session-key {
+  margin-left: auto;
+  color: var(--sea-ink-soft);
+  font-size: 0.66rem;
+}
+
+.qe-preview-card__blocked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--coral-soft);
+  border: 1px solid var(--coral);
+  border-radius: 8px;
+}
+
+.qe-preview-card__amount {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.94rem;
+  color: var(--coral);
+  letter-spacing: -0.01em;
+}
+
+.qe-preview-card__blocked-label {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--coral);
+}
+
+/* Status dot colour helpers used by the preview */
+.qe-status-dot--palm {
+  color: var(--palm);
+}
+
+
+/* ============================================
+   FINAL CTA — audience-split path cards
+   ============================================ */
+
+.qe-cta-path {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 20px 22px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--sea-ink);
+  text-decoration: none;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+  text-align: left;
+}
+
+.qe-cta-path:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-2px);
+  color: var(--sea-ink);
+  text-decoration: none;
+}
+
+.qe-cta-path:focus-visible {
+  outline: 2px solid var(--lagoon);
+  outline-offset: 2px;
+}
+
+.qe-cta-path--primary {
+  background: var(--lagoon);
+  border-color: var(--lagoon-deep);
+  color: #fff;
+}
+
+.qe-cta-path--primary:hover {
+  background: var(--lagoon-deep);
+  border-color: var(--lagoon-deep);
+  color: #fff;
+}
+
+.qe-cta-path__kicker {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  opacity: 0.72;
+}
+
+.qe-cta-path__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: -0.01em;
+}
+
+.qe-cta-path__action {
+  margin-top: 4px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.9rem;
+  opacity: 0.92;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qe-cta-path {
+    transition: none;
+  }
+  .qe-cta-path:hover {
+    transform: none;
+  }
+}
+
+
+/* ============================================
+   COLOSSEUM BADGE — "participating in" signal
+   ============================================ */
+
+.qe-colosseum-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--sea-ink);
+  text-decoration: none;
+  transition: border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.qe-colosseum-badge:hover {
+  border-color: var(--lagoon);
+  color: var(--lagoon);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.qe-colosseum-badge img {
+  display: block;
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qe-colosseum-badge {
+    transition: none;
+  }
+  .qe-colosseum-badge:hover {
+    transform: none;
+  }
+}
+
+
+/* ============================================
+   RAIL MOCKUP — Ika sequence flow diagram
+   ============================================ */
+
+.qe-rail-seq {
+  padding: 22px 18px;
+  background: #0b1116;
+  color: #e8edf2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-height: 400px;
+}
+
+.qe-rail-seq__step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 320px;
+}
+
+.qe-rail-seq__node {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 16px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+}
+
+.qe-rail-seq__node--accent {
+  background: rgba(45, 212, 191, 0.14);
+  border-color: rgba(45, 212, 191, 0.5);
+}
+
+.qe-rail-seq__num {
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.qe-rail-seq__node--accent .qe-rail-seq__num {
+  color: #2dd4bf;
+}
+
+.qe-rail-seq__label {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.qe-rail-seq__sub {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.qe-rail-seq__arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1;
+}
+
+/* ============================================
+   RAIL MOCKUP — Jupiter route preview table
+   ============================================ */
+
+.qe-rail-route {
+  padding: 22px 18px;
+  background: #0b1116;
+  color: #e8edf2;
+  font-family: var(--font-mono);
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qe-rail-route__grid {
+  margin: 0;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.qe-rail-route__row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.qe-rail-route__row:last-child {
+  border-bottom: 0;
+}
+
+.qe-rail-route__row dt {
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
+.qe-rail-route__row dd {
+  margin: 0;
+  color: #fff;
+  font-weight: 500;
+}
+
+.qe-rail-route__accent {
+  color: #2dd4bf !important;
+  font-weight: 600;
+}
+
+.qe-rail-route__mono {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.qe-rail-route__footnote {
+  margin: 0;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  padding-left: 4px;
+}
+
+
+/* ============================================
+   HEADER STICKY MINI-CTA — visible post-hero on landing
+   ============================================ */
+
+.qe-header-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  background: var(--lagoon);
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.82rem;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 1px solid var(--lagoon-deep);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    opacity 200ms ease;
+  animation: qe-header-cta-enter 180ms ease-out;
+}
+
+@keyframes qe-header-cta-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.qe-header-cta:hover {
+  background: var(--lagoon-deep);
+  color: #ffffff;
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.qe-header-cta:focus-visible {
+  outline: 2px solid var(--lagoon);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qe-header-cta {
+    animation: none;
+    transition: none;
+  }
+  .qe-header-cta:hover {
+    transform: none;
+  }
+}
+
+/* Compact size on mobile to keep header single-row at 375 */
+@media (max-width: 480px) {
+  .qe-header-cta {
+    padding: 5px 10px;
+    font-size: 0.75rem;
+  }
+}
+
+
+/* ============================================
+   FOOTER COMMUNITY CHIPS
+   ============================================ */
+
+.qe-community-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--sea-ink);
+  text-decoration: none;
+  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+}
+
+.qe-community-chip:hover {
+  border-color: var(--lagoon);
+  color: var(--lagoon);
+  text-decoration: none;
+  background: var(--lagoon-soft);
+}
+
+.qe-community-chip--soon {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.qe-community-chip--soon:hover {
+  border-color: var(--line);
+  color: var(--sea-ink);
+  background: var(--surface);
+}
+
+.qe-community-chip__soon {
+  font-size: 0.66rem;
+  color: var(--kicker);
+  margin-left: 2px;
 }

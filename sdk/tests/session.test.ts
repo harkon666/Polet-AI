@@ -219,7 +219,7 @@ describe('Session Management Utils', () => {
       const wallet = await deriveWalletPDA(owner);
 
       expect(PROGRAM_ID).toBe('9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc');
-      expect(wallet.toBase58()).toBe('5CEyBMu7a3SuY8sBX33cJPqvb32QVK492QtFmWadXLzR');
+      expect(wallet.toBase58()).toBe('AwRoJBSvEfkGUHmc1P3BmXfGuX9XPpzob87jTCwPwc69');
     });
   });
 });
