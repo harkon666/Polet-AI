@@ -3,6 +3,7 @@ import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { KickerLabel } from '../primitives/KickerLabel'
 import { ParticleField } from '../primitives/ParticleField'
 import { RailCard, type Rail } from './RailCard'
+import { useConsole } from './use-console-actions'
 
 /**
  * TwoRailConsole, /app's parallel rail cards.
@@ -16,19 +17,16 @@ import { RailCard, type Rail } from './RailCard'
  *   - Jupiter DCA       Solana strategy rail
  *   - Ika dWallet       bridgeless cross-chain signing rail
  *
- * Both rails pass through the same on-chain policy gate; that gate is
- * implicit in the SetupLedger's POLICY row and the page-level "Three
- * rails. One gate." thesis. The chrome (`pl-rails-bg` container with
- * cursor-tracked teal glow + ParticleField dust) is reused verbatim
- * from the landing so the two surfaces visually rhyme.
+ * Day 11 wires action buttons (Try 25 USDC block / Run 5 USDC allow on
+ * Jupiter, Try 25 USDC block / Approve 5 USDC allow on Ika) through
+ * `useConsole()`. Buttons stay disabled until the Setup Ledger reaches
+ * an active agent session — linear gating mirrors the demo script.
  *
- * Different particle seeds (31 / 71 vs the landing default 37 / 7)
- * give a visibly distinct dust pattern so the operational console
- * reads as its own surface rather than a copy of the landing rails.
- *
- * Day 9 = display only. Day 10 wires Try 25 / Run 5 (or Approve 5)
- * buttons inside each `<RailCard>` to real proxy handlers.
+ * Different particle seeds (31 / 71 vs landing default 37 / 7) give a
+ * visibly distinct dust pattern so the operational console reads as
+ * its own surface rather than a copy of the landing rails.
  */
+
 const RAILS: Rail[] = [
   {
     id: 'jupiter',
@@ -37,6 +35,12 @@ const RAILS: Rail[] = [
     titleKey: 'rail.jupiter.title',
     bodyKey: 'rail.jupiter.body',
     disclaimerKey: 'app.rail.jupiter.disclaimer',
+    blockActionKey: 'jupiter-block',
+    blockActionLabelKey: 'app.rail.jupiter.action.block',
+    blockActionLoadingKey: 'app.rail.jupiter.action.block.loading',
+    allowActionKey: 'jupiter-allow',
+    allowActionLabelKey: 'app.rail.jupiter.action.allow',
+    allowActionLoadingKey: 'app.rail.jupiter.action.allow.loading',
   },
   {
     id: 'ika',
@@ -45,12 +49,28 @@ const RAILS: Rail[] = [
     titleKey: 'rail.ika.title',
     bodyKey: 'rail.ika.body',
     disclaimerKey: 'app.rail.ika.disclaimer',
+    blockActionKey: 'ika-block',
+    blockActionLabelKey: 'app.rail.ika.action.block',
+    blockActionLoadingKey: 'app.rail.ika.action.block.loading',
+    allowActionKey: 'ika-allow',
+    allowActionLabelKey: 'app.rail.ika.action.allow',
+    allowActionLoadingKey: 'app.rail.ika.action.allow.loading',
   },
 ]
 
 export function TwoRailConsole() {
   const { t } = useLocale()
   const containerRef = useScrollReveal()
+  const { state, actions } = useConsole()
+
+  // Rails are enabled only when there's an active session, mirroring
+  // the linear setup gating: wallet → custody → policy → session.
+  const sessions = state.data?.temporalKeys ?? state.data?.sessions ?? []
+  const enabled = sessions.some(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (s: any) =>
+      s?.authorized && Number(s?.expiresAt ?? 0) * 1000 > Date.now(),
+  )
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.currentTarget
@@ -61,11 +81,19 @@ export function TwoRailConsole() {
     target.style.setProperty('--cursor-y', `${y}%`)
   }
 
+  const handlerFor = (rail: Rail, mode: 'block' | 'allow') => () => {
+    if (rail.id === 'jupiter') {
+      mode === 'block' ? actions.runJupiterBlock() : actions.runJupiterAllow()
+    } else {
+      mode === 'block' ? actions.runIkaBlock() : actions.runIkaAllow()
+    }
+  }
+
   return (
     <section
       ref={containerRef}
       aria-label="Polet operational rails"
-      className="border-b border-line bg-bg-base py-16 md:py-24"
+      className="border-b border-line bg-bg-base py-10 md:py-14"
     >
       <div className="mx-auto max-w-6xl px-6">
         <KickerLabel tone="accent" className="pl-reveal">
@@ -86,6 +114,10 @@ export function TwoRailConsole() {
                 rail={rail}
                 index={i}
                 totalCount={RAILS.length}
+                loading={state.loading}
+                enabled={enabled}
+                onBlock={handlerFor(rail, 'block')}
+                onAllow={handlerFor(rail, 'allow')}
               />
             ))}
           </div>

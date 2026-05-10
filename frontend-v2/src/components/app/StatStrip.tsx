@@ -1,17 +1,14 @@
-import { useEffect, useState } from 'react'
-import { useConnection, useWallet } from '@solana/wallet-adapter-react'
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
-import { getWalletData } from '#shared/lib/api'
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
+import { useConsole } from './use-console-actions'
 
 /**
  * StatStrip, four compact tiles showing live wallet state.
  *
- * Day 10 layout pivot — adds dashboard density when the wallet is
- * connected. Renders nothing when disconnected so the onboarding
- * wizard owns that empty state.
+ * Reads from `useConsole()` so it shares state with SetupLedger,
+ * TwoRailConsole, and ReceiptLog — single source of truth, single
+ * `getWalletData` fetch + `getBalance` poll per page.
  *
  * Tiles:
  *   - PDA           short program-derived address
@@ -19,9 +16,8 @@ import { useScrollReveal } from '../../hooks/useScrollReveal'
  *   - Policy seq    `#N` from on-chain confidential policy state
  *   - Sessions      number of authorized, non-expired sessions
  *
- * Tiles are stat tiles, not action affordances; they read state, they
- * don't trigger writes. Day 11 will add a small "↗ explorer" link on
- * the PDA tile.
+ * Renders nothing when disconnected so the onboarding wizard owns
+ * the empty state.
  */
 
 type TileDef = {
@@ -41,49 +37,13 @@ const shortenPubkey = (s: string) =>
 
 export function StatStrip() {
   const { t } = useLocale()
-  const { connected, publicKey } = useWallet()
-  const { connection } = useConnection()
+  const { state } = useConsole()
+  const { connected, data, solBalance } = state
   const containerRef = useScrollReveal()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any | null>(null)
-  const [solBalance, setSolBalance] = useState<number | null>(null)
-
-  useEffect(() => {
-    if (!connected || !publicKey) {
-      setData(null)
-      setSolBalance(null)
-      return
-    }
-    let cancelled = false
-    const owner = publicKey.toBase58()
-
-    ;(async () => {
-      try {
-        const result = await getWalletData(owner)
-        if (!cancelled) setData(result)
-      } catch {
-        if (!cancelled) setData(null)
-      }
-    })()
-
-    ;(async () => {
-      try {
-        const lamports = await connection.getBalance(publicKey, 'confirmed')
-        if (!cancelled) setSolBalance(lamports / LAMPORTS_PER_SOL)
-      } catch {
-        if (!cancelled) setSolBalance(null)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [connected, publicKey, connection])
 
   if (!connected) return null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessions: any[] = data?.temporalKeys ?? data?.sessions ?? []
+  const sessions = data?.temporalKeys ?? data?.sessions ?? []
   const activeSessions = sessions.filter(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (s: any) =>

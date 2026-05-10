@@ -343,7 +343,27 @@ export type TranslationKey =
   | 'app.wizard.connect.body'
   | 'app.wizard.connect.pointer'
   | 'app.wizard.disabled.waiting'
-  | 'app.advanced.label';
+  | 'app.advanced.label'
+  // App console — Day 11 action wiring (Setup CTAs + Rail buttons + Receipt Log)
+  | 'app.action.initialize'
+  | 'app.action.initialize.loading'
+  | 'app.action.registerCustody'
+  | 'app.action.registerCustody.loading'
+  | 'app.action.savePolicy'
+  | 'app.action.savePolicy.loading'
+  | 'app.action.grantSession'
+  | 'app.action.grantSession.loading'
+  | 'app.rail.jupiter.action.block'
+  | 'app.rail.jupiter.action.block.loading'
+  | 'app.rail.jupiter.action.allow'
+  | 'app.rail.jupiter.action.allow.loading'
+  | 'app.rail.ika.action.block'
+  | 'app.rail.ika.action.block.loading'
+  | 'app.rail.ika.action.allow'
+  | 'app.rail.ika.action.allow.loading'
+  | 'app.log.kicker'
+  | 'app.log.tagline'
+  | 'app.log.empty';
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -736,6 +756,31 @@ const en: Dictionary = {
   'app.wizard.connect.pointer': 'Connect to begin',
   'app.wizard.disabled.waiting': 'waiting for wallet',
   'app.advanced.label': 'Advanced · Legacy v1 console',
+
+  // Action buttons (Day 11)
+  'app.action.initialize': 'Initialize',
+  'app.action.initialize.loading': 'Initializing…',
+  'app.action.registerCustody': 'Register',
+  'app.action.registerCustody.loading': 'Registering…',
+  'app.action.savePolicy': 'Save policy',
+  'app.action.savePolicy.loading': 'Saving…',
+  'app.action.grantSession': 'Grant session',
+  'app.action.grantSession.loading': 'Granting…',
+
+  // Rail action buttons (Day 11)
+  'app.rail.jupiter.action.block': 'Try 25 USDC',
+  'app.rail.jupiter.action.block.loading': 'Submitting…',
+  'app.rail.jupiter.action.allow': 'Run 5 USDC',
+  'app.rail.jupiter.action.allow.loading': 'Quoting…',
+  'app.rail.ika.action.block': 'Try 25 USDC',
+  'app.rail.ika.action.block.loading': 'Submitting…',
+  'app.rail.ika.action.allow': 'Approve 5 USDC',
+  'app.rail.ika.action.allow.loading': 'Preparing…',
+
+  // Receipt log (Day 11)
+  'app.log.kicker': 'Receipt log',
+  'app.log.tagline': 'nothing leaks, nothing bypasses',
+  'app.log.empty': 'No actions yet, run a setup step or rail to begin.',
 };
 
 // ---------------------------------------------------------------------------
@@ -1127,6 +1172,31 @@ const id: Dictionary = {
   'app.wizard.connect.pointer': 'Hubungkan untuk mulai',
   'app.wizard.disabled.waiting': 'menunggu wallet',
   'app.advanced.label': 'Lanjutan · Konsol v1 lama',
+
+  // Action buttons (Day 11)
+  'app.action.initialize': 'Inisialisasi',
+  'app.action.initialize.loading': 'Menginisialisasi…',
+  'app.action.registerCustody': 'Daftarkan',
+  'app.action.registerCustody.loading': 'Mendaftarkan…',
+  'app.action.savePolicy': 'Simpan policy',
+  'app.action.savePolicy.loading': 'Menyimpan…',
+  'app.action.grantSession': 'Beri session',
+  'app.action.grantSession.loading': 'Memberikan…',
+
+  // Rail action buttons (Day 11)
+  'app.rail.jupiter.action.block': 'Coba 25 USDC',
+  'app.rail.jupiter.action.block.loading': 'Mengirim…',
+  'app.rail.jupiter.action.allow': 'Jalankan 5 USDC',
+  'app.rail.jupiter.action.allow.loading': 'Mengutip…',
+  'app.rail.ika.action.block': 'Coba 25 USDC',
+  'app.rail.ika.action.block.loading': 'Mengirim…',
+  'app.rail.ika.action.allow': 'Setujui 5 USDC',
+  'app.rail.ika.action.allow.loading': 'Menyiapkan…',
+
+  // Receipt log (Day 11)
+  'app.log.kicker': 'Receipt log',
+  'app.log.tagline': 'tidak ada yang bocor, tidak ada yang lolos',
+  'app.log.empty': 'Belum ada aksi, jalankan langkah setup atau rail untuk mulai.',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };

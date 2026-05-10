@@ -1,5 +1,6 @@
 import type { TranslationKey } from '#shared/locale/dictionary'
 import { useLocale } from '#shared/hooks/use-locale'
+import type { ActionKey } from './use-console-actions'
 
 export type Rail = {
   id: 'jupiter' | 'ika'
@@ -8,12 +9,26 @@ export type Rail = {
   titleKey: TranslationKey
   bodyKey: TranslationKey
   disclaimerKey: TranslationKey
+  /** Block scenario action ("Try 25 USDC") — calls runJupiter|IkaBlock. */
+  blockActionKey: ActionKey
+  blockActionLabelKey: TranslationKey
+  blockActionLoadingKey: TranslationKey
+  /** Allow scenario action ("Run 5 USDC" / "Approve 5 USDC"). */
+  allowActionKey: ActionKey
+  allowActionLabelKey: TranslationKey
+  allowActionLoadingKey: TranslationKey
 }
 
 type RailCardProps = {
   rail: Rail
   index: number
   totalCount: number
+  /** Currently loading action key from console state, or null. */
+  loading: ActionKey | null
+  /** True when prerequisites met (wallet + custody + policy + active session). */
+  enabled: boolean
+  onBlock: () => void
+  onAllow: () => void
 }
 
 /**
@@ -24,10 +39,11 @@ type RailCardProps = {
  * matches the landing's RailsSection so /app feels like the same
  * product, with two additions /app needs that the landing doesn't:
  *
- *   1. An action slot — Day 10 wires the Try 25 / Run 5 (or Approve 5)
- *      buttons. Day 9 leaves it empty so the chrome is honest about
- *      functionality that isn't connected yet.
- *   2. A pre-alpha disclaimer foot strip in mono uppercase — explicit
+ *   1. Action buttons — Try 25 USDC (block) + Run 5 USDC (allow) for
+ *      Jupiter, or Approve 5 USDC for Ika. Disabled until the Setup
+ *      Ledger reaches an active session. Result lands in the
+ *      ReceiptLog below.
+ *   2. Pre-alpha disclaimer foot strip in mono uppercase — explicit
  *      operational boundary on every rail card, not just in a footer
  *      footnote.
  *
@@ -35,9 +51,20 @@ type RailCardProps = {
  * card so disclaimers align across both cards regardless of body
  * length.
  */
-export function RailCard({ rail, index, totalCount }: RailCardProps) {
+export function RailCard({
+  rail,
+  index,
+  totalCount,
+  loading,
+  enabled,
+  onBlock,
+  onAllow,
+}: RailCardProps) {
   const { t } = useLocale()
   const isLast = index >= totalCount - 1
+  const blockLoading = loading === rail.blockActionKey
+  const allowLoading = loading === rail.allowActionKey
+  const anyLoading = loading !== null
 
   return (
     <article className="group relative flex flex-col p-8 md:p-10 hover:bg-surface/40 transition">
@@ -72,10 +99,29 @@ export function RailCard({ rail, index, totalCount }: RailCardProps) {
         {t(rail.bodyKey)}
       </p>
 
-      {/* Action slot — Day 10 fills with Try 25 USDC / Run 5 USDC
-          (Jupiter) or Approve 5 USDC (Ika) buttons. Day 9 keeps this
-          empty so users don't see disabled buttons that imply broken
-          wiring. */}
+      {/* Action buttons */}
+      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <button
+          type="button"
+          onClick={onBlock}
+          disabled={!enabled || anyLoading}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-coral/40 bg-coral/5 px-3 py-2 text-xs font-medium text-coral hover:bg-coral/10 hover:border-coral transition disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {blockLoading
+            ? t(rail.blockActionLoadingKey)
+            : t(rail.blockActionLabelKey)}
+        </button>
+        <button
+          type="button"
+          onClick={onAllow}
+          disabled={!enabled || anyLoading}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-2 text-xs font-medium text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {allowLoading
+            ? t(rail.allowActionLoadingKey)
+            : t(rail.allowActionLabelKey)}
+        </button>
+      </div>
 
       {/* Pre-alpha disclaimer foot strip, NEW vs landing rails */}
       <p className="mt-auto pt-8 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute">

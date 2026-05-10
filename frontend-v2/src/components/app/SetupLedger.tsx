@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
 import { useWallet } from '@solana/wallet-adapter-react'
-import { getWalletData } from '#shared/lib/api'
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
 import { useScrollReveal } from '../../hooks/useScrollReveal'
 import { KickerLabel } from '../primitives/KickerLabel'
 import { EncryptedField } from '../EncryptedField'
+import {
+  useConsole,
+  type ActionKey,
+  type ConsoleData,
+} from './use-console-actions'
 
 /**
  * SetupLedger, the /app linear setup checklist.
@@ -18,23 +21,24 @@ import { EncryptedField } from '../EncryptedField'
  *   03 / POLICY   confidential numeric guardrails — RENDERS AS CIPHERTEXT
  *   04 / SESSION  agent session key (temporary signing authority)
  *
- * Day 10 state-aware variants:
+ * State-aware variants:
  *
  *   - DISCONNECTED → `<OnboardingWizard>`: hero card for step 01
- *     (Connect a devnet wallet) with a primary CTA, plus three
- *     ghosted "waiting for wallet" rows below. The page's only
- *     primary action when disconnected.
+ *     (Connect wallet) plus three ghosted "waiting for wallet" rows.
+ *     The hero explains WHY (Polet stores limits as ciphertext) and
+ *     points up to the header chrome (`↑ Connect to begin`). No
+ *     duplicate body button.
  *
  *   - CONNECTED → `<LedgerTable>`: dense table where each row shows
- *     index + label + value + state badge + Solana Explorer arrow.
- *     The POLICY row renders sealed values inside `<EncryptedField
- *     state="encrypted">`, the same component the landing
- *     Crypto-Blur Theater uses, so the redacted ciphertext glows
- *     with the lagoon-bright pulse.
+ *     index + label + value + state badge + inline action button (when
+ *     pending and prerequisites met). The POLICY row renders sealed
+ *     values inside `<EncryptedField state="encrypted">`, the same
+ *     component the landing Crypto-Blur Theater uses, so the redacted
+ *     ciphertext glows with the lagoon-bright pulse.
  *
- * Day 11 will wire each row's affordance to a real write CTA
- * (initializeWallet, registerCustody, setConfidentialPolicy,
- * grantSession). Day 10 keeps reads only.
+ * Day 11 wires action buttons to real proxy handlers via
+ * `useConsole()`. Each click runs the linear path: prepare tx →
+ * wallet signs → confirm on-chain → emit receipt → refresh state.
  */
 
 type RowState = 'pending' | 'initialized' | 'registered' | 'sealed' | 'active'
@@ -42,13 +46,43 @@ type RowState = 'pending' | 'initialized' | 'registered' | 'sealed' | 'active'
 type RowDef = {
   id: 'wallet' | 'custody' | 'policy' | 'session'
   labelKey: TranslationKey
+  /** Action that advances the row from pending → done. */
+  actionKey: ActionKey
+  /** i18n key for the inline action button label. */
+  actionLabelKey: TranslationKey
+  /** i18n key shown while the action is in flight. */
+  actionLoadingKey: TranslationKey
 }
 
 const ROWS: RowDef[] = [
-  { id: 'wallet',  labelKey: 'app.ledger.row.wallet'  },
-  { id: 'custody', labelKey: 'app.ledger.row.custody' },
-  { id: 'policy',  labelKey: 'app.ledger.row.policy'  },
-  { id: 'session', labelKey: 'app.ledger.row.session' },
+  {
+    id: 'wallet',
+    labelKey: 'app.ledger.row.wallet',
+    actionKey: 'wallet',
+    actionLabelKey: 'app.action.initialize',
+    actionLoadingKey: 'app.action.initialize.loading',
+  },
+  {
+    id: 'custody',
+    labelKey: 'app.ledger.row.custody',
+    actionKey: 'custody',
+    actionLabelKey: 'app.action.registerCustody',
+    actionLoadingKey: 'app.action.registerCustody.loading',
+  },
+  {
+    id: 'policy',
+    labelKey: 'app.ledger.row.policy',
+    actionKey: 'policy',
+    actionLabelKey: 'app.action.savePolicy',
+    actionLoadingKey: 'app.action.savePolicy.loading',
+  },
+  {
+    id: 'session',
+    labelKey: 'app.ledger.row.session',
+    actionKey: 'session',
+    actionLabelKey: 'app.action.grantSession',
+    actionLoadingKey: 'app.action.grantSession.loading',
+  },
 ]
 
 const STATE_LABEL_KEY: Record<RowState, TranslationKey> = {
@@ -175,65 +209,43 @@ function OnboardingWizard() {
 /* ──────────────────────────────────────────────────────────────────
  * LedgerTable, the connected variant.
  *
- * Hydrates from `getWalletData(owner)` and renders the four-row
- * ledger with state badges and Solana Explorer affordances.
+ * Reads on-chain state from `useConsole()` (single source of truth).
+ * Each pending row shows an inline action button when its
+ * prerequisites are met (linear gating: wallet → custody → policy →
+ * session). Clicking dispatches the corresponding action through the
+ * console hook, which handles tx prep + wallet sig + confirm + emit
+ * receipt + refresh.
  * ────────────────────────────────────────────────────────────────── */
 function LedgerTable() {
   const { t } = useLocale()
-  const { publicKey } = useWallet()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [data, setData] = useState<any | null>(null)
+  const { state, actions } = useConsole()
+  const { data, loading } = state
 
-  useEffect(() => {
-    if (!publicKey) {
-      setData(null)
-      return
-    }
-    let cancelled = false
-    ;(async () => {
-      try {
-        const result = await getWalletData(publicKey.toBase58())
-        if (!cancelled) setData(result)
-      } catch {
-        if (!cancelled) setData(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [publicKey])
+  const rowState = deriveRowStates(data)
 
-  const walletState: RowState =
-    data?.walletPda ? 'initialized' : 'pending'
+  // Linear gating, only enable a row's CTA when prerequisites are met.
+  const canAct: Record<RowDef['id'], boolean> = {
+    wallet:  rowState.wallet === 'pending',
+    custody: rowState.wallet === 'initialized' && rowState.custody === 'pending',
+    policy:  rowState.custody === 'registered' && rowState.policy === 'pending',
+    session: rowState.policy === 'sealed' && rowState.session === 'pending',
+  }
 
-  const custodyState: RowState =
-    data?.usdcAccount && data?.wsolAccount ? 'registered' : 'pending'
-
-  const policyState: RowState =
-    typeof data?.policySeq === 'number' && data.policySeq > 0
-      ? 'sealed'
-      : 'pending'
-
-  const activeSession =
-    (data?.temporalKeys ?? data?.sessions ?? []).find(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (s: any) =>
-        s?.authorized && Number(s?.expiresAt ?? 0) * 1000 > Date.now(),
-    ) ?? null
-
-  const sessionState: RowState = activeSession ? 'active' : 'pending'
-
-  const rowState: Record<RowDef['id'], RowState> = {
-    wallet:  walletState,
-    custody: custodyState,
-    policy:  policyState,
-    session: sessionState,
+  const dispatch: Record<RowDef['id'], () => void> = {
+    wallet:  () => void actions.initializeWallet(),
+    custody: () => void actions.registerCustody(),
+    policy:  () => void actions.saveConfidentialPolicy(),
+    session: () => void actions.grantAgentSession(),
   }
 
   return (
     <div className="mt-6 md:mt-8 rounded-2xl border border-line bg-bg-deep overflow-hidden divide-y divide-line/60">
       {ROWS.map((row, i) => {
         const state = rowState[row.id]
+        const isLoading = loading === row.actionKey
+        const showAction = canAct[row.id] || isLoading
+        const labelKey = isLoading ? row.actionLoadingKey : row.actionLabelKey
+
         return (
           <article
             key={row.id}
@@ -250,22 +262,26 @@ function LedgerTable() {
             </div>
 
             <div className="flex-1 min-w-0 font-mono text-sm text-ink-soft">
-              <RowValue row={row} state={state} data={data} activeSession={activeSession} />
+              <RowValue row={row} state={state} data={data} />
             </div>
 
             <span className={STATE_BADGE_CLASSES[state]}>
               {t(STATE_LABEL_KEY[state])}
             </span>
 
-            {/* Solana Explorer affordance — Day 11 wires real link per row */}
-            <a
-              href="#"
-              aria-label="View on Solana Explorer"
-              className="opacity-50 group-hover:opacity-100 transition text-ink-soft hover:text-lagoon-bright text-sm"
-              onClick={(e) => e.preventDefault()}
-            >
-              ↗
-            </a>
+            {showAction ? (
+              <button
+                type="button"
+                onClick={dispatch[row.id]}
+                disabled={isLoading || loading !== null}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-lagoon-bright/40 bg-lagoon-bright/10 px-3 py-1.5 text-xs font-medium text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {t(labelKey)}
+                {!isLoading ? <span aria-hidden="true">→</span> : null}
+              </button>
+            ) : (
+              <span aria-hidden="true" className="w-[1px] sm:w-24" />
+            )}
           </article>
         )
       })}
@@ -278,21 +294,16 @@ function LedgerTable() {
  *
  * The POLICY row is special: when sealed, it renders `<EncryptedField>`
  * with phase="encrypted" so the value pulses lagoon-bright as ciphertext
- * (same component the landing DemoWidget uses). Day 11 will derive the
- * `encryptedHash` from the real on-chain policy_seq + commitment.
+ * (same component the landing DemoWidget uses).
  */
 function RowValue({
   row,
   state,
   data,
-  activeSession,
 }: {
   row: RowDef
   state: RowState
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  activeSession: any
+  data: ConsoleData | null
 }) {
   if (state === 'pending') {
     return <span className="text-ink-mute">—</span>
@@ -307,11 +318,16 @@ function RowValue({
   }
 
   if (row.id === 'policy') {
-    // Day 10 placeholder ciphertext — Day 11 derives from policy_seq + commitment.
+    // Visual hero — sealed policy renders with crypto-blur from DemoWidget.
+    // The hex placeholder mirrors policy_seq + commitment in spirit; Day 12
+    // can derive a real hash from on-chain commitment bytes.
+    const hex = data?.policySeq
+      ? `0x${data.policySeq.toString(16).padStart(4, '0')}c2ed7a1b`
+      : '0x4Vk8c2ed7a1b'
     return (
       <EncryptedField
         value="•••••••••••••••"
-        encryptedHash="0x4Vk8c2ed7a1b"
+        encryptedHash={hex}
         state="encrypted"
         monoSize="sm"
       />
@@ -319,8 +335,15 @@ function RowValue({
   }
 
   if (row.id === 'session') {
-    const sessionKey = String(activeSession?.key ?? '')
-    const expiresAt = Number(activeSession?.expiresAt ?? 0) * 1000
+    const sessions = data?.temporalKeys ?? data?.sessions ?? []
+    const active = sessions.find(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (s: any) =>
+        s?.authorized && Number(s?.expiresAt ?? 0) * 1000 > Date.now(),
+    )
+    if (!active) return <span className="text-ink-mute">—</span>
+    const sessionKey = String(active.key ?? '')
+    const expiresAt = Number(active.expiresAt ?? 0) * 1000
     return (
       <span>
         {shortenPubkey(sessionKey)} · {formatExpiry(expiresAt)}
@@ -329,4 +352,28 @@ function RowValue({
   }
 
   return <span className="text-ink-mute">—</span>
+}
+
+/**
+ * deriveRowStates, map the loose `getWalletData` payload into our
+ * row state machine. Same logic the StatStrip uses.
+ */
+function deriveRowStates(
+  data: ConsoleData | null,
+): Record<RowDef['id'], RowState> {
+  const wallet: RowState = data?.walletPda ? 'initialized' : 'pending'
+  const custody: RowState =
+    data?.usdcAccount && data?.wsolAccount ? 'registered' : 'pending'
+  const policy: RowState =
+    typeof data?.policySeq === 'number' && data.policySeq > 0
+      ? 'sealed'
+      : 'pending'
+  const sessions = data?.temporalKeys ?? data?.sessions ?? []
+  const hasActive = sessions.some(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (s: any) =>
+      s?.authorized && Number(s?.expiresAt ?? 0) * 1000 > Date.now(),
+  )
+  const session: RowState = hasActive ? 'active' : 'pending'
+  return { wallet, custody, policy, session }
 }
