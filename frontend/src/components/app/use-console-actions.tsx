@@ -22,6 +22,8 @@ import {
   setConfidentialPolicy as apiSetConfidentialPolicy,
   grantKey as apiGrantKey,
   revokeSession as apiRevokeSession,
+  requestPolicyValueDecryption as apiRequestPolicyValueDecryption,
+  createEncryptDeposit as apiCreateEncryptDeposit,
   runConfidentialDca as apiRunConfidentialDca,
   runMultichainIntent as apiRunMultichainIntent,
   fundAgentGas as apiFundAgentGas,
@@ -35,6 +37,7 @@ import {
   type IkaManagedChain,
   type IkaManagedDwalletRegistration,
   type IkaManagedGasDepositSummary,
+  type PolicyRevealKind,
 } from '#/lib/api'
 import {
   confirmFreshTransaction,
@@ -44,6 +47,12 @@ import {
   broadcastSessionTx,
   BroadcastError,
 } from '../../lib/session-tx-broadcaster'
+import {
+  ENCRYPT_PREALPHA_PROGRAM_ID,
+  ENCRYPT_PREALPHA_CONFIG,
+  ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+  ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+} from '../../lib/official-encrypt-client'
 
 /**
  * Polet console state + actions hook.
@@ -250,6 +259,12 @@ export type ActionKey =
   | 'jupiter-execute'
   | 'ika-block'
   | 'ika-allow'
+  | 'session-byo'
+  | 'session-revoke'
+  | 'policy-custom'
+  | 'policy-reveal-max-per-run'
+  | 'policy-reveal-daily-cap'
+  | 'policy-reveal-daily-spent'
 
 export type ConsoleState = {
   connected: boolean
@@ -266,6 +281,14 @@ export type ConsoleState = {
    * co-sign rail run transactions). Cleared on wallet disconnect.
    */
   sessionKeypair: Keypair | null
+  /**
+   * Plaintext policy values briefly revealed to the owner via the
+   * Encrypt reveal flow. Kept only in React state (this tab, this
+   * render tree) — cleared on wallet disconnect or page refresh.
+   * Never serialized, never put in storage. Optional for preview /
+   * fixture routes that don't exercise the reveal flow.
+   */
+  revealedPolicyValues?: Partial<Record<PolicyRevealKind, string>>
 }
 
 export type ConsoleActions = {
@@ -273,8 +296,44 @@ export type ConsoleActions = {
   initializeWallet: () => Promise<void>
   registerCustody: () => Promise<void>
   saveConfidentialPolicy: () => Promise<void>
+  /**
+   * Owner-facing variant of `saveConfidentialPolicy` that takes custom
+   * max-per-run + daily-cap amounts. The workspace Policy Rules
+   * section uses this; the OwnerSetupList setup row still calls the
+   * hardcoded demo variant for zero-touch onboarding.
+   */
+  saveConfidentialPolicyCustom: (params: {
+    maxPerRunUsdc: string
+    dailyCapUsdc: string
+  }) => Promise<void>
   grantAgentSession: () => Promise<void>
+  /**
+   * BYO variant: owner paste the agent wallet pubkey (generated in
+   * Phantom/Backpack/solana-keygen externally), proxy never sees the
+   * secret. Expires + dailyLimitSol are owner-configurable.
+   */
+  grantAgentSessionByo: (params: {
+    agentPubkey: string
+    expiresInHours: number
+    dailyLimitSol: number
+  }) => Promise<void>
   regrantAgentSession: () => Promise<void>
+  /**
+   * Revoke a specific authorized session pubkey. Owner-signed;
+   * kills the session instantly on-chain (`granted_slot < last_revoked_slot`).
+   */
+  revokeAgentSessionByo: (sessionPubkey: string) => Promise<void>
+  /**
+   * Owner reveals one encrypted policy value (max-per-run, daily-cap,
+   * or daily-spent) into ephemeral in-memory state. Not persisted;
+   * page refresh clears.
+   */
+  revealPolicyValue: (kind: PolicyRevealKind) => Promise<void>
+  /**
+   * Remove a revealed policy value from ephemeral state without
+   * affecting on-chain data.
+   */
+  hidePolicyValue: (kind: PolicyRevealKind) => void
   depositCustody: (asset: CustodyAsset, amount: string) => Promise<void>
   withdrawCustody: (asset: CustodyAsset, amount: string) => Promise<void>
   fundAgentGas: (amountSol: string) => Promise<void>
@@ -350,6 +409,29 @@ const activeManagedIkaChain = (
  *      either, surface a clear timeout message that includes the
  *      signature so the user can verify on Solana Explorer manually.
  */
+/**
+ * Decode a PolicyDecryptionRequest PDA account's data buffer into
+ * the USDC base-units plaintext once Encrypt writes it. Layout
+ * mirrors `frontend/src/components/DemoTab.tsx#decodePolicyRevealUsdc`:
+ *   [0..99]   request header (unused here)
+ *   [99..103] totalLen (u32 LE)
+ *   [103..107] written (u32 LE)
+ *   [107..115] baseUnits (u64 LE)
+ * Returns the human-readable USDC string (e.g. "10.5") or null when
+ * the decryptor has not yet written a complete response.
+ */
+function decodePolicyRevealUsdc(data: Uint8Array): string | null {
+  if (data.length < 115) return null
+  const view = new DataView(data.buffer, data.byteOffset)
+  const totalLen = view.getUint32(99, true)
+  const written = view.getUint32(103, true)
+  if (totalLen < 8 || written < totalLen) return null
+  const baseUnits = view.getBigUint64(107, true)
+  const whole = baseUnits / 1_000_000n
+  const fraction = (baseUnits % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '')
+  return fraction ? `${whole}.${fraction}` : whole.toString()
+}
+
 async function robustConfirm(
   connection: Connection,
   signature: string,
@@ -532,6 +614,12 @@ export function ConsoleStateProvider({
   // Held only in component state so subsequent rail run transactions
   // can co-sign as the session signer. Cleared on wallet disconnect.
   const [sessionKeypair, setSessionKeypair] = useState<Keypair | null>(null)
+  // Ephemeral in-memory plaintext of revealed policy values. Owner
+  // triggers per-kind reveal; value sits here until hidden or
+  // component unmount. Never serialized or persisted.
+  const [revealedPolicyValues, setRevealedPolicyValues] = useState<
+    Partial<Record<PolicyRevealKind, string>>
+  >({})
 
   const emitReceipt = useCallback(
     (entry: Omit<ReceiptEntry, 'id' | 'timestamp'>) => {
@@ -588,6 +676,7 @@ export function ConsoleStateProvider({
       setSolBalance(null)
       setError(null)
       setSessionKeypair(null)
+      setRevealedPolicyValues({})
       clearStoredSessionKey()
       return
     }
@@ -1657,6 +1746,243 @@ export function ConsoleStateProvider({
     refresh,
   ])
 
+  // ─────── Workspace custom policy + BYO session + reveal ───────
+
+  const saveConfidentialPolicyCustom = useCallback(
+    async (params: { maxPerRunUsdc: string; dailyCapUsdc: string }) => {
+      if (!publicKey) return
+      await runTxAction(
+        'policy-custom',
+        () =>
+          apiSetConfidentialPolicy({
+            owner: publicKey.toBase58(),
+            maxPerRunUsdc: params.maxPerRunUsdc,
+            dailyCapUsdc: params.dailyCapUsdc,
+            maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
+            policyScope: 'usdc-dca',
+          }),
+        (_result, signature) =>
+          emitReceipt({
+            action: 'POLICY UPDATED',
+            description: 'Custom confidential policy sealed (max-per-run + daily-cap ciphertexts refreshed).',
+            signature,
+            status: 'info',
+            body: `Private thresholds stored encrypted on-chain; original amounts never leave this tab.`,
+          }),
+        (err, signature) =>
+          emitReceipt({
+            action: 'POLICY UPDATE FAILED',
+            description: describeError(err),
+            signature,
+            status: 'error',
+          }),
+      )
+      // Clear revealed values — the underlying ciphertexts just
+      // rotated so any previously-revealed plaintext is stale.
+      setRevealedPolicyValues({})
+    },
+    [publicKey, runTxAction, emitReceipt],
+  )
+
+  const grantAgentSessionByo = useCallback(
+    async (params: {
+      agentPubkey: string
+      expiresInHours: number
+      dailyLimitSol: number
+    }) => {
+      if (!publicKey) return
+      const trimmed = params.agentPubkey.trim()
+      if (!trimmed) return
+      const expiresAt =
+        Math.floor(Date.now() / 1000) + params.expiresInHours * 3600
+      // dailyLimit field at contract level is SOL lamports (legacy
+      // native-SOL path); leaves confidential USDC-dca policy
+      // enforcement untouched.
+      const dailyLimitLamports = Math.max(
+        0,
+        Math.round(params.dailyLimitSol * LAMPORTS_PER_SOL),
+      )
+      await runTxAction(
+        'session-byo',
+        () =>
+          apiGrantKey({
+            owner: publicKey.toBase58(),
+            sessionKey: trimmed,
+            expiresAt,
+            dailyLimit: dailyLimitLamports,
+          }),
+        (_result, signature) =>
+          emitReceipt({
+            action: 'AGENT AUTHORIZED',
+            description: `Session ${shortAddress(trimmed)} authorized for ${params.expiresInHours}h.`,
+            signature,
+            status: 'info',
+            body: `Owner retained control: the agent holds its own private key externally; the proxy is stateless. Revoke any time.`,
+          }),
+        (err, signature) =>
+          emitReceipt({
+            action: 'AGENT AUTHORIZE FAILED',
+            description: describeError(err),
+            signature,
+            status: 'error',
+          }),
+      )
+    },
+    [publicKey, runTxAction, emitReceipt],
+  )
+
+  const revokeAgentSessionByo = useCallback(
+    async (sessionPubkey: string) => {
+      if (!publicKey) return
+      const trimmed = sessionPubkey.trim()
+      if (!trimmed) return
+      await runTxAction(
+        'session-revoke',
+        () =>
+          apiRevokeSession({
+            owner: publicKey.toBase58(),
+            sessionKey: trimmed,
+          }),
+        (_result, signature) =>
+          emitReceipt({
+            action: 'AGENT REVOKED',
+            description: `Session ${shortAddress(trimmed)} revoked on-chain.`,
+            signature,
+            status: 'info',
+            body: 'The session key is dead immediately (granted_slot < last_revoked_slot). Any in-flight trade signed by this agent will be rejected.',
+          }),
+        (err, signature) =>
+          emitReceipt({
+            action: 'AGENT REVOKE FAILED',
+            description: describeError(err),
+            signature,
+            status: 'error',
+          }),
+      )
+    },
+    [publicKey, runTxAction, emitReceipt],
+  )
+
+  const revealPolicyValue = useCallback(
+    async (kind: PolicyRevealKind) => {
+      if (!publicKey || !data) return
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const policy = data.usdcDcaPolicy as any
+      const refs: {
+        maxPerRun?: string
+        dailyCap?: string
+        dailySpent?: string
+      } = policy?.encryptCiphertexts ?? {}
+      const ciphertext =
+        kind === 'max-per-run'
+          ? refs.maxPerRun
+          : kind === 'daily-cap'
+            ? refs.dailyCap
+            : refs.dailySpent
+      const walletPda = data.walletPda
+      if (!ciphertext || !walletPda) {
+        emitReceipt({
+          action: 'POLICY REVEAL FAILED',
+          description: 'Policy ciphertext not available. Seal the policy first.',
+          status: 'error',
+        })
+        return
+      }
+      const actionKey: ActionKey =
+        kind === 'max-per-run'
+          ? 'policy-reveal-max-per-run'
+          : kind === 'daily-cap'
+            ? 'policy-reveal-daily-cap'
+            : 'policy-reveal-daily-spent'
+      setLoading(actionKey)
+      setError(null)
+      let signature: string | undefined
+      try {
+        // Step 1: ensure the owner has an Encrypt deposit PDA.
+        const deposit = await apiCreateEncryptDeposit(publicKey.toBase58())
+        if (deposit.transaction) {
+          const { transaction: depositTx, latestBlockhash: depositBh } =
+            await prepareFreshTransaction(deposit.transaction, connection)
+          const depositSig = await sendTransaction(depositTx, connection)
+          await robustConfirm(connection, depositSig, depositBh)
+        }
+        // Step 2: request decryption PDA (fresh keypair per request).
+        const requestKeypair = Keypair.generate()
+        const result = await apiRequestPolicyValueDecryption({
+          owner: publicKey.toBase58(),
+          wallet: walletPda,
+          request: requestKeypair.publicKey.toBase58(),
+          kind,
+          ciphertext,
+          encrypt: {
+            encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+            config: deposit.config || ENCRYPT_PREALPHA_CONFIG,
+            deposit: deposit.deposit,
+            networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+            eventAuthority: deposit.eventAuthority || ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+            payer: publicKey.toBase58(),
+          },
+        })
+        const { transaction, latestBlockhash } = await prepareFreshTransaction(
+          result.transaction,
+          connection,
+        )
+        transaction.partialSign(requestKeypair)
+        signature = await sendTransaction(transaction, connection)
+        await robustConfirm(connection, signature, latestBlockhash)
+        // Step 3: poll decryption request PDA until Encrypt writes the plaintext.
+        const requestPubkey = new (await import('@solana/web3.js')).PublicKey(
+          result.request,
+        )
+        let decoded: string | null = null
+        for (let attempt = 0; attempt < 15; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          const info = await connection.getAccountInfo(requestPubkey, 'confirmed')
+          if (!info) continue
+          decoded = decodePolicyRevealUsdc(new Uint8Array(info.data))
+          if (decoded) break
+        }
+        if (decoded) {
+          setRevealedPolicyValues((prev) => ({ ...prev, [kind]: decoded! }))
+          emitReceipt({
+            action: 'POLICY REVEALED',
+            description: `${kind} revealed to owner memory only (never logged).`,
+            signature,
+            status: 'info',
+          })
+        } else {
+          emitReceipt({
+            action: 'POLICY REVEAL PENDING',
+            description: `Encrypt decryptor did not respond in time. Try again in a moment.`,
+            signature,
+            status: 'info',
+          })
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[Polet reveal error]', { kind, signature, err })
+        setError(describeError(err))
+        emitReceipt({
+          action: 'POLICY REVEAL FAILED',
+          description: describeError(err),
+          signature,
+          status: 'error',
+        })
+      } finally {
+        setLoading(null)
+      }
+    },
+    [publicKey, data, connection, sendTransaction, emitReceipt],
+  )
+
+  const hidePolicyValue = useCallback((kind: PolicyRevealKind) => {
+    setRevealedPolicyValues((prev) => {
+      const next = { ...prev }
+      delete next[kind]
+      return next
+    })
+  }, [])
+
   const value = useMemo(
     () => ({
       state: {
@@ -1668,14 +1994,20 @@ export function ConsoleStateProvider({
         loading,
         error,
         sessionKeypair,
+        revealedPolicyValues,
       },
       actions: {
         refresh,
         initializeWallet,
         registerCustody,
         saveConfidentialPolicy,
+        saveConfidentialPolicyCustom,
         grantAgentSession,
+        grantAgentSessionByo,
         regrantAgentSession,
+        revokeAgentSessionByo,
+        revealPolicyValue,
+        hidePolicyValue,
         depositCustody,
         withdrawCustody,
         fundAgentGas,
@@ -1697,12 +2029,18 @@ export function ConsoleStateProvider({
       loading,
       error,
       sessionKeypair,
+      revealedPolicyValues,
       refresh,
       initializeWallet,
       registerCustody,
       saveConfidentialPolicy,
+      saveConfidentialPolicyCustom,
       grantAgentSession,
+      grantAgentSessionByo,
       regrantAgentSession,
+      revokeAgentSessionByo,
+      revealPolicyValue,
+      hidePolicyValue,
       depositCustody,
       withdrawCustody,
       fundAgentGas,

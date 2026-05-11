@@ -508,6 +508,52 @@ export type TranslationKey =
   | 'portal.workspace.activity.latest'
   | 'portal.workspace.activity.empty'
   | 'portal.workspace.activity.openProof'
+  // Polet Portal — Agent Access (BYO) section
+  | 'portal.workspace.agentAccess.kicker'
+  | 'portal.workspace.agentAccess.title'
+  | 'portal.workspace.agentAccess.sub'
+  | 'portal.workspace.agentAccess.empty'
+  | 'portal.workspace.agentAccess.authorize'
+  | 'portal.workspace.agentAccess.form.pubkey.label'
+  | 'portal.workspace.agentAccess.form.pubkey.placeholder'
+  | 'portal.workspace.agentAccess.form.pubkey.help'
+  | 'portal.workspace.agentAccess.form.expires.label'
+  | 'portal.workspace.agentAccess.form.expires.option1h'
+  | 'portal.workspace.agentAccess.form.expires.option24h'
+  | 'portal.workspace.agentAccess.form.expires.option7d'
+  | 'portal.workspace.agentAccess.form.dailyLimit.label'
+  | 'portal.workspace.agentAccess.form.dailyLimit.help'
+  | 'portal.workspace.agentAccess.form.submit'
+  | 'portal.workspace.agentAccess.form.cancel'
+  | 'portal.workspace.agentAccess.row.active'
+  | 'portal.workspace.agentAccess.row.revoked'
+  | 'portal.workspace.agentAccess.row.expiresIn'
+  | 'portal.workspace.agentAccess.row.expired'
+  | 'portal.workspace.agentAccess.row.revoke'
+  | 'portal.workspace.agentAccess.row.showConfig'
+  | 'portal.workspace.agentAccess.row.hideConfig'
+  | 'portal.workspace.agentAccess.config.warning'
+  | 'portal.workspace.agentAccess.config.polet'
+  | 'portal.workspace.agentAccess.config.mcp'
+  | 'portal.workspace.agentAccess.config.hermes'
+  | 'portal.workspace.agentAccess.config.copy'
+  | 'portal.workspace.agentAccess.config.copied'
+  // Polet Portal — Policy Rules section
+  | 'portal.workspace.policyRules.kicker'
+  | 'portal.workspace.policyRules.title'
+  | 'portal.workspace.policyRules.sub'
+  | 'portal.workspace.policyRules.status.sealed'
+  | 'portal.workspace.policyRules.status.notSealed'
+  | 'portal.workspace.policyRules.field.maxPerRun.label'
+  | 'portal.workspace.policyRules.field.maxPerRun.help'
+  | 'portal.workspace.policyRules.field.dailyCap.label'
+  | 'portal.workspace.policyRules.field.dailyCap.help'
+  | 'portal.workspace.policyRules.field.dailySpent.label'
+  | 'portal.workspace.policyRules.reveal'
+  | 'portal.workspace.policyRules.hide'
+  | 'portal.workspace.policyRules.revealedNote'
+  | 'portal.workspace.policyRules.submit'
+  | 'portal.workspace.policyRules.notInitialized'
   // Polet Portal — Phase 3 (issue 101) — Policy Gate
   | 'portal.gate.kicker'
   | 'portal.gate.title'
@@ -1258,6 +1304,50 @@ const en: Dictionary = {
   'portal.workspace.activity.empty':
     'No receipts yet — run your first rail from the Gate.',
   'portal.workspace.activity.openProof': 'Open Proof Trail',
+  'portal.workspace.agentAccess.kicker': 'Section · Agent Access',
+  'portal.workspace.agentAccess.title': 'Authorize Agent Wallet',
+  'portal.workspace.agentAccess.sub': 'Paste the public key of an agent wallet you generated externally (Phantom, Backpack, Ledger, or solana-keygen). Polet never sees the private key. Revoke any authorized session at any time.',
+  'portal.workspace.agentAccess.empty': 'No agent authorized. Grant a session to let an AI runtime (Hermes / Claude / Cursor) drive trades inside the policy.',
+  'portal.workspace.agentAccess.authorize': 'Authorize agent',
+  'portal.workspace.agentAccess.form.pubkey.label': 'Agent wallet address',
+  'portal.workspace.agentAccess.form.pubkey.placeholder': 'Paste the agent wallet public key',
+  'portal.workspace.agentAccess.form.pubkey.help': 'The contract calls this a session key. Functionally, it is the agent wallet public key authorized to sign trades inside the confidential policy.',
+  'portal.workspace.agentAccess.form.expires.label': 'Expires in',
+  'portal.workspace.agentAccess.form.expires.option1h': '1 hour',
+  'portal.workspace.agentAccess.form.expires.option24h': '24 hours',
+  'portal.workspace.agentAccess.form.expires.option7d': '7 days',
+  'portal.workspace.agentAccess.form.dailyLimit.label': 'Legacy native-SOL daily limit',
+  'portal.workspace.agentAccess.form.dailyLimit.help': 'Upper bound on the legacy native-SOL rail only. Confidential USDC policy (max-per-run + daily-cap) stays independent.',
+  'portal.workspace.agentAccess.form.submit': 'Authorize',
+  'portal.workspace.agentAccess.form.cancel': 'Cancel',
+  'portal.workspace.agentAccess.row.active': 'Active',
+  'portal.workspace.agentAccess.row.revoked': 'Revoked',
+  'portal.workspace.agentAccess.row.expiresIn': 'expires in',
+  'portal.workspace.agentAccess.row.expired': 'expired',
+  'portal.workspace.agentAccess.row.revoke': 'Revoke',
+  'portal.workspace.agentAccess.row.showConfig': 'Show MCP config',
+  'portal.workspace.agentAccess.row.hideConfig': 'Hide MCP config',
+  'portal.workspace.agentAccess.config.warning': 'The private key is never generated server-side. Paste the agent wallet private key yourself — export from Phantom (Settings → Security → Export Private Key), Backpack, or read from your solana-keygen file.',
+  'portal.workspace.agentAccess.config.polet': 'polet-agent.json',
+  'portal.workspace.agentAccess.config.mcp': 'Claude Desktop / Cursor / Zed MCP',
+  'portal.workspace.agentAccess.config.hermes': 'Hermes CLI commands',
+  'portal.workspace.agentAccess.config.copy': 'Copy',
+  'portal.workspace.agentAccess.config.copied': 'Copied',
+  'portal.workspace.policyRules.kicker': 'Section · Policy Rules',
+  'portal.workspace.policyRules.title': 'Confidential Policy',
+  'portal.workspace.policyRules.sub': 'Max per run and daily cap are stored as ciphertexts on-chain. Agents never see the numbers. Owner can reveal the current plaintext into this tab\u2019s memory (not stored, not logged).',
+  'portal.workspace.policyRules.status.sealed': 'sealed #',
+  'portal.workspace.policyRules.status.notSealed': 'not sealed yet',
+  'portal.workspace.policyRules.field.maxPerRun.label': 'Max per run (USDC)',
+  'portal.workspace.policyRules.field.maxPerRun.help': 'Per-trade confidential ceiling. Any single trade exceeding this amount is blocked by Encrypt before the rail executes.',
+  'portal.workspace.policyRules.field.dailyCap.label': 'Daily cap (USDC)',
+  'portal.workspace.policyRules.field.dailyCap.help': 'Rolling 24h sum of USDC traded. Encrypt blocks additional trades once this cap would be exceeded.',
+  'portal.workspace.policyRules.field.dailySpent.label': 'Daily spent (USDC)',
+  'portal.workspace.policyRules.reveal': 'Reveal',
+  'portal.workspace.policyRules.hide': 'Hide',
+  'portal.workspace.policyRules.revealedNote': 'Revealed to this tab only. Closes with the page.',
+  'portal.workspace.policyRules.submit': 'Update policy',
+  'portal.workspace.policyRules.notInitialized': 'Initialize the wallet + register custody first (see Funds page).',
   // Polet Portal — Phase 3 (issue 101) — Policy Gate
   'portal.gate.kicker': 'Policy Gate',
   'portal.gate.title': 'One sealed gate. Two execution rails.',
@@ -2030,6 +2120,50 @@ const id: Dictionary = {
   'portal.workspace.activity.empty':
     'Belum ada receipt — jalankan rail pertama kamu dari Gate.',
   'portal.workspace.activity.openProof': 'Buka Jejak Bukti',
+  'portal.workspace.agentAccess.kicker': 'Bagian · Akses Agent',
+  'portal.workspace.agentAccess.title': 'Otorisasi Agent Wallet',
+  'portal.workspace.agentAccess.sub': 'Tempelkan public key agent wallet yang kamu buat secara eksternal (Phantom, Backpack, Ledger, atau solana-keygen). Polet tidak pernah melihat private key-nya. Revoke sesi mana pun kapan saja.',
+  'portal.workspace.agentAccess.empty': 'Belum ada agent terotorisasi. Berikan sesi agar AI runtime (Hermes / Claude / Cursor) bisa jalankan trade di dalam policy.',
+  'portal.workspace.agentAccess.authorize': 'Otorisasi agent',
+  'portal.workspace.agentAccess.form.pubkey.label': 'Alamat wallet agent',
+  'portal.workspace.agentAccess.form.pubkey.placeholder': 'Tempel public key agent wallet',
+  'portal.workspace.agentAccess.form.pubkey.help': 'Contract menyebutnya session key. Secara fungsional, ini public key wallet agent yang diotorisasi untuk sign trade dalam batas confidential policy.',
+  'portal.workspace.agentAccess.form.expires.label': 'Kedaluwarsa dalam',
+  'portal.workspace.agentAccess.form.expires.option1h': '1 jam',
+  'portal.workspace.agentAccess.form.expires.option24h': '24 jam',
+  'portal.workspace.agentAccess.form.expires.option7d': '7 hari',
+  'portal.workspace.agentAccess.form.dailyLimit.label': 'Batas harian native-SOL (legacy)',
+  'portal.workspace.agentAccess.form.dailyLimit.help': 'Batas atas untuk jalur native-SOL legacy. Policy USDC confidential (max-per-run + daily-cap) tetap terpisah.',
+  'portal.workspace.agentAccess.form.submit': 'Otorisasi',
+  'portal.workspace.agentAccess.form.cancel': 'Batal',
+  'portal.workspace.agentAccess.row.active': 'Aktif',
+  'portal.workspace.agentAccess.row.revoked': 'Dicabut',
+  'portal.workspace.agentAccess.row.expiresIn': 'berakhir dalam',
+  'portal.workspace.agentAccess.row.expired': 'kedaluwarsa',
+  'portal.workspace.agentAccess.row.revoke': 'Revoke',
+  'portal.workspace.agentAccess.row.showConfig': 'Tampilkan config MCP',
+  'portal.workspace.agentAccess.row.hideConfig': 'Sembunyikan config MCP',
+  'portal.workspace.agentAccess.config.warning': 'Private key tidak pernah dibuat di sisi server. Tempel private key agent wallet sendiri — export dari Phantom (Settings → Security → Export Private Key), Backpack, atau baca dari file solana-keygen kamu.',
+  'portal.workspace.agentAccess.config.polet': 'polet-agent.json',
+  'portal.workspace.agentAccess.config.mcp': 'Claude Desktop / Cursor / Zed MCP',
+  'portal.workspace.agentAccess.config.hermes': 'Perintah CLI Hermes',
+  'portal.workspace.agentAccess.config.copy': 'Salin',
+  'portal.workspace.agentAccess.config.copied': 'Tersalin',
+  'portal.workspace.policyRules.kicker': 'Bagian · Aturan Policy',
+  'portal.workspace.policyRules.title': 'Policy Confidential',
+  'portal.workspace.policyRules.sub': 'Max per run dan daily cap disimpan sebagai ciphertext on-chain. Agent tidak pernah melihat angkanya. Owner bisa reveal plaintext ke memory tab ini (tidak disimpan, tidak tercatat).',
+  'portal.workspace.policyRules.status.sealed': 'sealed #',
+  'portal.workspace.policyRules.status.notSealed': 'belum disegel',
+  'portal.workspace.policyRules.field.maxPerRun.label': 'Max per run (USDC)',
+  'portal.workspace.policyRules.field.maxPerRun.help': 'Plafon confidential per-trade. Trade tunggal yang melebihi nilai ini akan diblokir oleh Encrypt sebelum rail dijalankan.',
+  'portal.workspace.policyRules.field.dailyCap.label': 'Cap harian (USDC)',
+  'portal.workspace.policyRules.field.dailyCap.help': 'Total USDC yang diperdagangkan dalam 24 jam bergulir. Encrypt memblokir trade tambahan begitu cap ini terlampaui.',
+  'portal.workspace.policyRules.field.dailySpent.label': 'Terpakai hari ini (USDC)',
+  'portal.workspace.policyRules.reveal': 'Tampilkan',
+  'portal.workspace.policyRules.hide': 'Sembunyikan',
+  'portal.workspace.policyRules.revealedNote': 'Ditampilkan hanya untuk tab ini. Hilang saat halaman ditutup.',
+  'portal.workspace.policyRules.submit': 'Perbarui policy',
+  'portal.workspace.policyRules.notInitialized': 'Inisialisasi wallet + register custody dulu (lihat halaman Funds).',
   // Polet Portal — Phase 3 (issue 101) — Policy Gate
   'portal.gate.kicker': 'Policy Gate',
   'portal.gate.title': 'Satu gate tersegel. Dua rail eksekusi.',
