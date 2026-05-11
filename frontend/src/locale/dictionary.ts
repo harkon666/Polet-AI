@@ -398,6 +398,20 @@ export type TranslationKey =
   | 'app.log.empty'
   | 'app.log.empty.gateAwake'
   | 'app.log.empty.hint'
+  | 'app.agent.kicker'
+  | 'app.agent.title'
+  | 'app.agent.body'
+  | 'app.agent.tools'
+  | 'app.agent.config'
+  | 'app.agent.copy'
+  | 'app.agent.copied'
+  | 'app.agent.ready'
+  | 'app.agent.needsSession'
+  | 'app.agent.tool.balance'
+  | 'app.agent.tool.status'
+  | 'app.agent.tool.enableChain'
+  | 'app.agent.tool.trade'
+  | 'app.agent.tool.execute'
   // Polish bundle (Day 11.5): constraint tooltips, session keypair affordances, spinner labels
   | 'app.constraint.numericLimit.tooltip'
   | 'app.constraint.scopeMatch.tooltip'
@@ -879,6 +893,21 @@ const en: Dictionary = {
   'app.log.empty': 'No actions yet, run a setup step or rail to begin.',
   'app.log.empty.gateAwake': 'Policy gate is awake',
   'app.log.empty.hint': 'No agent activity yet — try Run 5 USDC to see verdict',
+  'app.agent.kicker': 'Agent integration',
+  'app.agent.title': 'Paste-ready MCP bridge',
+  'app.agent.body':
+    'Copy this config into Claude Desktop, Cursor, Zed, or any MCP-capable agent to bind the same session key to Polet.',
+  'app.agent.tools': 'MCP tools',
+  'app.agent.config': 'Claude Desktop mcp.json',
+  'app.agent.copy': 'Copy config',
+  'app.agent.copied': 'Copied',
+  'app.agent.ready': 'Session secret is present in this tab. Treat this as devnet-only.',
+  'app.agent.needsSession': 'Grant or re-grant an agent session first so the config includes a real keypair.',
+  'app.agent.tool.balance': 'Read custody balances plus owner and agent gas buckets.',
+  'app.agent.tool.status': 'Inspect policy, session, Ika signer, and GasDeposit readiness.',
+  'app.agent.tool.enableChain': 'Enable Sui or Ethereum managed Ika signer.',
+  'app.agent.tool.trade': 'Preview a policy-gated trade without broadcasting.',
+  'app.agent.tool.execute': 'Execute Jupiter or Ika end-to-end with the configured session signer.',
   // Polish (Day 11.5)
   'app.constraint.numericLimit.tooltip':
     'pi_numeric_limit — confidential max-per-run and daily-cap check. Thresholds stay encrypted on-chain; only pass/fail leaves the gate.',
@@ -1366,6 +1395,21 @@ const id: Dictionary = {
   'app.log.empty': 'Belum ada aksi, jalankan langkah setup atau rail untuk mulai.',
   'app.log.empty.gateAwake': 'Gate kebijakan siaga',
   'app.log.empty.hint': 'Belum ada aktivitas agen — coba Jalankan 5 USDC untuk lihat verdict',
+  'app.agent.kicker': 'Integrasi agen',
+  'app.agent.title': 'Bridge MCP siap tempel',
+  'app.agent.body':
+    'Salin config ini ke Claude Desktop, Cursor, Zed, atau agen MCP lain untuk mengikat session key yang sama ke Polet.',
+  'app.agent.tools': 'Tool MCP',
+  'app.agent.config': 'Claude Desktop mcp.json',
+  'app.agent.copy': 'Salin config',
+  'app.agent.copied': 'Tersalin',
+  'app.agent.ready': 'Secret session ada di tab ini. Devnet-only.',
+  'app.agent.needsSession': 'Grant atau re-grant session agen dulu agar config berisi keypair nyata.',
+  'app.agent.tool.balance': 'Baca saldo custody plus bucket gas owner dan agen.',
+  'app.agent.tool.status': 'Periksa policy, session, signer Ika, dan kesiapan GasDeposit.',
+  'app.agent.tool.enableChain': 'Aktifkan signer Ika managed untuk Sui atau Ethereum.',
+  'app.agent.tool.trade': 'Preview trade policy-gated tanpa broadcast.',
+  'app.agent.tool.execute': 'Eksekusi Jupiter atau Ika end-to-end dengan session signer.',
   // Polish (Day 11.5)
   'app.constraint.numericLimit.tooltip':
     'pi_numeric_limit — pemeriksaan max-per-run dan daily-cap rahasia. Ambang batas tetap terenkripsi on-chain; hanya pass/fail yang keluar dari gate.',

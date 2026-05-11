@@ -8,6 +8,7 @@ import { StatStrip } from '../components/app/StatStrip'
 import { SetupLedger } from '../components/app/SetupLedger'
 import { TwoRailConsole } from '../components/app/TwoRailConsole'
 import { ReceiptLog } from '../components/app/ReceiptLog'
+import { AgentIntegrationPanel } from '../components/app/AgentIntegrationPanel'
 import { ConsoleStateProvider } from '../components/app/use-console-actions'
 import { WalletDashboard } from '../components/app/WalletDashboard'
 
@@ -56,6 +57,7 @@ function AppPage() {
         <SetupLedger />
         <TwoRailConsole />
         <ReceiptLog />
+        <AgentIntegrationPanel />
         <AdvancedFallback />
       </ConsoleStateProvider>
     </ClientWalletProvider>
