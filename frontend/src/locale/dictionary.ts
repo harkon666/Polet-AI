@@ -566,6 +566,46 @@ export type TranslationKey =
   | 'portal.gate.actions.disabledNoSessionKey'
   | 'portal.gate.actions.disabledNoIkaChain'
   // === Phase 4 keys (issue 102 — Funds & Setup). Insert below. ===
+  | 'portal.funds.kicker'
+  | 'portal.funds.title'
+  | 'portal.funds.sub'
+  | 'portal.funds.pill'
+  | 'portal.funds.column.fundsTitle'
+  | 'portal.funds.column.setupTitle'
+  | 'portal.funds.list.label'
+  | 'portal.funds.row.usdc.title'
+  | 'portal.funds.row.usdc.sub'
+  | 'portal.funds.row.sol.title'
+  | 'portal.funds.row.sol.sub'
+  | 'portal.funds.row.gas.title'
+  | 'portal.funds.row.gas.sub'
+  | 'portal.funds.row.gas.value.done'
+  | 'portal.funds.row.gas.value.needs'
+  | 'portal.funds.row.gas.value.pending'
+  | 'portal.funds.row.ika.title'
+  | 'portal.funds.row.ika.sub'
+  | 'portal.funds.row.ika.value.pending'
+  | 'portal.funds.actions.deposit'
+  | 'portal.funds.actions.withdraw'
+  | 'portal.funds.actions.fundGas'
+  | 'portal.funds.actions.enableChain'
+  | 'portal.funds.setup.label'
+  | 'portal.funds.setup.pda.title'
+  | 'portal.funds.setup.pda.sub'
+  | 'portal.funds.setup.pda.action'
+  | 'portal.funds.setup.custody.title'
+  | 'portal.funds.setup.custody.sub'
+  | 'portal.funds.setup.custody.action'
+  | 'portal.funds.setup.custody.value.funded'
+  | 'portal.funds.setup.policy.title'
+  | 'portal.funds.setup.policy.sub'
+  | 'portal.funds.setup.policy.action'
+  | 'portal.funds.setup.session.title'
+  | 'portal.funds.setup.session.sub'
+  | 'portal.funds.setup.session.action'
+  | 'portal.funds.setup.session.regrant'
+  | 'portal.funds.setup.authority.title'
+  | 'portal.funds.setup.authority.sub'
   // === Phase 5 keys (issue 103 — Proof Trail). Insert below. ===
   // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
@@ -1233,6 +1273,47 @@ const en: Dictionary = {
   'portal.gate.actions.disabledNoIkaChain':
     'Enable an Ika managed chain (Sui devnet) to execute via Ika.',
   // === Phase 4 keys (issue 102 — Funds & Setup). Insert below. ===
+  'portal.funds.kicker': 'Funds & Setup',
+  'portal.funds.title': 'Owner controls in two calm columns.',
+  'portal.funds.sub':
+    'Left: balances spendable by policy. Right: owner setup status. Inline actions fire the same primitives the legacy console used.',
+  'portal.funds.pill': 'PDA custody',
+  'portal.funds.column.fundsTitle': 'Balances',
+  'portal.funds.column.setupTitle': 'Owner setup',
+  'portal.funds.list.label': 'Custody balances',
+  'portal.funds.row.usdc.title': 'USDC custody',
+  'portal.funds.row.usdc.sub': 'Spendable by policy',
+  'portal.funds.row.sol.title': 'SOL custody',
+  'portal.funds.row.sol.sub': 'Swap output and rent',
+  'portal.funds.row.gas.title': 'Agent gas',
+  'portal.funds.row.gas.sub': 'Session keypair pays rail tx fees',
+  'portal.funds.row.gas.value.done': 'funded',
+  'portal.funds.row.gas.value.needs': 'needs SOL',
+  'portal.funds.row.gas.value.pending': 'no session',
+  'portal.funds.row.ika.title': 'Ika dWallet',
+  'portal.funds.row.ika.sub': 'Managed Sui devnet · Ethereum deferred',
+  'portal.funds.row.ika.value.pending': 'not enabled',
+  'portal.funds.actions.deposit': 'Deposit 5 USDC',
+  'portal.funds.actions.withdraw': 'Withdraw 1 USDC',
+  'portal.funds.actions.fundGas': 'Fund 0.05 SOL gas',
+  'portal.funds.actions.enableChain': 'Enable Sui chain',
+  'portal.funds.setup.label': 'Owner setup',
+  'portal.funds.setup.pda.title': 'Smart-wallet PDA',
+  'portal.funds.setup.pda.sub': 'Custody, policy, and sessions hang off this PDA',
+  'portal.funds.setup.pda.action': 'Initialize',
+  'portal.funds.setup.custody.title': 'Custody funds',
+  'portal.funds.setup.custody.sub': 'Demo USDC + WSOL token accounts',
+  'portal.funds.setup.custody.action': 'Register',
+  'portal.funds.setup.custody.value.funded': 'funded',
+  'portal.funds.setup.policy.title': 'Confidential policy',
+  'portal.funds.setup.policy.sub': 'Numeric cap, quota, cooldown — sealed on-chain',
+  'portal.funds.setup.policy.action': 'Save policy',
+  'portal.funds.setup.session.title': 'Agent session',
+  'portal.funds.setup.session.sub': 'Time-boxed signing key for the agent',
+  'portal.funds.setup.session.action': 'Grant session',
+  'portal.funds.setup.session.regrant': 'Re-grant',
+  'portal.funds.setup.authority.title': 'Authority',
+  'portal.funds.setup.authority.sub': 'Owner controls the wallet today; recovery rotation coming',
   // === Phase 5 keys (issue 103 — Proof Trail). Insert below. ===
   // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
@@ -1898,6 +1979,47 @@ const id: Dictionary = {
   'portal.gate.actions.disabledNoIkaChain':
     'Aktifkan chain managed Ika (Sui devnet) untuk eksekusi via Ika.',
   // === Phase 4 keys (issue 102 — Funds & Setup). Insert below. ===
+  'portal.funds.kicker': 'Dana & Setup',
+  'portal.funds.title': 'Kontrol owner dalam dua kolom kalem.',
+  'portal.funds.sub':
+    'Kiri: saldo yang bisa dibelanjakan policy. Kanan: status setup owner. Tombol inline memicu primitif yang sama dengan konsol legacy.',
+  'portal.funds.pill': 'PDA custody',
+  'portal.funds.column.fundsTitle': 'Saldo',
+  'portal.funds.column.setupTitle': 'Setup owner',
+  'portal.funds.list.label': 'Saldo custody',
+  'portal.funds.row.usdc.title': 'Custody USDC',
+  'portal.funds.row.usdc.sub': 'Bisa dibelanjakan policy',
+  'portal.funds.row.sol.title': 'Custody SOL',
+  'portal.funds.row.sol.sub': 'Hasil swap dan sewa rent',
+  'portal.funds.row.gas.title': 'Bensin agent',
+  'portal.funds.row.gas.sub': 'Keypair sesi bayar fee tx rail',
+  'portal.funds.row.gas.value.done': 'terisi',
+  'portal.funds.row.gas.value.needs': 'butuh SOL',
+  'portal.funds.row.gas.value.pending': 'belum ada sesi',
+  'portal.funds.row.ika.title': 'Ika dWallet',
+  'portal.funds.row.ika.sub': 'Managed Sui devnet · Ethereum ditunda',
+  'portal.funds.row.ika.value.pending': 'belum aktif',
+  'portal.funds.actions.deposit': 'Setor 5 USDC',
+  'portal.funds.actions.withdraw': 'Tarik 1 USDC',
+  'portal.funds.actions.fundGas': 'Isi 0.05 SOL bensin',
+  'portal.funds.actions.enableChain': 'Aktifkan chain Sui',
+  'portal.funds.setup.label': 'Setup owner',
+  'portal.funds.setup.pda.title': 'Smart-wallet PDA',
+  'portal.funds.setup.pda.sub': 'Custody, policy, dan sesi nyangkut ke PDA ini',
+  'portal.funds.setup.pda.action': 'Inisialisasi',
+  'portal.funds.setup.custody.title': 'Dana custody',
+  'portal.funds.setup.custody.sub': 'Akun token USDC + WSOL demo',
+  'portal.funds.setup.custody.action': 'Daftar',
+  'portal.funds.setup.custody.value.funded': 'terisi',
+  'portal.funds.setup.policy.title': 'Policy rahasia',
+  'portal.funds.setup.policy.sub': 'Batas nominal, kuota, cooldown — tersegel on-chain',
+  'portal.funds.setup.policy.action': 'Simpan policy',
+  'portal.funds.setup.session.title': 'Sesi agent',
+  'portal.funds.setup.session.sub': 'Kunci tandatangan dibatasi waktu untuk agent',
+  'portal.funds.setup.session.action': 'Otorisasi sesi',
+  'portal.funds.setup.session.regrant': 'Otorisasi ulang',
+  'portal.funds.setup.authority.title': 'Authority',
+  'portal.funds.setup.authority.sub': 'Owner kontrol wallet hari ini; rotasi recovery menyusul',
   // === Phase 5 keys (issue 103 — Proof Trail). Insert below. ===
   // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===

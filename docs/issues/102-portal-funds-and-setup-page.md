@@ -4,7 +4,36 @@ Labels: `needs-triage`, `frontend`, `design`, `custody`, `agent-runtime`, `ika`
 
 Type: `AFK`
 
-Status: `TODO`
+Status: `DONE`
+
+## Shipped
+
+- New `frontend-v2/src/components/app/funds/`:
+  - `funds-selectors.ts` — `getCustodyBalances`, `getAgentGasStatus`,
+    `getIkaDwalletStatus`, `getOwnerAuthority`, `getActiveSessionInfo`.
+    9 unit tests in `funds-selectors.test.ts`.
+  - `FundsList.tsx` — 4 hairline rows (USDC custody · SOL custody ·
+    agent gas · Ika dWallet). Tabular-nums values, mono kicker subs,
+    no card frame.
+  - `QuickActions.tsx` — 4 underline-style action buttons (Deposit ·
+    Withdraw · Fund gas · Enable chain). Reuses existing
+    `useConsole().actions.*` with the same fixed amounts the legacy
+    CustodyFundsStrip / ChainStatusStrip used. Disabled rules mirror
+    those components.
+  - `OwnerSetupList.tsx` — 5 hairline rows (PDA · custody · policy ·
+    session · authority) derived from `deriveReadiness(state)`. Inline
+    action button when row is `pending`. Re-grant strip when session
+    active but `sessionKeypair` is null. Authority row read-only.
+- `app.funds.tsx` replaces the placeholder with hero + 2-column
+  composition. Mobile stacks vertically.
+- 41 new `portal.funds.*` i18n keys (EN canonical + ID mirror), all
+  inserted between Phase 4 sentinels.
+- 11 new state-aware tests in `app.funds.test.tsx` covering empty
+  render, inline action firing, deposit/fund-gas precondition gating,
+  re-grant strip visibility, and ID locale mirror.
+- `app.funds-preview.tsx` dev route renders 3 canonical states
+  (empty · partial · fully ready) for visual review.
+- Verify: typecheck clean, 93/93 tests green (73 → 93, +20), build clean.
 
 ## Parent
 
