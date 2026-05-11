@@ -2,20 +2,20 @@ import { fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 /**
- * Polet Portal — Phase 3 Policy Gate tests (issue 101).
+ * Polet Portal — Policy Gate tests (post BYO redesign).
  *
  * Exercises:
- *   - Scenario click flips composer state + rail.
- *   - Intent composer's rail control propagates back to the route.
- *   - Action buttons fire the correct `useConsole().actions.*` key per
- *     rail (preview / try-blocked / execute).
- *   - Verdict line + orb word reflect the latest receipt per rail.
- *   - Disabled states activate under each precondition (no session,
- *     no session keypair, no Ika managed chain).
- *   - ID locale mirror renders.
- *
- * The page is mounted in isolation — no real `<ConsoleStateProvider>`,
- * no wallet adapter — via module-level `vi.mock()` stubs.
+ *   - Free-form amount input in `<IntentComposer>`.
+ *   - Preset chips in `<ScenarioRow>` fill the amount + rail.
+ *   - Single primary "Run trade" button calls
+ *     `actions.executeAsOwnerSession({ rail, amountUsdc })`.
+ *   - Authorize-self banner appears when the owner wallet is not in
+ *     the session list; banner's button calls `grantAgentSessionByo`
+ *     with `agentPubkey = owner.toBase58()`.
+ *   - Run button is disabled when owner not a session / amount
+ *     invalid / Ika chain missing (per rail).
+ *   - Verdict pill tracks the latest receipt status per rail.
+ *   - ID locale renders.
  */
 
 function ensureLocalStorage() {
@@ -59,16 +59,19 @@ vi.mock('@tanstack/react-router', () => ({
   useLocation: () => ({ pathname: '/app/gate' }),
 }))
 
-// Mutable container for the mocked console state + action spies.
+const OWNER_PUBKEY = 'AGENT11111111111111111111111111111111111111'
+const FUTURE_EXPIRES_AT = Math.floor(Date.now() / 1000) + 3600
+
 type MockState = {
   connected: boolean
-  publicKey: null
+  publicKey: { toBase58: () => string } | null
   data: Record<string, unknown> | null
   solBalance: number | null
   receipts: Array<Record<string, unknown>>
   loading: string | null
   error: null
   sessionKeypair: Record<string, unknown> | null
+  revealedPolicyValues: Record<string, unknown>
 }
 
 const mockState: { current: MockState } = {
@@ -81,16 +84,18 @@ const mockState: { current: MockState } = {
     loading: null,
     error: null,
     sessionKeypair: null,
+    revealedPolicyValues: {},
   },
 }
 
 const actionSpies = {
-  runJupiterAllow: vi.fn(async () => {}),
-  runJupiterBlock: vi.fn(async () => {}),
-  runIkaAllow: vi.fn(async () => {}),
-  runIkaBlock: vi.fn(async () => {}),
-  executeJupiter: vi.fn(async () => {}),
-  executeIka: vi.fn(async () => {}),
+  executeAsOwnerSession: vi.fn(async () => {}),
+  testPolicy: vi.fn(async () => {}),
+  grantAgentSessionByo: vi.fn(async () => {}),
+  revokeAgentSessionByo: vi.fn(async () => {}),
+  saveConfidentialPolicyCustom: vi.fn(async () => {}),
+  revealPolicyValue: vi.fn(async () => {}),
+  hidePolicyValue: vi.fn(() => {}),
 }
 
 vi.mock('../components/app/use-console-actions', () => ({
@@ -100,28 +105,31 @@ vi.mock('../components/app/use-console-actions', () => ({
 
 import { AppGatePage } from './app.gate'
 
-const FUTURE_EXPIRES_AT = Math.floor(Date.now() / 1000) + 3600
-
-/** Snapshot where every readiness slot is done — used for the
- *  "all preconditions met" path. */
-function readyData(): Record<string, unknown> {
+/** State with custody + policy sealed + owner registered as session. */
+function ownerAsSessionData(): Record<string, unknown> {
   return {
     walletPda: 'PDA1111111111111111111111111111111111111111',
     demoCustody: { configured: true },
     custodyBalances: { usdcUi: '17.5' },
     usdcDcaPolicy: { enabled: true },
     policySeq: 7,
-    temporalKeys: [{ authorized: true, expiresAt: FUTURE_EXPIRES_AT }],
+    lastRevokedSlot: 0,
+    temporalKeys: [
+      {
+        key: OWNER_PUBKEY,
+        authorized: true,
+        expiresAt: FUTURE_EXPIRES_AT,
+        grantedSlot: 10,
+      },
+    ],
     ikaManaged: {
       registration: { label: 'managed-curve25519', curve: 2 },
     },
   }
 }
 
-function readyKeypair(): Record<string, unknown> {
-  return {
-    publicKey: { toBase58: () => 'AGENT11111111111111111111111111111111111111' },
-  }
+function ownerPubkey(): { toBase58: () => string } {
+  return { toBase58: () => OWNER_PUBKEY }
 }
 
 afterEach(() => {
@@ -136,6 +144,7 @@ afterEach(() => {
     loading: null,
     error: null,
     sessionKeypair: null,
+    revealedPolicyValues: {},
   }
 })
 
@@ -148,29 +157,31 @@ beforeEach(() => {
   document.documentElement.setAttribute('lang', 'en')
 })
 
-describe('Polet Portal — Phase 3 Policy Gate', () => {
-  test('initial render — Jupiter rail, allow-jupiter scenario, amount 5', () => {
+describe('Polet Portal — Policy Gate (BYO owner self-test surface)', () => {
+  test('initial render — Jupiter rail, amount 5, default preset is allow-jupiter', () => {
     render(<AppGatePage />)
     const page = document.querySelector('[data-testid="gate-page"]')
     expect(page?.getAttribute('data-rail')).toBe('jupiter')
     expect(page?.getAttribute('data-scenario')).toBe('allow-jupiter')
-    const amount = document.querySelector('[data-testid="composer-amount-value"]')
-    expect(amount?.textContent).toBe('5')
-    const rail = document.querySelector('[data-testid="composer-rail-jupiter"]')
-    expect(rail?.getAttribute('data-active')).toBe('true')
+    const input = document.querySelector(
+      '[data-testid="composer-amount-input"]',
+    ) as HTMLInputElement
+    expect(input.value).toBe('5')
   })
 
-  test('scenario click → block-25 sets amount to 25, rail stays', () => {
+  test('preset click → block-25 sets amount to 25 (rail unchanged)', () => {
     render(<AppGatePage />)
     fireEvent.click(document.querySelector('[data-testid="scenario-pill-block-25"]')!)
     const page = document.querySelector('[data-testid="gate-page"]')
     expect(page?.getAttribute('data-scenario')).toBe('block-25')
     expect(page?.getAttribute('data-rail')).toBe('jupiter')
-    const amount = document.querySelector('[data-testid="composer-amount-value"]')
-    expect(amount?.textContent).toBe('25')
+    const input = document.querySelector(
+      '[data-testid="composer-amount-input"]',
+    ) as HTMLInputElement
+    expect(input.value).toBe('25')
   })
 
-  test('scenario click → ika flips rail to Ika and amount stays 5', () => {
+  test('preset click → ika flips rail to Ika and amount stays 5', () => {
     render(<AppGatePage />)
     fireEvent.click(document.querySelector('[data-testid="scenario-pill-ika"]')!)
     const page = document.querySelector('[data-testid="gate-page"]')
@@ -178,108 +189,126 @@ describe('Polet Portal — Phase 3 Policy Gate', () => {
     expect(page?.getAttribute('data-scenario')).toBe('ika')
   })
 
-  test('rail button click → ika flips scenario to ika', () => {
+  test('manual amount edit goes to "custom" scenario', () => {
     render(<AppGatePage />)
-    fireEvent.click(document.querySelector('[data-testid="composer-rail-ika"]')!)
+    const input = document.querySelector(
+      '[data-testid="composer-amount-input"]',
+    ) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '3.5' } })
     const page = document.querySelector('[data-testid="gate-page"]')
-    expect(page?.getAttribute('data-rail')).toBe('ika')
-    expect(page?.getAttribute('data-scenario')).toBe('ika')
+    expect(page?.getAttribute('data-scenario')).toBe('custom')
+    expect(input.value).toBe('3.5')
   })
 
-  test('Preview button fires runJupiterAllow on Jupiter rail', () => {
+  test('Run button fires executeAsOwnerSession with current amount + rail', () => {
     mockState.current = {
       ...mockState.current,
-      data: readyData(),
-      sessionKeypair: readyKeypair(),
+      publicKey: ownerPubkey(),
+      data: ownerAsSessionData(),
     }
     render(<AppGatePage />)
-    fireEvent.click(document.querySelector('[data-testid="gate-action-preview"]')!)
-    expect(actionSpies.runJupiterAllow).toHaveBeenCalledTimes(1)
-    expect(actionSpies.runIkaAllow).not.toHaveBeenCalled()
+    const input = document.querySelector(
+      '[data-testid="composer-amount-input"]',
+    ) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '2' } })
+    fireEvent.click(document.querySelector('[data-testid="gate-action-run"]')!)
+    expect(actionSpies.executeAsOwnerSession).toHaveBeenCalledTimes(1)
+    expect(actionSpies.executeAsOwnerSession).toHaveBeenCalledWith({
+      rail: 'jupiter',
+      amountUsdc: '2',
+    })
   })
 
-  test('Preview button fires runIkaAllow on Ika rail', () => {
+  test('Run button switches rail payload when Ika rail selected', () => {
     mockState.current = {
       ...mockState.current,
-      data: readyData(),
-      sessionKeypair: readyKeypair(),
+      publicKey: ownerPubkey(),
+      data: ownerAsSessionData(),
     }
     render(<AppGatePage />)
-    // Switch to Ika first
     fireEvent.click(document.querySelector('[data-testid="composer-rail-ika"]')!)
-    fireEvent.click(document.querySelector('[data-testid="gate-action-preview"]')!)
-    expect(actionSpies.runIkaAllow).toHaveBeenCalledTimes(1)
-    expect(actionSpies.runJupiterAllow).not.toHaveBeenCalled()
+    fireEvent.click(document.querySelector('[data-testid="gate-action-run"]')!)
+    expect(actionSpies.executeAsOwnerSession).toHaveBeenCalledWith({
+      rail: 'ika',
+      amountUsdc: '5',
+    })
   })
 
-  test('Try blocked fires runJupiterBlock + flips scenario to block-25', () => {
+  test('authorize-self banner appears when owner wallet not in sessions', () => {
+    const data = ownerAsSessionData()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(data as any).temporalKeys = []
     mockState.current = {
       ...mockState.current,
-      data: readyData(),
-      sessionKeypair: readyKeypair(),
+      publicKey: ownerPubkey(),
+      data,
+    }
+    render(<AppGatePage />)
+    expect(
+      document.querySelector('[data-testid="gate-authorize-banner"]'),
+    ).not.toBeNull()
+    const runBtn = document.querySelector(
+      '[data-testid="gate-action-run"]',
+    ) as HTMLButtonElement
+    expect(runBtn.disabled).toBe(true)
+  })
+
+  test('Authorize-self button calls grantAgentSessionByo with owner pubkey', () => {
+    const data = ownerAsSessionData()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(data as any).temporalKeys = []
+    mockState.current = {
+      ...mockState.current,
+      publicKey: ownerPubkey(),
+      data,
     }
     render(<AppGatePage />)
     fireEvent.click(
-      document.querySelector('[data-testid="gate-action-try-blocked"]')!,
+      document.querySelector('[data-testid="gate-action-authorize-self"]')!,
     )
-    expect(actionSpies.runJupiterBlock).toHaveBeenCalledTimes(1)
-    const page = document.querySelector('[data-testid="gate-page"]')
-    expect(page?.getAttribute('data-scenario')).toBe('block-25')
+    expect(actionSpies.grantAgentSessionByo).toHaveBeenCalledTimes(1)
+    expect(actionSpies.grantAgentSessionByo).toHaveBeenCalledWith({
+      agentPubkey: OWNER_PUBKEY,
+      expiresInHours: 24,
+      dailyLimitSol: 0.05,
+    })
   })
 
-  test('Execute fires executeJupiter when all preconditions met', () => {
+  test('Run disabled when amount is 0 or invalid', () => {
     mockState.current = {
       ...mockState.current,
-      data: readyData(),
-      sessionKeypair: readyKeypair(),
+      publicKey: ownerPubkey(),
+      data: ownerAsSessionData(),
     }
     render(<AppGatePage />)
-    fireEvent.click(document.querySelector('[data-testid="gate-action-execute"]')!)
-    expect(actionSpies.executeJupiter).toHaveBeenCalledTimes(1)
-  })
-
-  test('Execute disabled without an active session', () => {
-    // Default mockState has no temporalKeys / sessionKeypair.
-    render(<AppGatePage />)
-    const exec = document.querySelector(
-      '[data-testid="gate-action-execute"]',
+    const input = document.querySelector(
+      '[data-testid="composer-amount-input"]',
+    ) as HTMLInputElement
+    fireEvent.change(input, { target: { value: '0' } })
+    const runBtn = document.querySelector(
+      '[data-testid="gate-action-run"]',
     ) as HTMLButtonElement
-    expect(exec.disabled).toBe(true)
+    expect(runBtn.disabled).toBe(true)
   })
 
-  test('Execute disabled when session active but no sessionKeypair', () => {
-    mockState.current = {
-      ...mockState.current,
-      data: readyData(),
-      sessionKeypair: null,
-    }
-    render(<AppGatePage />)
-    const exec = document.querySelector(
-      '[data-testid="gate-action-execute"]',
-    ) as HTMLButtonElement
-    expect(exec.disabled).toBe(true)
-  })
-
-  test('Ika execute disabled when no managed Sui chain registered', () => {
-    const data = readyData()
-    // Wipe the ikaManaged registration → Ika execute should disable.
+  test('Ika run disabled when no managed Sui chain registered', () => {
+    const data = ownerAsSessionData()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(data as any).ikaManaged = undefined
     mockState.current = {
       ...mockState.current,
+      publicKey: ownerPubkey(),
       data,
-      sessionKeypair: readyKeypair(),
     }
     render(<AppGatePage />)
-    // Switch to Ika rail
     fireEvent.click(document.querySelector('[data-testid="composer-rail-ika"]')!)
-    const exec = document.querySelector(
-      '[data-testid="gate-action-execute"]',
+    const runBtn = document.querySelector(
+      '[data-testid="gate-action-run"]',
     ) as HTMLButtonElement
-    expect(exec.disabled).toBe(true)
+    expect(runBtn.disabled).toBe(true)
   })
 
-  test('Verdict pill + orb word reflect latest Jupiter receipt (allowed)', () => {
+  test('Verdict pill reflects latest Jupiter receipt (allowed)', () => {
     mockState.current = {
       ...mockState.current,
       receipts: [
@@ -295,13 +324,9 @@ describe('Polet Portal — Phase 3 Policy Gate', () => {
     render(<AppGatePage />)
     const pill = document.querySelector('[data-testid="gate-verdict-pill"]')
     expect(pill?.getAttribute('data-state')).toBe('allowed')
-    const orbWord = document.querySelector('[data-testid="gate-orb-word"]')
-    expect(orbWord?.textContent).toBe('ALLOW')
-    const verdictLine = document.querySelector('[data-testid="flow-verdict-line"]')
-    expect(verdictLine?.getAttribute('data-state')).toBe('allowed')
   })
 
-  test('Verdict pill + orb word reflect latest Jupiter receipt (blocked)', () => {
+  test('Verdict pill reflects blocked receipt', () => {
     mockState.current = {
       ...mockState.current,
       receipts: [
@@ -315,21 +340,21 @@ describe('Polet Portal — Phase 3 Policy Gate', () => {
       ],
     }
     render(<AppGatePage />)
-    const orbWord = document.querySelector('[data-testid="gate-orb-word"]')
-    expect(orbWord?.textContent).toBe('BLOCK')
+    const pill = document.querySelector('[data-testid="gate-verdict-pill"]')
+    expect(pill?.getAttribute('data-state')).toBe('blocked')
   })
 
-  test('Loading state shows orb word "evaluating" glyph', () => {
+  test('Loading state reflects evaluating pill for the active rail', () => {
     mockState.current = {
       ...mockState.current,
-      loading: 'jupiter-allow',
+      loading: 'test-policy-jupiter',
     }
     render(<AppGatePage />)
     const pill = document.querySelector('[data-testid="gate-verdict-pill"]')
     expect(pill?.getAttribute('data-state')).toBe('evaluating')
   })
 
-  test('ID locale mirrors hero + scenario chips', () => {
+  test('ID locale renders hero + preset chip copy', () => {
     window.localStorage.setItem('polet.locale', 'id')
     document.documentElement.setAttribute('lang', 'id')
     render(<AppGatePage />)

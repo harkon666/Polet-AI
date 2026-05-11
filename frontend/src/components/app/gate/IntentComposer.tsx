@@ -1,34 +1,33 @@
 import { useLocale } from '#/hooks/use-locale'
-import type { Scenario, Rail } from './gate-state'
-import { amountForScenario } from './gate-state'
+import type { Rail } from './gate-state'
 
 /**
  * IntentComposer, the wide hairline sentence at the top of the Gate
  * page: "Run [N USDC] through [Jupiter | Ika · Sui]".
  *
- * IMPORTANT — the amount slot is **display-only**, NOT an `<input>`.
- * Phase 3 issue 101 decision A: scenarios drive the visible number
- * (`allow-jupiter` → 5, `block-25` → 25, `ika` → 5). Backend actions
- * (`runJupiterAllow`, `runJupiterBlock`, …) are hardcoded 5/25, so a
- * real free-form input would lie to the operator. Switching scenarios
- * via `<ScenarioRow>` is the only way to change the visible amount.
+ * The amount slot is a **free-form number input** (post-issue-101 BYO
+ * redesign). Scenario chips below act as presets that fill the input;
+ * operators can freely type any amount so the policy gate can be
+ * exercised against custom confidential caps (e.g. set cap = 1 USDC
+ * and test 2 → blocked, test 0.5 → allowed).
  *
- * The rail slot is a segmented radiogroup so keyboard/screen-reader users can
- * flip between Jupiter and Ika directly. Switching the rail upstream nudges the
- * active scenario to keep amount + rail consistent (handled by the parent
- * route).
+ * The rail slot remains a segmented radiogroup so keyboard/screen
+ * readers can flip between Jupiter and Ika directly. Switching rails
+ * does not clear the amount — operators usually want to compare the
+ * same amount across rails.
  */
 export function IntentComposer({
   rail,
-  scenario,
+  amountUsdc,
+  onAmountChange,
   onRailChange,
 }: {
   rail: Rail
-  scenario: Scenario
+  amountUsdc: string
+  onAmountChange: (value: string) => void
   onRailChange: (rail: Rail) => void
 }) {
   const { t } = useLocale()
-  const amount = amountForScenario(scenario)
 
   return (
     <section
@@ -41,19 +40,29 @@ export function IntentComposer({
             {t('portal.gate.composer.run')}
           </p>
 
-          {/* Amount slot — display-only static text, no <input>. */}
-          <div
-            data-testid="composer-amount-slot"
-            data-amount={amount}
-            className="mt-3 inline-flex items-end gap-3"
-          >
-            <span
-              data-testid="composer-amount-value"
-              className="font-sans text-5xl font-bold leading-none tracking-[-0.06em] text-ink md:text-6xl"
-            >
-              {amount}
-            </span>
-            <span className="mb-1 rounded-full border border-lagoon-bright/30 bg-lagoon-bright/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.22em] text-lagoon-bright">
+          <div className="mt-3 flex items-end gap-3">
+            <div className="min-w-0 flex-1">
+              <label
+                htmlFor="composer-amount-input"
+                className="sr-only"
+              >
+                {t('portal.gate.composer.amountLabel')}
+              </label>
+              <input
+                id="composer-amount-input"
+                data-testid="composer-amount-input"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                max="10000"
+                value={amountUsdc}
+                placeholder={t('portal.gate.composer.amountPlaceholder')}
+                onChange={(e) => onAmountChange(e.target.value)}
+                className="w-full bg-transparent font-sans text-5xl font-bold leading-none tracking-[-0.06em] text-ink outline-none placeholder:text-ink-mute/40 md:text-6xl"
+              />
+            </div>
+            <span className="mb-1 shrink-0 rounded-full border border-lagoon-bright/30 bg-lagoon-bright/10 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.22em] text-lagoon-bright">
               {t('portal.gate.composer.unit')}
             </span>
           </div>

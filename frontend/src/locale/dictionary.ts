@@ -605,12 +605,17 @@ export type TranslationKey =
   | 'portal.gate.flow.node3.verdict.block'
   | 'portal.gate.flow.node3.verdict.idle'
   | 'portal.gate.flow.node3.verdict.evaluating'
-  | 'portal.gate.actions.preview'
-  | 'portal.gate.actions.tryBlocked'
-  | 'portal.gate.actions.execute'
+  | 'portal.gate.actions.run'
+  | 'portal.gate.actions.footnote'
+  | 'portal.gate.actions.authorizeSelf.kicker'
+  | 'portal.gate.actions.authorizeSelf.body'
+  | 'portal.gate.actions.authorizeSelf.button'
   | 'portal.gate.actions.disabledNoSession'
-  | 'portal.gate.actions.disabledNoSessionKey'
+  | 'portal.gate.actions.disabledOwnerNotSession'
+  | 'portal.gate.actions.disabledInvalidAmount'
   | 'portal.gate.actions.disabledNoIkaChain'
+  | 'portal.gate.composer.amountLabel'
+  | 'portal.gate.composer.amountPlaceholder'
   // === Phase 4 keys (issue 102 — Funds & Setup). Insert below. ===
   | 'portal.funds.kicker'
   | 'portal.funds.title'
@@ -1406,15 +1411,23 @@ const en: Dictionary = {
   'portal.gate.flow.node3.verdict.block': 'BLOCKED',
   'portal.gate.flow.node3.verdict.idle': 'AWAITING',
   'portal.gate.flow.node3.verdict.evaluating': 'EVAL',
-  'portal.gate.actions.preview': 'Preview gate',
-  'portal.gate.actions.tryBlocked': 'Try blocked amount',
-  'portal.gate.actions.execute': 'Execute with session key',
+  'portal.gate.actions.run': 'Run trade',
+  'portal.gate.actions.footnote':
+    'Owner self-test surface: evaluates the confidential policy at your amount, and if allowed, signs + broadcasts via your Phantom wallet. AI agents execute real trades through the SDK / MCP with their own session keys.',
+  'portal.gate.actions.authorizeSelf.kicker': 'Needs · self-session',
+  'portal.gate.actions.authorizeSelf.body':
+    'Your wallet is not yet registered as a Polet session. Authorize yourself so you can run trades from this page. AI agents still use their own session keys in parallel.',
+  'portal.gate.actions.authorizeSelf.button': 'Authorize yourself',
   'portal.gate.actions.disabledNoSession':
-    'Authorize an agent session before previewing the gate.',
-  'portal.gate.actions.disabledNoSessionKey':
-    'A session keypair is required to broadcast — fund agent gas first.',
+    'Authorize an agent session before running the gate.',
+  'portal.gate.actions.disabledOwnerNotSession':
+    'Your wallet is not registered as a session — click "Authorize yourself" above.',
+  'portal.gate.actions.disabledInvalidAmount':
+    'Enter a valid USDC amount (> 0).',
   'portal.gate.actions.disabledNoIkaChain':
     'Enable an Ika managed chain (Sui devnet) to execute via Ika.',
+  'portal.gate.composer.amountLabel': 'Amount (USDC)',
+  'portal.gate.composer.amountPlaceholder': '5',
   // === Phase 4 keys (issue 102 — Funds & Setup). Insert below. ===
   'portal.funds.kicker': 'Funds & Setup',
   'portal.funds.title': 'Owner controls in two calm columns.',
@@ -2222,15 +2235,23 @@ const id: Dictionary = {
   'portal.gate.flow.node3.verdict.block': 'DIBLOK',
   'portal.gate.flow.node3.verdict.idle': 'MENUNGGU',
   'portal.gate.flow.node3.verdict.evaluating': 'EVAL',
-  'portal.gate.actions.preview': 'Preview gate',
-  'portal.gate.actions.tryBlocked': 'Coba jumlah diblok',
-  'portal.gate.actions.execute': 'Eksekusi dengan session key',
+  'portal.gate.actions.run': 'Jalankan trade',
+  'portal.gate.actions.footnote':
+    'Surface self-test untuk owner: evaluasi confidential policy di nominal yang kamu isi, dan jika diizinkan, sign + broadcast lewat wallet Phantom kamu. AI agent eksekusi trade sungguhan lewat SDK / MCP dengan session key mereka sendiri.',
+  'portal.gate.actions.authorizeSelf.kicker': 'Butuh · self-session',
+  'portal.gate.actions.authorizeSelf.body':
+    'Wallet kamu belum terdaftar sebagai session Polet. Otorisasi diri sendiri supaya bisa jalankan trade dari halaman ini. AI agent tetap pakai session key mereka sendiri secara paralel.',
+  'portal.gate.actions.authorizeSelf.button': 'Otorisasi diri sendiri',
   'portal.gate.actions.disabledNoSession':
-    'Otorisasi session agent dulu sebelum preview gate.',
-  'portal.gate.actions.disabledNoSessionKey':
-    'Butuh keypair sesi untuk broadcast — isi bensin agent dulu.',
+    'Otorisasi session agent dulu sebelum jalankan gate.',
+  'portal.gate.actions.disabledOwnerNotSession':
+    'Wallet kamu belum terdaftar sebagai session — klik "Otorisasi diri sendiri" di atas.',
+  'portal.gate.actions.disabledInvalidAmount':
+    'Masukkan nominal USDC yang valid (> 0).',
   'portal.gate.actions.disabledNoIkaChain':
     'Aktifkan chain managed Ika (Sui devnet) untuk eksekusi via Ika.',
+  'portal.gate.composer.amountLabel': 'Nominal (USDC)',
+  'portal.gate.composer.amountPlaceholder': '5',
   // === Phase 4 keys (issue 102 — Funds & Setup). Insert below. ===
   'portal.funds.kicker': 'Dana & Setup',
   'portal.funds.title': 'Kontrol owner dalam dua kolom kalem.',

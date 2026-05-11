@@ -9,8 +9,7 @@ import {
 } from '../selectors/console-selectors'
 import type { GateOrbVerdict } from './GateOrb'
 import { GateOrb } from './GateOrb'
-import type { Rail, Scenario } from './gate-state'
-import { amountForScenario } from './gate-state'
+import type { Rail } from './gate-state'
 
 /**
  * FlowCanvas, the three-node policy-gated flow rendered as a wide
@@ -104,14 +103,14 @@ function shortenPubkey(s: string): string {
 
 export function FlowCanvas({
   rail,
-  scenario,
+  amountUsdc,
 }: {
   rail: Rail
-  scenario: Scenario
+  amountUsdc: string
 }) {
   const { t } = useLocale()
   const { state } = useConsole()
-  const amount = amountForScenario(scenario)
+  const amount = amountUsdc
   const pillState = getGatePillState(state, rail)
   const sessionActive = hasActiveSession(state)
   const policySeq = Number(state.data?.policySeq ?? 0)

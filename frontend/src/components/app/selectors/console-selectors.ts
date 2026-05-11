@@ -208,12 +208,10 @@ export function latestRailVerdict(
 export type GatePillState = 'ready' | 'allowed' | 'blocked' | 'evaluating'
 
 const JUPITER_ACTION_KEYS = new Set([
-  'jupiter-allow',
-  'jupiter-block',
-  'jupiter-execute',
+  'test-policy-jupiter',
 ])
 
-const IKA_ACTION_KEYS = new Set(['ika-allow', 'ika-block', 'ika-execute'])
+const IKA_ACTION_KEYS = new Set(['test-policy-ika'])
 
 export function getGatePillState(
   state: ConsoleState | null | undefined,

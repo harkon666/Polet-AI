@@ -418,7 +418,7 @@ describe('getGatePillState', () => {
   test('evaluating when state.loading matches a rail action key', () => {
     const s = makeState({
       receipts: [makeReceipt('JUPITER APPROVED 5 USDC', 'allowed')],
-      loading: 'jupiter-allow',
+      loading: 'test-policy-jupiter',
     })
     // Loading wins over the past receipt.
     expect(getGatePillState(s, 'jupiter')).toBe('evaluating')

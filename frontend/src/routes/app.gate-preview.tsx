@@ -8,8 +8,8 @@ import { IntentComposer } from '../components/app/gate/IntentComposer'
 import { ScenarioRow } from '../components/app/gate/ScenarioRow'
 import { FlowCanvas } from '../components/app/gate/FlowCanvas'
 import { ActionsBar } from '../components/app/gate/ActionsBar'
-import type { Rail, Scenario } from '../components/app/gate/gate-state'
-import { railForScenario, scenarioForRail } from '../components/app/gate/gate-state'
+import type { Rail } from '../components/app/gate/gate-state'
+import { matchScenarioFromInputs } from '../components/app/gate/gate-state'
 
 /**
  * /app/gate-preview — dev-only visual audit route for the Policy Gate.
@@ -142,30 +142,29 @@ function PreviewProvider({
  */
 function GateBody() {
   const [rail, setRail] = useState<Rail>('jupiter')
-  const [scenario, setScenario] = useState<Scenario>('allow-jupiter')
+  const [amountUsdc, setAmountUsdc] = useState<string>('5')
+  const activeScenario = matchScenarioFromInputs(amountUsdc, rail)
   return (
     <>
       <GateHero rail={rail} />
       <IntentComposer
         rail={rail}
-        scenario={scenario}
-        onRailChange={(next) => {
-          setRail(next)
-          setScenario(scenarioForRail(next, scenario))
-        }}
+        amountUsdc={amountUsdc}
+        onAmountChange={setAmountUsdc}
+        onRailChange={setRail}
       />
       <ScenarioRow
-        active={scenario}
-        onSelect={(next) => {
-          setScenario(next)
-          setRail(railForScenario(next, rail))
+        active={activeScenario}
+        onPresetSelect={(preset) => {
+          setAmountUsdc(preset.amount)
+          if (preset.rail) setRail(preset.rail)
         }}
       />
-      <FlowCanvas rail={rail} scenario={scenario} />
-      <ActionsBar
+      <FlowCanvas
         rail={rail}
-        onScenarioChange={(next) => setScenario(next)}
+        amountUsdc={amountUsdc}
       />
+      <ActionsBar rail={rail} amountUsdc={amountUsdc} />
     </>
   )
 }
