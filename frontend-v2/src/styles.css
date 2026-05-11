@@ -916,6 +916,132 @@ body {
   box-shadow: 0 0 0 2px rgb(45 212 191 / 0.25);
 }
 
+/* Policy gate orb — conic + radial gradient circle with two dashed
+   orbit rings that rotate at different rates. Verdict-driven:
+   `data-verdict` flips the centered tint (palm for allow, coral for
+   block). Used by `<GateOrb>` in `/app/gate`. Rule 3: multi-layer
+   gradient + state-driven motion + composition >10 utility chain. */
+.pl-gate-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(168px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 50% 48%,
+      rgb(45 212 191 / 0.26),
+      rgb(45 212 191 / 0.04) 42%,
+      transparent 70%
+    ),
+    conic-gradient(
+      from 120deg,
+      transparent,
+      rgb(45 212 191 / 0.36),
+      transparent,
+      rgb(52 211 153 / 0.26),
+      transparent
+    );
+  box-shadow: 0 0 54px rgb(45 212 191 / 0.16);
+}
+
+.pl-gate-orb[data-verdict="allow"] {
+  background:
+    radial-gradient(
+      circle at 50% 48%,
+      rgb(52 211 153 / 0.32),
+      rgb(52 211 153 / 0.06) 42%,
+      transparent 70%
+    ),
+    conic-gradient(
+      from 120deg,
+      transparent,
+      rgb(52 211 153 / 0.42),
+      transparent,
+      rgb(45 212 191 / 0.26),
+      transparent
+    );
+  box-shadow: 0 0 54px rgb(52 211 153 / 0.22);
+}
+
+.pl-gate-orb[data-verdict="block"] {
+  background:
+    radial-gradient(
+      circle at 50% 48%,
+      rgb(248 113 113 / 0.28),
+      rgb(248 113 113 / 0.05) 42%,
+      transparent 70%
+    ),
+    conic-gradient(
+      from 120deg,
+      transparent,
+      rgb(248 113 113 / 0.36),
+      transparent,
+      rgb(248 113 113 / 0.18),
+      transparent
+    );
+  box-shadow: 0 0 54px rgb(248 113 113 / 0.18);
+}
+
+.pl-gate-orb::before,
+.pl-gate-orb::after {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  border: 1px dashed rgb(45 212 191 / 0.28);
+  border-radius: 50%;
+  animation: pl-gate-spin 16s linear infinite;
+}
+
+.pl-gate-orb::after {
+  inset: 32%;
+  animation-duration: 11s;
+  animation-direction: reverse;
+  opacity: 0.75;
+}
+
+.pl-gate-orb[data-verdict="allow"]::before,
+.pl-gate-orb[data-verdict="allow"]::after {
+  border-color: rgb(52 211 153 / 0.32);
+}
+
+.pl-gate-orb[data-verdict="block"]::before,
+.pl-gate-orb[data-verdict="block"]::after {
+  border-color: rgb(248 113 113 / 0.28);
+}
+
+@keyframes pl-gate-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pulse dot between flow nodes — single breathing beat that hints
+   at policy evaluation flowing left to right. Used by `<FlowCanvas>`. */
+.pl-flow-pulse {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--color-lagoon-bright);
+  box-shadow: 0 0 22px rgb(45 212 191 / 0.7);
+  animation: pl-flow-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes pl-flow-breathe {
+  0%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
 /* Reduced-motion fallback for Crypto-Blur Theater, placed after defs so cascade order matches. */
 @media (prefers-reduced-motion: reduce) {
   .pl-aberration {
@@ -966,6 +1092,18 @@ body {
   .group:hover > .pl-cta-card {
     transition: none;
     transform: none;
+  }
+
+  /* Policy gate orb + flow pulse: kill ring rotation + breathing beat
+     so reduced-motion users see the orb as a static disc with no
+     animation. Verdict colour states still apply. */
+  .pl-gate-orb::before,
+  .pl-gate-orb::after {
+    animation: none;
+  }
+
+  .pl-flow-pulse {
+    animation: none;
   }
 }
 

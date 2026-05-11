@@ -4,7 +4,46 @@ Labels: `needs-triage`, `frontend`, `design`, `policy`, `jupiter`, `ika`
 
 Type: `AFK`
 
-Status: `TODO`
+Status: `DONE`
+
+## Shipped
+
+Commit pending under `feat(portal): Phase 3 — policy gate composer, flow,
+actions`.
+
+- New `frontend-v2/src/components/app/gate/` directory:
+  - `gate-state.ts` — shared `Rail`, `Scenario` types + pure helpers
+    (`amountForScenario`, `railForScenario`, `scenarioForRail`).
+  - `GateHero.tsx` — page head + live verdict pill driven by
+    `getGatePillState(state, rail)`.
+  - `IntentComposer.tsx` — wide hairline sentence with a display-only
+    amount slot (no `<input>`) and a Jupiter ↔ Ika `<select>`.
+  - `ScenarioRow.tsx` — 3 chip buttons (allow-jupiter, block-25, ika).
+  - `GateOrb.tsx` — pure visual primitive (conic + radial gradient,
+    two dashed orbit rings, centered word).
+  - `FlowCanvas.tsx` — 3-node grid (Agent request → Sealed gate orb →
+    Rail output) with hairline pulse-dot connectors.
+  - `ActionsBar.tsx` — Preview · Try blocked · Execute with the
+    disabled rules mirrored from `<RailCard>` (no session / no session
+    keypair / no managed Ika chain).
+- `app.gate.tsx` replaces the Phase 1 placeholder with the composition.
+- `getGatePillState(state, rail)` added to `console-selectors.ts` with
+  six new unit tests covering the rail loading + receipt status
+  resolution matrix.
+- Three new CSS primitives (Rule 3) in `styles.css`:
+  `.pl-gate-orb` (with `data-verdict` variants), `.pl-flow-pulse`,
+  and reduced-motion overrides for both.
+- 56 new `portal.gate.*` i18n keys (EN canonical + ID mirror).
+- 15 new gate state tests in `app.gate.test.tsx` exercising every
+  scenario → composer transition, every action wiring, every disabled
+  precondition, and the ID locale mirror.
+- Dev-only `/app/gate-preview` route renders the composition four
+  times (idle · allow · block · evaluating). Exempted from the
+  redirector bounce alongside `workspace-preview`.
+- New visual audit screenshots committed to the gitignored
+  `e2e/screenshots/` (regenerate with `npx playwright test
+  e2e/phase2-visual.spec.ts`).
+- `bun run typecheck` clean, 73/73 tests green, `bun run build` clean.
 
 ## Parent
 

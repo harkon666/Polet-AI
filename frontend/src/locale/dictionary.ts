@@ -507,7 +507,64 @@ export type TranslationKey =
   | 'portal.workspace.cta.compose'
   | 'portal.workspace.activity.latest'
   | 'portal.workspace.activity.empty'
-  | 'portal.workspace.activity.openProof';
+  | 'portal.workspace.activity.openProof'
+  // Polet Portal — Phase 3 (issue 101) — Policy Gate
+  | 'portal.gate.kicker'
+  | 'portal.gate.title'
+  | 'portal.gate.sub'
+  | 'portal.gate.status.ready'
+  | 'portal.gate.status.allowed'
+  | 'portal.gate.status.blocked'
+  | 'portal.gate.status.evaluating'
+  | 'portal.gate.composer.run'
+  | 'portal.gate.composer.through'
+  | 'portal.gate.composer.unit'
+  | 'portal.gate.rail.jupiter'
+  | 'portal.gate.rail.ika'
+  | 'portal.gate.scenario.allowJupiter'
+  | 'portal.gate.scenario.block25'
+  | 'portal.gate.scenario.ikaSui'
+  | 'portal.gate.flow.node1.kicker'
+  | 'portal.gate.flow.node1.title.jupiter'
+  | 'portal.gate.flow.node1.title.ika'
+  | 'portal.gate.flow.node1.body.jupiter'
+  | 'portal.gate.flow.node1.body.ika'
+  | 'portal.gate.flow.node1.row.amount'
+  | 'portal.gate.flow.node1.row.route'
+  | 'portal.gate.flow.node1.row.session'
+  | 'portal.gate.flow.node1.route.jupiter'
+  | 'portal.gate.flow.node1.route.ika'
+  | 'portal.gate.flow.node1.session.placeholder'
+  | 'portal.gate.flow.node2.kicker'
+  | 'portal.gate.flow.node2.check.session'
+  | 'portal.gate.flow.node2.check.policy'
+  | 'portal.gate.flow.node2.check.limit'
+  | 'portal.gate.flow.node2.value.sessionActive'
+  | 'portal.gate.flow.node2.value.sessionInactive'
+  | 'portal.gate.flow.node2.value.policyFresh'
+  | 'portal.gate.flow.node2.value.policyEmpty'
+  | 'portal.gate.orb.kicker'
+  | 'portal.gate.orb.allow'
+  | 'portal.gate.orb.block'
+  | 'portal.gate.orb.ready'
+  | 'portal.gate.orb.evaluating'
+  | 'portal.gate.flow.node3.kicker'
+  | 'portal.gate.flow.node3.title.jupiter'
+  | 'portal.gate.flow.node3.title.ika'
+  | 'portal.gate.flow.node3.body.idle'
+  | 'portal.gate.flow.node3.body.allowed'
+  | 'portal.gate.flow.node3.body.blocked'
+  | 'portal.gate.flow.node3.body.evaluating'
+  | 'portal.gate.flow.node3.verdict.allow'
+  | 'portal.gate.flow.node3.verdict.block'
+  | 'portal.gate.flow.node3.verdict.idle'
+  | 'portal.gate.flow.node3.verdict.evaluating'
+  | 'portal.gate.actions.preview'
+  | 'portal.gate.actions.tryBlocked'
+  | 'portal.gate.actions.execute'
+  | 'portal.gate.actions.disabledNoSession'
+  | 'portal.gate.actions.disabledNoSessionKey'
+  | 'portal.gate.actions.disabledNoIkaChain';
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -1103,6 +1160,73 @@ const en: Dictionary = {
   'portal.workspace.activity.empty':
     'No receipts yet — run your first rail from the Gate.',
   'portal.workspace.activity.openProof': 'Open Proof Trail',
+  // Polet Portal — Phase 3 (issue 101) — Policy Gate
+  'portal.gate.kicker': 'Policy Gate',
+  'portal.gate.title': 'One sealed gate. Two execution rails.',
+  'portal.gate.sub':
+    'The agent proposes an action. Polet checks private limits, session freshness, and scope before Jupiter or Ika can continue.',
+  'portal.gate.status.ready': 'ready to preview',
+  'portal.gate.status.allowed': 'allowed by policy',
+  'portal.gate.status.blocked': 'blocked by policy',
+  'portal.gate.status.evaluating': 'evaluating',
+  'portal.gate.composer.run': 'Run',
+  'portal.gate.composer.through': 'through',
+  'portal.gate.composer.unit': 'USDC',
+  'portal.gate.rail.jupiter': 'Jupiter',
+  'portal.gate.rail.ika': 'Ika · Sui',
+  'portal.gate.scenario.allowJupiter': 'Allow Jupiter 5 USDC',
+  'portal.gate.scenario.block25': 'Block 25 USDC',
+  'portal.gate.scenario.ikaSui': 'Ika Sui approval',
+  'portal.gate.flow.node1.kicker': '01 · Agent request',
+  'portal.gate.flow.node1.title.jupiter': 'Buy SOL via Jupiter',
+  'portal.gate.flow.node1.title.ika': 'Approve Ika dWallet message',
+  'portal.gate.flow.node1.body.jupiter':
+    'The AI agent asks to spend custody USDC with a temporary session key, never the owner wallet.',
+  'portal.gate.flow.node1.body.ika':
+    'The agent requests a dWallet message approval. Polet gates it before lifecycle progress and destination broadcast.',
+  'portal.gate.flow.node1.row.amount': 'amount',
+  'portal.gate.flow.node1.row.route': 'route',
+  'portal.gate.flow.node1.row.session': 'session',
+  'portal.gate.flow.node1.route.jupiter': 'USDC → SOL',
+  'portal.gate.flow.node1.route.ika': 'Sui dWallet · sign',
+  'portal.gate.flow.node1.session.placeholder': 'pending',
+  'portal.gate.flow.node2.kicker': '02 · Sealed gate',
+  'portal.gate.flow.node2.check.session': 'session',
+  'portal.gate.flow.node2.check.policy': 'policy seq',
+  'portal.gate.flow.node2.check.limit': 'limit',
+  'portal.gate.flow.node2.value.sessionActive': 'active',
+  'portal.gate.flow.node2.value.sessionInactive': 'pending',
+  'portal.gate.flow.node2.value.policyFresh': 'fresh',
+  'portal.gate.flow.node2.value.policyEmpty': 'unsealed',
+  'portal.gate.orb.kicker': 'POLICY',
+  'portal.gate.orb.allow': 'ALLOW',
+  'portal.gate.orb.block': 'BLOCK',
+  'portal.gate.orb.ready': 'READY',
+  'portal.gate.orb.evaluating': '…',
+  'portal.gate.flow.node3.kicker': '03 · Rail output',
+  'portal.gate.flow.node3.title.jupiter': 'Jupiter transaction ready',
+  'portal.gate.flow.node3.title.ika': 'Ika MessageApproval ready',
+  'portal.gate.flow.node3.body.idle':
+    'Route preview and execute will become available after the policy verdict passes.',
+  'portal.gate.flow.node3.body.allowed':
+    'Route preview and execute button are available. Owner policy remains sealed.',
+  'portal.gate.flow.node3.body.blocked':
+    'The policy gate rejected this intent before any rail output was created.',
+  'portal.gate.flow.node3.body.evaluating':
+    'Polet is evaluating the intent against the sealed policy.',
+  'portal.gate.flow.node3.verdict.allow': 'ALLOWED',
+  'portal.gate.flow.node3.verdict.block': 'BLOCKED',
+  'portal.gate.flow.node3.verdict.idle': 'AWAITING',
+  'portal.gate.flow.node3.verdict.evaluating': 'EVAL',
+  'portal.gate.actions.preview': 'Preview gate',
+  'portal.gate.actions.tryBlocked': 'Try blocked amount',
+  'portal.gate.actions.execute': 'Execute with session key',
+  'portal.gate.actions.disabledNoSession':
+    'Authorize an agent session before previewing the gate.',
+  'portal.gate.actions.disabledNoSessionKey':
+    'A session keypair is required to broadcast — fund agent gas first.',
+  'portal.gate.actions.disabledNoIkaChain':
+    'Enable an Ika managed chain (Sui devnet) to execute via Ika.',
 };
 
 // ---------------------------------------------------------------------------
@@ -1697,6 +1821,73 @@ const id: Dictionary = {
   'portal.workspace.activity.empty':
     'Belum ada receipt — jalankan rail pertama kamu dari Gate.',
   'portal.workspace.activity.openProof': 'Buka Jejak Bukti',
+  // Polet Portal — Phase 3 (issue 101) — Policy Gate
+  'portal.gate.kicker': 'Policy Gate',
+  'portal.gate.title': 'Satu gate tersegel. Dua rail eksekusi.',
+  'portal.gate.sub':
+    'Agent mengusulkan aksi. Polet memeriksa batas rahasia, kesegaran sesi, dan scope sebelum Jupiter atau Ika lanjut.',
+  'portal.gate.status.ready': 'siap di-preview',
+  'portal.gate.status.allowed': 'diloloskan policy',
+  'portal.gate.status.blocked': 'diblok policy',
+  'portal.gate.status.evaluating': 'sedang dievaluasi',
+  'portal.gate.composer.run': 'Jalankan',
+  'portal.gate.composer.through': 'lewat',
+  'portal.gate.composer.unit': 'USDC',
+  'portal.gate.rail.jupiter': 'Jupiter',
+  'portal.gate.rail.ika': 'Ika · Sui',
+  'portal.gate.scenario.allowJupiter': 'Allow Jupiter 5 USDC',
+  'portal.gate.scenario.block25': 'Block 25 USDC',
+  'portal.gate.scenario.ikaSui': 'Approval Ika Sui',
+  'portal.gate.flow.node1.kicker': '01 · Permintaan agent',
+  'portal.gate.flow.node1.title.jupiter': 'Beli SOL via Jupiter',
+  'portal.gate.flow.node1.title.ika': 'Setujui pesan Ika dWallet',
+  'portal.gate.flow.node1.body.jupiter':
+    'Agent AI minta memakai custody USDC dengan session key sementara, bukan wallet owner.',
+  'portal.gate.flow.node1.body.ika':
+    'Agent minta approval pesan dWallet. Polet menggate sebelum progres lifecycle dan broadcast destination.',
+  'portal.gate.flow.node1.row.amount': 'jumlah',
+  'portal.gate.flow.node1.row.route': 'rute',
+  'portal.gate.flow.node1.row.session': 'sesi',
+  'portal.gate.flow.node1.route.jupiter': 'USDC → SOL',
+  'portal.gate.flow.node1.route.ika': 'Sui dWallet · sign',
+  'portal.gate.flow.node1.session.placeholder': 'tertunda',
+  'portal.gate.flow.node2.kicker': '02 · Gate tersegel',
+  'portal.gate.flow.node2.check.session': 'sesi',
+  'portal.gate.flow.node2.check.policy': 'policy seq',
+  'portal.gate.flow.node2.check.limit': 'batas',
+  'portal.gate.flow.node2.value.sessionActive': 'aktif',
+  'portal.gate.flow.node2.value.sessionInactive': 'tertunda',
+  'portal.gate.flow.node2.value.policyFresh': 'segar',
+  'portal.gate.flow.node2.value.policyEmpty': 'belum-seal',
+  'portal.gate.orb.kicker': 'POLICY',
+  'portal.gate.orb.allow': 'ALLOW',
+  'portal.gate.orb.block': 'BLOCK',
+  'portal.gate.orb.ready': 'READY',
+  'portal.gate.orb.evaluating': '…',
+  'portal.gate.flow.node3.kicker': '03 · Output rail',
+  'portal.gate.flow.node3.title.jupiter': 'Transaksi Jupiter siap',
+  'portal.gate.flow.node3.title.ika': 'MessageApproval Ika siap',
+  'portal.gate.flow.node3.body.idle':
+    'Preview rute dan tombol eksekusi akan tersedia setelah verdict policy lolos.',
+  'portal.gate.flow.node3.body.allowed':
+    'Preview rute dan tombol eksekusi tersedia. Policy owner tetap tersegel.',
+  'portal.gate.flow.node3.body.blocked':
+    'Policy gate menolak intent ini sebelum ada output rail yang dibuat.',
+  'portal.gate.flow.node3.body.evaluating':
+    'Polet sedang mengevaluasi intent terhadap policy tersegel.',
+  'portal.gate.flow.node3.verdict.allow': 'DILOLOSKAN',
+  'portal.gate.flow.node3.verdict.block': 'DIBLOK',
+  'portal.gate.flow.node3.verdict.idle': 'MENUNGGU',
+  'portal.gate.flow.node3.verdict.evaluating': 'EVAL',
+  'portal.gate.actions.preview': 'Preview gate',
+  'portal.gate.actions.tryBlocked': 'Coba jumlah diblok',
+  'portal.gate.actions.execute': 'Eksekusi dengan session key',
+  'portal.gate.actions.disabledNoSession':
+    'Otorisasi session agent dulu sebelum preview gate.',
+  'portal.gate.actions.disabledNoSessionKey':
+    'Butuh keypair sesi untuk broadcast — isi bensin agent dulu.',
+  'portal.gate.actions.disabledNoIkaChain':
+    'Aktifkan chain managed Ika (Sui devnet) untuk eksekusi via Ika.',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };

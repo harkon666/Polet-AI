@@ -190,6 +190,47 @@ export function latestRailVerdict(
   return found ? { rail, entry: found } : null
 }
 
+/**
+ * Gate-page verdict pill state, derived from the latest rail receipt
+ * and the in-flight action key. Drives:
+ *   - The hero verdict pill (READY / ALLOWED / BLOCKED / EVALUATING)
+ *   - The `<GateOrb>`'s centered word
+ *   - The `<FlowCanvas>` node-3 verdict line tone (palm vs coral)
+ *
+ * Resolution order:
+ *   1. If `state.loading` is one of the rail's action keys, return
+ *      'evaluating' (covers the moment between user click and proxy
+ *      response).
+ *   2. Otherwise look at the latest rail receipt's `status`:
+ *      `allowed` → 'allowed', `blocked` or `error` → 'blocked'.
+ *   3. Anything else (info, pending, no receipts) → 'ready'.
+ */
+export type GatePillState = 'ready' | 'allowed' | 'blocked' | 'evaluating'
+
+const JUPITER_ACTION_KEYS = new Set([
+  'jupiter-allow',
+  'jupiter-block',
+  'jupiter-execute',
+])
+
+const IKA_ACTION_KEYS = new Set(['ika-allow', 'ika-block', 'ika-execute'])
+
+export function getGatePillState(
+  state: ConsoleState | null | undefined,
+  rail: 'jupiter' | 'ika',
+): GatePillState {
+  const loading = state?.loading
+  const railKeys = rail === 'jupiter' ? JUPITER_ACTION_KEYS : IKA_ACTION_KEYS
+  if (loading && railKeys.has(loading)) return 'evaluating'
+
+  const verdict = latestRailVerdict(state, rail)
+  if (!verdict) return 'ready'
+  const s = verdict.entry.status
+  if (s === 'allowed') return 'allowed'
+  if (s === 'blocked' || s === 'error') return 'blocked'
+  return 'ready'
+}
+
 /* ─────────────────────────── Ika chain ─────────────────────────── */
 
 /**

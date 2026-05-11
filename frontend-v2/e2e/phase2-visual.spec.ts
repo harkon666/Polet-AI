@@ -62,3 +62,26 @@ test('visual audit: workspace preview (mobile, viewport only)', async ({ page })
   })
   expect(true).toBe(true)
 })
+
+test('visual audit: gate preview (desktop)', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/app/gate-preview', { waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('aside[aria-label="Polet Portal navigation"]')
+  await page.waitForTimeout(1200)
+  await page.screenshot({
+    path: 'e2e/screenshots/phase3-gate-preview-desktop.png',
+    fullPage: true,
+  })
+  expect(true).toBe(true)
+})
+
+test('visual audit: gate preview (mobile)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/app/gate-preview', { waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(1200)
+  await page.screenshot({
+    path: 'e2e/screenshots/phase3-gate-preview-mobile.png',
+    fullPage: false,
+  })
+  expect(true).toBe(true)
+})

@@ -3,6 +3,7 @@ import type { ConsoleState, ReceiptEntry } from '../use-console-actions'
 import {
   deriveReadiness,
   getActiveIkaChain,
+  getGatePillState,
   getReadinessPills,
   hasActiveSession,
   isAgentGasFunded,
@@ -384,5 +385,51 @@ describe('getReadinessPills', () => {
   test('marks each slot done when all ready', () => {
     const pills = getReadinessPills(scenarios.allReady)
     expect(pills.every((p) => p.value === 'done')).toBe(true)
+  })
+})
+
+describe('getGatePillState', () => {
+  test('ready when no receipts for the rail', () => {
+    expect(getGatePillState(makeState({}), 'jupiter')).toBe('ready')
+    expect(getGatePillState(makeState({}), 'ika')).toBe('ready')
+  })
+
+  test('allowed when latest rail receipt is allowed', () => {
+    const s = makeState({
+      receipts: [makeReceipt('JUPITER APPROVED 5 USDC', 'allowed')],
+    })
+    expect(getGatePillState(s, 'jupiter')).toBe('allowed')
+  })
+
+  test('blocked when latest rail receipt is blocked', () => {
+    const s = makeState({
+      receipts: [makeReceipt('JUPITER BLOCKED 25 USDC', 'blocked')],
+    })
+    expect(getGatePillState(s, 'jupiter')).toBe('blocked')
+  })
+
+  test('blocked when latest rail receipt is error', () => {
+    const s = makeState({
+      receipts: [makeReceipt('IKA EXECUTE ERROR', 'error')],
+    })
+    expect(getGatePillState(s, 'ika')).toBe('blocked')
+  })
+
+  test('evaluating when state.loading matches a rail action key', () => {
+    const s = makeState({
+      receipts: [makeReceipt('JUPITER APPROVED 5 USDC', 'allowed')],
+      loading: 'jupiter-allow',
+    })
+    // Loading wins over the past receipt.
+    expect(getGatePillState(s, 'jupiter')).toBe('evaluating')
+    // Ika rail should ignore Jupiter's loading.
+    expect(getGatePillState(s, 'ika')).toBe('ready')
+  })
+
+  test('info / pending receipts collapse to ready', () => {
+    const s = makeState({
+      receipts: [makeReceipt('JUPITER ROUTE SAMPLED', 'info')],
+    })
+    expect(getGatePillState(s, 'jupiter')).toBe('ready')
   })
 })
