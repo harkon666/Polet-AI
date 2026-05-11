@@ -11,8 +11,8 @@ import { useLocale } from '#/hooks/use-locale'
  * - Fade mask on left/right edges so items appear/disappear softly.
  * - Reduced-motion: animation disabled, items shown static & centered.
  *
- * 6 brand items, all SVG/PNG from public brand kits:
- * - Solana, Jupiter, Colosseum (white-on-dark variants from official kits)
+ * 7 brand items, all SVG/PNG from public brand kits:
+ * - Solana, Sui, Jupiter, Colosseum (white-on-dark variants from official kits)
  * - Anchor (icon + circle gradient from anchor-lang.com)
  * - Ika (white icon from docs.ika.xyz)
  * - Encrypt (E-mark SVG, dark by default, inverted via CSS filter)
@@ -29,6 +29,7 @@ type TrustItem = {
 
 const TRUST_ITEMS: TrustItem[] = [
   { src: '/brand/solana.svg', alt: 'Solana Foundation', height: 22 },
+  { src: '/brand/Logo_Sui_Full_White.svg', alt: 'Sui', height: 24 },
   { src: '/brand/anchor.svg', alt: 'Anchor', height: 28, suffixLabel: 'Anchor' },
   { src: '/brand/encrypt.svg', alt: 'Encrypt', height: 28, suffixLabel: 'Encrypt' },
   { src: '/brand/ika.svg', alt: 'Ika', height: 22 },

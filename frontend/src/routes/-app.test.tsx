@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 /**
@@ -178,6 +178,16 @@ describe('Polet Portal — Phase 1', () => {
     ]) {
       expect(hrefs).toContain(expected)
     }
+    expect(sidebar!.textContent).toContain('Language')
+    const localeGroup = sidebar!.querySelector(
+      '[role="group"][aria-label="Switch language"]',
+    )
+    expect(localeGroup).not.toBeNull()
+    const idButton = Array.from(localeGroup!.querySelectorAll('button')).find(
+      (button) => button.textContent === 'ID',
+    ) as HTMLButtonElement
+    fireEvent.click(idButton)
+    expect(window.localStorage.getItem('polet.locale')).toBe('id')
   })
 
   test('PortalRedirector navigates connected user from /app to /app/workspace', () => {

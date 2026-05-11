@@ -75,6 +75,7 @@ describe('Landing page (v2), content per section', () => {
 
     // Trust strip, brand wordmarks
     expect(body).toMatch(/Solana|Anchor|Ika|Jupiter|Encrypt|Colosseum/i)
+    expect(document.querySelector('img[alt="Sui"]')).not.toBeNull()
 
     // Stats counter, at least one of the headline numbers
     expect(body).toMatch(/49|8|2|1/)
@@ -103,7 +104,7 @@ describe('Landing page (v2), content per section', () => {
     expect(body).toContain('Explore')
 
     // Footer
-    expect(body).toContain('F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p')
+    expect(body).toContain('9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc')
     expect(body).toContain('87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY')
     expect(body).toMatch(/All rights reserved/i)
   })

@@ -204,15 +204,22 @@ describe('Polet Portal — Phase 6 Agent Bridge', () => {
     expect(btn.disabled).toBe(false)
   })
 
-  test('Advanced collapse summary present, body collapsed by default', () => {
+  test('Advanced collapse renders portal-native fallback, legacy hidden until requested', () => {
     render(<AppBridgePage />)
     const collapse = document.querySelector(
       '[data-testid="bridge-advanced-collapse"]',
     ) as HTMLDetailsElement
     expect(collapse).not.toBeNull()
     expect(collapse.open).toBe(false)
-    // The body still mounts because details renders children always; but
-    // the legacy stub should be present (we've stubbed WalletDashboard).
+    expect(
+      document.querySelector('[data-testid="bridge-advanced-panel"]'),
+    ).not.toBeNull()
+    expect(
+      document.querySelector('[data-testid="legacy-wallet-dashboard"]'),
+    ).toBeNull()
+    fireEvent.click(
+      document.querySelector('[data-testid="bridge-legacy-console-toggle"] summary')!,
+    )
     expect(
       document.querySelector('[data-testid="legacy-wallet-dashboard"]'),
     ).not.toBeNull()
@@ -224,7 +231,7 @@ describe('Polet Portal — Phase 6 Agent Bridge', () => {
     render(<AppBridgePage />)
     const body = document.body.textContent ?? ''
     expect(body).toContain('Hubungkan agent kamu ke Polet dalam 90 detik.')
-    expect(body).toContain('Konsol kontrol penuh')
+    expect(body).toContain('Kontrol khusus')
     expect(body).toContain('Lanjutan')
   })
 })

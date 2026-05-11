@@ -12,7 +12,7 @@ import { railForScenario, scenarioForRail } from '../components/app/gate/gate-st
  * /app/gate — Polet Portal Policy Gate.
  *
  * Composes the issue 101 sealed-gate page: hero with live verdict
- * pill, intent composer (display-only amount + rail select), scenario
+ * pill, intent composer (display-only amount + rail control), scenario
  * chip row, 3-node flow canvas (Agent request → Sealed gate → Rail
  * output), and the actions bar (Preview / Try blocked / Execute).
  *

@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useLocale } from '#/hooks/use-locale'
+import { AdvancedConsolePanel } from '../components/app/bridge/AdvancedConsolePanel'
 import { BridgeConfigPanel } from '../components/app/bridge/BridgeConfigPanel'
 import { DownloadPoletAgentJson } from '../components/app/bridge/DownloadPoletAgentJson'
-import { WalletDashboard } from '../components/app/WalletDashboard'
 
 /**
  * /app/bridge — Polet Portal Agent Bridge.
@@ -80,7 +80,7 @@ export function AppBridgePage() {
           data-testid="bridge-advanced-body"
           className="border-t border-line/60 px-2 py-4 sm:px-4"
         >
-          <WalletDashboard />
+          <AdvancedConsolePanel />
         </div>
       </details>
     </section>

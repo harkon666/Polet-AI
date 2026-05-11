@@ -641,6 +641,23 @@ export type TranslationKey =
   | 'portal.bridge.download.openFunds'
   | 'portal.bridge.advanced.kicker'
   | 'portal.bridge.advanced.summary'
+  | 'portal.bridge.advanced.panel.kicker'
+  | 'portal.bridge.advanced.panel.title'
+  | 'portal.bridge.advanced.panel.body'
+  | 'portal.bridge.advanced.flow.recovery.title'
+  | 'portal.bridge.advanced.flow.recovery.body'
+  | 'portal.bridge.advanced.flow.quorum.title'
+  | 'portal.bridge.advanced.flow.quorum.body'
+  | 'portal.bridge.advanced.flow.encrypt.title'
+  | 'portal.bridge.advanced.flow.encrypt.body'
+  | 'portal.bridge.advanced.signal.wallet'
+  | 'portal.bridge.advanced.signal.policy'
+  | 'portal.bridge.advanced.signal.session'
+  | 'portal.bridge.advanced.signal.ready'
+  | 'portal.bridge.advanced.signal.missing'
+  | 'portal.bridge.advanced.legacy.kicker'
+  | 'portal.bridge.advanced.legacy.summary'
+  | 'portal.bridge.advanced.legacy.body'
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
   | 'portal.drawer.open'
   | 'portal.drawer.close'
@@ -1392,7 +1409,29 @@ const en: Dictionary = {
   'portal.bridge.download.openFunds': 'Grant a session →',
   'portal.bridge.advanced.kicker': 'Advanced',
   'portal.bridge.advanced.summary':
-    'Full control console — recovery, shared quorum, Encrypt graph.',
+    'Specialist controls for recovery, shared quorum, and Encrypt graph.',
+  'portal.bridge.advanced.panel.kicker': 'Operator-only fallback',
+  'portal.bridge.advanced.panel.title': 'Keep the Portal calm; open legacy controls only when needed.',
+  'portal.bridge.advanced.panel.body':
+    'Daily demo work belongs in Workspace, Funds, Gate, and Proof. This section keeps the unported power flows discoverable without dropping a second full app into the page.',
+  'portal.bridge.advanced.flow.recovery.title': 'Recovery rotation',
+  'portal.bridge.advanced.flow.recovery.body':
+    'Rotate compromised sessions or recovery authority from the legacy fallback.',
+  'portal.bridge.advanced.flow.quorum.title': 'Shared Ika quorum',
+  'portal.bridge.advanced.flow.quorum.body':
+    'Inspect or adjust shared approvers for Ika approval paths.',
+  'portal.bridge.advanced.flow.encrypt.title': 'Encrypt graph tools',
+  'portal.bridge.advanced.flow.encrypt.body':
+    'Run ciphertext/decryption diagnostics for the official Encrypt path.',
+  'portal.bridge.advanced.signal.wallet': 'Wallet',
+  'portal.bridge.advanced.signal.policy': 'Policy',
+  'portal.bridge.advanced.signal.session': 'Session',
+  'portal.bridge.advanced.signal.ready': 'Ready',
+  'portal.bridge.advanced.signal.missing': 'Missing',
+  'portal.bridge.advanced.legacy.kicker': 'Legacy fallback',
+  'portal.bridge.advanced.legacy.summary': 'Open full legacy console',
+  'portal.bridge.advanced.legacy.body':
+    'Loads the older all-in-one dashboard inside a scrollable sandbox. Use it only for controls not yet ported to the Portal shell.',
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
   'portal.drawer.open': 'Open portal navigation',
   'portal.drawer.close': 'Close portal navigation',
@@ -2142,7 +2181,29 @@ const id: Dictionary = {
   'portal.bridge.download.openFunds': 'Otorisasi sesi →',
   'portal.bridge.advanced.kicker': 'Lanjutan',
   'portal.bridge.advanced.summary':
-    'Konsol kontrol penuh — recovery, shared quorum, Encrypt graph.',
+    'Kontrol khusus untuk recovery, shared quorum, dan Encrypt graph.',
+  'portal.bridge.advanced.panel.kicker': 'Fallback operator',
+  'portal.bridge.advanced.panel.title': 'Portal tetap rapi; buka kontrol legacy hanya saat perlu.',
+  'portal.bridge.advanced.panel.body':
+    'Alur demo harian ada di Workspace, Dana, Gate, dan Proof. Bagian ini menjaga power flow yang belum dipindah tetap tersedia tanpa memasukkan aplikasi kedua ke halaman.',
+  'portal.bridge.advanced.flow.recovery.title': 'Rotasi recovery',
+  'portal.bridge.advanced.flow.recovery.body':
+    'Rotasi sesi yang kompromi atau recovery authority dari fallback legacy.',
+  'portal.bridge.advanced.flow.quorum.title': 'Shared Ika quorum',
+  'portal.bridge.advanced.flow.quorum.body':
+    'Cek atau ubah approver bersama untuk jalur approval Ika.',
+  'portal.bridge.advanced.flow.encrypt.title': 'Tool Encrypt graph',
+  'portal.bridge.advanced.flow.encrypt.body':
+    'Jalankan diagnostik ciphertext/decryption untuk jalur official Encrypt.',
+  'portal.bridge.advanced.signal.wallet': 'Wallet',
+  'portal.bridge.advanced.signal.policy': 'Policy',
+  'portal.bridge.advanced.signal.session': 'Session',
+  'portal.bridge.advanced.signal.ready': 'Ready',
+  'portal.bridge.advanced.signal.missing': 'Belum',
+  'portal.bridge.advanced.legacy.kicker': 'Fallback legacy',
+  'portal.bridge.advanced.legacy.summary': 'Buka konsol legacy penuh',
+  'portal.bridge.advanced.legacy.body':
+    'Memuat dashboard all-in-one lama di dalam sandbox scrollable. Pakai hanya untuk kontrol yang belum dipindahkan ke Portal shell.',
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
   'portal.drawer.open': 'Buka navigasi portal',
   'portal.drawer.close': 'Tutup navigasi portal',

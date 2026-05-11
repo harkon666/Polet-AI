@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
  *
  * Exercises:
  *   - Scenario click flips composer state + rail.
- *   - Intent composer's rail select propagates back to the route.
+ *   - Intent composer's rail control propagates back to the route.
  *   - Action buttons fire the correct `useConsole().actions.*` key per
  *     rail (preview / try-blocked / execute).
  *   - Verdict line + orb word reflect the latest receipt per rail.
@@ -156,10 +156,8 @@ describe('Polet Portal — Phase 3 Policy Gate', () => {
     expect(page?.getAttribute('data-scenario')).toBe('allow-jupiter')
     const amount = document.querySelector('[data-testid="composer-amount-value"]')
     expect(amount?.textContent).toBe('5')
-    const select = document.querySelector(
-      '[data-testid="composer-rail-select"]',
-    ) as HTMLSelectElement | null
-    expect(select?.value).toBe('jupiter')
+    const rail = document.querySelector('[data-testid="composer-rail-jupiter"]')
+    expect(rail?.getAttribute('data-active')).toBe('true')
   })
 
   test('scenario click → block-25 sets amount to 25, rail stays', () => {
@@ -180,12 +178,9 @@ describe('Polet Portal — Phase 3 Policy Gate', () => {
     expect(page?.getAttribute('data-scenario')).toBe('ika')
   })
 
-  test('rail select change → ika flips scenario to ika', () => {
+  test('rail button click → ika flips scenario to ika', () => {
     render(<AppGatePage />)
-    const select = document.querySelector(
-      '[data-testid="composer-rail-select"]',
-    ) as HTMLSelectElement
-    fireEvent.change(select, { target: { value: 'ika' } })
+    fireEvent.click(document.querySelector('[data-testid="composer-rail-ika"]')!)
     const page = document.querySelector('[data-testid="gate-page"]')
     expect(page?.getAttribute('data-rail')).toBe('ika')
     expect(page?.getAttribute('data-scenario')).toBe('ika')
@@ -211,10 +206,7 @@ describe('Polet Portal — Phase 3 Policy Gate', () => {
     }
     render(<AppGatePage />)
     // Switch to Ika first
-    const select = document.querySelector(
-      '[data-testid="composer-rail-select"]',
-    ) as HTMLSelectElement
-    fireEvent.change(select, { target: { value: 'ika' } })
+    fireEvent.click(document.querySelector('[data-testid="composer-rail-ika"]')!)
     fireEvent.click(document.querySelector('[data-testid="gate-action-preview"]')!)
     expect(actionSpies.runIkaAllow).toHaveBeenCalledTimes(1)
     expect(actionSpies.runJupiterAllow).not.toHaveBeenCalled()
@@ -280,10 +272,7 @@ describe('Polet Portal — Phase 3 Policy Gate', () => {
     }
     render(<AppGatePage />)
     // Switch to Ika rail
-    const select = document.querySelector(
-      '[data-testid="composer-rail-select"]',
-    ) as HTMLSelectElement
-    fireEvent.change(select, { target: { value: 'ika' } })
+    fireEvent.click(document.querySelector('[data-testid="composer-rail-ika"]')!)
     const exec = document.querySelector(
       '[data-testid="gate-action-execute"]',
     ) as HTMLButtonElement

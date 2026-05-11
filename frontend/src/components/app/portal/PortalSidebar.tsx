@@ -1,6 +1,7 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import type { TranslationKey } from '#/locale/dictionary'
 import { useLocale } from '#/hooks/use-locale'
+import { LocaleToggle } from '../../LocaleToggle'
 import { Logo } from '../../Logo'
 import { WalletButton } from '../WalletButton'
 import { useConsole } from '../use-console-actions'
@@ -155,6 +156,12 @@ export function PortalSidebar({
           until a later phase adds a live health ping. Policy + Session
           are now derived from ConsoleState. */}
       <div className="mt-auto border-t border-line pt-4" data-testid="sidebar-runtime">
+        <div className="mb-4 flex items-center justify-between gap-3 px-2">
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute">
+            {t('prefs.locale.label')}
+          </span>
+          <LocaleToggle />
+        </div>
         <p className="px-2 pb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute">
           {t('portal.sidebar.section.runtime')}
         </p>

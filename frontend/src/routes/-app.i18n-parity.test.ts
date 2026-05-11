@@ -162,6 +162,11 @@ const PORTAL_KEYS = [
   'portal.bridge.download.button',
   'portal.bridge.advanced.kicker',
   'portal.bridge.advanced.summary',
+  'portal.bridge.advanced.panel.title',
+  'portal.bridge.advanced.flow.recovery.title',
+  'portal.bridge.advanced.flow.quorum.title',
+  'portal.bridge.advanced.flow.encrypt.title',
+  'portal.bridge.advanced.legacy.summary',
   // Phase 7 — Drawer
   'portal.drawer.open',
   'portal.drawer.close',

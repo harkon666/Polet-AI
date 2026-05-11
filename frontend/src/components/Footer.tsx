@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useLocale } from '#/hooks/use-locale'
+import { POLET_PROGRAM_ID } from '#/lib/program'
 import { useScrollReveal } from '../hooks/useScrollReveal'
 import { Logo } from './Logo'
 import { LocaleToggle } from './LocaleToggle'
@@ -9,7 +10,6 @@ const DOCS_URL = `${GITHUB_URL}#readme`
 const DISCLAIMER_URL = `${GITHUB_URL}/blob/main/docs/prd.md`
 const TWITTER_URL = 'https://x.com/poletxyz'
 
-const POLET_PROGRAM = 'F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p'
 const IKA_PROGRAM = '87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY'
 
 /**
@@ -109,7 +109,7 @@ export function Footer() {
         >
           <div className="flex flex-col sm:flex-row sm:gap-3">
             <span className="text-ink-soft uppercase tracking-wider w-full sm:w-32 shrink-0">polet program</span>
-            <span className="text-ink break-all">{POLET_PROGRAM}</span>
+            <span className="text-ink break-all">{POLET_PROGRAM_ID}</span>
           </div>
           <div className="flex flex-col sm:flex-row sm:gap-3 mt-1">
             <span className="text-ink-soft uppercase tracking-wider w-full sm:w-32 shrink-0">ika pre-alpha</span>
