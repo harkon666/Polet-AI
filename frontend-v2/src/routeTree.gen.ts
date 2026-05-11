@@ -21,6 +21,7 @@ import { Route as AppGatePreviewRouteImport } from './routes/app.gate-preview'
 import { Route as AppGateRouteImport } from './routes/app.gate'
 import { Route as AppFundsPreviewRouteImport } from './routes/app.funds-preview'
 import { Route as AppFundsRouteImport } from './routes/app.funds'
+import { Route as AppBridgePreviewRouteImport } from './routes/app.bridge-preview'
 import { Route as AppBridgeRouteImport } from './routes/app.bridge'
 
 const AppRoute = AppRouteImport.update({
@@ -83,6 +84,11 @@ const AppFundsRoute = AppFundsRouteImport.update({
   path: '/funds',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBridgePreviewRoute = AppBridgePreviewRouteImport.update({
+  id: '/bridge-preview',
+  path: '/bridge-preview',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppBridgeRoute = AppBridgeRouteImport.update({
   id: '/bridge',
   path: '/bridge',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/app': typeof AppRouteWithChildren
   '/app/bridge': typeof AppBridgeRoute
+  '/app/bridge-preview': typeof AppBridgePreviewRoute
   '/app/funds': typeof AppFundsRoute
   '/app/funds-preview': typeof AppFundsPreviewRoute
   '/app/gate': typeof AppGateRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/app/bridge': typeof AppBridgeRoute
+  '/app/bridge-preview': typeof AppBridgePreviewRoute
   '/app/funds': typeof AppFundsRoute
   '/app/funds-preview': typeof AppFundsPreviewRoute
   '/app/gate': typeof AppGateRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/app': typeof AppRouteWithChildren
   '/app/bridge': typeof AppBridgeRoute
+  '/app/bridge-preview': typeof AppBridgePreviewRoute
   '/app/funds': typeof AppFundsRoute
   '/app/funds-preview': typeof AppFundsPreviewRoute
   '/app/gate': typeof AppGateRoute
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/app'
     | '/app/bridge'
+    | '/app/bridge-preview'
     | '/app/funds'
     | '/app/funds-preview'
     | '/app/gate'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/app/bridge'
+    | '/app/bridge-preview'
     | '/app/funds'
     | '/app/funds-preview'
     | '/app/gate'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/app'
     | '/app/bridge'
+    | '/app/bridge-preview'
     | '/app/funds'
     | '/app/funds-preview'
     | '/app/gate'
@@ -273,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFundsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/bridge-preview': {
+      id: '/app/bridge-preview'
+      path: '/bridge-preview'
+      fullPath: '/app/bridge-preview'
+      preLoaderRoute: typeof AppBridgePreviewRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/bridge': {
       id: '/app/bridge'
       path: '/bridge'
@@ -285,6 +304,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppBridgeRoute: typeof AppBridgeRoute
+  AppBridgePreviewRoute: typeof AppBridgePreviewRoute
   AppFundsRoute: typeof AppFundsRoute
   AppFundsPreviewRoute: typeof AppFundsPreviewRoute
   AppGateRoute: typeof AppGateRoute
@@ -298,6 +318,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppBridgeRoute: AppBridgeRoute,
+  AppBridgePreviewRoute: AppBridgePreviewRoute,
   AppFundsRoute: AppFundsRoute,
   AppFundsPreviewRoute: AppFundsPreviewRoute,
   AppGateRoute: AppGateRoute,

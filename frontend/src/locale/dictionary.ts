@@ -624,6 +624,23 @@ export type TranslationKey =
   | 'portal.proof.tag.pending'
   | 'portal.proof.tag.error'
   // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
+  | 'portal.bridge.kicker'
+  | 'portal.bridge.title'
+  | 'portal.bridge.sub'
+  | 'portal.bridge.pill'
+  | 'portal.bridge.config.title'
+  | 'portal.bridge.config.copy'
+  | 'portal.bridge.config.copied'
+  | 'portal.bridge.config.ready'
+  | 'portal.bridge.config.needsSession'
+  | 'portal.bridge.config.openFunds'
+  | 'portal.bridge.tools.title'
+  | 'portal.bridge.download.button'
+  | 'portal.bridge.download.ready'
+  | 'portal.bridge.download.needsSession'
+  | 'portal.bridge.download.openFunds'
+  | 'portal.bridge.advanced.kicker'
+  | 'portal.bridge.advanced.summary'
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
   ;
 
@@ -1350,6 +1367,29 @@ const en: Dictionary = {
   'portal.proof.tag.pending': 'PENDING',
   'portal.proof.tag.error': 'ERROR',
   // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
+  'portal.bridge.kicker': 'Agent Bridge',
+  'portal.bridge.title': 'Wire your agent to Polet in 90 seconds.',
+  'portal.bridge.sub':
+    'Paste-ready MCP config, the 5 tools the proxy exposes, and the polet-agent.json download for the SDK CLI. Advanced flows live in the legacy console below.',
+  'portal.bridge.pill': 'MCP · SDK · polet-agent.json',
+  'portal.bridge.config.title': 'mcp.json',
+  'portal.bridge.config.copy': 'Copy',
+  'portal.bridge.config.copied': 'Copied',
+  'portal.bridge.config.ready':
+    'Drop this into Claude Desktop or your local MCP host to wire Polet as an agent rail.',
+  'portal.bridge.config.needsSession':
+    'Grant a session and fund agent gas to populate POLET_SESSION_KEY and POLET_AGENT_KEYPAIR.',
+  'portal.bridge.config.openFunds': 'Open Funds & Setup →',
+  'portal.bridge.tools.title': 'Tools',
+  'portal.bridge.download.button': 'Download polet-agent.json',
+  'portal.bridge.download.ready':
+    'Pre-configures the @polet-ai/sdk CLI with the same env vars.',
+  'portal.bridge.download.needsSession':
+    'Available once a session keypair is in memory.',
+  'portal.bridge.download.openFunds': 'Grant a session →',
+  'portal.bridge.advanced.kicker': 'Advanced',
+  'portal.bridge.advanced.summary':
+    'Legacy v1 console — recovery, shared quorum, Encrypt graph.',
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
 };
 
@@ -2074,6 +2114,29 @@ const id: Dictionary = {
   'portal.proof.tag.pending': 'TERTUNDA',
   'portal.proof.tag.error': 'ERROR',
   // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
+  'portal.bridge.kicker': 'Agent Bridge',
+  'portal.bridge.title': 'Hubungkan agent kamu ke Polet dalam 90 detik.',
+  'portal.bridge.sub':
+    'Konfigurasi MCP siap-tempel, 5 tool yang dipajang proxy, plus download polet-agent.json untuk SDK CLI. Flow lanjutan ada di konsol legacy di bawah.',
+  'portal.bridge.pill': 'MCP · SDK · polet-agent.json',
+  'portal.bridge.config.title': 'mcp.json',
+  'portal.bridge.config.copy': 'Salin',
+  'portal.bridge.config.copied': 'Tersalin',
+  'portal.bridge.config.ready':
+    'Tempel ini ke Claude Desktop atau MCP host lokal kamu untuk pasang Polet sebagai rail agent.',
+  'portal.bridge.config.needsSession':
+    'Otorisasi sesi dan isi bensin agent dulu supaya POLET_SESSION_KEY dan POLET_AGENT_KEYPAIR terisi.',
+  'portal.bridge.config.openFunds': 'Buka Dana & Setup →',
+  'portal.bridge.tools.title': 'Tool',
+  'portal.bridge.download.button': 'Unduh polet-agent.json',
+  'portal.bridge.download.ready':
+    'Pre-config CLI @polet-ai/sdk dengan env yang sama.',
+  'portal.bridge.download.needsSession':
+    'Tersedia setelah keypair sesi ada di memory.',
+  'portal.bridge.download.openFunds': 'Otorisasi sesi →',
+  'portal.bridge.advanced.kicker': 'Lanjutan',
+  'portal.bridge.advanced.summary':
+    'Konsol legacy v1 — recovery, shared quorum, Encrypt graph.',
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
 };
 

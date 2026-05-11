@@ -4,7 +4,35 @@ Labels: `needs-triage`, `frontend`, `design`, `sdk`, `agent-runtime`
 
 Type: `AFK`
 
-Status: `TODO`
+Status: `DONE`
+
+## Shipped
+
+- New `frontend-v2/src/components/app/bridge/`:
+  - `agent-config.ts` — pure config builder + tool list constants.
+    `MCP_TOOLS` (5 tools), `getProxyUrl()`, `buildPoletAgentEnv()`,
+    `buildPoletMcpConfig()`, `buildPoletAgentJson()`,
+    `isAgentBridgeReady()`. Single source of truth for the JSON shape
+    so SDK runners can import this without depending on the UI.
+  - `MCPToolsList.tsx` — hairline list of the 5 tools.
+  - `BridgeConfigPanel.tsx` — 2-column layout (mcp.json + tools).
+    Copy button uses `navigator.clipboard.writeText` with 1.5s
+    "Copied" feedback. Falls back to placeholder strings + a 1-line
+    nudge linking to `/app/funds` when no session keypair is in memory.
+  - `DownloadPoletAgentJson.tsx` — small affordance for downloading
+    `polet-agent.json`. Disabled when no session keypair.
+- `app.bridge.tsx` replaces the placeholder with hero + config panel +
+  download affordance + an Advanced `<details>` collapse hosting the
+  legacy `<WalletDashboard>` so recovery / shared quorum / Encrypt
+  graph stay reachable while we port them incrementally.
+- 18 new `portal.bridge.*` i18n keys (EN canonical + ID mirror).
+- `app.bridge.test.tsx`: 8 state-aware tests covering placeholder
+  rendering, real-value rendering, `navigator.clipboard.writeText`
+  call, the 5 MCP tool rows, download disabled/enabled gating, the
+  advanced collapse summary, and ID locale mirror.
+- `app.bridge-preview.tsx` dev route renders 3 canonical states
+  (disconnected, owner-only, fully ready) for visual review.
+- Verify: typecheck clean, 108/108 tests green (100 → 108), build clean.
 
 ## Parent
 
