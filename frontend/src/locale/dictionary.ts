@@ -440,7 +440,42 @@ export type TranslationKey =
   | 'app.session.presence.noActivity'
   | 'app.session.presence.active'
   | 'app.session.presence.ago'
-  | 'app.session.presence.idle';
+  | 'app.session.presence.idle'
+  // Polet Portal — Phase 1 (issue 099)
+  | 'portal.brand.name'
+  | 'portal.brand.kicker'
+  | 'portal.connect.kicker'
+  | 'portal.connect.title'
+  | 'portal.connect.body'
+  | 'portal.nav.workspace'
+  | 'portal.nav.gate'
+  | 'portal.nav.funds'
+  | 'portal.nav.proof'
+  | 'portal.nav.bridge'
+  | 'portal.sidebar.section.pages'
+  | 'portal.sidebar.section.runtime'
+  | 'portal.sidebar.runtime.devnet'
+  | 'portal.sidebar.runtime.proxy'
+  | 'portal.sidebar.runtime.policy'
+  | 'portal.sidebar.runtime.session'
+  | 'portal.sidebar.runtime.online'
+  | 'portal.sidebar.runtime.placeholder'
+  | 'portal.placeholder.kicker.workspace'
+  | 'portal.placeholder.kicker.gate'
+  | 'portal.placeholder.kicker.funds'
+  | 'portal.placeholder.kicker.proof'
+  | 'portal.placeholder.kicker.bridge'
+  | 'portal.placeholder.title.workspace'
+  | 'portal.placeholder.title.gate'
+  | 'portal.placeholder.title.funds'
+  | 'portal.placeholder.title.proof'
+  | 'portal.placeholder.title.bridge'
+  | 'portal.placeholder.sub.workspace'
+  | 'portal.placeholder.sub.gate'
+  | 'portal.placeholder.sub.funds'
+  | 'portal.placeholder.sub.proof'
+  | 'portal.placeholder.sub.bridge'
+  | 'portal.placeholder.pending';
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -944,6 +979,53 @@ const en: Dictionary = {
   'app.session.presence.active': 'active',
   'app.session.presence.ago': 'ago',
   'app.session.presence.idle': 'idle',
+
+  // Polet Portal — Phase 1 (issue 099)
+  'portal.brand.name': 'Polet',
+  'portal.brand.kicker': 'Portal',
+  'portal.connect.kicker': 'Polet Portal',
+  'portal.connect.title': 'Connect a devnet wallet to enter the portal.',
+  'portal.connect.body':
+    'Polet Portal is a confidential control layer for AI agents. Connect to set spending limits and grant a temporary session to your agent.',
+  'portal.nav.workspace': 'Workspace',
+  'portal.nav.gate': 'Policy Gate',
+  'portal.nav.funds': 'Funds & Setup',
+  'portal.nav.proof': 'Proof Trail',
+  'portal.nav.bridge': 'Agent Bridge',
+  'portal.sidebar.section.pages': 'Pages',
+  'portal.sidebar.section.runtime': 'Runtime',
+  'portal.sidebar.runtime.devnet': 'Devnet',
+  'portal.sidebar.runtime.proxy': 'Proxy',
+  'portal.sidebar.runtime.policy': 'Policy',
+  'portal.sidebar.runtime.session': 'Session',
+  'portal.sidebar.runtime.online': 'online',
+  'portal.sidebar.runtime.placeholder': '—',
+  'portal.placeholder.kicker.workspace': 'Workspace',
+  'portal.placeholder.kicker.gate': 'Policy Gate',
+  'portal.placeholder.kicker.funds': 'Funds & Setup',
+  'portal.placeholder.kicker.proof': 'Proof Trail',
+  'portal.placeholder.kicker.bridge': 'Agent Bridge',
+  'portal.placeholder.title.workspace':
+    'Your portal home will appear here.',
+  'portal.placeholder.title.gate':
+    'The policy gate composer arrives in Phase 3.',
+  'portal.placeholder.title.funds':
+    'Funds and owner setup arrive in Phase 4.',
+  'portal.placeholder.title.proof':
+    'The proof timeline arrives in Phase 5.',
+  'portal.placeholder.title.bridge':
+    'Agent bridge config arrives in Phase 6.',
+  'portal.placeholder.sub.workspace':
+    'Phase 2 wires this page to live readiness state.',
+  'portal.placeholder.sub.gate':
+    'Compose an intent, watch the sealed gate fire, then execute via Jupiter or Ika.',
+  'portal.placeholder.sub.funds':
+    'Two list columns: wallet map and owner setup. No card walls.',
+  'portal.placeholder.sub.proof':
+    'Type-driven evidence list with expandable Jupiter and Ika proof panels.',
+  'portal.placeholder.sub.bridge':
+    'Paste-ready MCP config plus the legacy advanced fallback.',
+  'portal.placeholder.pending': 'phase pending',
 };
 
 // ---------------------------------------------------------------------------
@@ -1446,6 +1528,53 @@ const id: Dictionary = {
   'app.session.presence.active': 'aktif',
   'app.session.presence.ago': 'lalu',
   'app.session.presence.idle': 'idle',
+
+  // Polet Portal — Phase 1 (issue 099)
+  'portal.brand.name': 'Polet',
+  'portal.brand.kicker': 'Portal',
+  'portal.connect.kicker': 'Polet Portal',
+  'portal.connect.title': 'Hubungkan wallet devnet untuk masuk ke portal.',
+  'portal.connect.body':
+    'Polet Portal adalah lapisan kontrol rahasia untuk agen AI. Hubungkan untuk menetapkan batas pengeluaran dan memberi sesi sementara ke agen Anda.',
+  'portal.nav.workspace': 'Workspace',
+  'portal.nav.gate': 'Policy Gate',
+  'portal.nav.funds': 'Dana & Setup',
+  'portal.nav.proof': 'Jejak Bukti',
+  'portal.nav.bridge': 'Agent Bridge',
+  'portal.sidebar.section.pages': 'Halaman',
+  'portal.sidebar.section.runtime': 'Runtime',
+  'portal.sidebar.runtime.devnet': 'Devnet',
+  'portal.sidebar.runtime.proxy': 'Proxy',
+  'portal.sidebar.runtime.policy': 'Policy',
+  'portal.sidebar.runtime.session': 'Sesi',
+  'portal.sidebar.runtime.online': 'online',
+  'portal.sidebar.runtime.placeholder': '—',
+  'portal.placeholder.kicker.workspace': 'Workspace',
+  'portal.placeholder.kicker.gate': 'Policy Gate',
+  'portal.placeholder.kicker.funds': 'Dana & Setup',
+  'portal.placeholder.kicker.proof': 'Jejak Bukti',
+  'portal.placeholder.kicker.bridge': 'Agent Bridge',
+  'portal.placeholder.title.workspace':
+    'Beranda portal akan muncul di sini.',
+  'portal.placeholder.title.gate':
+    'Composer policy gate hadir di Phase 3.',
+  'portal.placeholder.title.funds':
+    'Dana dan setup owner hadir di Phase 4.',
+  'portal.placeholder.title.proof':
+    'Timeline bukti hadir di Phase 5.',
+  'portal.placeholder.title.bridge':
+    'Konfigurasi agent bridge hadir di Phase 6.',
+  'portal.placeholder.sub.workspace':
+    'Phase 2 menghubungkan halaman ini ke state kesiapan.',
+  'portal.placeholder.sub.gate':
+    'Susun intent, lihat sealed gate menyala, lalu eksekusi via Jupiter atau Ika.',
+  'portal.placeholder.sub.funds':
+    'Dua kolom daftar: peta wallet dan setup owner. Tanpa dinding kartu.',
+  'portal.placeholder.sub.proof':
+    'Daftar bukti berbasis tipografi dengan panel Jupiter dan Ika yang bisa dibuka.',
+  'portal.placeholder.sub.bridge':
+    'Konfigurasi MCP siap-tempel plus fallback lanjutan.',
+  'portal.placeholder.pending': 'phase pending',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };

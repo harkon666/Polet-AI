@@ -169,6 +169,34 @@ body {
     var(--color-bg-base);
 }
 
+/* Polet Portal canvas ambient. Two soft teal radials at the upper
+   corners + a deeper teal pool at the bottom, sitting on top of
+   --color-bg-base. Mirrors the tone of `.pl-ambient-hero` without the
+   marketing-density PNG, so `/app/*` feels atmospherically connected
+   to landing while staying calm enough for an operator surface.
+
+   Applied to the PortalShell wrapper so a translucent
+   `<PortalSidebar>` can pick up the same glow at its own zone. */
+.pl-portal-ambient {
+  background-color: var(--color-bg-base);
+  background-image:
+    radial-gradient(
+      circle at 8% -10%,
+      rgb(45 212 191 / 0.14) 0%,
+      transparent 36rem
+    ),
+    radial-gradient(
+      circle at 100% 6%,
+      rgb(52 211 153 / 0.07) 0%,
+      transparent 30rem
+    ),
+    radial-gradient(
+      circle at 50% 110%,
+      rgb(30 184 164 / 0.05) 0%,
+      transparent 36rem
+    );
+}
+
 /* Scroll reveal, initial state. Add .pl-reveal--in via IntersectionObserver. */
 .pl-reveal {
   opacity: 0;

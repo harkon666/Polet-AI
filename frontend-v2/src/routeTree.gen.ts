@@ -12,6 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppWorkspaceRouteImport } from './routes/app.workspace'
+import { Route as AppProofRouteImport } from './routes/app.proof'
+import { Route as AppGateRouteImport } from './routes/app.gate'
+import { Route as AppFundsRouteImport } from './routes/app.funds'
+import { Route as AppBridgeRouteImport } from './routes/app.bridge'
 
 const AppRoute = AppRouteImport.update({
   id: '/app',
@@ -28,35 +34,109 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkspaceRoute = AppWorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProofRoute = AppProofRouteImport.update({
+  id: '/proof',
+  path: '/proof',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGateRoute = AppGateRouteImport.update({
+  id: '/gate',
+  path: '/gate',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFundsRoute = AppFundsRouteImport.update({
+  id: '/funds',
+  path: '/funds',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBridgeRoute = AppBridgeRouteImport.update({
+  id: '/bridge',
+  path: '/bridge',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/app': typeof AppRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/bridge': typeof AppBridgeRoute
+  '/app/funds': typeof AppFundsRoute
+  '/app/gate': typeof AppGateRoute
+  '/app/proof': typeof AppProofRoute
+  '/app/workspace': typeof AppWorkspaceRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/app': typeof AppRoute
+  '/app/bridge': typeof AppBridgeRoute
+  '/app/funds': typeof AppFundsRoute
+  '/app/gate': typeof AppGateRoute
+  '/app/proof': typeof AppProofRoute
+  '/app/workspace': typeof AppWorkspaceRoute
+  '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/app': typeof AppRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/bridge': typeof AppBridgeRoute
+  '/app/funds': typeof AppFundsRoute
+  '/app/gate': typeof AppGateRoute
+  '/app/proof': typeof AppProofRoute
+  '/app/workspace': typeof AppWorkspaceRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/app'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/app'
+    | '/app/bridge'
+    | '/app/funds'
+    | '/app/gate'
+    | '/app/proof'
+    | '/app/workspace'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/app'
-  id: '__root__' | '/' | '/about' | '/app'
+  to:
+    | '/'
+    | '/about'
+    | '/app/bridge'
+    | '/app/funds'
+    | '/app/gate'
+    | '/app/proof'
+    | '/app/workspace'
+    | '/app'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/app'
+    | '/app/bridge'
+    | '/app/funds'
+    | '/app/gate'
+    | '/app/proof'
+    | '/app/workspace'
+    | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  AppRoute: typeof AppRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -82,13 +162,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/workspace': {
+      id: '/app/workspace'
+      path: '/workspace'
+      fullPath: '/app/workspace'
+      preLoaderRoute: typeof AppWorkspaceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/proof': {
+      id: '/app/proof'
+      path: '/proof'
+      fullPath: '/app/proof'
+      preLoaderRoute: typeof AppProofRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/gate': {
+      id: '/app/gate'
+      path: '/gate'
+      fullPath: '/app/gate'
+      preLoaderRoute: typeof AppGateRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/funds': {
+      id: '/app/funds'
+      path: '/funds'
+      fullPath: '/app/funds'
+      preLoaderRoute: typeof AppFundsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/bridge': {
+      id: '/app/bridge'
+      path: '/bridge'
+      fullPath: '/app/bridge'
+      preLoaderRoute: typeof AppBridgeRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
+
+interface AppRouteChildren {
+  AppBridgeRoute: typeof AppBridgeRoute
+  AppFundsRoute: typeof AppFundsRoute
+  AppGateRoute: typeof AppGateRoute
+  AppProofRoute: typeof AppProofRoute
+  AppWorkspaceRoute: typeof AppWorkspaceRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppBridgeRoute: AppBridgeRoute,
+  AppFundsRoute: AppFundsRoute,
+  AppGateRoute: AppGateRoute,
+  AppProofRoute: AppProofRoute,
+  AppWorkspaceRoute: AppWorkspaceRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  AppRoute: AppRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
