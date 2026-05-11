@@ -3,20 +3,23 @@ import type { TranslationKey } from '#shared/locale/dictionary'
 import { useLocale } from '#shared/hooks/use-locale'
 import { Logo } from '../../Logo'
 import { WalletButton } from '../WalletButton'
+import { useConsole } from '../use-console-actions'
+import { hasActiveSession } from '../selectors/console-selectors'
 
 /**
  * PortalSidebar, the left-rail navigation chrome for `/app/*`.
  *
- * Phase 1 (issue 099) ships:
- *   - Brand block (Logo + "Polet" + "Portal" kicker), links back to `/`
- *   - 5 nav links to portal pages (workspace, gate, funds, proof, bridge)
- *   - Runtime block at the bottom with static placeholder rows; Phase 2
- *     wires these to live console state (devnet, proxy, policy seq,
- *     active session expiry).
- *   - `<WalletButton>` reused unchanged.
+ * Phase 1 (issue 099) shipped the layout and the nav items. Phase 2
+ * (issue 100) now wires the bottom runtime block to live state:
+ *   - Devnet: static "online" (devnet-only build, OK to hard-code).
+ *   - Proxy:  placeholder "—" — live proxy ping lands in a later phase.
+ *   - Policy: renders `enc #<seq>` when the confidential USDC DCA policy
+ *     is enabled, or "—" when it isn't yet sealed.
+ *   - Session: renders `<N>m` or `<N>h` remaining when at least one
+ *     authorized session key hasn't expired, otherwise "—".
  *
- * Active-route highlight is computed from `useLocation()` against each
- * link's `to` prop so the highlight tracks client-side navigation.
+ * Active-route highlight is computed from `useLocation()` against
+ * each link's `to` prop so the highlight tracks client-side navigation.
  *
  * Sticky positioning (`sticky top-0 h-screen`) keeps the sidebar
  * pinned while sub-pages scroll independently. Hidden below 960px;
@@ -38,9 +41,47 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/app/bridge',    glyph: '{ }', labelKey: 'portal.nav.bridge',    meta: 'MCP'   },
 ]
 
+/**
+ * formatSessionRemaining — compact "time-left" glyph for the
+ * sidebar's Session row. Returns null when no authorized session
+ * exists or the soonest expiry has already passed. Format is
+ * `<N>m` under an hour, `<N>h` otherwise, matching the presence
+ * indicator style in `SetupLedger`.
+ */
+function formatSessionRemaining(state: ReturnType<typeof useConsole>['state']): string | null {
+  if (!hasActiveSession(state)) return null
+  const list = state.data?.temporalKeys ?? state.data?.sessions ?? []
+  const nowSec = Math.floor(Date.now() / 1000)
+  const earliest = list
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((s: any) => s?.authorized)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((s: any) => Number(s?.expiresAt ?? 0))
+    .filter((t) => t > nowSec)
+    .sort((a, b) => a - b)[0]
+  if (!earliest) return null
+  const leftSec = earliest - nowSec
+  if (leftSec < 60) return `${leftSec}s`
+  const min = Math.floor(leftSec / 60)
+  if (min < 60) return `${min}m`
+  const hr = Math.floor(min / 60)
+  return `${hr}h`
+}
+
 export function PortalSidebar() {
   const { t } = useLocale()
   const { pathname } = useLocation()
+  const { state } = useConsole()
+
+  const policyEnabled = Boolean(state.data?.usdcDcaPolicy?.enabled)
+  const policySeq = Number(state.data?.policySeq ?? 0)
+  const policyLabel = policyEnabled
+    ? `enc #${policySeq}`
+    : t('portal.sidebar.runtime.placeholder')
+
+  const sessionRemaining = formatSessionRemaining(state)
+  const sessionLabel =
+    sessionRemaining ?? t('portal.sidebar.runtime.placeholder')
 
   return (
     <aside
@@ -98,11 +139,11 @@ export function PortalSidebar() {
         })}
       </nav>
 
-      {/* Runtime block — Phase 1 shows Devnet only (real). The
-          Proxy / Policy / Session rows are hidden until Phase 2 wires
-          them to live console state, so the sidebar never displays an
-          unfinished column of "—" placeholders. */}
-      <div className="mt-auto border-t border-line pt-4">
+      {/* Runtime block — wired to live console state in Phase 2.
+          Devnet stays static ("online"), Proxy stays a placeholder
+          until a later phase adds a live health ping. Policy + Session
+          are now derived from ConsoleState. */}
+      <div className="mt-auto border-t border-line pt-4" data-testid="sidebar-runtime">
         <p className="px-2 pb-2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute">
           {t('portal.sidebar.section.runtime')}
         </p>
@@ -114,6 +155,45 @@ export function PortalSidebar() {
             </span>
             <strong className="font-mono text-ink">
               {t('portal.sidebar.runtime.online')}
+            </strong>
+          </li>
+          <li
+            className="flex items-center justify-between gap-2"
+            data-testid="sidebar-runtime-proxy"
+          >
+            <span className="text-ink-mute">
+              {t('portal.sidebar.runtime.proxy')}
+            </span>
+            <strong className="font-mono text-ink-mute">
+              {t('portal.sidebar.runtime.placeholder')}
+            </strong>
+          </li>
+          <li
+            className="flex items-center justify-between gap-2"
+            data-testid="sidebar-runtime-policy"
+            data-state={policyEnabled ? 'sealed' : 'empty'}
+          >
+            <span className="text-ink-mute">
+              {t('portal.sidebar.runtime.policy')}
+            </span>
+            <strong
+              className={`font-mono ${policyEnabled ? 'text-ink' : 'text-ink-mute'}`}
+            >
+              {policyLabel}
+            </strong>
+          </li>
+          <li
+            className="flex items-center justify-between gap-2"
+            data-testid="sidebar-runtime-session"
+            data-state={sessionRemaining ? 'active' : 'empty'}
+          >
+            <span className="text-ink-mute">
+              {t('portal.sidebar.runtime.session')}
+            </span>
+            <strong
+              className={`font-mono ${sessionRemaining ? 'text-ink' : 'text-ink-mute'}`}
+            >
+              {sessionLabel}
             </strong>
           </li>
         </ul>

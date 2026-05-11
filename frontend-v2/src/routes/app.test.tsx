@@ -80,6 +80,28 @@ vi.mock('@solana/wallet-adapter-react-ui', () => ({
   useWalletModal: () => ({ setVisible: setVisibleSpy }),
 }))
 
+// Phase 2: PortalSidebar + Workspace components read via `useConsole()`.
+// The smoke tests here mount the components in isolation (no
+// <ConsoleStateProvider>) so we stub the hook directly with a
+// disconnected-but-safe snapshot that exercises the "empty" rendering
+// path for every selector (blocking → 'wallet', latestReceipt → null).
+vi.mock('../components/app/use-console-actions', () => ({
+  useConsole: () => ({
+    state: {
+      connected: false,
+      publicKey: null,
+      data: null,
+      solBalance: null,
+      receipts: [],
+      loading: null,
+      error: null,
+      sessionKeypair: null,
+    },
+    actions: {},
+  }),
+  ConsoleStateProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}))
+
 import { AppIndexPage } from './app.index'
 import { AppWorkspacePage } from './app.workspace'
 import { PortalSidebar } from '../components/app/portal/PortalSidebar'
@@ -120,12 +142,25 @@ describe('Polet Portal — Phase 1', () => {
     expect(body).toContain('Hubungkan wallet devnet untuk masuk ke portal.')
   })
 
-  test('workspace placeholder renders its kicker + title', () => {
+  test('workspace renders Phase 2 hero + readiness pills + CTA + empty activity', () => {
     render(<AppWorkspacePage />)
     const body = document.body.textContent ?? ''
+    // State-aware hero — disconnected stub blocks on wallet first.
     expect(body).toContain('Workspace')
-    expect(body).toContain('Your portal home will appear here.')
-    expect(body).toMatch(/phase pending/i)
+    expect(body).toContain('Initialize your smart-wallet PDA to begin.')
+    // Right-side status pill (blocking path).
+    expect(body).toMatch(/setup pending/i)
+    // Readiness strip — pill for each slot present in the markup.
+    const pills = document.querySelectorAll('[data-testid^="readiness-pill-"]')
+    expect(pills).toHaveLength(5)
+    // Primary CTA routes at Funds (wallet slot is blocking).
+    const primary = document.querySelector(
+      '[data-testid="workspace-continue-cta"]',
+    )
+    expect(primary?.getAttribute('data-target')).toBe('/app/funds')
+    // Activity line in its empty state.
+    const activity = document.querySelector('[data-testid="activity-line"]')
+    expect(activity?.getAttribute('data-state')).toBe('empty')
   })
 
   test('PortalSidebar renders 5 nav links to portal pages', () => {

@@ -1,12 +1,25 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { PortalPagePlaceholder } from '../components/app/portal/PortalPagePlaceholder'
+import { WorkspaceHero } from '../components/app/workspace/WorkspaceHero'
+import { ReadinessStrip } from '../components/app/workspace/ReadinessStrip'
+import { ContinueCTA } from '../components/app/workspace/ContinueCTA'
+import { ActivityLine } from '../components/app/workspace/ActivityLine'
 
 /**
- * /app/workspace — Phase 1 placeholder.
+ * /app/workspace — Polet Portal home.
  *
- * Phase 2 (issue 100) replaces this with `<WorkspaceHero>` +
- * `<ReadinessStrip>` + `<ContinueCTA>` + `<ActivityLine>` driven by
- * the new `console-selectors.ts` module.
+ * State-aware launchpad driven by `console-selectors`:
+ *   - `<WorkspaceHero>` names the next blocking step in operator
+ *     language (or celebrates "all rails ready").
+ *   - `<ReadinessStrip>` shows all five slots at a glance
+ *     (wallet · custody · policy · session · gas).
+ *   - `<ContinueCTA>` routes to the page that unblocks the current
+ *     slot (Funds for wallet/custody/policy, Bridge for session/gas,
+ *     Gate when everything is ready).
+ *   - `<ActivityLine>` surfaces the latest receipt with a jump into
+ *     the Proof Trail page.
+ *
+ * No card walls — the whitespace + hairline rhythm is intentional
+ * and matches the rest of the Portal.
  */
 export const Route = createFileRoute('/app/workspace')({
   component: AppWorkspacePage,
@@ -14,10 +27,11 @@ export const Route = createFileRoute('/app/workspace')({
 
 export function AppWorkspacePage() {
   return (
-    <PortalPagePlaceholder
-      kickerKey="portal.placeholder.kicker.workspace"
-      titleKey="portal.placeholder.title.workspace"
-      subKey="portal.placeholder.sub.workspace"
-    />
+    <section data-testid="workspace-page" className="flex flex-col">
+      <WorkspaceHero />
+      <ReadinessStrip />
+      <ContinueCTA />
+      <ActivityLine />
+    </section>
   )
 }

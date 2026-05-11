@@ -475,7 +475,39 @@ export type TranslationKey =
   | 'portal.placeholder.sub.funds'
   | 'portal.placeholder.sub.proof'
   | 'portal.placeholder.sub.bridge'
-  | 'portal.placeholder.pending';
+  | 'portal.placeholder.pending'
+  // Polet Portal — Phase 2 (issue 100)
+  | 'portal.workspace.kicker'
+  | 'portal.workspace.status.ready'
+  | 'portal.workspace.status.pending'
+  | 'portal.workspace.title.ready'
+  | 'portal.workspace.title.needsWallet'
+  | 'portal.workspace.title.needsCustody'
+  | 'portal.workspace.title.needsPolicy'
+  | 'portal.workspace.title.needsSession'
+  | 'portal.workspace.title.needsGas'
+  | 'portal.workspace.sub.ready'
+  | 'portal.workspace.sub.needsWallet'
+  | 'portal.workspace.sub.needsCustody'
+  | 'portal.workspace.sub.needsPolicy'
+  | 'portal.workspace.sub.needsSession'
+  | 'portal.workspace.sub.needsGas'
+  | 'portal.readiness.label.wallet'
+  | 'portal.readiness.label.custody'
+  | 'portal.readiness.label.policy'
+  | 'portal.readiness.label.session'
+  | 'portal.readiness.label.gas'
+  | 'portal.readiness.state.done'
+  | 'portal.readiness.state.needs'
+  | 'portal.readiness.state.pending'
+  | 'portal.workspace.cta.openFunds'
+  | 'portal.workspace.cta.openGate'
+  | 'portal.workspace.cta.openBridge'
+  | 'portal.workspace.cta.openProof'
+  | 'portal.workspace.cta.compose'
+  | 'portal.workspace.activity.latest'
+  | 'portal.workspace.activity.empty'
+  | 'portal.workspace.activity.openProof';
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -1026,6 +1058,51 @@ const en: Dictionary = {
   'portal.placeholder.sub.bridge':
     'Paste-ready MCP config plus the legacy advanced fallback.',
   'portal.placeholder.pending': 'phase pending',
+  // Polet Portal — Phase 2 (issue 100) — Workspace home
+  'portal.workspace.kicker': 'Workspace',
+  'portal.workspace.status.ready': 'ready to execute',
+  'portal.workspace.status.pending': 'setup pending',
+  'portal.workspace.title.ready':
+    'All rails ready. Compose a policy-gated intent.',
+  'portal.workspace.title.needsWallet':
+    'Initialize your smart-wallet PDA to begin.',
+  'portal.workspace.title.needsCustody':
+    'Fund custody with demo USDC so the policy has something to meter.',
+  'portal.workspace.title.needsPolicy':
+    'Seal your confidential numeric policy.',
+  'portal.workspace.title.needsSession':
+    'Authorize a time-boxed agent session key.',
+  'portal.workspace.title.needsGas':
+    'Top up the session with gas so the agent can sign.',
+  'portal.workspace.sub.ready':
+    'Agents can now sign under policy via Jupiter DCA or Ika dWallet.',
+  'portal.workspace.sub.needsWallet':
+    'Polet custody, policy, and sessions all hang off your smart-wallet PDA.',
+  'portal.workspace.sub.needsCustody':
+    'Numeric policy only meters flows you can actually fund.',
+  'portal.workspace.sub.needsPolicy':
+    'Seal a private cap, quota, and cooldown the agent has to respect.',
+  'portal.workspace.sub.needsSession':
+    'Issue a session key so the agent can broadcast inside the cap.',
+  'portal.workspace.sub.needsGas':
+    'Agent session needs a sip of SOL before it can broadcast.',
+  'portal.readiness.label.wallet': 'Wallet',
+  'portal.readiness.label.custody': 'Custody',
+  'portal.readiness.label.policy': 'Policy',
+  'portal.readiness.label.session': 'Session',
+  'portal.readiness.label.gas': 'Gas',
+  'portal.readiness.state.done': 'ready',
+  'portal.readiness.state.needs': 'needs funds',
+  'portal.readiness.state.pending': 'pending',
+  'portal.workspace.cta.openFunds': 'Open Funds & Setup',
+  'portal.workspace.cta.openGate': 'Open Policy Gate',
+  'portal.workspace.cta.openBridge': 'Open Agent Bridge',
+  'portal.workspace.cta.openProof': 'Open Proof Trail',
+  'portal.workspace.cta.compose': 'Compose an intent',
+  'portal.workspace.activity.latest': 'Latest receipt',
+  'portal.workspace.activity.empty':
+    'No receipts yet — run your first rail from the Gate.',
+  'portal.workspace.activity.openProof': 'Open Proof Trail',
 };
 
 // ---------------------------------------------------------------------------
@@ -1575,6 +1652,51 @@ const id: Dictionary = {
   'portal.placeholder.sub.bridge':
     'Konfigurasi MCP siap-tempel plus fallback lanjutan.',
   'portal.placeholder.pending': 'phase pending',
+  // Polet Portal — Phase 2 (issue 100) — Beranda Workspace
+  'portal.workspace.kicker': 'Workspace',
+  'portal.workspace.status.ready': 'siap dieksekusi',
+  'portal.workspace.status.pending': 'setup belum lengkap',
+  'portal.workspace.title.ready':
+    'Semua rail siap. Susun intent yang dilewatkan policy.',
+  'portal.workspace.title.needsWallet':
+    'Inisialisasi smart-wallet PDA kamu untuk memulai.',
+  'portal.workspace.title.needsCustody':
+    'Isi custody dengan USDC demo supaya policy punya yang bisa diukur.',
+  'portal.workspace.title.needsPolicy':
+    'Seal numeric policy rahasia kamu.',
+  'portal.workspace.title.needsSession':
+    'Otorisasi session key agent yang dibatasi waktu.',
+  'portal.workspace.title.needsGas':
+    'Isi bensin sesi supaya agent bisa broadcast.',
+  'portal.workspace.sub.ready':
+    'Agent sekarang bisa tandatangan di dalam policy lewat Jupiter DCA atau Ika dWallet.',
+  'portal.workspace.sub.needsWallet':
+    'Custody, policy, dan sesi Polet semuanya nyangkut ke smart-wallet PDA kamu.',
+  'portal.workspace.sub.needsCustody':
+    'Numeric policy hanya mengukur aliran yang benar-benar bisa kamu biayai.',
+  'portal.workspace.sub.needsPolicy':
+    'Seal batas nominal, kuota, dan cooldown rahasia yang harus dihormati agent.',
+  'portal.workspace.sub.needsSession':
+    'Terbitkan session key supaya agent bisa broadcast di dalam batas itu.',
+  'portal.workspace.sub.needsGas':
+    'Sesi agent butuh sedikit SOL sebelum bisa broadcast.',
+  'portal.readiness.label.wallet': 'Wallet',
+  'portal.readiness.label.custody': 'Custody',
+  'portal.readiness.label.policy': 'Policy',
+  'portal.readiness.label.session': 'Sesi',
+  'portal.readiness.label.gas': 'Bensin',
+  'portal.readiness.state.done': 'siap',
+  'portal.readiness.state.needs': 'butuh dana',
+  'portal.readiness.state.pending': 'tertunda',
+  'portal.workspace.cta.openFunds': 'Buka Dana & Setup',
+  'portal.workspace.cta.openGate': 'Buka Policy Gate',
+  'portal.workspace.cta.openBridge': 'Buka Agent Bridge',
+  'portal.workspace.cta.openProof': 'Buka Jejak Bukti',
+  'portal.workspace.cta.compose': 'Susun intent',
+  'portal.workspace.activity.latest': 'Receipt terbaru',
+  'portal.workspace.activity.empty':
+    'Belum ada receipt — jalankan rail pertama kamu dari Gate.',
+  'portal.workspace.activity.openProof': 'Buka Jejak Bukti',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };
