@@ -12,7 +12,17 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as E2eConsumerDemoRouteImport } from './routes/e2e.consumer-demo'
+import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppWorkspacePreviewRouteImport } from './routes/app.workspace-preview'
+import { Route as AppWorkspaceRouteImport } from './routes/app.workspace'
+import { Route as AppProofPreviewRouteImport } from './routes/app.proof-preview'
+import { Route as AppProofRouteImport } from './routes/app.proof'
+import { Route as AppGatePreviewRouteImport } from './routes/app.gate-preview'
+import { Route as AppGateRouteImport } from './routes/app.gate'
+import { Route as AppFundsPreviewRouteImport } from './routes/app.funds-preview'
+import { Route as AppFundsRouteImport } from './routes/app.funds'
+import { Route as AppBridgePreviewRouteImport } from './routes/app.bridge-preview'
+import { Route as AppBridgeRouteImport } from './routes/app.bridge'
 
 const AppRoute = AppRouteImport.update({
   id: '/app',
@@ -29,44 +39,164 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const E2eConsumerDemoRoute = E2eConsumerDemoRouteImport.update({
-  id: '/e2e/consumer-demo',
-  path: '/e2e/consumer-demo',
-  getParentRoute: () => rootRouteImport,
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkspacePreviewRoute = AppWorkspacePreviewRouteImport.update({
+  id: '/workspace-preview',
+  path: '/workspace-preview',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkspaceRoute = AppWorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProofPreviewRoute = AppProofPreviewRouteImport.update({
+  id: '/proof-preview',
+  path: '/proof-preview',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProofRoute = AppProofRouteImport.update({
+  id: '/proof',
+  path: '/proof',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGatePreviewRoute = AppGatePreviewRouteImport.update({
+  id: '/gate-preview',
+  path: '/gate-preview',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGateRoute = AppGateRouteImport.update({
+  id: '/gate',
+  path: '/gate',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFundsPreviewRoute = AppFundsPreviewRouteImport.update({
+  id: '/funds-preview',
+  path: '/funds-preview',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFundsRoute = AppFundsRouteImport.update({
+  id: '/funds',
+  path: '/funds',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBridgePreviewRoute = AppBridgePreviewRouteImport.update({
+  id: '/bridge-preview',
+  path: '/bridge-preview',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBridgeRoute = AppBridgeRouteImport.update({
+  id: '/bridge',
+  path: '/bridge',
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/app': typeof AppRoute
-  '/e2e/consumer-demo': typeof E2eConsumerDemoRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/bridge': typeof AppBridgeRoute
+  '/app/bridge-preview': typeof AppBridgePreviewRoute
+  '/app/funds': typeof AppFundsRoute
+  '/app/funds-preview': typeof AppFundsPreviewRoute
+  '/app/gate': typeof AppGateRoute
+  '/app/gate-preview': typeof AppGatePreviewRoute
+  '/app/proof': typeof AppProofRoute
+  '/app/proof-preview': typeof AppProofPreviewRoute
+  '/app/workspace': typeof AppWorkspaceRoute
+  '/app/workspace-preview': typeof AppWorkspacePreviewRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/app': typeof AppRoute
-  '/e2e/consumer-demo': typeof E2eConsumerDemoRoute
+  '/app/bridge': typeof AppBridgeRoute
+  '/app/bridge-preview': typeof AppBridgePreviewRoute
+  '/app/funds': typeof AppFundsRoute
+  '/app/funds-preview': typeof AppFundsPreviewRoute
+  '/app/gate': typeof AppGateRoute
+  '/app/gate-preview': typeof AppGatePreviewRoute
+  '/app/proof': typeof AppProofRoute
+  '/app/proof-preview': typeof AppProofPreviewRoute
+  '/app/workspace': typeof AppWorkspaceRoute
+  '/app/workspace-preview': typeof AppWorkspacePreviewRoute
+  '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/app': typeof AppRoute
-  '/e2e/consumer-demo': typeof E2eConsumerDemoRoute
+  '/app': typeof AppRouteWithChildren
+  '/app/bridge': typeof AppBridgeRoute
+  '/app/bridge-preview': typeof AppBridgePreviewRoute
+  '/app/funds': typeof AppFundsRoute
+  '/app/funds-preview': typeof AppFundsPreviewRoute
+  '/app/gate': typeof AppGateRoute
+  '/app/gate-preview': typeof AppGatePreviewRoute
+  '/app/proof': typeof AppProofRoute
+  '/app/proof-preview': typeof AppProofPreviewRoute
+  '/app/workspace': typeof AppWorkspaceRoute
+  '/app/workspace-preview': typeof AppWorkspacePreviewRoute
+  '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/app' | '/e2e/consumer-demo'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/app'
+    | '/app/bridge'
+    | '/app/bridge-preview'
+    | '/app/funds'
+    | '/app/funds-preview'
+    | '/app/gate'
+    | '/app/gate-preview'
+    | '/app/proof'
+    | '/app/proof-preview'
+    | '/app/workspace'
+    | '/app/workspace-preview'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/app' | '/e2e/consumer-demo'
-  id: '__root__' | '/' | '/about' | '/app' | '/e2e/consumer-demo'
+  to:
+    | '/'
+    | '/about'
+    | '/app/bridge'
+    | '/app/bridge-preview'
+    | '/app/funds'
+    | '/app/funds-preview'
+    | '/app/gate'
+    | '/app/gate-preview'
+    | '/app/proof'
+    | '/app/proof-preview'
+    | '/app/workspace'
+    | '/app/workspace-preview'
+    | '/app'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/app'
+    | '/app/bridge'
+    | '/app/bridge-preview'
+    | '/app/funds'
+    | '/app/funds-preview'
+    | '/app/gate'
+    | '/app/gate-preview'
+    | '/app/proof'
+    | '/app/proof-preview'
+    | '/app/workspace'
+    | '/app/workspace-preview'
+    | '/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  AppRoute: typeof AppRoute
-  E2eConsumerDemoRoute: typeof E2eConsumerDemoRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -92,21 +222,120 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/e2e/consumer-demo': {
-      id: '/e2e/consumer-demo'
-      path: '/e2e/consumer-demo'
-      fullPath: '/e2e/consumer-demo'
-      preLoaderRoute: typeof E2eConsumerDemoRouteImport
-      parentRoute: typeof rootRouteImport
+    '/app/': {
+      id: '/app/'
+      path: '/'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/workspace-preview': {
+      id: '/app/workspace-preview'
+      path: '/workspace-preview'
+      fullPath: '/app/workspace-preview'
+      preLoaderRoute: typeof AppWorkspacePreviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/workspace': {
+      id: '/app/workspace'
+      path: '/workspace'
+      fullPath: '/app/workspace'
+      preLoaderRoute: typeof AppWorkspaceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/proof-preview': {
+      id: '/app/proof-preview'
+      path: '/proof-preview'
+      fullPath: '/app/proof-preview'
+      preLoaderRoute: typeof AppProofPreviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/proof': {
+      id: '/app/proof'
+      path: '/proof'
+      fullPath: '/app/proof'
+      preLoaderRoute: typeof AppProofRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/gate-preview': {
+      id: '/app/gate-preview'
+      path: '/gate-preview'
+      fullPath: '/app/gate-preview'
+      preLoaderRoute: typeof AppGatePreviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/gate': {
+      id: '/app/gate'
+      path: '/gate'
+      fullPath: '/app/gate'
+      preLoaderRoute: typeof AppGateRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/funds-preview': {
+      id: '/app/funds-preview'
+      path: '/funds-preview'
+      fullPath: '/app/funds-preview'
+      preLoaderRoute: typeof AppFundsPreviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/funds': {
+      id: '/app/funds'
+      path: '/funds'
+      fullPath: '/app/funds'
+      preLoaderRoute: typeof AppFundsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/bridge-preview': {
+      id: '/app/bridge-preview'
+      path: '/bridge-preview'
+      fullPath: '/app/bridge-preview'
+      preLoaderRoute: typeof AppBridgePreviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/bridge': {
+      id: '/app/bridge'
+      path: '/bridge'
+      fullPath: '/app/bridge'
+      preLoaderRoute: typeof AppBridgeRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppBridgeRoute: typeof AppBridgeRoute
+  AppBridgePreviewRoute: typeof AppBridgePreviewRoute
+  AppFundsRoute: typeof AppFundsRoute
+  AppFundsPreviewRoute: typeof AppFundsPreviewRoute
+  AppGateRoute: typeof AppGateRoute
+  AppGatePreviewRoute: typeof AppGatePreviewRoute
+  AppProofRoute: typeof AppProofRoute
+  AppProofPreviewRoute: typeof AppProofPreviewRoute
+  AppWorkspaceRoute: typeof AppWorkspaceRoute
+  AppWorkspacePreviewRoute: typeof AppWorkspacePreviewRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppBridgeRoute: AppBridgeRoute,
+  AppBridgePreviewRoute: AppBridgePreviewRoute,
+  AppFundsRoute: AppFundsRoute,
+  AppFundsPreviewRoute: AppFundsPreviewRoute,
+  AppGateRoute: AppGateRoute,
+  AppGatePreviewRoute: AppGatePreviewRoute,
+  AppProofRoute: AppProofRoute,
+  AppProofPreviewRoute: AppProofPreviewRoute,
+  AppWorkspaceRoute: AppWorkspaceRoute,
+  AppWorkspacePreviewRoute: AppWorkspacePreviewRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  AppRoute: AppRoute,
-  E2eConsumerDemoRoute: E2eConsumerDemoRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

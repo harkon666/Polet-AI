@@ -1,891 +1,264 @@
-
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/space-grotesk";
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
+
+/* ============================================
+   POLET v2, DARK CANONICAL
+   Visual north star: Linear marketing dark
+   Brand: deep teal aurora + white "P" logomark
+   Display type: PP Mori (Pangram Pangram, free personal, hackathon scope)
+   Mono type:    Geist Mono (Vercel, free)
+   ============================================ */
+
+/* PP Mori, self-hosted from /public/fonts/, OTF format */
+@font-face {
+  font-family: "PP Mori";
+  src: url("/fonts/PPMori-Extralight.otf") format("opentype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "PP Mori";
+  src: url("/fonts/PPMori-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "PP Mori";
+  src: url("/fonts/PPMori-Semibold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "PP Mori";
+  src: url("/fonts/PPMori-Black.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 @theme {
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  /* Surfaces, true black with subtle teal undertone */
+  --color-bg-base: #000000;
+  --color-bg-deep: #04100c;
+  --color-surface: #0a1a16;
+  --color-surface-raised: #0e2520;
+  --color-line: rgb(30 184 164 / 0.10);
+  --color-line-strong: rgb(30 184 164 / 0.22);
+
+  /* Ink, match white logomark */
+  --color-ink: #ffffff;
+  --color-ink-soft: #a6c4bd;
+  --color-ink-mute: #739691;
+
+  /* Accent, aurora glow teal in 3 registers */
+  --color-lagoon: #1eb8a4;
+  --color-lagoon-bright: #2dd4bf;
+  --color-lagoon-deep: #0d7d77;
+
+  /* Status, kept minimal, monochromatic discipline */
+  --color-coral: #f87171;
+  --color-palm: #34d399;
+  --color-sunset: #fbbf24;
+
+  /* Type, PP Mori for narrative, Geist Mono for engineering */
+  --font-display: "PP Mori", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "PP Mori", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
 }
 
 /* ============================================
-   QUIET ENGINEERING FINTECH — light-first canonical
-   Brand accent: deep teal #0d7d77 (honors --lagoon naming)
+   Base reset, dark canvas defaults
    ============================================ */
 
-:root {
-  /* Text */
-  --sea-ink: #0a0a0a;            /* primary text — near-black */
-  --sea-ink-soft: #525252;       /* secondary text */
-  --kicker: #737373;             /* meta / caption uppercase labels */
-
-  /* Brand accent — deep teal */
-  --lagoon: #0d7d77;             /* primary accent — buttons, links, focus */
-  --lagoon-deep: #0a625e;        /* hover/pressed state */
-  --lagoon-soft: #e6f4f3;        /* subtle bg tint for cards/pills */
-
-  /* Semantic status (separate from brand accent) */
-  --palm: #16a34a;               /* success — "policy approved", "live" */
-  --palm-soft: #dcfce7;
-  --sunset: #d97706;             /* warning — "needs approval" */
-  --sunset-soft: #fef3c7;
-  --coral: #dc2626;              /* danger — "blocked", "over limit" */
-  --coral-soft: #fee2e2;
-
-  /* Surface & bg */
-  --bg-base: #fafaf9;            /* body bg — warm off-white */
-  --foam: #f4f4f1;               /* panel bg / sections */
-  --sand: #f1f1ef;               /* darker panel for separation */
-  --surface: #ffffff;            /* cards, inputs */
-  --surface-strong: #ffffff;
-  --island-bg: #ffffff;
-  --header-bg: rgba(250, 250, 249, 0.88);
-  --chip-bg: #ffffff;
-
-  /* Borders */
-  --line: #e7e5e4;               /* default 1px subtle border */
-  --line-strong: #d4d4d4;        /* focused / emphasized border */
-  --chip-line: #e7e5e4;
-
-  /* Inset/highlight */
-  --inset-glint: rgba(255, 255, 255, 0.6);
-
-  /* Inputs */
-  --input-bg: #ffffff;
-  --input-text: #0a0a0a;
-  --input-placeholder: #737373;
-
-  /* Hover bg for links */
-  --link-bg-hover: #f0fafa;
-}
-
-:root[data-theme="dark"] {
-  --sea-ink: #f5f5f4;
-  --sea-ink-soft: #a8a29e;
-  --kicker: #78716c;
-
-  --lagoon: #2dd4bf;             /* brighter teal for dark — readable on dark bg */
-  --lagoon-deep: #5eead4;
-  --lagoon-soft: rgba(45, 212, 191, 0.12);
-
-  --palm: #4ade80;
-  --palm-soft: rgba(74, 222, 128, 0.12);
-  --sunset: #fbbf24;
-  --sunset-soft: rgba(251, 191, 36, 0.12);
-  --coral: #f87171;
-  --coral-soft: rgba(248, 113, 113, 0.12);
-
-  --bg-base: #0e1117;
-  --foam: #16191f;
-  --sand: #1c1f26;
-  --surface: #16191f;
-  --surface-strong: #1c1f26;
-  --island-bg: #16191f;
-  --header-bg: rgba(14, 17, 23, 0.88);
-  --chip-bg: #1c1f26;
-
-  --line: #2a2e36;
-  --line-strong: #3a3f48;
-  --chip-line: #2a2e36;
-
-  --inset-glint: rgba(255, 255, 255, 0.04);
-
-  --input-bg: #16191f;
-  --input-text: #f5f5f4;
-  --input-placeholder: #78716c;
-
-  --link-bg-hover: rgba(45, 212, 191, 0.08);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --sea-ink: #f5f5f4;
-    --sea-ink-soft: #a8a29e;
-    --kicker: #78716c;
-
-    --lagoon: #2dd4bf;
-    --lagoon-deep: #5eead4;
-    --lagoon-soft: rgba(45, 212, 191, 0.12);
-
-    --palm: #4ade80;
-    --palm-soft: rgba(74, 222, 128, 0.12);
-    --sunset: #fbbf24;
-    --sunset-soft: rgba(251, 191, 36, 0.12);
-    --coral: #f87171;
-    --coral-soft: rgba(248, 113, 113, 0.12);
-
-    --bg-base: #0e1117;
-    --foam: #16191f;
-    --sand: #1c1f26;
-    --surface: #16191f;
-    --surface-strong: #1c1f26;
-    --island-bg: #16191f;
-    --header-bg: rgba(14, 17, 23, 0.88);
-    --chip-bg: #1c1f26;
-
-    --line: #2a2e36;
-    --line-strong: #3a3f48;
-    --chip-line: #2a2e36;
-
-    --inset-glint: rgba(255, 255, 255, 0.04);
-
-    --input-bg: #16191f;
-    --input-text: #f5f5f4;
-    --input-placeholder: #78716c;
-
-    --link-bg-hover: rgba(45, 212, 191, 0.08);
-  }
-}
-
-* {
-  box-sizing: border-box;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
-}
-
-html,
-body,
-#app {
-  min-height: 100%;
+html {
+  color-scheme: dark;
+  background-color: var(--color-bg-base);
 }
 
 body {
-  margin: 0;
-  color: var(--sea-ink);
+  background-color: var(--color-bg-base);
+  color: var(--color-ink);
   font-family: var(--font-sans);
-  background: var(--bg-base);
-  overflow-x: hidden;
+  font-feature-settings: "ss01", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-a {
-  color: var(--lagoon);
-  text-decoration-color: rgba(13, 125, 119, 0.3);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-  transition: color 160ms ease, text-decoration-color 160ms ease;
-}
-
-a:hover {
-  color: var(--lagoon-deep);
-  text-decoration-color: currentColor;
-}
-
-code {
-  font-size: 0.9em;
-  font-family: var(--font-mono);
-  border: 1px solid var(--line);
-  background: var(--foam);
-  border-radius: 5px;
-  padding: 2px 6px;
-}
-
-input, textarea, select {
-  background-color: var(--input-bg) !important;
-  color: var(--input-text) !important;
-  border: 1px solid var(--line) !important;
-}
-
-input::placeholder, textarea::placeholder {
-  color: var(--input-placeholder) !important;
-  opacity: 1;
-}
-
-input:focus, textarea:focus {
-  border-color: var(--lagoon) !important;
-  box-shadow: 0 0 0 3px var(--lagoon-soft);
-}
-
-pre code {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-  font-size: inherit;
-  color: inherit;
-}
-
-.page-wrap {
-  width: min(1180px, calc(100% - 2rem));
-  margin-inline: auto;
-}
-
-.display-title {
-  font-family: var(--font-display);
-  letter-spacing: -0.02em;
-}
-
-/* Existing children compatibility — soft cards */
-.island-shell {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: 12px;
-  box-shadow:
-    0 1px 0 var(--inset-glint) inset,
-    0 1px 2px rgba(10, 10, 10, 0.04),
-    0 4px 14px rgba(10, 10, 10, 0.04);
-}
-
-.feature-card {
-  background: var(--surface);
-  border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(10, 10, 10, 0.04);
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
-}
-
-.feature-card:hover {
-  border-color: var(--lagoon);
-  box-shadow: 0 4px 14px rgba(13, 125, 119, 0.08);
-  transform: translateY(-1px);
-}
-
-button,
-.island-shell,
-a {
-  cursor: pointer;
-  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease,
-    transform 180ms ease, box-shadow 180ms ease;
-}
-
-.island-kicker {
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-weight: 700;
-  font-size: 0.69rem;
-  color: var(--kicker);
-}
-
-/* Existing nav-link kept for backward compat */
-.nav-link {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  text-decoration: none;
-  color: var(--sea-ink-soft);
-  font-weight: 600;
-}
-
-.nav-link::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -6px;
-  width: 100%;
-  height: 2px;
-  transform: scaleX(0);
-  transform-origin: left;
-  background: var(--lagoon);
-  transition: transform 170ms ease;
-}
-
-.nav-link:hover,
-.nav-link.is-active {
-  color: var(--sea-ink);
-}
-
-.nav-link:hover::after,
-.nav-link.is-active::after {
-  transform: scaleX(1);
-}
-
-@media (max-width: 640px) {
-  .nav-link::after {
-    bottom: -4px;
-  }
-}
-
-.rise-in {
-  animation: rise-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes rise-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+::selection {
+  background-color: rgb(30 184 164 / 0.32);
+  color: var(--color-ink);
 }
 
 /* ============================================
-   QUIET ENGINEERING FINTECH UTILITIES (qe-*)
+   pl-* custom classes, Rule 3 only
+   (multi-layer gradients, state-driven motion,
+    composition >10 utility chain, ambient bg)
    ============================================ */
 
-.text-mono {
-  font-family: var(--font-mono);
-}
-
-/* Wordmark — soft, type-driven, image-backed mark */
-.qe-wordmark {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  color: var(--sea-ink);
-  line-height: 1;
-}
-
-.qe-wordmark__mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  background: var(--lagoon);
-  color: white;
-  border-radius: 8px;
-  overflow: hidden;
-  flex-shrink: 0;
-  box-shadow:
-    0 1px 2px rgba(13, 125, 119, 0.12),
-    0 2px 8px rgba(13, 125, 119, 0.08);
-  transition: transform 160ms ease, box-shadow 160ms ease;
-}
-
-.qe-wordmark__mark img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.qe-wordmark__name {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.02rem;
-  letter-spacing: -0.018em;
-}
-
-.qe-wordmark__tag {
-  font-family: var(--font-mono);
-  font-weight: 500;
-  font-size: 0.72rem;
-  color: var(--sea-ink-soft);
-  letter-spacing: 0;
-  margin-left: 2px;
-}
-
-.qe-wordmark:hover .qe-wordmark__mark {
-  transform: translateY(-1px);
-  box-shadow:
-    0 2px 4px rgba(13, 125, 119, 0.16),
-    0 6px 16px rgba(13, 125, 119, 0.1);
-}
-
-/* Large variant — used in footer brand block */
-.qe-wordmark--lg {
-  gap: 12px;
-}
-
-.qe-wordmark--lg .qe-wordmark__mark {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-}
-
-.qe-wordmark--lg .qe-wordmark__name {
-  font-size: 1.5rem;
-  letter-spacing: -0.02em;
-}
-
-.qe-wordmark--lg .qe-wordmark__tag {
-  font-size: 0.88rem;
-}
-
-/* Condensed / uppercase variant — used in compact header.
-   POLET as typographic wordmark, no /AI tag. */
-.qe-wordmark--condensed .qe-wordmark__name {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 800;
-  font-size: 0.92rem;
-}
-
-.qe-wordmark--condensed .qe-wordmark__tag {
-  display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .qe-wordmark__mark {
-    transition: none;
-  }
-  .qe-wordmark:hover .qe-wordmark__mark {
-    transform: none;
-  }
-}
-
-/* ============================================
-   PREFERENCES MENU — combined theme + locale popover
-   ============================================ */
-
-.qe-prefs {
+/* Hero ambient bg, actual brand asset PNG with cursor-tracked teal glow
+   overlay (Linear-class interaction) + slow 60s drift pan for "alive" feel.
+   Reduced-motion disables drift + cursor glow. */
+.pl-ambient-hero {
   position: relative;
-  display: inline-flex;
-}
-
-.qe-prefs__trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--sea-ink-soft);
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    color 160ms ease,
-    background-color 160ms ease;
-}
-
-.qe-prefs__trigger:hover {
-  border-color: var(--line-strong);
-  color: var(--sea-ink);
-  background: var(--foam);
-}
-
-.qe-prefs__trigger:focus-visible {
-  outline: 2px solid var(--lagoon);
-  outline-offset: 2px;
-}
-
-.qe-prefs__trigger[aria-expanded="true"] {
-  border-color: var(--lagoon);
-  color: var(--lagoon);
-  background: var(--lagoon-soft);
-}
-
-.qe-prefs__trigger svg {
-  width: 16px;
-  height: 16px;
-  display: block;
-}
-
-.qe-prefs__panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  min-width: 230px;
-  padding: 16px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 12px 32px rgba(0, 0, 0, 0.06);
-  z-index: 100;
-  animation: qe-prefs-enter 140ms ease-out;
-}
-
-@keyframes qe-prefs-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.qe-prefs__section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.qe-prefs__label {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: var(--kicker);
-}
-
-.qe-prefs__divider {
-  height: 1px;
-  margin: 14px 0;
-  background: var(--line);
-  border: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .qe-prefs__panel {
-    animation: none;
-  }
-  .qe-prefs__trigger {
-    transition: none;
-  }
-}
-
-/* Nav link — quiet underline reveal */
-.qe-nav-link {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 10px;
-  text-decoration: none;
-  color: var(--sea-ink-soft);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.875rem;
-  border-radius: 6px;
-  transition: color 160ms ease, background-color 160ms ease;
-}
-
-.qe-nav-link:hover {
-  color: var(--sea-ink);
-  background: var(--link-bg-hover);
-}
-
-.qe-nav-link.is-active {
-  color: var(--lagoon-deep);
-}
-
-.qe-nav-link.is-active::after {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 2px;
-  height: 2px;
-  background: var(--lagoon);
-  border-radius: 1px;
-}
-
-/* Pill — quiet status indicator */
-.qe-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  padding: 3px 9px;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--sea-ink-soft);
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.qe-pill--success {
-  background: var(--palm-soft);
-  color: var(--palm);
-  border-color: transparent;
-}
-
-.qe-pill--accent {
-  background: var(--lagoon-soft);
-  color: var(--lagoon-deep);
-  border-color: transparent;
-}
-
-.qe-pill--warning {
-  background: var(--sunset-soft);
-  color: var(--sunset);
-  border-color: transparent;
-}
-
-/* Status dot — quiet pulsing */
-.qe-status-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  animation: qe-pulse 2s ease-in-out infinite;
-}
-
-@keyframes qe-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.4; }
-}
-
-/* Button primitives */
-.qe-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 16px;
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.875rem;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease,
-    transform 160ms ease, box-shadow 160ms ease;
-}
-
-.qe-button--primary {
-  background: var(--lagoon);
-  color: white;
-  border-color: var(--lagoon);
-}
-
-.qe-button--primary:hover {
-  background: var(--lagoon-deep);
-  border-color: var(--lagoon-deep);
-  color: white;
-}
-
-.qe-button--secondary {
-  background: var(--surface);
-  color: var(--sea-ink);
-  border-color: var(--line);
-}
-
-.qe-button--secondary:hover {
-  border-color: var(--line-strong);
-  background: var(--foam);
-}
-
-.qe-button--ghost {
-  background: transparent;
-  color: var(--sea-ink-soft);
-  border-color: transparent;
-}
-
-.qe-button--ghost:hover {
-  color: var(--sea-ink);
-  background: var(--link-bg-hover);
-}
-
-/* Quiet inline link — for footer & body copy */
-.qe-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--font-sans);
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--sea-ink-soft);
-  text-decoration: none;
-  transition: color 160ms ease;
-}
-
-.qe-link:hover {
-  color: var(--lagoon-deep);
-}
-
-.qe-link__arrow {
-  font-family: var(--font-mono);
-  font-size: 0.85em;
-  transition: transform 160ms ease;
-}
-
-.qe-link:hover .qe-link__arrow {
-  transform: translateX(2px);
-}
-
-/* Footer column heading */
-.qe-col-heading {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--kicker);
-  margin-bottom: 0.85rem;
-}
-
-/* Stat row — system info display */
-.qe-stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  padding-block: 5px;
-}
-
-.qe-stat-row__label {
-  color: var(--sea-ink-soft);
-  letter-spacing: 0.04em;
-}
-
-.qe-stat-row__value {
-  color: var(--sea-ink);
-  font-weight: 600;
-}
-
-/* Card primitive */
-.qe-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 24px;
-  transition: border-color 180ms ease, box-shadow 180ms ease;
-}
-
-.qe-card--hover:hover {
-  border-color: var(--line-strong);
-  box-shadow: 0 4px 14px rgba(10, 10, 10, 0.04);
-}
-
-/* Badge — used for pre-alpha disclaimers, tags */
-.qe-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--sea-ink-soft);
-  background: var(--foam);
-  border: 1px solid var(--line);
-  border-radius: 4px;
-}
-
-.qe-badge--alpha {
-  color: var(--sunset);
-  background: var(--sunset-soft);
-  border-color: transparent;
-}
-
-.qe-badge--devnet {
-  color: var(--lagoon-deep);
-  background: var(--lagoon-soft);
-  border-color: transparent;
-}
-
-/* ============================================
-   LANDING UPGRADES — gradient mesh, multi-color rails,
-   terminal mockup, big CTA, dividers, animated stats
-   ============================================ */
-
-/* Per-rail accent colors */
-:root {
-  --rail-encrypt: #0d7d77;
-  --rail-encrypt-soft: #e6f4f3;
-  --rail-ika: #b45309;
-  --rail-ika-soft: #fef3c7;
-  --rail-jupiter: #6d28d9;
-  --rail-jupiter-soft: #ede9fe;
-}
-
-:root[data-theme="dark"] {
-  --rail-encrypt: #2dd4bf;
-  --rail-encrypt-soft: rgba(45, 212, 191, 0.12);
-  --rail-ika: #fbbf24;
-  --rail-ika-soft: rgba(251, 191, 36, 0.12);
-  --rail-jupiter: #a78bfa;
-  --rail-jupiter-soft: rgba(167, 139, 250, 0.14);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --rail-encrypt: #2dd4bf;
-    --rail-encrypt-soft: rgba(45, 212, 191, 0.12);
-    --rail-ika: #fbbf24;
-    --rail-ika-soft: rgba(251, 191, 36, 0.12);
-    --rail-jupiter: #a78bfa;
-    --rail-jupiter-soft: rgba(167, 139, 250, 0.14);
-  }
-}
-
-/* Hero with subtle gradient mesh background */
-.qe-hero {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-}
-
-.qe-hero::before {
-  content: "";
-  position: absolute;
-  inset: -10% -5% auto -5%;
-  height: 110%;
   background:
-    radial-gradient(ellipse 60% 50% at 18% 22%, var(--lagoon-soft) 0%, transparent 55%),
-    radial-gradient(ellipse 55% 45% at 82% 30%, color-mix(in oklab, var(--rail-jupiter) 14%, transparent) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 50% 110%, color-mix(in oklab, var(--rail-ika) 8%, transparent) 0%, transparent 60%);
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.85;
+    linear-gradient(
+      180deg,
+      rgb(0 0 0 / 0.30) 0%,
+      rgb(0 0 0 / 0.10) 50%,
+      rgb(0 0 0 / 0.30) 100%
+    ),
+    url('/background-hero.png');
+  background-size: cover, 110% 110%;
+  background-position: center, 50% 50%;
+  background-repeat: no-repeat, no-repeat;
+  animation: pl-ambient-pan 60s ease-in-out infinite alternate;
 }
 
-.qe-hero::after {
-  content: "";
+@keyframes pl-ambient-pan {
+  0%   { background-position: center, 42% 48%; }
+  100% { background-position: center, 58% 52%; }
+}
+
+/* Cursor-tracked spotlight glow, subtle teal halo follows mouse, calm.
+   CSS variables --cursor-x / --cursor-y are set by Hero.tsx onMouseMove. */
+.pl-ambient-hero::after {
+  content: '';
   position: absolute;
   inset: 0;
-  background-image:
-    linear-gradient(to right, var(--line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
-  background-size: 64px 64px;
-  background-position: 50% 50%;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 70%);
-  z-index: -1;
-  opacity: 0.35;
+  background: radial-gradient(
+    ellipse 500px 400px at var(--cursor-x, 50%) var(--cursor-y, 50%),
+    rgb(45 212 191 / 0.08) 0%,
+    rgb(45 212 191 / 0.02) 30%,
+    transparent 55%
+  );
   pointer-events: none;
+  mix-blend-mode: screen;
+  z-index: 0;
+  transition: background 320ms ease-out;
 }
 
-
-/* Big primary CTA */
-.qe-button--xl {
-  padding: 14px 26px;
-  font-size: 1rem;
-  font-weight: 700;
-  border-radius: 10px;
+/* Hero content stacked above overlay */
+.pl-ambient-hero > * {
+  position: relative;
+  z-index: 1;
 }
 
-.qe-button--xl.qe-button--primary {
+/* Section ambient, subtle glow for transitions between sections */
+.pl-ambient-section {
+  background:
+    radial-gradient(
+      ellipse 60% 40% at 50% 50%,
+      rgb(13 125 119 / 0.08) 0%,
+      transparent 60%
+    ),
+    var(--color-bg-base);
+}
+
+/* Polet Portal canvas ambient. Two soft teal radials at the upper
+   corners + a deeper teal pool at the bottom, sitting on top of
+   --color-bg-base. Mirrors the tone of `.pl-ambient-hero` without the
+   marketing-density PNG, so `/app/*` feels atmospherically connected
+   to landing while staying calm enough for an operator surface.
+
+   Applied to the PortalShell wrapper so a translucent
+   `<PortalSidebar>` can pick up the same glow at its own zone. */
+.pl-portal-ambient {
+  background-color: var(--color-bg-base);
+  background-image:
+    radial-gradient(
+      circle at 8% -10%,
+      rgb(45 212 191 / 0.14) 0%,
+      transparent 36rem
+    ),
+    radial-gradient(
+      circle at 100% 6%,
+      rgb(52 211 153 / 0.07) 0%,
+      transparent 30rem
+    ),
+    radial-gradient(
+      circle at 50% 110%,
+      rgb(30 184 164 / 0.05) 0%,
+      transparent 36rem
+    );
+}
+
+/* Scroll reveal, initial state. Add .pl-reveal--in via IntersectionObserver. */
+.pl-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 600ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pl-reveal--in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Glow button, primary CTA hover state with lagoon ambient shadow */
+.pl-glow-button {
+  position: relative;
+  isolation: isolate;
+  transition:
+    box-shadow 280ms ease-out,
+    transform 180ms ease-out;
+}
+
+.pl-glow-button:hover {
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.2) inset,
-    0 6px 18px rgba(13, 125, 119, 0.25);
-}
-
-.qe-button--xl.qe-button--primary:hover {
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.2) inset,
-    0 8px 22px rgba(13, 125, 119, 0.32);
+    0 0 0 1px rgb(45 212 191 / 0.35),
+    0 8px 32px -8px rgb(45 212 191 / 0.40),
+    0 16px 48px -12px rgb(30 184 164 / 0.20);
   transform: translateY(-1px);
 }
 
-/* Trust strip — partner/integration logos infinite marquee */
-.qe-trust-strip {
-  border-block: 1px solid var(--line);
-  background: var(--foam);
+.pl-glow-button:active {
+  transform: translateY(0);
 }
 
-/* Marquee viewport — fixed, edges fade for cleaner look */
-.qe-trust-strip__marquee {
+/* Rotator fade-in, applied to punchline span when key changes (re-mount).
+   Keyed re-mount means each new punchline animates from invisible→visible. */
+.pl-rotate-in {
+  animation: pl-rotate-in 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes pl-rotate-in {
+  0%   { opacity: 0; transform: translateY(14px); filter: blur(2px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+/* Trust strip, infinite right-to-left marquee of partner logos.
+   Continuous loop, no pause, starts from "middle" position via negative
+   animation-delay. Edge fade via mask-image. */
+.pl-trust-marquee {
   position: relative;
   overflow: hidden;
-  padding-block: 28px;
-  /* Soft fade-in/fade-out at edges so logos don't pop in/out abruptly */
+  width: 100%;
   -webkit-mask-image: linear-gradient(
-    to right,
+    90deg,
     transparent 0%,
     black 8%,
     black 92%,
     transparent 100%
   );
   mask-image: linear-gradient(
-    to right,
+    90deg,
     transparent 0%,
     black 8%,
     black 92%,
@@ -893,1783 +266,880 @@ a {
   );
 }
 
-/* Track — content runs twice for seamless loop, animated rightwards.
-   Continuous loop — no hover pause, no reduced-motion override (per design).
-
-   IMPORTANT: spacing between items uses `margin-right` per item, NOT `gap`.
-   Why: with flex `gap`, total track width = 2N×W + (2N-1)×G, and
-   translate(-50%) = -(N×W + (N-0.5)×G) — which is short by 0.5×G = 28px
-   from the actual position of copy B's first item (N×(W+G)). That 28px
-   discrepancy causes a visible "snap" on every loop iteration.
-   Using margin-right makes total width = 2 × N × (W + G) so -50% lands
-   EXACTLY where copy B's first item starts. Truly seamless wrap. */
-.qe-trust-strip__track {
+.pl-trust-track {
   display: flex;
-  align-items: center;
+  gap: 4rem;
   width: max-content;
-  animation: qe-trust-marquee 32s linear infinite;
+  align-items: center;
+  animation: pl-trust-scroll 40s linear infinite;
+  animation-delay: -20s;
   will-change: transform;
 }
 
-@keyframes qe-trust-marquee {
-  /* Track starts already shifted left by half its total width (showing the
-     second copy). It then animates back to 0 (showing the first copy).
-     Visual effect: logos enter from the LEFT edge and flow RIGHTWARDS,
-     exiting on the right edge. Seamless because both copies are identical. */
-  from { transform: translate3d(-50%, 0, 0); }
-  to   { transform: translate3d(0, 0, 0); }
+@keyframes pl-trust-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
-/* Accessibility: stop marquee for users who prefer reduced motion.
-   Shows the first copy of logos as a static row. */
-@media (prefers-reduced-motion: reduce) {
-  .qe-trust-strip__track {
-    animation: none;
-    transform: none;
-  }
-}
-
-.qe-trust-strip__item {
+.pl-trust-item {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  /* Spacing to the next item — including the last item, whose trailing
-     margin completes the periodic structure for seamless looping. */
-  margin-right: 56px;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: var(--sea-ink-soft);
-  text-transform: uppercase;
   flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.qe-trust-strip__item-mark {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--sea-ink);
-  font-family: var(--font-sans);
-  font-weight: 800;
-  font-size: 0.72rem;
+  height: 48px;
+  opacity: 0.55;
+  filter: grayscale(0.4);
+  transition:
+    opacity 250ms ease-out,
+    filter 250ms ease-out;
 }
 
-/* Stats counter row */
-.qe-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 32px 16px;
-  padding-block: 36px;
+.pl-trust-item:hover {
+  opacity: 1;
+  filter: grayscale(0);
 }
 
-@media (min-width: 768px) {
-  .qe-stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 24px;
+/* ============================================
+   Manifesto pattern animations, diagrammatic cards come alive.
+   Subtle continuous loops (~3-5s) so each pattern tells a tiny story.
+   ============================================ */
+
+/* Flowing dashes, used on agent→proxy arrow + bypass route + fan-out arrows.
+   stroke-dasharray on the path itself + animate dashoffset. */
+@keyframes pl-pat-flow {
+  to {
+    stroke-dashoffset: -16;
   }
 }
 
-.qe-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  text-align: left;
-  padding-left: 20px;
-  border-left: 2px solid var(--line);
-}
-
-.qe-stat__value {
-  font-family: var(--font-sans);
-  font-weight: 800;
-  font-size: 2.5rem;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--sea-ink);
-  font-variant-numeric: tabular-nums;
-}
-
-@media (min-width: 768px) {
-  .qe-stat__value {
-    font-size: 3rem;
+/* Pulse-fade, used on broken-proxy fracture line + "no gate" indicator. */
+@keyframes pl-pat-pulse-fade {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
   }
 }
 
-.qe-stat__label {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--sea-ink-soft);
+/* Chain-pulse, used on multi-chain fan-out target pills.
+   Cycle: chain stays muted 90% of time, briefly highlights teal. */
+@keyframes pl-pat-chain-pulse {
+  0%,
+  88%,
+  100% {
+    fill: rgb(10 26 22 / 0.6);
+    stroke: rgb(166 196 189 / 0.5);
+  }
+  6%,
+  18% {
+    fill: rgb(45 212 191 / 0.3);
+    stroke: rgb(45 212 191);
+  }
 }
 
-.qe-stat__sub {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  color: var(--kicker);
+/* Scanline, vertical line sweeping across block-explorer card.
+   Suggests "anyone scanning the chain can read" (CCTV / X-ray feel). */
+@keyframes pl-pat-scanline {
+  0% {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  10%,
+  90% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(148px);
+    opacity: 0;
+  }
 }
 
-/* Multi-color rail tinting */
-.qe-rail--encrypt { --rail: var(--rail-encrypt); --rail-soft: var(--rail-encrypt-soft); }
-.qe-rail--ika { --rail: var(--rail-ika); --rail-soft: var(--rail-ika-soft); }
-.qe-rail--jupiter { --rail: var(--rail-jupiter); --rail-soft: var(--rail-jupiter-soft); }
+.pl-pat-flow {
+  animation: pl-pat-flow 1.5s linear infinite;
+}
 
-.qe-rail-section {
+.pl-pat-pulse {
+  animation: pl-pat-pulse-fade 2s ease-in-out infinite;
+}
+
+.pl-pat-chain {
+  animation: pl-pat-chain-pulse 4s linear infinite;
+}
+
+.pl-pat-scanline {
+  animation: pl-pat-scanline 5s ease-in-out infinite;
+}
+
+/* ============================================
+   Rails section background, continuous particle dust field across
+   the 3-card row + cursor-tracked teal glow that brightens dust near
+   the mouse pointer. Connects the cards visually so they read as one
+   canvas rather than three separate boxes.
+   ============================================ */
+
+.pl-rails-bg {
   position: relative;
 }
 
-.qe-rail-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--rail);
-  background: var(--rail-soft);
-  border-radius: 999px;
-}
-
-.qe-rail-kicker__num {
-  font-weight: 500;
-  opacity: 0.7;
-}
-
-.qe-rail-bullet {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding-block: 4px;
-}
-
-.qe-rail-bullet::before {
-  content: "›";
-  flex-shrink: 0;
-  margin-top: 1px;
-  font-family: var(--font-mono);
-  color: var(--rail, var(--lagoon));
-  font-weight: 700;
-}
-
-/* Terminal mockup */
-.qe-terminal {
-  position: relative;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
-  background: #0e1117;
-  color: #e5e7eb;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  line-height: 1.55;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 12px 28px rgba(10, 10, 10, 0.12);
-}
-
-.qe-terminal__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: #16191f;
-  border-bottom: 1px solid #2a2e36;
-}
-
-.qe-terminal__dots {
-  display: inline-flex;
-  gap: 6px;
-}
-
-.qe-terminal__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #3a3f48;
-}
-
-.qe-terminal__title {
-  font-size: 0.7rem;
-  color: #94a3b8;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.qe-terminal__body {
-  padding: 16px 18px;
-  white-space: pre;
-  overflow-x: auto;
-}
-
-.qe-tok-key { color: #93c5fd; }
-.qe-tok-str { color: #5eead4; }
-.qe-tok-num { color: #fbbf24; }
-.qe-tok-comment { color: #6b7280; font-style: italic; }
-.qe-tok-fn { color: #c4b5fd; }
-.qe-tok-ok { color: #4ade80; }
-.qe-tok-err { color: #f87171; }
-.qe-tok-prompt { color: #6b7280; }
-.qe-tok-cmd { color: #f5f5f4; }
-.qe-tok-hl { color: #fde68a; }
-
-/* Architecture flow diagram */
-.qe-flow-diagram {
-  width: 100%;
-  height: auto;
-  max-width: 100%;
-}
-
-.qe-flow-node-bg { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
-.qe-flow-node-bg--accent { fill: var(--lagoon-soft); stroke: var(--lagoon); stroke-width: 1.5; }
-.qe-flow-node-bg--rail { fill: var(--foam); stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 4 3; }
-.qe-flow-edge { stroke: var(--line-strong); stroke-width: 1.5; fill: none; }
-.qe-flow-edge--accent { stroke: var(--lagoon); stroke-width: 1.5; fill: none; }
-.qe-flow-num {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  fill: var(--kicker);
-  text-transform: uppercase;
-}
-.qe-flow-label {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 700;
-  fill: var(--sea-ink);
-}
-.qe-flow-sub {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  fill: var(--sea-ink-soft);
-}
-
-/* Section divider — subtle decorative break */
-.qe-section-edge {
-  position: relative;
-}
-
-.qe-section-edge--top::before,
-.qe-section-edge--bot::after {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  height: 1px;
-  background: linear-gradient(to right, transparent 0%, var(--line) 20%, var(--line) 80%, transparent 100%);
-}
-
-.qe-section-edge--top::before { top: 0; }
-.qe-section-edge--bot::after { bottom: 0; }
-
-/* Security 4-quadrant grid */
-.qe-quadrant {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  overflow: hidden;
-  background: var(--surface);
-}
-
-@media (min-width: 768px) {
-  .qe-quadrant {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-  }
-}
-
-.qe-quadrant__cell {
-  padding: 28px;
-  border-top: 1px solid var(--line);
-  border-left: 1px solid var(--line);
-}
-
-.qe-quadrant__cell:first-child {
-  border-top: 0;
-  border-left: 0;
-}
-
-@media (min-width: 768px) {
-  .qe-quadrant__cell:nth-child(1),
-  .qe-quadrant__cell:nth-child(2) {
-    border-top: 0;
-  }
-  .qe-quadrant__cell:nth-child(odd) {
-    border-left: 0;
-  }
-}
-
-.qe-quadrant__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  background: var(--lagoon-soft);
-  color: var(--lagoon);
-  font-family: var(--font-mono);
-  font-weight: 800;
-  font-size: 0.85rem;
-  margin-bottom: 14px;
-}
-
-/* Final CTA — strong gradient panel */
-.qe-cta-panel {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border-radius: 18px;
-  padding: 56px 28px;
-  background: linear-gradient(
-    135deg,
-    var(--lagoon) 0%,
-    var(--lagoon-deep) 50%,
-    color-mix(in oklab, var(--rail-jupiter) 70%, var(--lagoon-deep)) 100%
-  );
-  color: white;
-  text-align: center;
-}
-
-.qe-cta-panel::before {
-  content: "";
+/* Cursor-tracked spotlight glow overlay */
+.pl-rails-bg::after {
+  content: '';
   position: absolute;
   inset: 0;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 30%, transparent 80%);
   pointer-events: none;
-  z-index: -1;
+  background: radial-gradient(
+    circle 260px at var(--cursor-x, 50%) var(--cursor-y, 50%),
+    rgb(45 212 191 / 0.10) 0%,
+    rgb(45 212 191 / 0.02) 35%,
+    transparent 65%
+  );
+  mix-blend-mode: screen;
+  transition: background 220ms ease-out;
+  z-index: 1;
 }
 
-.qe-cta-panel h2 {
-  color: white;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.05;
+/* Particle layers, 2-layer parallax (foreground faster, background slower
+   in opposite direction). SVG is 12% larger than container with inset -6%
+   on each side so drift never exposes empty edges. Subtle rotation
+   adds organic movement on top of translate. */
+.pl-rails-particles-bg,
+.pl-rails-particles-fg {
+  position: absolute;
+  inset: -6%;
+  width: 112%;
+  height: 112%;
+  transform-origin: center;
+  will-change: transform;
 }
 
-.qe-cta-panel p {
-  color: rgba(255, 255, 255, 0.85);
-  margin-top: 14px;
+.pl-rails-particles-bg {
+  animation: pl-rails-drift-bg 20s ease-in-out infinite alternate;
 }
 
-.qe-cta-panel .qe-button--primary {
-  background: white;
-  color: var(--lagoon-deep);
-  border-color: white;
-  font-weight: 800;
+.pl-rails-particles-fg {
+  animation: pl-rails-drift-fg 12s ease-in-out infinite alternate;
 }
 
-.qe-cta-panel .qe-button--primary:hover {
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--lagoon-deep);
+/* Background layer, drift right→left + counter-rotate slightly */
+@keyframes pl-rails-drift-bg {
+  0% {
+    transform: translate(3%, 1.4%) rotate(-0.3deg);
+  }
+  100% {
+    transform: translate(-3%, -1.4%) rotate(0.3deg);
+  }
 }
 
-.qe-cta-panel .qe-button--secondary {
-  background: transparent;
-  color: white;
-  border-color: rgba(255, 255, 255, 0.4);
+/* Foreground layer, drift left→right + co-rotate slightly */
+@keyframes pl-rails-drift-fg {
+  0% {
+    transform: translate(-2.2%, -1.2%) rotate(0.4deg);
+  }
+  100% {
+    transform: translate(2.2%, 1.2%) rotate(-0.4deg);
+  }
 }
 
-.qe-cta-panel .qe-button--secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
-  border-color: rgba(255, 255, 255, 0.6);
-}
+/* Reduced-motion fallback, disable drift + reveal animations + cursor glow */
+@media (prefers-reduced-motion: reduce) {
+  .pl-ambient-hero {
+    animation: none;
+  }
 
-@media (min-width: 768px) {
-  .qe-cta-panel {
-    padding: 80px 40px;
+  .pl-ambient-hero::after {
+    display: none;
+  }
+
+  .pl-reveal {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .pl-glow-button {
+    transition: none;
+  }
+
+  .pl-rotate-in {
+    animation: none;
+  }
+
+  .pl-trust-track {
+    animation: none;
+    /* Static centered view: shift to show middle of duplicated set */
+    transform: translateX(-25%);
+    justify-content: center;
+  }
+
+  .pl-pat-flow,
+  .pl-pat-pulse,
+  .pl-pat-chain,
+  .pl-pat-scanline,
+  .pl-rails-particles-bg,
+  .pl-rails-particles-fg {
+    animation: none;
   }
 }
 
 /* ============================================
-   POLISH PASS — hero visual, dark CTA, rail accents,
-   footer transition, mobile guards
+   /app shell, v1 token shim.
+   Cross-imported v1 dashboard components (WalletDashboard,
+   SimpleDemoTab, DemoTab, TemporalKeyManager) reference v1 CSS
+   variables (`--sea-ink`, `--island-bg`, `--lagoon-deep`, etc.). The
+   `.pl-app-shell` wrapper redefines those names to the v2 dark-theme
+   equivalents so the components render correctly without a 3500+ LOC
+   re-port. Scoped to /app so the landing page is unaffected.
    ============================================ */
 
-/* Global mobile overflow guard */
-html, body {
-  overflow-x: hidden;
+.pl-app-shell {
+  --sea-ink: var(--color-ink);
+  --sea-ink-soft: var(--color-ink-soft);
+  --line: var(--color-line);
+  --line-strong: var(--color-line-strong);
+  --lagoon: var(--color-lagoon);
+  --lagoon-deep: var(--color-lagoon-bright);
+  --island-bg: var(--color-bg-deep);
+  --surface: var(--color-surface);
+  --surface-strong: var(--color-surface-raised);
+  --chip-bg: var(--color-surface);
+  --chip-line: var(--color-line);
+  --link-bg-hover: rgb(45 212 191 / 0.1);
 }
 
+/* island-kicker, small uppercase mono caption used by v1 components. */
+.pl-app-shell .island-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-lagoon-bright);
+}
 
 /* ============================================
-   FIX #4 — DARK-NATIVE CTA PANEL (override gradient)
+   Crypto-Blur Theater, Demo Widget v2
+   Confidential numeric policy visualisation.
    ============================================ */
-.qe-cta-panel {
+
+/* Final CTA section, subtle aurora-radial backdrop */
+.pl-cta-aurora::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   background:
-    radial-gradient(ellipse 60% 80% at 0% 0%, color-mix(in oklab, var(--lagoon) 24%, transparent) 0%, transparent 65%),
-    radial-gradient(ellipse 50% 70% at 100% 100%, color-mix(in oklab, var(--rail-jupiter) 22%, transparent) 0%, transparent 60%),
-    linear-gradient(135deg, #0a3d3a 0%, #0e1117 45%, #1a0f3a 100%);
-  border: 1px solid color-mix(in oklab, var(--lagoon) 28%, var(--line));
+    radial-gradient(ellipse 70% 50% at 30% 30%, rgb(45 212 191 / 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 60% at 75% 70%, rgb(20 184 166 / 0.06) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Path card hover, lifts + halo glow */
+.pl-cta-card {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease-out,
+    border-color 220ms ease-out;
+}
+
+.group:hover > .pl-cta-card {
+  transform: translateY(-2px);
+  border-color: rgb(45 212 191 / 0.4);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.06) inset,
-    0 12px 30px rgba(10, 10, 10, 0.20);
+    0 16px 40px -16px rgb(0 0 0 / 0.6),
+    0 0 32px -8px rgb(45 212 191 / 0.18),
+    inset 0 1px 0 rgb(45 212 191 / 0.18);
 }
 
-.qe-cta-panel::before {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+/* Encrypted noise layer, scattered cipher fragments in section bg.
+   Tells encryption story even in negative space. Fragments breathe
+   (opacity + vertical sway) at varied durations for organic feel. */
+.pl-encrypted-noise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
 }
 
-/* CTA buttons — keep accent button readable on dark */
-.qe-cta-panel .qe-button--primary {
-  background: var(--lagoon);
-  color: white;
-  border-color: var(--lagoon);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.18) inset,
-    0 8px 22px rgba(13, 125, 119, 0.45);
+.pl-noise-fragment {
+  position: absolute;
+  font-family: var(--font-mono);
+  color: var(--color-lagoon-bright);
+  white-space: nowrap;
+  user-select: none;
+  letter-spacing: 0.04em;
+  opacity: var(--noise-opacity, 0.08);
+  animation: pl-noise-breathe var(--noise-duration, 6s) ease-in-out infinite;
+  animation-delay: var(--noise-delay, 0s);
 }
 
-.qe-cta-panel .qe-button--primary:hover {
-  background: color-mix(in oklab, var(--lagoon) 84%, white 16%);
-  border-color: color-mix(in oklab, var(--lagoon) 84%, white 16%);
-  color: white;
+@keyframes pl-noise-breathe {
+  0%, 100% {
+    opacity: var(--noise-opacity, 0.08);
+    transform: translateY(0);
+  }
+  50% {
+    opacity: calc(var(--noise-opacity, 0.08) * 1.7);
+    transform: translateY(-6px);
+  }
 }
 
-/* ============================================
-   FIX #3 — STRONGER RAIL KICKERS
-   ============================================ */
-.qe-rail-kicker {
-  padding: 8px 14px;
-  font-size: 0.74rem;
-  letter-spacing: 0.18em;
-  border: 1px solid color-mix(in oklab, var(--rail) 35%, transparent);
-  box-shadow: 0 1px 0 var(--inset-glint) inset;
-}
-
-.qe-rail-kicker__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-right: 6px;
-  border-radius: 5px;
-  background: var(--rail);
-  color: white;
-  flex-shrink: 0;
-}
-
-.qe-rail-section {
+/* Glass Holographic Plate, replaces panel frame.
+   Outer "plate" is invisible. Content floats with:
+   - Radial halo backdrop (::before), subtle teal aurora behind everything
+   - Top accent line (::after), thin teal projection edge, evokes
+     holographic origin point. Glow shadow on the line for emphasis. */
+.pl-holographic-plate {
   position: relative;
 }
 
-.qe-rail-section::before {
-  content: "";
+.pl-holographic-plate::before {
+  content: '';
+  position: absolute;
+  inset: -8% -4% -10% -4%;
+  background: radial-gradient(
+    ellipse 80% 60% at center 35%,
+    rgb(45 212 191 / 0.07) 0%,
+    rgb(45 212 191 / 0.025) 40%,
+    transparent 75%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pl-holographic-plate::after {
+  content: '';
   position: absolute;
   top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
+  left: 25%;
+  width: 50%;
+  height: 1px;
   background: linear-gradient(
-    to bottom,
+    to right,
     transparent 0%,
-    var(--rail) 25%,
-    var(--rail) 75%,
+    rgb(45 212 191 / 0.6) 30%,
+    rgb(165 243 252 / 0.85) 50%,
+    rgb(45 212 191 / 0.6) 70%,
     transparent 100%
   );
-  opacity: 0.7;
+  box-shadow: 0 0 16px rgb(45 212 191 / 0.5);
   pointer-events: none;
+  z-index: 1;
 }
 
-@media (max-width: 767px) {
-  .qe-rail-section::before {
-    width: 2px;
-  }
-}
-
-/* Rail bullet color uses the rail accent */
-.qe-rail--encrypt .qe-rail-bullet::before { color: var(--rail-encrypt); }
-.qe-rail--ika .qe-rail-bullet::before     { color: var(--rail-ika); }
-.qe-rail--jupiter .qe-rail-bullet::before { color: var(--rail-jupiter); }
-
-/* ============================================
-   FIX #5 — FOOTER TRANSITION (no big gap)
-   ============================================ */
-footer {
-  margin-top: 0 !important;
-}
-
-/* ============================================
-   FIX #6 — MOBILE GUARDS
-   ============================================ */
-@media (max-width: 767px) {
-  /* Hero typography scale-down on small screens */
-  .qe-hero h1 {
-    font-size: 2.25rem !important;
-    line-height: 1.05 !important;
-  }
-
-  /* Floating cards stack rather than overlap — reset scales for mobile */
-  .qe-hero-visual {
-    min-height: 420px;
-    margin-top: 16px;
-  }
-
-  .qe-hero-visual__card--policy   { top: 0;     left: 0;   --scale: 1; --rot: -2deg; width: min(85%, 280px); }
-  .qe-hero-visual__card--session  { top: 38%;   right: 0;  --scale: 1; --rot: 2deg;  width: min(75%, 260px); }
-  .qe-hero-visual__card--terminal { top: 65%;   left: 4%;  --scale: 1; --rot: -1deg; width: min(96%, 360px); }
-
-  /* Stats on 2-col mobile, no horizontal scroll */
-  .qe-stats {
-    padding-inline: 0;
-  }
-
-  /* Architecture flow — give horizontal scroll affordance */
-  .qe-flow-diagram {
-    min-width: 720px;
-  }
-
-  /* Quadrant — single col on mobile, internal borders adjust */
-  .qe-quadrant__cell {
-    border-left: 0 !important;
-  }
-
-  /* Terminal mockup — readable font, allow horizontal scroll */
-  .qe-terminal {
-    font-size: 0.7rem;
-  }
-
-  /* CTA panel scale-down */
-  .qe-cta-panel {
-    padding: 40px 22px;
-  }
-}
-
-
-/* ============================================
-   WALRUS-PATTERN HERO + ANTI-THESIS
-   Type-driven, single column, single CTA.
-   Replaces 2-col grid hero (issue 042 redirect).
-   ============================================ */
-
-/* Type-driven hero variant (overrides .qe-hero where needed) */
-.qe-hero--type {
+.pl-holographic-plate > * {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  /* Fill most of the viewport so the hero dominates the first impression
-     and the trust strip naturally falls below the fold on 1080p+ desktops. */
-  min-height: calc(100svh - 64px);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  /* Hero background image — IMG_3787.png served from /public.
-     Gradient overlay keeps the headline, kicker, and subhead readable
-     by pushing the image toward the edges while text sits against a
-     theme-matched tint. Override overlay RGB in dark theme below. */
-  background-image:
-    linear-gradient(
-      180deg,
-      var(--hero-bg-overlay-top, rgba(250, 250, 249, 0.88)) 0%,
-      var(--hero-bg-overlay-bottom, rgba(250, 250, 249, 0.62)) 100%
-    ),
-    url("/IMG_3787.png");
-  background-size: auto, cover;
-  background-position: top, center;
-  background-repeat: no-repeat, no-repeat;
-}
-
-:root[data-theme="dark"] .qe-hero--type,
-:root.dark .qe-hero--type {
-  --hero-bg-overlay-top: rgba(14, 17, 23, 0.8);
-  --hero-bg-overlay-bottom: rgba(14, 17, 23, 0.48);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .qe-hero--type {
-    --hero-bg-overlay-top: rgba(14, 17, 23, 0.8);
-    --hero-bg-overlay-bottom: rgba(14, 17, 23, 0.48);
-  }
-}
-
-@media (min-width: 1024px) {
-  .qe-hero--type {
-    min-height: calc(88svh - 80px);
-  }
-}
-
-.qe-hero--type::before {
-  content: "";
-  position: absolute;
-  inset: -10% -10% auto -10%;
-  height: 130%;
-  background:
-    radial-gradient(ellipse 70% 55% at 22% 28%, var(--lagoon-soft) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 78% 35%, color-mix(in oklab, var(--rail-jupiter) 14%, transparent) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 50% 110%, color-mix(in oklab, var(--rail-ika) 8%, transparent) 0%, transparent 60%);
-  z-index: -2;
-  pointer-events: none;
-  /* Reduced from 0.9 so the background image reads as the primary
-     visual, and the radial blobs act as subtle colour flavour only. */
-  opacity: 0.35;
-}
-
-.qe-hero--type::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(to right, var(--line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
-  background-size: 64px 64px;
-  background-position: 50% 50%;
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 30%, transparent 70%);
-  z-index: -1;
-  /* Reduced from 0.35 to keep the grid a subtle texture over the image
-     rather than a dominant pattern. */
-  opacity: 0.15;
-  pointer-events: none;
-}
-
-/* Tagline kicker — small caps, mono, top of hero */
-.qe-hero-kicker {
-  margin: 0 0 28px;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--lagoon-deep);
-  text-align: center;
-}
-
-@media (min-width: 1024px) {
-  .qe-hero-kicker {
-    margin-bottom: 36px;
-  }
-}
-
-/* Massive headline — 2 lines, very tight tracking, very large, CENTERED */
-.qe-hero-headline {
-  margin: 0 auto 24px;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 2.25rem;
-  line-height: 1;
-  letter-spacing: -0.035em;
-  color: var(--sea-ink);
-  text-align: center;
-  max-width: none;
-}
-
-@media (min-width: 640px) {
-  .qe-hero-headline {
-    font-size: 3rem;
-  }
-}
-
-@media (min-width: 768px) {
-  .qe-hero-headline {
-    font-size: 3.75rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .qe-hero-headline {
-    font-size: 4.75rem;
-    margin-bottom: 28px;
-  }
-}
-
-@media (min-width: 1280px) {
-  .qe-hero-headline {
-    font-size: 5.75rem;
-  }
-}
-
-/* Subhead — generous, with bold inline emphasis, CENTERED */
-.qe-hero-subhead {
-  margin: 0 auto;
-  max-width: 48rem;
-  font-family: var(--font-sans);
-  font-size: 1.1rem;
-  line-height: 1.65;
-  color: var(--sea-ink-soft);
-  text-align: center;
-}
-
-@media (min-width: 768px) {
-  .qe-hero-subhead {
-    font-size: 1.25rem;
-    line-height: 1.7;
-  }
-}
-
-.qe-hero-bold {
-  font-weight: 700;
-  color: var(--sea-ink);
-  background: linear-gradient(transparent 65%, var(--lagoon-soft) 65%);
-  padding-inline: 2px;
-}
-
-/* CTA row — single primary, CENTERED */
-.qe-hero-cta-row {
-  margin-top: 36px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: center;
-}
-
-@media (min-width: 768px) {
-  .qe-hero-cta-row {
-    margin-top: 44px;
-  }
-}
-
-/* Hero meta strip — small, mono, bottom of hero, CENTERED */
-.qe-hero-meta {
-  margin: 36px auto 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 8px 12px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--sea-ink-soft);
-}
-
-.qe-hero-meta__sep {
-  color: var(--kicker);
-  user-select: none;
-}
-
-.qe-hero-meta__item {
-  letter-spacing: 0.04em;
-}
-
-@media (min-width: 768px) {
-  .qe-hero-meta {
-    margin-top: 56px;
-  }
-}
-
-/* ============================================
-   ANTI-THESIS SECTION — massive 3-statement type
-   ============================================ */
-
-.qe-anti-thesis {
-  position: relative;
-  isolation: isolate;
-  background: var(--bg-base);
-  border-block: 1px solid var(--line);
-  overflow: hidden;
-}
-
-.qe-anti-thesis::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 60% 50% at 80% 50%, color-mix(in oklab, var(--lagoon) 10%, transparent) 0%, transparent 65%),
-    radial-gradient(ellipse 50% 40% at 10% 90%, color-mix(in oklab, var(--rail-jupiter) 9%, transparent) 0%, transparent 60%);
-  z-index: -1;
-  pointer-events: none;
-}
-
-.qe-anti-thesis__headline {
-  margin: 0 auto;
-  font-family: var(--font-sans);
-  font-weight: 800;
-  font-size: 2.5rem;
-  line-height: 1.0;
-  letter-spacing: -0.04em;
-  color: var(--sea-ink);
-  text-align: center;
-  max-width: none;
-}
-
-@media (min-width: 640px) {
-  .qe-anti-thesis__headline {
-    font-size: 3.75rem;
-  }
-}
-
-@media (min-width: 768px) {
-  .qe-anti-thesis__headline {
-    font-size: 5rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .qe-anti-thesis__headline {
-    font-size: 7rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  .qe-anti-thesis__headline {
-    font-size: 8.5rem;
-  }
-}
-
-.qe-anti-thesis__headline > span:nth-child(2) {
-  color: var(--sea-ink-soft);
-}
-
-.qe-anti-thesis__headline > span:nth-child(3) {
-  color: color-mix(in oklab, var(--sea-ink) 60%, transparent);
-}
-
-/* Body: copy + CTA below headline, CENTERED */
-.qe-anti-thesis__body {
-  margin: 48px auto 0;
-  max-width: 42rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  text-align: center;
-}
-
-.qe-anti-thesis__body p {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 1.05rem;
-  line-height: 1.7;
-  color: var(--sea-ink-soft);
-}
-
-.qe-anti-thesis__body .qe-button {
-  align-self: center;
-}
-
-@media (min-width: 768px) {
-  .qe-anti-thesis__body {
-    margin-top: 64px;
-  }
-  .qe-anti-thesis__body p {
-    font-size: 1.15rem;
-  }
-}
-
-/* ============================================
-   LANDING INTERACTIONS — scroll reveal, hover, micro-animations
-   ============================================ */
-
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-/* ---- Scroll Reveal ----
-   Elements start invisible + shifted. When .is-visible is added
-   (by IntersectionObserver in JS), they animate into place. */
-
-.qe-reveal {
-  opacity: 0;
-  transform: translateY(32px);
-  transition:
-    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
-}
-
-.qe-reveal.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Stagger children — each child delays slightly more */
-.qe-reveal-stagger > * {
-  opacity: 0;
-  transform: translateY(24px);
-  transition:
-    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.qe-reveal-stagger.is-visible > *:nth-child(1) { transition-delay: 0.05s; }
-.qe-reveal-stagger.is-visible > *:nth-child(2) { transition-delay: 0.12s; }
-.qe-reveal-stagger.is-visible > *:nth-child(3) { transition-delay: 0.19s; }
-.qe-reveal-stagger.is-visible > *:nth-child(4) { transition-delay: 0.26s; }
-.qe-reveal-stagger.is-visible > *:nth-child(5) { transition-delay: 0.33s; }
-
-.qe-reveal-stagger.is-visible > * {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Slide from left */
-.qe-reveal-left {
-  opacity: 0;
-  transform: translateX(-40px);
-  transition:
-    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.qe-reveal-left.is-visible {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-/* Slide from right */
-.qe-reveal-right {
-  opacity: 0;
-  transform: translateX(40px);
-  transition:
-    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.qe-reveal-right.is-visible {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-/* Scale up */
-.qe-reveal-scale {
-  opacity: 0;
-  transform: scale(0.92);
-  transition:
-    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.qe-reveal-scale.is-visible {
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* ---- Card Hover ---- */
-.qe-card {
-  transition:
-    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 0.28s ease;
-}
-
-.qe-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-  border-color: var(--line-strong);
-}
-
-/* ---- Hero Gradient Drift ---- */
-@keyframes qe-hero-gradient-drift {
-  0%, 100% {
-    background-position: 22% 28%, 78% 35%, 50% 110%;
-  }
-  33% {
-    background-position: 25% 32%, 75% 30%, 48% 115%;
-  }
-  66% {
-    background-position: 20% 25%, 80% 38%, 52% 108%;
-  }
-}
-
-.qe-hero--type::before {
-  animation: qe-hero-gradient-drift 18s ease-in-out infinite;
-}
-
-/* ---- Status Dot Pulse ---- */
-@keyframes qe-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-.qe-status-dot {
-  animation: qe-pulse 2.4s ease-in-out infinite;
-}
-
-/* ---- Button Hover Glow ---- */
-.qe-button--primary {
-  transition:
-    background 0.2s ease,
-    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.2s ease;
-}
-
-.qe-button--primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(0, 240, 160, 0.25);
-}
-
-.qe-button--primary:active {
-  transform: translateY(0);
-}
-
-.qe-button--secondary {
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.qe-button--secondary:hover {
-  transform: translateY(-1px);
-}
-
-/* ---- Quadrant Cell Hover ---- */
-.qe-quadrant__cell {
-  transition:
-    background 0.25s ease,
-    border-color 0.25s ease;
-}
-
-.qe-quadrant__cell:hover {
-  background: var(--surface);
-  border-color: var(--line-strong);
-}
-
-/* ---- Link Arrow Nudge ---- */
-.qe-link__arrow {
-  display: inline-block;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.qe-link:hover .qe-link__arrow {
-  transform: translateX(3px);
-}
-
-/* ---- Reduced Motion Override ---- */
-@media (prefers-reduced-motion: reduce) {
-  .qe-reveal,
-  .qe-reveal-left,
-  .qe-reveal-right,
-  .qe-reveal-scale {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-
-  .qe-reveal-stagger > * {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
-
-  .qe-hero--type::before {
-    animation: none;
-  }
-
-  .qe-status-dot {
-    animation: none;
-  }
-
-  .qe-card:hover,
-  .qe-button--primary:hover,
-  .qe-button--secondary:hover {
-    transform: none;
-  }
-
-  html {
-    scroll-behavior: auto;
-  }
-}
-
-/* ---- Fade-in utility for tab transitions ---- */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.25s ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-fadeIn {
-    animation: none;
-  }
-}
-
-/* ============================================
-   SEGMENTED TOGGLE — shared primitive
-   ============================================
-   Used by LocaleToggle (EN/ID) and ThemeToggle (Light/Dark/Auto).
-   Radio-group semantics: each segment is an individually clickable
-   <button role="radio">. Active segment fills with lagoon accent. */
-
-.qe-seg-toggle {
-  display: inline-flex;
-  align-items: stretch;
-  gap: 0;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  transition: border-color 160ms ease;
-}
-
-.qe-seg-toggle:hover {
-  border-color: var(--line-strong);
-}
-
-.qe-seg-toggle:focus-within {
-  border-color: var(--lagoon);
-}
-
-.qe-seg-toggle__seg {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--sea-ink-soft);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  line-height: 1;
-  cursor: pointer;
-  transition:
-    background-color 160ms ease,
-    color 160ms ease,
-    transform 160ms ease;
-}
-
-.qe-seg-toggle__seg:hover:not(.qe-seg-toggle__seg--active) {
-  color: var(--sea-ink);
-  background: var(--foam);
-}
-
-.qe-seg-toggle__seg:focus-visible {
-  outline: 2px solid var(--lagoon);
-  outline-offset: 2px;
-}
-
-.qe-seg-toggle__seg--active {
-  background: var(--lagoon);
-  color: #ffffff;
-}
-
-/* Icon-only variant (ThemeToggle) — square-ish segments, slightly larger
-   tap target, tighter padding than text segments. */
-.qe-seg-toggle--icons .qe-seg-toggle__seg {
-  padding: 5px 7px;
-  min-width: 28px;
-}
-
-.qe-seg-toggle--icons .qe-seg-toggle__seg svg {
-  width: 14px;
-  height: 14px;
-  display: block;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .qe-seg-toggle,
-  .qe-seg-toggle__seg {
-    transition: none;
-  }
-}
-
-/* ============================================
-   Back-compat alias — .qe-locale-toggle was the older class name.
-   Kept so existing selectors in downstream CSS or tests still work.
-   New code should prefer .qe-seg-toggle directly.
-   ============================================ */
-.qe-locale-toggle {
-  /* stylelint-disable-next-line */
-}
-
-
-/* ============================================
-   HERO PRODUCT PREVIEW — macOS-style window frame
-   ============================================ */
-
-.qe-product-frame {
-  display: block;
-  max-width: 420px;
-  margin: 0 auto;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  overflow: hidden;
+  z-index: 1;
+}
+
+/* Glass card, semi-transparent surface with backdrop blur.
+   Used for field grid, gate panel, result, scenario pills.
+   Subtle inset top highlight evokes glass catching light. */
+.pl-glass-card {
+  background-color: rgb(10 26 22 / 0.45);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  border: 1px solid rgb(30 184 164 / 0.15);
   box-shadow:
-    0 1px 2px rgba(13, 125, 119, 0.06),
-    0 8px 24px rgba(13, 125, 119, 0.08),
-    0 24px 56px rgba(0, 0, 0, 0.06);
-  animation: qe-hero-preview-enter 400ms ease-out both;
+    0 8px 24px -12px rgb(0 0 0 / 0.5),
+    inset 0 1px 0 rgb(45 212 191 / 0.08);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .qe-product-frame {
-    animation: none;
-  }
+.pl-glass-card-strong {
+  background-color: rgb(10 26 22 / 0.65);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid rgb(30 184 164 / 0.22);
+  box-shadow:
+    0 12px 32px -16px rgb(0 0 0 / 0.6),
+    inset 0 1px 0 rgb(45 212 191 / 0.12);
 }
 
-@keyframes qe-hero-preview-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Demo widget panel, engineering blueprint frame.
+   Subtle border + corner brackets + soft halo. No mac chrome. */
+.pl-demo-panel {
+  box-shadow:
+    0 24px 80px -32px rgb(0 0 0 / 0.6),
+    0 0 60px -28px rgb(45 212 191 / 0.08);
 }
 
-.qe-product-frame__chrome {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: var(--foam);
-  border-bottom: 1px solid var(--line);
+/* Blueprint corner brackets, L-shaped marks at panel corners.
+   2 absolutely-positioned bars per corner; subtle teal glow. */
+.pl-blueprint-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  z-index: 2;
 }
 
-.qe-product-frame__dots {
-  display: inline-flex;
-  gap: 6px;
-  flex-shrink: 0;
+.pl-blueprint-corner::before,
+.pl-blueprint-corner::after {
+  content: '';
+  position: absolute;
+  background-color: var(--color-lagoon-bright);
+  opacity: 0.55;
+  box-shadow: 0 0 6px rgb(45 212 191 / 0.35);
 }
 
-.qe-product-frame__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  display: block;
+/* Top-left: horizontal bar going right + vertical bar going down */
+.pl-blueprint-corner[data-corner="tl"] { top: 11px; left: 11px; }
+.pl-blueprint-corner[data-corner="tl"]::before { top: 0; left: 0; width: 100%; height: 1.5px; }
+.pl-blueprint-corner[data-corner="tl"]::after  { top: 0; left: 0; height: 100%; width: 1.5px; }
+
+/* Top-right */
+.pl-blueprint-corner[data-corner="tr"] { top: 11px; right: 11px; }
+.pl-blueprint-corner[data-corner="tr"]::before { top: 0; right: 0; width: 100%; height: 1.5px; }
+.pl-blueprint-corner[data-corner="tr"]::after  { top: 0; right: 0; height: 100%; width: 1.5px; }
+
+/* Bottom-left */
+.pl-blueprint-corner[data-corner="bl"] { bottom: 11px; left: 11px; }
+.pl-blueprint-corner[data-corner="bl"]::before { bottom: 0; left: 0; width: 100%; height: 1.5px; }
+.pl-blueprint-corner[data-corner="bl"]::after  { bottom: 0; left: 0; height: 100%; width: 1.5px; }
+
+/* Bottom-right */
+.pl-blueprint-corner[data-corner="br"] { bottom: 11px; right: 11px; }
+.pl-blueprint-corner[data-corner="br"]::before { bottom: 0; right: 0; width: 100%; height: 1.5px; }
+.pl-blueprint-corner[data-corner="br"]::after  { bottom: 0; right: 0; height: 100%; width: 1.5px; }
+
+/* Mid-edge alignment crosshairs (technical drawing detail), small + marks */
+.pl-blueprint-tick {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  opacity: 0.4;
+  z-index: 1;
 }
 
-.qe-product-frame__dot--close {
-  background: #ff5f56;
-}
-.qe-product-frame__dot--min {
-  background: #ffbd2e;
-}
-.qe-product-frame__dot--max {
-  background: #27c93f;
+.pl-blueprint-tick::before,
+.pl-blueprint-tick::after {
+  content: '';
+  position: absolute;
+  background-color: var(--color-lagoon-bright);
 }
 
-.qe-product-frame__url {
-  flex: 1;
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--sea-ink-soft);
-  letter-spacing: 0.02em;
-  padding: 3px 10px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.pl-blueprint-tick::before {
+  top: 50%; left: 0; width: 100%; height: 1px; transform: translateY(-50%);
 }
 
-.qe-product-frame__viewport {
-  padding: 20px;
-  background: var(--bg-base);
+.pl-blueprint-tick::after {
+  left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%);
 }
 
-/* Preview card inside the frame */
-
-.qe-preview-card {
-  padding: 18px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.qe-preview-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.qe-preview-card__kicker {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: var(--kicker);
-}
-
-.qe-preview-card__alpha-badge {
-  font-family: var(--font-mono);
-  font-size: 0.58rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--sunset);
-  background: var(--sunset-soft);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.qe-preview-card__rows {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.qe-preview-card__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-}
-
-.qe-preview-card__row dt {
-  color: var(--sea-ink-soft);
-}
-
-.qe-preview-card__masked {
-  margin: 0;
-  color: var(--sea-ink);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-}
-
-.qe-preview-card__divider {
+/* Dashed divider for section separation, blueprint feel.
+   Replaces solid borders between header/stage/picker/footer. */
+.pl-blueprint-divider {
   height: 1px;
-  margin: 0;
-  background: var(--line);
-  border: 0;
+  background-image: linear-gradient(
+    to right,
+    transparent 0%,
+    rgb(30 184 164 / 0.18) 8%,
+    rgb(30 184 164 / 0.18) 92%,
+    transparent 100%
+  );
+  background-size: 6px 1px;
+  background-repeat: repeat-x;
 }
 
-.qe-preview-card__session {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* Technical header label, section identifier in monospace caps */
+.pl-blueprint-id {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--sea-ink-soft);
-}
-
-.qe-preview-card__session-label {
-  color: var(--palm);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   font-weight: 600;
 }
 
-.qe-preview-card__session-key {
-  margin-left: auto;
-  color: var(--sea-ink-soft);
-  font-size: 0.66rem;
+/* Subtle blueprint grid background for the stage area */
+.pl-blueprint-grid {
+  background-image:
+    linear-gradient(rgb(45 212 191 / 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(45 212 191 / 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -1px -1px;
 }
 
-.qe-preview-card__blocked {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: var(--coral-soft);
-  border: 1px solid var(--coral);
-  border-radius: 8px;
+/* Chromatic aberration on EncryptedField during encrypting/revealing.
+   Red+cyan offset shadows + horizontal jitter. Steps(4) for crisp glitch feel.
+   Color stays lagoon for the actual chars; aberration is the shadow layer. */
+.pl-aberration {
+  color: var(--color-lagoon-bright);
+  text-shadow:
+    1px 0 0 rgb(248 113 113 / 0.8),
+    -1px 0 0 rgb(45 212 191 / 0.8);
+  animation: pl-aberration-shift 220ms steps(4) infinite;
 }
 
-.qe-preview-card__amount {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.94rem;
-  color: var(--coral);
-  letter-spacing: -0.01em;
+@keyframes pl-aberration-shift {
+  0%   { text-shadow: 1px 0 0 rgb(248 113 113 / 0.85), -1px 0 0 rgb(45 212 191 / 0.85); transform: translateX(0); }
+  25%  { text-shadow: 2px 0 0 rgb(248 113 113 / 0.8),  -2px 0 0 rgb(45 212 191 / 0.8);  transform: translateX(-1px); }
+  50%  { text-shadow: 0   0 0 rgb(248 113 113 / 0),     0   0 0 rgb(45 212 191 / 0);     transform: translateX(0); }
+  75%  { text-shadow: -1px 0 0 rgb(248 113 113 / 0.85), 1px 0 0 rgb(45 212 191 / 0.85); transform: translateX(1px); }
 }
 
-.qe-preview-card__blocked-label {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--coral);
+/* Settled encrypted state, soft teal glow + slow pulse */
+.pl-encrypted {
+  color: var(--color-lagoon-bright);
+  text-shadow: 0 0 8px rgb(45 212 191 / 0.4);
+  animation: pl-encrypted-pulse 2.4s ease-in-out infinite;
 }
 
-/* Status dot colour helpers used by the preview */
-.qe-status-dot--palm {
-  color: var(--palm);
+@keyframes pl-encrypted-pulse {
+  0%, 100% { text-shadow: 0 0 8px rgb(45 212 191 / 0.4); }
+  50%      { text-shadow: 0 0 16px rgb(45 212 191 / 0.7); }
 }
 
-
-/* ============================================
-   FINAL CTA — audience-split path cards
-   ============================================ */
-
-.qe-cta-path {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 20px 22px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: var(--sea-ink);
-  text-decoration: none;
-  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
-  text-align: left;
+/* Constraint check row, staggered fade-in from left.
+   Use inline animation-delay to control stagger order. */
+.pl-constraint-row {
+  opacity: 0;
+  transform: translateX(-8px);
+  animation: pl-constraint-fade-in 360ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.qe-cta-path:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.28);
-  transform: translateY(-2px);
-  color: var(--sea-ink);
-  text-decoration: none;
+@keyframes pl-constraint-fade-in {
+  0%   { opacity: 0; transform: translateX(-8px); }
+  100% { opacity: 1; transform: translateX(0); }
 }
 
-.qe-cta-path:focus-visible {
-  outline: 2px solid var(--lagoon);
-  outline-offset: 2px;
+/* Result panels, different entry animations per outcome */
+.pl-result-allow {
+  animation: pl-result-allow-in 540ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.qe-cta-path--primary {
-  background: var(--lagoon);
-  border-color: var(--lagoon-deep);
-  color: #fff;
+@keyframes pl-result-allow-in {
+  0%   { opacity: 0; transform: scale(0.92); filter: blur(4px); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
 }
 
-.qe-cta-path--primary:hover {
-  background: var(--lagoon-deep);
-  border-color: var(--lagoon-deep);
-  color: #fff;
+.pl-result-block {
+  animation: pl-result-block-in 420ms ease-out;
 }
 
-.qe-cta-path__kicker {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  opacity: 0.72;
+@keyframes pl-result-block-in {
+  0%        { opacity: 0; transform: translateX(0); }
+  10%       { opacity: 1; }
+  20%, 40%  { transform: translateX(-5px); }
+  30%, 50%  { transform: translateX(5px); }
+  60%       { transform: translateX(-3px); }
+  70%       { transform: translateX(3px); }
+  100%      { opacity: 1; transform: translateX(0); }
 }
 
-.qe-cta-path__title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.35rem;
-  letter-spacing: -0.01em;
+/* Allow burst, radial particles emitting from origin */
+.pl-allow-burst {
+  position: relative;
 }
 
-.qe-cta-path__action {
-  margin-top: 4px;
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.9rem;
-  opacity: 0.92;
+.pl-allow-burst::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(
+    circle at center,
+    rgb(74 222 128 / 0.25) 0%,
+    rgb(45 212 191 / 0.12) 30%,
+    transparent 70%
+  );
+  pointer-events: none;
+  animation: pl-allow-burst-expand 900ms ease-out forwards;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .qe-cta-path {
-    transition: none;
-  }
-  .qe-cta-path:hover {
-    transform: none;
-  }
+@keyframes pl-allow-burst-expand {
+  0%   { opacity: 0; transform: scale(0.5); }
+  40%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.4); }
 }
 
-
-/* ============================================
-   COLOSSEUM BADGE — "participating in" signal
-   ============================================ */
-
-.qe-colosseum-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--sea-ink);
-  text-decoration: none;
-  transition: border-color 160ms ease, color 160ms ease, transform 160ms ease;
+/* Block pulse, coral radial flash */
+.pl-block-pulse {
+  position: relative;
 }
 
-.qe-colosseum-badge:hover {
-  border-color: var(--lagoon);
-  color: var(--lagoon);
-  text-decoration: none;
-  transform: translateY(-1px);
+.pl-block-pulse::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  background: radial-gradient(
+    circle at center,
+    rgb(248 113 113 / 0.22) 0%,
+    rgb(248 113 113 / 0.08) 35%,
+    transparent 65%
+  );
+  pointer-events: none;
+  animation: pl-block-pulse-expand 700ms ease-out forwards;
 }
 
-.qe-colosseum-badge img {
-  display: block;
-  opacity: 0.85;
+@keyframes pl-block-pulse-expand {
+  0%   { opacity: 0; transform: scale(0.6); }
+  40%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.3); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .qe-colosseum-badge {
-    transition: none;
-  }
-  .qe-colosseum-badge:hover {
-    transform: none;
-  }
-}
-
-
-/* ============================================
-   RAIL MOCKUP — Ika sequence flow diagram
-   ============================================ */
-
-.qe-rail-seq {
-  padding: 22px 18px;
-  background: #0b1116;
-  color: #e8edf2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  min-height: 400px;
-}
-
-.qe-rail-seq__step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+/* Gate evaluation progress bar, sweeps left to right */
+.pl-progress-bar {
   width: 100%;
-  max-width: 320px;
-}
-
-.qe-rail-seq__node {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 12px 16px;
-  width: 100%;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  font-family: var(--font-mono);
-}
-
-.qe-rail-seq__node--accent {
-  background: rgba(45, 212, 191, 0.14);
-  border-color: rgba(45, 212, 191, 0.5);
-}
-
-.qe-rail-seq__num {
-  font-size: 0.56rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.48);
-}
-
-.qe-rail-seq__node--accent .qe-rail-seq__num {
-  color: #2dd4bf;
-}
-
-.qe-rail-seq__label {
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -0.01em;
-}
-
-.qe-rail-seq__sub {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.qe-rail-seq__arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0;
-  font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.45);
-  line-height: 1;
-}
-
-/* ============================================
-   RAIL MOCKUP — Jupiter route preview table
-   ============================================ */
-
-.qe-rail-route {
-  padding: 22px 18px;
-  background: #0b1116;
-  color: #e8edf2;
-  font-family: var(--font-mono);
-  min-height: 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.qe-rail-route__grid {
-  margin: 0;
-  padding: 0;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  height: 3px;
+  background: rgb(30 184 164 / 0.12);
+  border-radius: 1.5px;
   overflow: hidden;
+  position: relative;
 }
 
-.qe-rail-route__row {
-  display: grid;
-  grid-template-columns: 110px 1fr;
-  padding: 10px 14px;
-  font-size: 0.78rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+.pl-progress-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--color-lagoon) 0%, var(--color-lagoon-bright) 50%, var(--color-palm) 100%);
+  transform-origin: left;
+  animation: pl-progress-fill 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-.qe-rail-route__row:last-child {
-  border-bottom: 0;
+@keyframes pl-progress-fill {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
 }
 
-.qe-rail-route__row dt {
-  color: rgba(255, 255, 255, 0.5);
-  font-weight: 500;
+/* Scenario pill (compact action trigger), hover lift + active ring */
+.pl-scenario-pill {
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease-out, border-color 180ms ease-out;
 }
 
-.qe-rail-route__row dd {
-  margin: 0;
-  color: #fff;
-  font-weight: 500;
-}
-
-.qe-rail-route__accent {
-  color: #2dd4bf !important;
-  font-weight: 600;
-}
-
-.qe-rail-route__mono {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.78) !important;
-}
-
-.qe-rail-route__footnote {
-  margin: 0;
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.4);
-  padding-left: 4px;
-}
-
-
-/* ============================================
-   HEADER STICKY MINI-CTA — visible post-hero on landing
-   ============================================ */
-
-.qe-header-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 14px;
-  background: var(--lagoon);
-  color: #ffffff;
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.82rem;
-  border-radius: 999px;
-  text-decoration: none;
-  border: 1px solid var(--lagoon-deep);
-  transition:
-    background-color 160ms ease,
-    transform 160ms ease,
-    opacity 200ms ease;
-  animation: qe-header-cta-enter 180ms ease-out;
-}
-
-@keyframes qe-header-cta-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.qe-header-cta:hover {
-  background: var(--lagoon-deep);
-  color: #ffffff;
-  text-decoration: none;
+.pl-scenario-pill:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
-.qe-header-cta:focus-visible {
-  outline: 2px solid var(--lagoon);
-  outline-offset: 2px;
+.pl-scenario-pill[data-active="true"] {
+  box-shadow: 0 0 0 2px rgb(45 212 191 / 0.25);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .qe-header-cta {
-    animation: none;
-    transition: none;
+/* Policy gate orb — conic + radial gradient circle with two dashed
+   orbit rings that rotate at different rates. Verdict-driven:
+   `data-verdict` flips the centered tint (palm for allow, coral for
+   block). Used by `<GateOrb>` in `/app/gate`. Rule 3: multi-layer
+   gradient + state-driven motion + composition >10 utility chain. */
+.pl-gate-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(168px, 100%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle at 50% 48%,
+      rgb(45 212 191 / 0.26),
+      rgb(45 212 191 / 0.04) 42%,
+      transparent 70%
+    ),
+    conic-gradient(
+      from 120deg,
+      transparent,
+      rgb(45 212 191 / 0.36),
+      transparent,
+      rgb(52 211 153 / 0.26),
+      transparent
+    );
+  box-shadow: 0 0 54px rgb(45 212 191 / 0.16);
+}
+
+.pl-gate-orb[data-verdict="allow"] {
+  background:
+    radial-gradient(
+      circle at 50% 48%,
+      rgb(52 211 153 / 0.32),
+      rgb(52 211 153 / 0.06) 42%,
+      transparent 70%
+    ),
+    conic-gradient(
+      from 120deg,
+      transparent,
+      rgb(52 211 153 / 0.42),
+      transparent,
+      rgb(45 212 191 / 0.26),
+      transparent
+    );
+  box-shadow: 0 0 54px rgb(52 211 153 / 0.22);
+}
+
+.pl-gate-orb[data-verdict="block"] {
+  background:
+    radial-gradient(
+      circle at 50% 48%,
+      rgb(248 113 113 / 0.28),
+      rgb(248 113 113 / 0.05) 42%,
+      transparent 70%
+    ),
+    conic-gradient(
+      from 120deg,
+      transparent,
+      rgb(248 113 113 / 0.36),
+      transparent,
+      rgb(248 113 113 / 0.18),
+      transparent
+    );
+  box-shadow: 0 0 54px rgb(248 113 113 / 0.18);
+}
+
+.pl-gate-orb::before,
+.pl-gate-orb::after {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  border: 1px dashed rgb(45 212 191 / 0.28);
+  border-radius: 50%;
+  animation: pl-gate-spin 16s linear infinite;
+}
+
+.pl-gate-orb::after {
+  inset: 32%;
+  animation-duration: 11s;
+  animation-direction: reverse;
+  opacity: 0.75;
+}
+
+.pl-gate-orb[data-verdict="allow"]::before,
+.pl-gate-orb[data-verdict="allow"]::after {
+  border-color: rgb(52 211 153 / 0.32);
+}
+
+.pl-gate-orb[data-verdict="block"]::before,
+.pl-gate-orb[data-verdict="block"]::after {
+  border-color: rgb(248 113 113 / 0.28);
+}
+
+@keyframes pl-gate-spin {
+  to {
+    transform: rotate(360deg);
   }
-  .qe-header-cta:hover {
+}
+
+/* Pulse dot between flow nodes — single breathing beat that hints
+   at policy evaluation flowing left to right. Used by `<FlowCanvas>`. */
+.pl-flow-pulse {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--color-lagoon-bright);
+  box-shadow: 0 0 22px rgb(45 212 191 / 0.7);
+  animation: pl-flow-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes pl-flow-breathe {
+  0%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* Reduced-motion fallback for Crypto-Blur Theater, placed after defs so cascade order matches. */
+@media (prefers-reduced-motion: reduce) {
+  .pl-aberration {
+    animation: none;
+    text-shadow: none;
+  }
+
+  .pl-encrypted {
+    animation: none;
+  }
+
+  .pl-constraint-row {
+    animation: none;
+    opacity: 1;
     transform: none;
   }
-}
 
-/* Compact size on mobile to keep header single-row at 375 */
-@media (max-width: 480px) {
-  .qe-header-cta {
-    padding: 5px 10px;
-    font-size: 0.75rem;
+  .pl-result-allow,
+  .pl-result-block {
+    animation: none;
+  }
+
+  .pl-allow-burst::before,
+  .pl-block-pulse::before {
+    animation: none;
+    opacity: 0;
+  }
+
+  .pl-progress-bar::after {
+    animation: none;
+    transform: scaleX(1);
+  }
+
+  .pl-scenario-pill {
+    transition: none;
+  }
+
+  .pl-holographic-plate::before,
+  .pl-holographic-plate::after {
+    display: none;
+  }
+
+  .pl-noise-fragment {
+    animation: none;
+  }
+
+  .pl-cta-card,
+  .group:hover > .pl-cta-card {
+    transition: none;
+    transform: none;
+  }
+
+  /* Policy gate orb + flow pulse: kill ring rotation + breathing beat
+     so reduced-motion users see the orb as a static disc with no
+     animation. Verdict colour states still apply. */
+  .pl-gate-orb::before,
+  .pl-gate-orb::after {
+    animation: none;
+  }
+
+  .pl-flow-pulse {
+    animation: none;
+  }
+
+  /* Mobile drawer: snap open/closed instead of sliding. The pl-portal-
+     drawer wrapper still toggles `translate-x-0` ↔ `-translate-x-full`
+     in markup; this rule strips the transition so the snap is instant. */
+  .pl-portal-drawer,
+  .pl-portal-drawer-backdrop {
+    transition: none;
   }
 }
 
-
 /* ============================================
-   FOOTER COMMUNITY CHIPS
+   Focus visibility, WCAG AA on dark surface
    ============================================ */
 
-.qe-community-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+:focus-visible {
+  outline: 2px solid var(--color-lagoon-bright);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Skip-to-content link, visible only on focus */
+.pl-skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-lagoon);
+  color: var(--color-bg-base);
   font-weight: 600;
-  color: var(--sea-ink);
-  text-decoration: none;
-  transition: border-color 160ms ease, color 160ms ease, background-color 160ms ease;
+  border-radius: var(--radius-md);
+  transform: translateY(-200%);
+  transition: transform 180ms ease-out;
 }
 
-.qe-community-chip:hover {
-  border-color: var(--lagoon);
-  color: var(--lagoon);
-  text-decoration: none;
-  background: var(--lagoon-soft);
-}
-
-.qe-community-chip--soon {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.qe-community-chip--soon:hover {
-  border-color: var(--line);
-  color: var(--sea-ink);
-  background: var(--surface);
-}
-
-.qe-community-chip__soon {
-  font-size: 0.66rem;
-  color: var(--kicker);
-  margin-left: 2px;
+.pl-skip-link:focus {
+  transform: translateY(0);
 }

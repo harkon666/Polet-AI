@@ -88,7 +88,7 @@ The proxy builds the chain-specific digest artifact and unsigned Polet `approve_
 - `contract/`: Anchor program for the single Polet smart wallet contract.
 - `proxy/`: Bun/Hono proxy for wallet setup, confidential policy transactions, Jupiter gateway calls, agent intent execution, and explicitly namespaced legacy compatibility routes.
 - `sdk/`: TypeScript SDK for AI agent intent builders and proxy helpers.
-- `frontend/`: TanStack/Vite consumer demo for the confidential control-layer DCA and Ika flow.
+- `frontend/`: TanStack/Vite landing page and Polet Portal console for the confidential control-layer DCA and Ika flow.
 - `docs/`: PRD, issue specs, progress tracker, Jupiter DX report, and demo script.
 
 ## Program And URLs
@@ -170,6 +170,7 @@ Frontend:
 
 ```bash
 cd frontend
+bun run typecheck
 bun run test
 bun run build
 ```
@@ -190,7 +191,7 @@ cd frontend
 bun run dev
 ```
 
-Then open `http://localhost:3000`, connect a devnet wallet, initialize the Polet wallet, set up demo custody, save the confidential policy, grant an agent session key, and use the Demo tab to run the three core outcomes: 25 USDC blocked with no Ika approval, 5 USDC Jupiter DCA approved as a route/build preview, and 5 USDC-equivalent multi-chain Ika approval prepared as an unsigned Polet dWallet approval transaction.
+Then open `http://localhost:3000`, enter `/app`, connect a devnet wallet, initialize the Polet wallet, set up demo custody, save the confidential policy, grant an agent session key, and use the Portal pages to run the three core outcomes: 25 USDC blocked with no Ika approval, 5 USDC Jupiter DCA approved as a route/build preview, and 5 USDC-equivalent multi-chain Ika approval prepared as an unsigned Polet dWallet approval transaction.
 
 ## Documentation
 

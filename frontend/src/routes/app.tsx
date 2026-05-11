@@ -1,55 +1,51 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { WalletDashboard } from '../components/WalletDashboard';
+import { createFileRoute, Outlet } from '@tanstack/react-router'
+import { ClientWalletProvider } from '#/components/ClientWalletProvider'
+import { ConsoleStateProvider } from '../components/app/use-console-actions'
+import { PortalShell } from '../components/app/portal/PortalShell'
+import { PortalRedirector } from '../components/app/portal/PortalRedirector'
 
+/**
+ * /app, the layout route for **Polet Portal**.
+ *
+ * Phase 1 (issue 099) cuts the old single-page console (AppHeader,
+ * MissionRibbon, StatStrip, SetupLedger, TwoRailConsole, ReceiptLog,
+ * AgentIntegrationPanel, AdvancedFallback) and re-mounts the same
+ * `<ConsoleStateProvider>` + 17 actions inside a multi-page sidebar
+ * portal. Sub-routes — workspace, gate, funds, proof, bridge — are
+ * placeholders this phase; phases 2–6 fill them in.
+ *
+ * Routing model:
+ *   - This file is the **layout route**: its component renders the
+ *     portal chrome (`<PortalShell>`) and an `<Outlet />` for child
+ *     routes. The provider tree mounts ONCE here so sub-routes share
+ *     a single `<ConsoleStateProvider>` and a single Solana wallet
+ *     adapter context.
+ *   - `app.index.tsx` is the **default child** at `/app`, rendering
+ *     the disconnected/connect-first screen.
+ *   - `app.{workspace,gate,funds,proof,bridge}.tsx` are the named
+ *     sub-routes.
+ *   - `<PortalRedirector>` watches wallet `connected` state and
+ *     bounces between `/app` and `/app/workspace` as appropriate.
+ *
+ * Wallet adapter still lives ONLY in this route's tree (Day 8 perf
+ * win), so landing pages don't drag the ~1 MB wallet-adapter bundle.
+ *
+ * The legacy single-page composition stays archived in
+ * `components/app/_archived/` (Phase 7 / issue 105) for reference.
+ */
 export const Route = createFileRoute('/app')({
-  component: AppPage,
-});
+  component: AppLayout,
+})
 
-export function AppPage() {
+export function AppLayout() {
   return (
-    <main className="page-wrap px-4 pb-12 pt-6">
-      <section className="mb-6 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-        <div>
-          <p className="island-kicker mb-2">Wallet console</p>
-          <h1 className="display-title mb-2 text-2xl font-bold tracking-tight text-[var(--sea-ink)] sm:text-3xl">
-            Confidential DCA control panel
-          </h1>
-          <p className="max-w-3xl text-sm leading-6 text-[var(--sea-ink-soft)]">
-            Run the guarded USDC to SOL demo from one operational workflow: setup custody, save private
-            policy, test the 25 USDC block, then preview the 5 USDC Jupiter route.
-          </p>
-        </div>
-        <a
-          href="/about"
-          className="qe-button qe-button--secondary inline-flex w-fit"
-        >
-          How It Works
-          <span aria-hidden="true">→</span>
-        </a>
-      </section>
-
-      <section>
-        <WalletDashboard />
-      </section>
-
-      <section className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          ['PDA Custody', 'Deposit demo funds into a Polet smart wallet controlled by program policy.'],
-          ['Confidential Policy', 'Set private max-per-run and daily-cap rules for the agent.'],
-          ['Jupiter Preview', 'Show route/build estimates for allowed USDC to SOL runs without claiming real swap execution.'],
-          ['Safe Blocks', 'Show blocked agent actions without revealing the private threshold.'],
-        ].map(([title, desc]) => (
-          <article
-            key={title}
-            className="island-shell feature-card rounded-xl p-5"
-          >
-            <h2 className="mb-2 text-base font-semibold text-[var(--sea-ink)]">
-              {title}
-            </h2>
-            <p className="m-0 text-sm leading-6 text-[var(--sea-ink-soft)]">{desc}</p>
-          </article>
-        ))}
-      </section>
-    </main>
-  );
+    <ClientWalletProvider>
+      <ConsoleStateProvider>
+        <PortalShell>
+          <PortalRedirector />
+          <Outlet />
+        </PortalShell>
+      </ConsoleStateProvider>
+    </ClientWalletProvider>
+  )
 }

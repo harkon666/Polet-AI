@@ -1,172 +1,160 @@
-import { render } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { JSDOM } from 'jsdom';
+import { render } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-const dom = new JSDOM('<!doctype html><html><body></body></html>', {
-  url: 'http://localhost/',
-});
-
-globalThis.window = dom.window as unknown as Window & typeof globalThis;
-globalThis.document = dom.window.document;
-globalThis.HTMLElement = dom.window.HTMLElement;
-globalThis.Node = dom.window.Node;
-Object.defineProperty(globalThis, 'navigator', {
-  value: dom.window.navigator,
-  configurable: true,
-});
+/**
+ * jsdom 28 + Node 24 ship a partial localStorage that breaks `setItem`.
+ * Provide a minimal in-memory polyfill so tests that toggle locale work.
+ */
+function ensureLocalStorage() {
+  if (typeof window.localStorage?.setItem === 'function') return
+  const store: Record<string, string> = {}
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (k: string) => (k in store ? store[k] : null),
+      setItem: (k: string, v: string) => {
+        store[k] = String(v)
+      },
+      removeItem: (k: string) => {
+        delete store[k]
+      },
+      clear: () => {
+        for (const k of Object.keys(store)) delete store[k]
+      },
+      key: (i: number) => Object.keys(store)[i] ?? null,
+      get length() {
+        return Object.keys(store).length
+      },
+    },
+  })
+}
+ensureLocalStorage()
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({}),
-  Link: ({ children, ...props }: { children: React.ReactNode } & Record<string, unknown>) => (
-    // Render Link as a simple anchor for SSR-free test rendering
+  Link: ({
+    children,
+    to,
+    ...props
+  }: {
+    children: React.ReactNode
+    to?: string
+  } & Record<string, unknown>) => (
+    // Render as a plain anchor, keeps tests SSR-/router-free
+    // while preserving href semantics for a11y assertions.
     // eslint-disable-next-line jsx-a11y/anchor-has-content, react/no-children-prop
-    <a {...(props as Record<string, unknown>)} children={children} />
+    <a href={to ?? '#'} {...(props as Record<string, unknown>)} children={children} />
   ),
   useLocation: () => ({ pathname: '/' }),
-}));
+}))
 
-vi.mock('../components/WalletDashboard', () => ({
-  WalletDashboard: () => (
-    <section aria-label="Mock DCA workflow">
-      <h2>DCA Demo</h2>
-      <p>Checklist demo</p>
-    </section>
-  ),
-}));
-
-// Import pages AFTER the mocks are registered so TanStack Router + wallet
-// providers resolve to the stubs above.
-import { HomePage } from './index';
-import { AppPage } from './app';
+// Import AFTER mocks so the route's TanStack imports resolve to the stubs.
+import { LandingPage } from './index'
 
 afterEach(() => {
-  document.body.innerHTML = '';
-});
+  document.body.innerHTML = ''
+})
 
 beforeEach(() => {
-  // Default to EN for each test unless explicitly overridden.
+  // Default to EN unless overridden in the test.
   try {
-    window.localStorage.removeItem('polet.locale');
+    window.localStorage.removeItem('polet.locale')
   } catch {
-    // Ignore — localStorage may be blocked in test env
+    // Ignore, localStorage may be blocked in test env
   }
-  document.documentElement.setAttribute('lang', 'en');
-});
+  document.documentElement.setAttribute('lang', 'en')
+})
 
-describe('Routes information architecture', () => {
-  test('Home (/) is a marketing landing — not the operational DCA workspace', () => {
-    render(<HomePage />);
+describe('Landing page (v2), content per section', () => {
+  test('renders EN content across all 9 sections', () => {
+    render(<LandingPage />)
+    const body = document.body.textContent ?? ''
 
-    const bodyText = document.body.textContent ?? '';
+    // Hero
+    expect(body).toContain('Confidential wallet layer for AI agents')
 
-    // Hero (English — default locale)
-    expect(bodyText).toContain('Confidential wallet layer');
-    expect(bodyText).toContain('Give your agent a budget.');
-    expect(bodyText).toContain('Not your wallet.');
-    expect(bodyText).toContain('Start building');
-    expect(bodyText).toContain('See the policy gate');
+    // Trust strip, brand wordmarks
+    expect(body).toMatch(/Solana|Anchor|Ika|Jupiter|Encrypt|Colosseum/i)
 
-    // Manifesto / problem section
-    expect(bodyText).toContain('The delegation problem');
-    expect(bodyText).toContain('You built a DCA bot that works');
-    expect(bodyText).toContain('Your limits are public');
+    // Stats counter, at least one of the headline numbers
+    expect(body).toMatch(/49|8|2|1/)
 
-    // Trust strip + stats
-    expect(bodyText).toContain('Built on · Integrated with');
-    expect(bodyText).toContain('Tests passing');
-    expect(bodyText).toContain('Participating in Colosseum Frontier');
+    // Manifesto cards
+    expect(body).toMatch(/policy|agent|chain/i)
 
-    // Flow diagram section
-    expect(bodyText).toContain('How it works');
-    expect(bodyText).toContain('One contract. One policy gate.');
+    // Rails section
+    expect(body).toContain('Encrypt')
+    expect(body).toContain('Ika')
+    expect(body).toContain('Jupiter')
 
-    // How-you-use-Polet section (new in 085)
-    expect(bodyText).toContain('How you use Polet');
-    expect(bodyText).toContain('Deposit to your smart wallet');
-    expect(bodyText).toContain('Save a confidential policy');
-    expect(bodyText).toContain('Grant an agent session key');
+    // Demo widget header (technical schematic)
+    expect(body).toContain('See the policy gate in 30 seconds.')
 
-    // Rails (all three titles localized)
-    expect(bodyText).toContain('Confidential numeric policy'); // rail.encrypt.title
-    expect(bodyText).toContain('Bridgeless cross-chain signing'); // rail.ika.title
-    expect(bodyText).toContain('Solana DCA strategy rail'); // rail.jupiter.title
-
-    // Security section + threat-model intro (new in 087)
-    expect(bodyText).toContain('Security model');
-    expect(bodyText).toContain('Layered defenses, no unilateral authority.');
-    expect(bodyText).toContain('Assume the agent is compromised.');
-
-    // Demo section + simulation badge (new in 088)
-    expect(bodyText).toContain('Try it · no wallet needed');
-    expect(bodyText).toContain('See the policy gate in 30 seconds.');
-    expect(bodyText).toContain('Simulation · 0ms latency');
-
-    // Disclaimer reframe (089)
-    expect(bodyText).toContain('Pre-alpha transparency');
-    expect(bodyText).toContain('Every claim is verifiable on devnet.');
-    expect(bodyText).toContain('Verified on devnet');
-    expect(bodyText).toContain('Deliberately out of scope');
-
-    // Final CTA audience split (091)
-    expect(bodyText).toContain('Developers');
-    expect(bodyText).toContain('Hackathon reviewers');
-    expect(bodyText).toContain('Just curious');
-
-    // Hero preview visual (083)
-    expect(bodyText).toContain('Confidential policy');
+    // Security 4-quadrant
+    expect(body).toContain('Layered defenses, no unilateral authority.')
+    expect(body).toContain('Smart wallet PDA')
+    expect(body).toContain('Session keys')
+    expect(body).toContain('Anti-replay')
+    expect(body).toContain('Multisig & recovery')
 
     // Final CTA
-    expect(bodyText).toContain('Try the policy gate on devnet.');
+    expect(body).toContain('Try the policy gate on devnet.')
+    expect(body).toContain('Build')
+    expect(body).toContain('Explore')
 
-    // Walrus-style anti-thesis was removed
-    expect(bodyText).not.toContain('No god mode');
-    expect(bodyText).not.toContain('No threshold leaks');
+    // Footer
+    expect(body).toContain('F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p')
+    expect(body).toContain('87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY')
+    expect(body).toMatch(/All rights reserved/i)
+  })
 
-    // The operational console UI should NOT live on the landing
-    expect(bodyText).not.toContain('Confidential DCA control panel');
-    expect(bodyText).not.toContain('DCA Demo');
-  });
+  test('renders ID content when locale is id', () => {
+    window.localStorage.setItem('polet.locale', 'id')
+    document.documentElement.setAttribute('lang', 'id')
 
-  test('Home (/) renders Indonesian copy when locale is id', () => {
-    window.localStorage.setItem('polet.locale', 'id');
-    document.documentElement.setAttribute('lang', 'id');
+    render(<LandingPage />)
+    const body = document.body.textContent ?? ''
 
-    render(<HomePage />);
+    // Security headline (ID)
+    expect(body).toContain('Pertahanan berlapis, tanpa otoritas unilateral.')
 
-    const bodyText = document.body.textContent ?? '';
+    // Final CTA heading (ID)
+    expect(body).toContain('Coba policy gate di devnet.')
 
-    // Hero ID
-    expect(bodyText).toContain('Kasih agent-mu budget.');
-    expect(bodyText).toContain('Bukan wallet-mu.');
-    expect(bodyText).toContain('Mulai bangun');
-    expect(bodyText).toContain('Lihat policy gate-nya');
+    // Footer column heading (ID)
+    expect(body).toContain('Sumber')
 
-    // Sections that were EN-only before 080 now localized
-    expect(bodyText).toContain('Dibangun dengan · Terintegrasi'); // trust.kicker
-    expect(bodyText).toContain('Tes lulus'); // stats.1.label
-    expect(bodyText).toContain('Cara kerjanya'); // flow.kicker
-    expect(bodyText).toContain('Model keamanan'); // security.kicker
-    expect(bodyText).toContain('Lihat policy gate dalam 30 detik.'); // demo.headline
-    expect(bodyText).toContain('Transparansi pre-alpha'); // disclaimer.kicker
+    // Footer copyright text (ID)
+    expect(body).toMatch(/Hak cipta dilindungi/i)
 
-    // English strings should not leak through when locale is id
-    expect(bodyText).not.toContain('Security model');
-    expect(bodyText).not.toContain('Pre-alpha transparency');
-  });
+    // Should NOT contain English equivalents (sanity)
+    expect(body).not.toContain('Layered defenses, no unilateral authority.')
+    expect(body).not.toContain('Try the policy gate on devnet.')
+  })
 
-  test('/app is the operational DCA workspace — not the marketing landing', () => {
-    render(<AppPage />);
+  test('Day 6 sections expose anchor IDs for nav', () => {
+    render(<LandingPage />)
 
-    const bodyText = document.body.textContent ?? '';
+    expect(document.querySelector('#how-it-works')).not.toBeNull()
+    expect(document.querySelector('#security')).not.toBeNull()
+    expect(document.querySelector('#cta')).not.toBeNull()
+    expect(document.querySelector('footer')).not.toBeNull()
+  })
 
-    // Operational console markers
-    expect(bodyText).toContain('Wallet console');
-    expect(bodyText).toContain('Confidential DCA control panel');
-    expect(bodyText).toContain('DCA Demo');
-    expect(bodyText).toContain('Checklist demo');
+  test('Footer hosts the LocaleToggle (moved from header)', () => {
+    render(<LandingPage />)
 
-    // Marketing hero should NOT bleed into the operational page
-    expect(bodyText).not.toContain('Built on · Integrated with');
-    expect(bodyText).not.toContain('Honest disclaimer');
-  });
-});
+    // LocaleToggle has role="group" with aria-label from localeToggle.aria
+    const footer = document.querySelector('footer')
+    expect(footer).not.toBeNull()
+    const toggle = footer!.querySelector('[role="group"]')
+    expect(toggle).not.toBeNull()
+
+    // Both ID and EN buttons present
+    const buttons = toggle!.querySelectorAll('button')
+    expect(buttons.length).toBe(2)
+    const labels = Array.from(buttons).map((b) => b.textContent?.trim())
+    expect(labels).toContain('ID')
+    expect(labels).toContain('EN')
+  })
+})

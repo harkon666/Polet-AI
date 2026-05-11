@@ -1,120 +1,204 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation } from '@tanstack/react-router';
-import { WalletButton } from './WalletButton';
-import PreferencesMenu from './PreferencesMenu';
-import { useLocale } from '../hooks/use-locale';
+import { useEffect, useState } from 'react'
+import { Link, useLocation } from '@tanstack/react-router'
+import { Logo } from './Logo'
+import { useLocale } from '#/hooks/use-locale'
+
+const DOCS_URL = 'https://github.com/harkon666/Polet-AI'
 
 /**
- * Context-aware header.
+ * Polet v2 Header (landing chrome).
  *
- * Layout (md+): three horizontal zones
- *   [ Logo + POLET + Devnet ]  [ ...nav centered... ]  [ MiniCTA? + Wallet? + Prefs ]
+ * Anatomy (desktop ≥ md):
+ *   1. Brand: logo + "Polet" wordmark (left, links home)
+ *   2. Nav center: How it works · Rails · Demo · Docs↗ (4 items)
+ *   3. CTA right: "Open App →" ghost button
  *
- * Mobile (<md): nav wraps to a second full-width row below the logo/prefs row.
+ * Mobile (< md): logo + Open App + hamburger toggle. Tapping the
+ * hamburger expands a slide-down panel below the brand row with the
+ * full nav list. Closing on Escape, on link click, and on toggle press.
  *
- * Sticky mini-CTA: on landing routes, after the hero has scrolled past,
- * a small "Open /app →" pill fades into the right cluster. Respects
- * `prefers-reduced-motion` (no fade — just instant toggle).
+ * Header is `relative z-10` (not sticky), so it scrolls out with the
+ * page. Background is intentionally transparent so the Hero ambient
+ * PNG bleeds through the top of the page (same treatment as Footer).
+ *
+ * On `/app` this returns `null`; the route mounts `<AppHeader />`
+ * (a sticky console chrome with WalletButton) instead.
  */
-export default function Header() {
-  const { pathname } = useLocation();
-  const { t } = useLocale();
-  const isAppRoute = pathname === '/app' || pathname.startsWith('/app/');
-  const [showStickyCta, setShowStickyCta] = useState(false);
+export function Header() {
+  const { t } = useLocale()
+  const { pathname } = useLocation()
+  const [isOpen, setIsOpen] = useState(false)
 
+  // Close mobile menu on Escape
   useEffect(() => {
-    if (isAppRoute) {
-      setShowStickyCta(false);
-      return;
+    if (!isOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
     }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [isOpen])
 
-    const THRESHOLD = 420; // approx hero height
-    const handleScroll = () => {
-      setShowStickyCta(window.scrollY > THRESHOLD);
-    };
+  // /app gets its own console header (AppHeader). All hooks above run
+  // unconditionally; this early-return must come after them to satisfy
+  // the Rules of Hooks across navigation re-renders.
+  if (pathname.startsWith('/app')) return null
 
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isAppRoute]);
+  const closeMenu = () => setIsOpen(false)
+  const toggleMenu = () => setIsOpen((v) => !v)
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] backdrop-blur-md">
-      <nav className="page-wrap flex flex-wrap items-center gap-y-3 gap-x-4 py-3 sm:py-4">
-        {/* LEFT — logo + POLET wordmark + devnet pill */}
-        <div className="order-1 flex items-center gap-3">
+    <header className="relative z-10">
+      <div className="mx-auto max-w-7xl px-6">
+        <div className="flex h-16 items-center justify-between gap-4">
+          {/* Brand. The visible "Polet" wordmark serves as the accessible
+              name; explicit aria-label would violate label-content match. */}
           <Link
             to="/"
-            className="qe-wordmark qe-wordmark--condensed flex-shrink-0"
-            aria-label="Polet AI — home"
+            onClick={closeMenu}
+            className="inline-flex items-center gap-2 text-ink hover:text-lagoon transition"
           >
-            <span className="qe-wordmark__mark" aria-hidden="true">
-              <img
-                src="/polet-logo.png"
-                alt=""
-                width={28}
-                height={28}
-                loading="eager"
-                decoding="async"
-              />
+            <Logo className="h-7 w-auto" />
+            <span className="font-sans text-lg font-bold tracking-tight">
+              Polet
             </span>
-            <span className="qe-wordmark__name">Polet</span>
-            <span className="qe-wordmark__tag" aria-hidden="true">/AI</span>
           </Link>
 
-          <span className="qe-pill qe-pill--accent">
-            <span className="qe-status-dot" aria-hidden="true" />
-            {t('header.devnetPill')}
-          </span>
-        </div>
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-7 text-sm">
+            <a
+              href="/#how-it-works"
+              className="text-ink-soft hover:text-ink transition"
+            >
+              {t('header.nav.howItWorks')}
+            </a>
+            <a
+              href="/#rails"
+              className="text-ink-soft hover:text-ink transition"
+            >
+              {t('header.nav.rails')}
+            </a>
+            <a
+              href="/#demo"
+              className="text-ink-soft hover:text-ink transition"
+            >
+              {t('header.nav.demo')}
+            </a>
+            <a
+              href={DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-ink-soft hover:text-ink transition"
+            >
+              {t('header.nav.docs')}
+              <span aria-hidden="true">↗</span>
+            </a>
+          </nav>
 
-        {/* RIGHT — sticky CTA (landing, post-hero) + wallet (on /app) + preferences */}
-        <div className="order-2 ml-auto flex items-center gap-2 md:order-3">
-          {!isAppRoute && showStickyCta && (
-            <Link to="/app" className="qe-header-cta">
-              {t('hero.cta.primary')}
+          {/* Right cluster: CTA + mobile hamburger */}
+          <div className="flex items-center gap-2">
+            <Link
+              to="/app"
+              onClick={closeMenu}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-line-strong text-ink hover:border-lagoon hover:bg-surface/50 transition text-sm font-medium"
+            >
+              {t('header.cta.openApp')}
               <span aria-hidden="true">→</span>
             </Link>
-          )}
-          {isAppRoute && <WalletButton />}
-          <PreferencesMenu />
+
+            <button
+              type="button"
+              onClick={toggleMenu}
+              aria-expanded={isOpen}
+              aria-controls="header-mobile-nav"
+              aria-label={isOpen ? t('header.nav.menu.close') : t('header.nav.menu.open')}
+              className="md:hidden inline-flex items-center justify-center size-9 rounded-lg border border-line-strong text-ink hover:border-lagoon transition touch-manipulation"
+            >
+              {isOpen ? <CloseIcon /> : <MenuIcon />}
+            </button>
+          </div>
         </div>
 
-        {/* CENTER — nav links. Full-width wrap below on mobile, flex-1 centered on md+. */}
-        <div className="order-3 flex w-full items-center justify-center gap-1 md:order-2 md:w-auto md:flex-1">
-          <Link
-            to="/"
-            className="qe-nav-link"
-            activeOptions={{ exact: true }}
-            activeProps={{ className: 'qe-nav-link is-active' }}
-          >
-            {t('header.nav.home')}
-          </Link>
-          <Link
-            to="/app"
-            className="qe-nav-link"
-            activeProps={{ className: 'qe-nav-link is-active' }}
-          >
-            {t('header.nav.app')}
-          </Link>
-          <Link
-            to="/about"
-            className="qe-nav-link"
-            activeProps={{ className: 'qe-nav-link is-active' }}
-          >
-            {t('header.nav.howItWorks')}
-          </Link>
-          <a
-            href="https://github.com/harkon666/Polet-AI"
-            target="_blank"
-            rel="noreferrer"
-            className="qe-nav-link"
-          >
-            <span>{t('header.nav.docs')}</span>
-            <span className="ml-1 text-[var(--sea-ink-soft)]" aria-hidden="true">↗</span>
-          </a>
-        </div>
-      </nav>
+        {/* Mobile slide-down panel */}
+        <nav
+          id="header-mobile-nav"
+          aria-hidden={!isOpen}
+          className={`md:hidden overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
+            isOpen ? 'max-h-72 opacity-100' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="flex flex-col py-3 border-t border-line/60 mt-1 text-base">
+            <a
+              href="/#how-it-works"
+              onClick={closeMenu}
+              className="px-2 py-3 text-ink-soft hover:text-ink transition"
+            >
+              {t('header.nav.howItWorks')}
+            </a>
+            <a
+              href="/#rails"
+              onClick={closeMenu}
+              className="px-2 py-3 text-ink-soft hover:text-ink transition"
+            >
+              {t('header.nav.rails')}
+            </a>
+            <a
+              href="/#demo"
+              onClick={closeMenu}
+              className="px-2 py-3 text-ink-soft hover:text-ink transition"
+            >
+              {t('header.nav.demo')}
+            </a>
+            <a
+              href={DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={closeMenu}
+              className="inline-flex items-center gap-1 px-2 py-3 text-ink-soft hover:text-ink transition"
+            >
+              {t('header.nav.docs')}
+              <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+        </nav>
+      </div>
     </header>
-  );
+  )
+}
+
+function MenuIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+    </svg>
+  )
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </svg>
+  )
 }

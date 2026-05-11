@@ -43,7 +43,7 @@ const OWNER = requireEnv('POLET_OWNER')
 const SESSION_KEY = requireEnv('POLET_SESSION_KEY')
 const PROXY_URL = env.POLET_PROXY_URL?.replace(/\/$/, '') ?? 'http://localhost:3001'
 
-// 32-byte all-7s witness fixture, matches frontend-v2 useConsole.ts
+// 32-byte all-7s witness fixture, matches the frontend portal/session preview fixture
 // + sdk/local-agent-runner.ts default. Required by /intent/*/run when
 // the policy is sealed under the official Encrypt path.
 const WITNESS_FIXTURE = Array.from({ length: 32 }, () => 7)

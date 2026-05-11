@@ -1044,7 +1044,7 @@ const en: Dictionary = {
     'Polet stores your limits as ciphertext; the gate evaluates blind. Connect a devnet wallet to derive your smart-wallet PDA and start the four-step setup.',
   'app.wizard.connect.pointer': 'Connect to begin',
   'app.wizard.disabled.waiting': 'waiting for wallet',
-  'app.advanced.label': 'Advanced · Legacy v1 console',
+  'app.advanced.label': 'Advanced · Full control console',
 
   // Action buttons (Day 11)
   'app.action.initialize': 'Initialize',
@@ -1392,7 +1392,7 @@ const en: Dictionary = {
   'portal.bridge.download.openFunds': 'Grant a session →',
   'portal.bridge.advanced.kicker': 'Advanced',
   'portal.bridge.advanced.summary':
-    'Legacy v1 console — recovery, shared quorum, Encrypt graph.',
+    'Full control console — recovery, shared quorum, Encrypt graph.',
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
   'portal.drawer.open': 'Open portal navigation',
   'portal.drawer.close': 'Close portal navigation',
@@ -1794,7 +1794,7 @@ const id: Dictionary = {
     'Polet menyimpan batas kamu sebagai ciphertext; gate evaluasi tanpa membaca. Hubungkan wallet devnet untuk derive PDA smart wallet kamu dan mulai setup empat langkah.',
   'app.wizard.connect.pointer': 'Hubungkan untuk mulai',
   'app.wizard.disabled.waiting': 'menunggu wallet',
-  'app.advanced.label': 'Lanjutan · Konsol v1 lama',
+  'app.advanced.label': 'Lanjutan · Konsol kontrol penuh',
 
   // Action buttons (Day 11)
   'app.action.initialize': 'Inisialisasi',
@@ -2142,7 +2142,7 @@ const id: Dictionary = {
   'portal.bridge.download.openFunds': 'Otorisasi sesi →',
   'portal.bridge.advanced.kicker': 'Lanjutan',
   'portal.bridge.advanced.summary':
-    'Konsol legacy v1 — recovery, shared quorum, Encrypt graph.',
+    'Konsol kontrol penuh — recovery, shared quorum, Encrypt graph.',
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
   'portal.drawer.open': 'Buka navigasi portal',
   'portal.drawer.close': 'Tutup navigasi portal',

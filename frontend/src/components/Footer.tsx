@@ -1,171 +1,196 @@
-import { Link } from '@tanstack/react-router';
-import { useLocale } from '../hooks/use-locale';
+import { Link } from '@tanstack/react-router'
+import { useLocale } from '#/hooks/use-locale'
+import { useScrollReveal } from '../hooks/useScrollReveal'
+import { Logo } from './Logo'
+import { LocaleToggle } from './LocaleToggle'
 
-export default function Footer() {
-  const { t } = useLocale();
-  const year = new Date().getFullYear();
+const GITHUB_URL = 'https://github.com/harkon666/Polet-AI'
+const DOCS_URL = `${GITHUB_URL}#readme`
+const DISCLAIMER_URL = `${GITHUB_URL}/blob/main/docs/prd.md`
+const TWITTER_URL = 'https://x.com/poletxyz'
+
+const POLET_PROGRAM = 'F7XdiThjkdRxmVpUDKn92Vf53SUEQbPqkTsmWNzrS99p'
+const IKA_PROGRAM = '87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY'
+
+/**
+ * Footer, closes the page with brand wordmark, navigation columns,
+ * program IDs (the "receipts"), and legal/copyright strip.
+ *
+ * Hosts the LocaleToggle pill (moved here from Header in Day 6 per the
+ * compass, locale is a global page preference, not a navigation control).
+ *
+ * Layout (top → bottom):
+ *   1. Brand row: logo + Polet wordmark | LocaleToggle
+ *   2. 2 columns: Rails (anchor links) · Resources (external)
+ *   3. Program IDs strip, verifiable receipts on devnet
+ *   4. Copyright + devnet-only disclaimer
+ *
+ * Anchor #footer (semantic <footer>) so future TOC nav can target it.
+ */
+export function Footer() {
+  const { t } = useLocale()
+  const containerRef = useScrollReveal()
+
+  // Interpolate {year} in copyright template
+  const year = new Date().getFullYear()
+  const copyright = t('footer.bottom.copyright').replace('{year}', String(year))
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.currentTarget
+    const rect = target.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    target.style.setProperty('--cursor-x', `${x}%`)
+    target.style.setProperty('--cursor-y', `${y}%`)
+  }
 
   return (
-    <footer className="border-t border-[var(--line)] bg-[var(--bg-base)] text-[var(--sea-ink)]">
-      <div className="page-wrap grid gap-10 py-14 md:grid-cols-[1.6fr_repeat(3,1fr)] md:gap-10">
-        {/* Brand block */}
-        <div>
-          <Link
-            to="/"
-            className="qe-wordmark qe-wordmark--lg"
-            aria-label="Polet AI — home"
-          >
-            <span className="qe-wordmark__mark" aria-hidden="true">
-              <img
-                src="/polet-logo.png"
-                alt=""
-                width={44}
-                height={44}
-                loading="lazy"
-                decoding="async"
-              />
-            </span>
-            <span className="qe-wordmark__name">Polet</span>
-            <span className="qe-wordmark__tag">/AI</span>
-          </Link>
-          <p className="mt-5 max-w-sm text-sm leading-6 text-[var(--sea-ink-soft)]">
-            {t('footer.brand.desc')}
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-2">
-            <span className="qe-pill qe-pill--accent">
-              <span className="qe-status-dot" aria-hidden="true" />
-              {t('footer.badges.devnetLive')}
-            </span>
-            <span className="qe-badge qe-badge--alpha">{t('disclaimer.badge')}</span>
+    <footer
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      className="pl-ambient-hero relative border-t border-line py-12 md:py-16 overflow-hidden"
+    >
+      <div className="relative z-[2] mx-auto max-w-6xl px-6">
+        {/* Brand row: logo + LocaleToggle stay horizontal at every breakpoint;
+            tagline / subtagline stack below. */}
+        <div className="pl-reveal pb-8 border-b border-line">
+          <div className="flex items-center justify-between gap-4">
+            <div className="inline-flex items-center gap-2 text-ink">
+              <Logo className="h-8 w-auto" />
+              <span className="font-sans text-lg font-bold tracking-tight">
+                Polet
+              </span>
+            </div>
+            <LocaleToggle />
+          </div>
+          <div className="mt-3 max-w-md">
+            <p className="text-sm text-ink-soft leading-relaxed">
+              {t('footer.brand.tagline')}
+            </p>
+            <p className="mt-1 text-sm text-ink-mute leading-relaxed">
+              {t('footer.brand.subtagline')}
+            </p>
           </div>
         </div>
 
-        {/* SYSTEM column */}
-        <div>
-          <h3 className="qe-col-heading">{t('footer.col.system.heading')}</h3>
-          <dl className="space-y-1">
-            <div className="qe-stat-row">
-              <dt className="qe-stat-row__label">{t('footer.col.system.network.label')}</dt>
-              <dd className="qe-stat-row__value">Devnet</dd>
-            </div>
-            <div className="qe-stat-row">
-              <dt className="qe-stat-row__label">{t('footer.col.system.status.label')}</dt>
-              <dd className="qe-stat-row__value text-[var(--palm)]">● Live</dd>
-            </div>
-            <div className="qe-stat-row">
-              <dt className="qe-stat-row__label">{t('footer.col.system.version.label')}</dt>
-              <dd className="qe-stat-row__value">v0.1.0</dd>
-            </div>
-            <div className="qe-stat-row">
-              <dt className="qe-stat-row__label">{t('footer.col.system.build.label')}</dt>
-              <dd className="qe-stat-row__value">Alpha</dd>
-            </div>
-          </dl>
+        {/* 2 columns: Rails / Resources */}
+        <div
+          className="pl-reveal grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-10 py-10"
+          style={{ transitionDelay: '80ms' }}
+        >
+          {/* Rails, anchor links to landing sections */}
+          <FooterCol heading={t('footer.col.rails.heading')}>
+            <FooterAnchor href="#rails">{t('footer.col.rails.jupiter')}</FooterAnchor>
+            <FooterAnchor href="#rails">{t('footer.col.rails.ika')}</FooterAnchor>
+            <FooterAnchor href="#rails">{t('footer.col.rails.encrypt')}</FooterAnchor>
+          </FooterCol>
+
+          {/* Resources, external links */}
+          <FooterCol heading={t('footer.col.resources.heading')}>
+            <FooterLink href={DOCS_URL} external>
+              {t('footer.col.resources.docs')}
+            </FooterLink>
+            <FooterLink href={GITHUB_URL} external>
+              {t('footer.col.resources.github')}
+            </FooterLink>
+            <FooterLink href={TWITTER_URL} external>
+              {t('footer.col.resources.twitter')}
+            </FooterLink>
+            <FooterLink href={DISCLAIMER_URL} external>
+              {t('footer.col.resources.disclaimer')}
+            </FooterLink>
+          </FooterCol>
         </div>
 
-        {/* RAILS column */}
-        <div>
-          <h3 className="qe-col-heading">{t('footer.col.rails.heading')}</h3>
-          <ul className="flex flex-col items-start gap-2.5">
-            <li>
-              <a className="qe-link" href="https://jup.ag" target="_blank" rel="noreferrer">
-                {t('footer.col.rails.jupiter')} <span className="qe-link__arrow">→</span>
-              </a>
-            </li>
-            <li>
-              <a className="qe-link" href="https://docs.ika.xyz/" target="_blank" rel="noreferrer">
-                {t('footer.col.rails.ika')} <span className="qe-link__arrow">→</span>
-              </a>
-            </li>
-            <li>
-              <a className="qe-link" href="https://github.com/dwallet-labs/encrypt-pre-alpha" target="_blank" rel="noreferrer">
-                {t('footer.col.rails.encrypt')} <span className="qe-link__arrow">→</span>
-              </a>
-            </li>
-            <li>
-              <Link className="qe-link" to="/about">
-                {t('footer.col.rails.smartwallet')} <span className="qe-link__arrow">→</span>
-              </Link>
-            </li>
-          </ul>
-        </div>
-
-        {/* RESOURCES column */}
-        <div>
-          <h3 className="qe-col-heading">{t('footer.col.resources.heading')}</h3>
-          <ul className="flex flex-col items-start gap-2.5">
-            <li>
-              <Link className="qe-link" to="/about">
-                {t('footer.col.resources.docs')} <span className="qe-link__arrow">→</span>
-              </Link>
-            </li>
-            <li>
-              <a className="qe-link" href="https://github.com/harkon666/Polet-AI" target="_blank" rel="noreferrer">
-                {t('footer.col.resources.github')} <span className="qe-link__arrow">↗</span>
-              </a>
-            </li>
-            <li>
-              <a className="qe-link" href="https://x.com/" target="_blank" rel="noreferrer">
-                {t('footer.col.resources.twitter')} <span className="qe-link__arrow">↗</span>
-              </a>
-            </li>
-            <li>
-              <Link className="qe-link" to="/about">
-                {t('footer.col.resources.disclaimer')} <span className="qe-link__arrow">→</span>
-              </Link>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      {/* Community signal — prominent join/follow cluster */}
-      <div className="border-t border-[var(--line)]">
-        <div className="page-wrap flex flex-col items-start gap-3 px-4 py-5 sm:flex-row sm:items-center sm:gap-6">
-          <h3 className="qe-col-heading m-0 sm:mr-2">{t('footer.community.heading')}</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <a
-              href="https://x.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="qe-community-chip"
-            >
-              <span aria-hidden="true">𝕏</span>
-              {t('footer.community.x')}
-            </a>
-            <a
-              href="https://github.com/harkon666/Polet-AI"
-              target="_blank"
-              rel="noreferrer"
-              className="qe-community-chip"
-            >
-              <span aria-hidden="true">◯</span>
-              {t('footer.community.github')}
-            </a>
-            <span className="qe-community-chip qe-community-chip--soon" aria-disabled="true">
-              <span aria-hidden="true">💬</span>
-              {t('footer.community.discord')}
-              <span className="qe-community-chip__soon">· {t('footer.community.discordSoon')}</span>
-            </span>
+        {/* Program IDs strip, receipts on devnet */}
+        <div
+          className="pl-reveal py-4 border-t border-line font-mono text-[11px] text-ink-mute leading-relaxed"
+          style={{ transitionDelay: '160ms' }}
+        >
+          <div className="flex flex-col sm:flex-row sm:gap-3">
+            <span className="text-ink-soft uppercase tracking-wider w-full sm:w-32 shrink-0">polet program</span>
+            <span className="text-ink break-all">{POLET_PROGRAM}</span>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:gap-3 mt-1">
+            <span className="text-ink-soft uppercase tracking-wider w-full sm:w-32 shrink-0">ika pre-alpha</span>
+            <span className="text-ink break-all">{IKA_PROGRAM}</span>
           </div>
         </div>
-      </div>
 
-      {/* Bottom strip */}
-      <div className="border-t border-[var(--line)] bg-[var(--foam)]">
-        <div className="page-wrap flex flex-col items-center justify-between gap-3 py-4 font-mono text-[11px] text-[var(--sea-ink-soft)] sm:flex-row">
-          <span>{t('footer.bottom.copyright').replace('{year}', String(year))}</span>
-          <span className="flex items-center gap-2">
-            <img src="/brand/colosseum-symbol.svg" alt="" width={14} height={14} className="opacity-70" aria-hidden="true" />
-            <a href="https://colosseum.com/frontier" target="_blank" rel="noreferrer" className="font-semibold text-[var(--sea-ink)] hover:text-[var(--lagoon)] transition-colors">Colosseum Frontier</a>
-            <span>×</span>
-            <img src="/brand/solana-logomark.svg" alt="" width={14} height={14} className="opacity-70" aria-hidden="true" />
-            <a href="https://solana.com/" target="_blank" rel="noreferrer" className="font-semibold text-[var(--sea-ink)] hover:text-[var(--lagoon)] transition-colors">Solana</a>
-          </span>
-          <span className="hidden text-[var(--kicker)] sm:inline">
-            {t('footer.bottom.devnet')}
-          </span>
+        {/* Bottom: copyright */}
+        <div
+          className="pl-reveal pt-6 border-t border-line text-xs text-ink-mute"
+          style={{ transitionDelay: '240ms' }}
+        >
+          {copyright}
         </div>
       </div>
     </footer>
-  );
+  )
+}
+
+/* ============================================
+   Internal layout helpers
+   ============================================ */
+
+function FooterCol({ heading, children }: { heading: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h3 className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute mb-3">
+        {heading}
+      </h3>
+      <ul className="space-y-2 text-sm">{children}</ul>
+    </div>
+  )
+}
+
+function FooterAnchor({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <li>
+      <a
+        href={href}
+        className="text-ink-soft hover:text-lagoon-bright transition inline-flex items-center gap-1 group"
+      >
+        {children}
+        <span aria-hidden="true" className="text-ink-mute group-hover:text-lagoon-bright transition">
+          ↓
+        </span>
+      </a>
+    </li>
+  )
+}
+
+function FooterLink({
+  href,
+  external,
+  children,
+}: {
+  href: string
+  external?: boolean
+  children: React.ReactNode
+}) {
+  if (external) {
+    return (
+      <li>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-ink-soft hover:text-lagoon-bright transition inline-flex items-center gap-1 group"
+        >
+          {children}
+          <span aria-hidden="true" className="text-ink-mute group-hover:text-lagoon-bright transition">
+            ↗
+          </span>
+        </a>
+      </li>
+    )
+  }
+  return (
+    <li>
+      <Link to={href} className="text-ink-soft hover:text-lagoon-bright transition">
+        {children}
+      </Link>
+    </li>
+  )
 }

@@ -1,8 +1,8 @@
 # Polet AI Frontend
 
-Consumer demo for the Polet AI confidential USDC -> SOL DCA smart wallet.
+Canonical TanStack/Vite workspace for the Polet landing page and Polet Portal `/app` console.
 
-The app connects to the Polet proxy, lets the owner set up PDA custody and confidential policy transactions, and shows the agent allow/block demo without revealing saved private thresholds.
+The landing page explains the confidential Solana control layer for AI agents. The Portal lets an owner connect a devnet wallet, initialize a Polet smart-wallet PDA, configure funds/policy/session readiness, inspect policy-gate outcomes, review proof trails, and bridge into agent/MCP configuration.
 
 ## Environment
 
@@ -10,14 +10,6 @@ The app connects to the Polet proxy, lets the owner set up PDA custody and confi
 VITE_PROXY_URL=http://localhost:3001
 VITE_SOLANA_RPC_URL=https://api.devnet.solana.com
 ```
-
-The current Polet devnet program id surfaced by the frontend is:
-
-```text
-9CN8mR6Hf3vmyX1HnSzP5TKW8HicAFhLsWv7vVqpf3Hc
-```
-
-The frontend receives transaction builders and wallet PDAs from the proxy, so the proxy must be running with the same program id.
 
 ## Run
 
@@ -28,24 +20,27 @@ bun run dev
 
 The default dev URL is `http://localhost:3000`.
 
-## Build
+## Verify
 
 ```bash
+bun run typecheck
+bun run test
 bun run build
 ```
 
-## Test
+Playwright smoke tests:
 
 ```bash
-bun run test
+bun run e2e
 ```
 
-Focused demo test:
+## Routes
 
-```bash
-bun run test src/components/DemoTab.test.tsx
-```
+- `/` — landing page.
+- `/about` — internal redirect to `/#how-it-works`.
+- `/app` — Polet Portal shell.
+- `/app/workspace`, `/app/gate`, `/app/funds`, `/app/proof`, `/app/bridge` — Portal pages.
 
 ## Demo Boundary
 
-The frontend proves the devnet policy-gated flow and displays Jupiter Swap V2 route/build details for approved runs. It does not claim production Encrypt privacy, mainnet swap execution, or verified Ika settlement.
+The frontend proves the devnet policy-gated flow and displays Jupiter route/build details plus Ika approval preparation for approved runs. It does not claim production Encrypt privacy, mainnet swap execution, production MPC, or verified Ika settlement.

@@ -1,22 +1,21 @@
 # Landing v2 compass
 
-Working tracker for the **frontend-v2** rebuild — full visual redesign on top
-of shared lib/hooks/data/locale from `frontend/`. Replacement target for
-`frontend/` after hackathon. Keep this file in sync with reality.
+Working tracker for the v2 rebuild. **Cutover is complete**: the rebuilt
+landing + Portal now live in the canonical `frontend/` workspace.
 
-- **v2 root**: `frontend-v2/` (sibling to `frontend/`, port `3001`)
-- **Cross-import alias**: `#shared/*` → `../frontend/src/*`
-- **Active route**: `/` (landing). `/app` and `/about` are stub redirects to
-  v1 port `3000` until cutover.
-- **Test**: `frontend-v2/src/routes/-index.test.tsx`
-- **Styles**: `frontend-v2/src/styles.css`
+- **Frontend root**: `frontend/` (port `3000`)
+- **Import alias**: `#/*` and `@/*` → `./src/*`; the temporary cross-import
+  alias used during the rebuild is retired.
+- **Active routes**: `/` landing, `/app` Portal, `/about` internal redirect to
+  `/#how-it-works`.
+- **Test**: `frontend/src/routes/-index.test.tsx` plus `-*.test.*` route tests.
+- **Styles**: `frontend/src/styles.css`
 
 ## Goal
 
-Replace `frontend/` with a polished, dark-canonical, type-driven landing
-experience that matches the new brand direction (deep teal aurora bg + white
-"P" glyph mark + Linear-class motion design). Ship in 5–7 days; cutover after
-landing stabilises.
+Replace the legacy frontend with a polished, dark-canonical, type-driven
+landing experience plus a multi-page Polet Portal. The canonical workspace is
+now `frontend/`.
 
 ## Decision book
 
@@ -24,8 +23,8 @@ Locked-in decisions from the grill-me session, in priority order:
 
 | # | Decision | Choice | Rationale (one-line) |
 |---|---|---|---|
-| 1 | Sharing model | **Mirror tipis** — cross-import lib/hooks/data/locale + ClientWalletProvider | Tested SDK code is the most valuable asset; don't fork. |
-| 2 | Fate of v1 | **Replace total** — delete `frontend/` after cutover, no permanent coexist | Hackathon scope; coexist permanen = workspace overhead with no payoff. |
+| 1 | Sharing model | **Self-contained mirror** — copy the tested runtime surface into canonical `frontend/src/` | Tested SDK code is the most valuable asset; don't fork behaviour. |
+| 2 | Fate of v1 | **Replace total** — no permanent coexist | Hackathon scope; coexist permanen = workspace overhead with no payoff. |
 | 3 | Theme canonical | **Dark only**, no toggle | Brand assets demand it; logo + bg lose magic on light surface; dev audience defaults to dark. |
 | 4 | Visual north star | **Linear (dark)** + 3 adjustments: teal accent, ID-friendly type, scroll-driven motion (no hover-reveal) | Asset DNA matches Linear's silk-gradient marketing; density pattern fits Polet's 10 sections; juris already familiar. |
 | 5 | Tooling stack | **Tailwind v4 utility + `pl-*` custom class hybrid**, rule of three | Stack already paid; pure utility breaks for ambient gradients & motion; pure CSS-vars wastes Tailwind utility productivity. |
@@ -33,8 +32,8 @@ Locked-in decisions from the grill-me session, in priority order:
 | 7a | Logo format | **SVG inline**, traced from PNG via potrace Day 0 | Crisp at all sizes; `currentColor` controllable. |
 | 7b | Hero bg | **CSS gradient replication** (3-layer radial+linear, 20s drift) | Zero image weight; responsive native; respects reduced-motion. |
 | 7c | Font | **`@fontsource-variable/geist` + `geist-mono`** | Variable font, self-hosted, ~60KB total, font-display swap built-in. |
-| 8a | i18n | **Cross-import dictionary** from v1 | Single source of truth; cutover trivial. |
-| 8b | Routing v2 | **Stub redirect** `/app` `/about` to v1 port 3000 | Header link continuity without rebuild scope; cut after cutover. |
+| 8a | i18n | **Local canonical dictionary** in `frontend/src/locale/dictionary.ts` | Single source of truth for landing + Portal. |
+| 8b | Routing v2 | **Canonical routes** `/app` is the Portal; `/about` redirects internally to `/#how-it-works` | No permanent v1 coexistence. |
 | 8c | Test stack | **Vitest only** Day 1-3, Playwright at Day 6 | Hackathon ROI on e2e is end-of-cycle. |
 | 8d | Lint | **`tsc --noEmit` only** | No Biome/ESLint config drift; format via editor. |
 
@@ -47,22 +46,22 @@ DAY 0 — Pre-code
 └── Inventory v1 cross-import surface (lib/, hooks/, data/, locale/, ClientWalletProvider)
 
 DAY 1 AM — Project scaffold
-├── mkdir frontend-v2/, copy package.json + vite.config.ts + tsconfig.json from frontend/
+├── Scaffold temporary rebuild workspace, copy package.json + vite.config.ts + tsconfig.json
 ├── Strip from package.json: @tailwindcss/typography, e2e/playwright deps (Day 6)
 ├── Add: @fontsource-variable/geist, @fontsource-variable/geist-mono
-├── tsconfig paths: "#/*": ["./src/*"], "#shared/*": ["../frontend/src/*"]
-├── vite.config.ts: server.port = 3001
-├── frontend-v2/src/styles.css — @import "tailwindcss" + @theme tokens + base pl-* classes
-├── frontend-v2/src/{router.tsx, routes/__root.tsx, routes/index.tsx} (placeholder)
-├── frontend-v2/src/main.tsx — wrap ClientWalletProvider from #shared
-└── Smoke: bun run dev → http://localhost:3001 dark canvas + Geist visible
+├── Initial temporary shared alias for v1 runtime surface
+├── vite.config.ts: server.port = 3000
+├── frontend/src/styles.css — @import "tailwindcss" + @theme tokens + base pl-* classes
+├── frontend/src/{router.tsx, routes/__root.tsx, routes/index.tsx} (placeholder)
+├── App route wraps `ClientWalletProvider`
+└── Smoke: bun run dev → http://localhost:3000 dark canvas + Geist visible
 
 DAY 1 PM — Header vertical slice
 ├── components/Logo.tsx (inline SVG, currentColor)
 ├── components/primitives/{Button.tsx, KickerLabel.tsx}
-├── components/LocaleToggle.tsx (re-skinned, useLocale from #shared)
+├── components/LocaleToggle.tsx (re-skinned, `useLocale`)
 ├── components/Header.tsx (Logo + nav links + LocaleToggle)
-├── routes/{app.tsx, about.tsx} (stub redirect to localhost:3000)
+├── routes/{app.tsx, about.tsx}
 └── Smoke: header render, locale toggle works, nav links navigate
 
 DAY 2 — Hero section
@@ -74,13 +73,13 @@ DAY 2 — Hero section
 └── Smoke: hero looks shippable, scroll reveal on
 
 DAY 3 — Stats counter + Manifesto (3 problem cards)
-├── components/StatsCounter.tsx (port logic from v1 #shared, redesign visual)
+├── components/StatsCounter.tsx (port logic, redesign visual)
 ├── Manifesto inline section in routes/index.tsx
 ├── primitives/Card.tsx (extract on 2nd usage = problem cards)
 └── Test: content assertions both locales
 
 DAY 4 — Demo widget + Rails skeleton
-├── components/LandingDemoWidget.tsx (UI baru, logic from #shared/lib)
+├── components/LandingDemoWidget.tsx (UI baru, logic from local runtime lib)
 ├── Rails section placeholder (3 cards: Encrypt, Ika, Jupiter)
 └── Test: demo widget renders
 
@@ -99,39 +98,31 @@ DAY 6 — Polish
 └── bun run build green
 
 DAY 7 — Buffer / cutover prep
-├── Copy frontend/src/{lib, hooks, data, locale} → frontend-v2/src/
-├── Remove cross-import alias, normalise to #/*
-├── Mv frontend → frontend-legacy (or delete)
-├── Mv frontend-v2 → frontend
-└── Update root scripts + AGENTS.md
+├── Copy still-needed runtime surface into canonical frontend/src/
+├── Remove temporary cross-import alias, normalise to #/*
+├── Move rebuilt workspace to canonical frontend/
+├── Route /about internally to /#how-it-works
+└── Update README + AGENTS.md
 ```
 
-## Cross-import surface from v1
+## Retired cross-import surface
 
-These paths are addressed via `#shared/*` alias in v2. They live in
-`frontend/src/` until cutover.
+During the pre-cutover rebuild these paths were addressed through a temporary
+shared alias. Cutover copied the still-needed runtime surface into
+`frontend/src/` and normalized imports to `#/*`.
 
 ```
-#shared/lib/program.ts                  ← Anchor IDL bindings, program ID
-#shared/lib/solana-transaction.ts       ← TX construction + send
-#shared/lib/api.ts                      ← Proxy bridge fetch
-#shared/lib/official-encrypt-client.ts  ← Encrypt pre-alpha SDK wrapper
-#shared/lib/policy-templates.ts         ← Policy bytecode templates
-#shared/lib/config.ts                   ← Env config
-#shared/lib/i18n.ts                     ← (legacy, may merge into use-locale)
+#/lib/program.ts                  ← Anchor IDL bindings, program ID
+#/lib/solana-transaction.ts       ← TX construction + send
+#/lib/api.ts                      ← Proxy bridge fetch
+#/lib/official-encrypt-client.ts  ← Encrypt pre-alpha SDK wrapper
+#/lib/config.ts                   ← Env config
+#/lib/i18n.ts                     ← legacy i18n helper for copied fallback flows
 
-#shared/hooks/use-wallet.ts             ← Solana wallet adapter wrapper
-#shared/hooks/use-custody-manager.ts    ← Custody account state
-#shared/hooks/use-policy-manager.ts     ← Policy bytecode state
-#shared/hooks/use-ika-approval-manager.ts ← Ika dWallet approval flow
-#shared/hooks/use-locale.ts             ← Locale state + custom event sync
-#shared/hooks/use-activity-log.ts       ← Activity log state
-#shared/hooks/useScrollReveal.ts        ← Scroll reveal hook
+#/hooks/use-locale.ts             ← Locale state + custom event sync
+#/locale/dictionary.ts            ← EN+ID translation, single source
 
-#shared/data/                           ← Demo dataset (if any)
-#shared/locale/dictionary.ts            ← EN+ID translation, single source
-
-#shared/components/ClientWalletProvider.tsx ← Pure context, no styling
+#/components/ClientWalletProvider.tsx ← Pure context, no styling
 ```
 
 NOT cross-imported (rebuilt in v2):
@@ -228,13 +219,13 @@ DEFAULT to utility. Custom class = exception, not default.
 
 Every v2 section must clear before slice marked done:
 
-- [ ] Copy uses `t('section.key')` from `#shared/locale/dictionary.ts`.
+- [ ] Copy uses `t('section.key')` from `#/locale/dictionary.ts`.
 - [ ] No hardcoded hex; all colors via tokens.
 - [ ] Renders without layout shift at 375/768/1280/1920.
 - [ ] All motion respects `prefers-reduced-motion: reduce`.
 - [ ] `-index.test.tsx` has content assertion in **both** locales.
-- [ ] `bun run test` green in `frontend-v2/`.
-- [ ] `bun run build` green in `frontend-v2/`.
+- [ ] `bun run test` green in `frontend/`.
+- [ ] `bun run build` green in `frontend/`.
 - [ ] No dead code; no `_archived/` folder unless truly necessary.
 
 ## Brand asset catalogue
