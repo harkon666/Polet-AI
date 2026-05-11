@@ -149,21 +149,25 @@ function ReceiptRow({ entry, index }: { entry: ReceiptEntry; index: number }) {
           name: 'pi_numeric_limit',
           check: refs.numericLimit,
           tooltipKey: 'app.constraint.numericLimit.tooltip' as TranslationKey,
+          shortKey: 'app.constraint.numericLimit.short' as TranslationKey,
         },
         refs.scopeMatch && {
           name: 'pi_scope_match',
           check: refs.scopeMatch,
           tooltipKey: 'app.constraint.scopeMatch.tooltip' as TranslationKey,
+          shortKey: 'app.constraint.scopeMatch.short' as TranslationKey,
         },
         refs.sessionActive && {
           name: 'pi_session_active',
           check: refs.sessionActive,
           tooltipKey: 'app.constraint.sessionActive.tooltip' as TranslationKey,
+          shortKey: 'app.constraint.sessionActive.short' as TranslationKey,
         },
       ].filter(Boolean) as Array<{
         name: string
         check: 'pass' | 'fail' | 'unknown'
         tooltipKey: TranslationKey
+        shortKey: TranslationKey
       }>)
     : []
 
@@ -191,26 +195,43 @@ function ReceiptRow({ entry, index }: { entry: ReceiptEntry; index: number }) {
           </p>
         ) : null}
         {refTags.length > 0 ? (
-          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-ink-mute">
-            {refTags.map((ref) => (
-              <span
-                key={ref.name}
-                title={t(ref.tooltipKey)}
-                className={`cursor-help underline decoration-dotted decoration-line/40 underline-offset-2 ${
-                  ref.check === 'pass'
-                    ? 'text-palm'
-                    : ref.check === 'fail'
-                      ? 'text-coral'
-                      : 'text-ink-mute'
-                }`}
-              >
-                {ref.name}{' '}
-                <span aria-hidden="true">
-                  {ref.check === 'pass' ? '✓' : ref.check === 'fail' ? '✗' : '·'}
-                </span>
-              </span>
-            ))}
-          </p>
+          <ul className="mt-3 flex flex-col gap-1.5 font-mono text-[11px]">
+            {refTags.map((ref) => {
+              const iconColor =
+                ref.check === 'pass'
+                  ? 'text-palm'
+                  : ref.check === 'fail'
+                    ? 'text-coral'
+                    : 'text-ink-mute'
+              const nameColor =
+                ref.check === 'pass'
+                  ? 'text-palm'
+                  : ref.check === 'fail'
+                    ? 'text-coral'
+                    : 'text-ink-mute'
+              return (
+                <li
+                  key={ref.name}
+                  title={t(ref.tooltipKey)}
+                  className="flex items-baseline gap-2"
+                >
+                  <span aria-hidden="true" className={`${iconColor} shrink-0 w-3 text-center`}>
+                    {ref.check === 'pass'
+                      ? '✓'
+                      : ref.check === 'fail'
+                        ? '✗'
+                        : '·'}
+                  </span>
+                  <span className={`${nameColor} shrink-0 tabular-nums`}>
+                    {ref.name}
+                  </span>
+                  <span className="text-ink-mute leading-relaxed">
+                    {t(ref.shortKey)}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
         ) : null}
         {entry.ikaProof ? <IkaProofPanel proof={entry.ikaProof} /> : null}
         {entry.jupiterProof ? <JupiterProofPanel proof={entry.jupiterProof} /> : null}

@@ -278,6 +278,22 @@ function LedgerTable() {
 
         return (
           <Fragment key={row.id}>
+            {/* OS-console group separator: "GATE RUNTIME ▸" before
+                row 03 so the visual layout reads as 02 prerequisite
+                rows (Wallet / Custody) followed by 02 live gate-state
+                rows (Policy / Session). Inline `<details>`-ish strip
+                with a lagoon-bright kicker so the transition between
+                operator setup and confidential runtime is explicit. */}
+            {row.id === 'policy' ? (
+              <div className="pl-reveal flex items-center gap-2 px-6 py-2.5 bg-bg-base/40">
+                <span aria-hidden="true" className="text-lagoon-bright/80">
+                  ▸
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-lagoon-bright">
+                  {t('app.ledger.group.runtime')}
+                </span>
+              </div>
+            ) : null}
             <article
               className="group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 px-6 py-5 hover:bg-surface/40 transition pl-reveal"
               style={{ transitionDelay: `${80 * (i + 1)}ms` }}

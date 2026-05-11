@@ -379,6 +379,10 @@ export type TranslationKey =
   | 'app.constraint.numericLimit.tooltip'
   | 'app.constraint.scopeMatch.tooltip'
   | 'app.constraint.sessionActive.tooltip'
+  | 'app.constraint.numericLimit.short'
+  | 'app.constraint.scopeMatch.short'
+  | 'app.constraint.sessionActive.short'
+  | 'app.ledger.group.runtime'
   | 'app.session.download'
   | 'app.session.copy.public'
   | 'app.session.copy.secret'
@@ -826,6 +830,13 @@ const en: Dictionary = {
     'pi_scope_match — source/target asset and chain allowlist plus route-risk guardrails (slippage, price impact, liquidity).',
   'app.constraint.sessionActive.tooltip':
     'pi_session_active — session not expired, not revoked, and grantedSlot is greater than or equal to the wallet last-revoked slot.',
+  'app.constraint.numericLimit.short':
+    'Confidential max-per-run + daily-cap check',
+  'app.constraint.scopeMatch.short':
+    'Asset/chain allowlist + route-risk guards',
+  'app.constraint.sessionActive.short':
+    'Session valid, not expired or revoked',
+  'app.ledger.group.runtime': 'Gate runtime',
   'app.session.download': 'Download polet-agent.json',
   'app.session.copy.public': 'Copy public key',
   'app.session.copy.secret': 'Copy secret',
@@ -1273,6 +1284,13 @@ const id: Dictionary = {
     'pi_scope_match — allowlist asset/chain sumber + target plus route-risk guardrails (slippage, price impact, likuiditas).',
   'app.constraint.sessionActive.tooltip':
     'pi_session_active — session belum expired, belum dicabut, dan grantedSlot >= last-revoked slot wallet.',
+  'app.constraint.numericLimit.short':
+    'Pemeriksaan max-per-run + daily-cap rahasia',
+  'app.constraint.scopeMatch.short':
+    'Allowlist aset/chain + risk routing',
+  'app.constraint.sessionActive.short':
+    'Sesi valid, belum expired atau dicabut',
+  'app.ledger.group.runtime': 'Gate runtime',
   'app.session.download': 'Unduh polet-agent.json',
   'app.session.copy.public': 'Salin public key',
   'app.session.copy.secret': 'Salin secret',
