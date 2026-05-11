@@ -564,7 +564,12 @@ export type TranslationKey =
   | 'portal.gate.actions.execute'
   | 'portal.gate.actions.disabledNoSession'
   | 'portal.gate.actions.disabledNoSessionKey'
-  | 'portal.gate.actions.disabledNoIkaChain';
+  | 'portal.gate.actions.disabledNoIkaChain'
+  // === Phase 4 keys (issue 102 — Funds & Setup). Insert below. ===
+  // === Phase 5 keys (issue 103 — Proof Trail). Insert below. ===
+  // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
+  // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
+  ;
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -1227,6 +1232,10 @@ const en: Dictionary = {
     'A session keypair is required to broadcast — fund agent gas first.',
   'portal.gate.actions.disabledNoIkaChain':
     'Enable an Ika managed chain (Sui devnet) to execute via Ika.',
+  // === Phase 4 keys (issue 102 — Funds & Setup). Insert below. ===
+  // === Phase 5 keys (issue 103 — Proof Trail). Insert below. ===
+  // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
+  // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
 };
 
 // ---------------------------------------------------------------------------
@@ -1888,6 +1897,10 @@ const id: Dictionary = {
     'Butuh keypair sesi untuk broadcast — isi bensin agent dulu.',
   'portal.gate.actions.disabledNoIkaChain':
     'Aktifkan chain managed Ika (Sui devnet) untuk eksekusi via Ika.',
+  // === Phase 4 keys (issue 102 — Funds & Setup). Insert below. ===
+  // === Phase 5 keys (issue 103 — Proof Trail). Insert below. ===
+  // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
+  // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };

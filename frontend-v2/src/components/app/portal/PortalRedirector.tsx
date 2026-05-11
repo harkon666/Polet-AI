@@ -38,7 +38,10 @@ export function PortalRedirector() {
     // accidentally land here.)
     const isPreviewRoute =
       pathname.startsWith('/app/workspace-preview') ||
-      pathname.startsWith('/app/gate-preview')
+      pathname.startsWith('/app/gate-preview') ||
+      pathname.startsWith('/app/funds-preview') ||
+      pathname.startsWith('/app/proof-preview') ||
+      pathname.startsWith('/app/bridge-preview')
 
     if (connected && isIndex) {
       router.navigate({ to: '/app/workspace', replace: true })
