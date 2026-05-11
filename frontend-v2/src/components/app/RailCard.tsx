@@ -78,11 +78,14 @@ export function RailCard({
 
   return (
     <article className="group relative flex flex-col p-8 md:p-10 hover:bg-surface/40 transition">
-      {/* Hairline divider between cards (desktop only, except last) */}
+      {/* Hairline divider between cards (desktop only, except last) —
+          upgrade from neutral line to a soft lagoon-bright vertical
+          gradient so the divider reads as a brand-coloured gate edge,
+          matching the per-card π intersect badge in the buttons grid. */}
       {!isLast && (
         <span
           aria-hidden="true"
-          className="hidden md:block absolute right-0 top-6 bottom-6 w-px bg-line"
+          className="hidden md:block absolute right-0 top-6 bottom-6 w-px bg-gradient-to-b from-transparent via-lagoon-bright/30 to-transparent"
         />
       )}
 

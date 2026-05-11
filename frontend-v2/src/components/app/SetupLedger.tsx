@@ -12,6 +12,7 @@ import {
   useConsole,
   type ActionKey,
   type ConsoleData,
+  type ReceiptEntry,
 } from './use-console-actions'
 
 /**
@@ -106,20 +107,25 @@ const STATE_BADGE_CLASSES: Record<RowState, string> = {
 }
 
 /**
- * Derive a short visible hash from the on-chain policyCommitment so
+ * Derive a visible ciphertext from the on-chain policyCommitment so
  * the EncryptedField in the POLICY row visibly correlates with each
  * policy update. policyCommitment is a 32-byte number[] from
- * `getWalletData(owner).policyCommitment`. Take the first 6 bytes,
- * hex-encode, prepend `0x`, total 14 chars to match the Crypto-Blur
- * Theater fixture width.
+ * `getWalletData(owner).policyCommitment`. Day 12 takes the first 12
+ * bytes (24 hex chars) so the rendered cipher reads as proper
+ * 32-byte-ish ciphertext mass rather than a checksum-style 6-byte
+ * stub. Full 32 bytes would overflow the value column at mobile
+ * widths; 12 bytes is the sweet spot — wide enough to feel like
+ * confidential bytes, narrow enough to fit at 375px.
  *
- * Falls back to a stable placeholder for tests + the brief moment
- * after wallet connect before the proxy returns the on-chain state.
+ * Falls back to all-zero bytes for tests + the brief moment after
+ * wallet connect before the proxy returns the on-chain state.
  */
 function derivePolicyHash(commitment: number[] | undefined): string {
-  if (!commitment || commitment.length < 6) return '0x4Vk8c2ed7a1b'
+  if (!commitment || commitment.length < 12) {
+    return '0x000000000000000000000000'
+  }
   const hex = commitment
-    .slice(0, 6)
+    .slice(0, 12)
     .map((b) => Math.max(0, Math.min(255, Math.trunc(b))).toString(16).padStart(2, '0'))
     .join('')
   return `0x${hex}`
@@ -243,7 +249,7 @@ function OnboardingWizard() {
 function LedgerTable() {
   const { t } = useLocale()
   const { state, actions } = useConsole()
-  const { data, loading, sessionKeypair, publicKey } = state
+  const { data, loading, sessionKeypair, publicKey, receipts } = state
 
   const rowState = deriveRowStates(data)
 
@@ -286,7 +292,12 @@ function LedgerTable() {
               </div>
 
               <div className="flex-1 min-w-0 font-mono text-sm text-ink-soft">
-                <RowValue row={row} state={state} data={data} />
+                <RowValue
+                  row={row}
+                  state={state}
+                  data={data}
+                  receipts={receipts}
+                />
               </div>
 
               <span className={STATE_BADGE_CLASSES[state]}>
@@ -491,11 +502,14 @@ function RowValue({
   row,
   state,
   data,
+  receipts,
 }: {
   row: RowDef
   state: RowState
   data: ConsoleData | null
+  receipts: ReceiptEntry[]
 }) {
+  const { t } = useLocale()
   if (state === 'pending') {
     return <span className="text-ink-mute">—</span>
   }
@@ -532,9 +546,65 @@ function RowValue({
     if (!active) return <span className="text-ink-mute">—</span>
     const sessionKey = String(active.key ?? '')
     const expiresAt = Number(active.expiresAt ?? 0) * 1000
+
+    // Agent presence: latest rail-related receipt drives the activity
+    // indicator. Fresh (< 30 s) → lagoon-bright pulse + "active Xs ago".
+    // Stale (≥ 30 s) → muted dot + "idle Xs". No receipts yet → muted
+    // dot + "no activity yet".
+    const lastRailReceipt = receipts.find(
+      (r) =>
+        r.action.includes('JUPITER') ||
+        r.action.includes('IKA') ||
+        r.action.includes('AGENT'),
+    )
+    const elapsedMs = lastRailReceipt
+      ? Date.now() - lastRailReceipt.timestamp
+      : null
+    const isFresh = elapsedMs !== null && elapsedMs < 30_000
+    const presenceLabel = (() => {
+      if (elapsedMs === null) return t('app.session.presence.noActivity')
+      const sec = Math.floor(elapsedMs / 1000)
+      if (sec < 60) {
+        return `${t('app.session.presence.active')} ${sec}s ${t('app.session.presence.ago')}`
+      }
+      const min = Math.floor(sec / 60)
+      if (min < 60) return `${t('app.session.presence.idle')} ${min}m`
+      const hr = Math.floor(min / 60)
+      return `${t('app.session.presence.idle')} ${hr}h`
+    })()
+
     return (
-      <span>
-        {shortenPubkey(sessionKey)} · {formatExpiry(expiresAt)}
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        <span>{shortenPubkey(sessionKey)}</span>
+        <span aria-hidden="true" className="text-line">·</span>
+        <span>{formatExpiry(expiresAt)}</span>
+        <span aria-hidden="true" className="text-line">·</span>
+        <span
+          aria-hidden="true"
+          className={
+            isFresh
+              ? 'inline-flex relative h-1.5 w-1.5'
+              : 'inline-flex h-1.5 w-1.5'
+          }
+        >
+          {isFresh ? (
+            <>
+              <span className="absolute inline-flex h-full w-full rounded-full bg-lagoon-bright/50 animate-ping" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-lagoon-bright" />
+            </>
+          ) : (
+            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-sand/40" />
+          )}
+        </span>
+        <span
+          className={
+            isFresh
+              ? 'text-[11px] text-lagoon-bright'
+              : 'text-[11px] text-ink-mute'
+          }
+        >
+          {presenceLabel}
+        </span>
       </span>
     )
   }

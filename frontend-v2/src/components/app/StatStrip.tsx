@@ -14,6 +14,11 @@ import { useConsole } from './use-console-actions'
  *   - PDA           short program-derived address
  *   - SOL Balance   live lamports / 1e9, four decimals
  *   - Policy seq    `#N` from on-chain confidential policy state
+ *                   plus a 5-byte ciphertext sliver (lagoon-bright,
+ *                   `pl-encrypted` breath) so the policy tile carries
+ *                   visible privacy primitive — readers see the seq
+ *                   counter incrementing AND the underlying cipher
+ *                   shifting with every confidential update
  *   - Sessions      number of authorized, non-expired sessions
  *
  * Renders nothing when disconnected so the onboarding wizard owns
@@ -34,6 +39,23 @@ const TILES: TileDef[] = [
 
 const shortenPubkey = (s: string) =>
   s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s
+
+/**
+ * Render a 5-byte (10 hex chars) sliver of the on-chain
+ * policyCommitment for the StatStrip POLICY tile. Same byte source as
+ * SetupLedger.derivePolicyHash but narrower so the ciphertext fits
+ * the tile width without truncating the seq counter on mobile.
+ */
+function policyCipherSliver(commitment: number[] | undefined): string {
+  if (!commitment || commitment.length < 5) return '0x0000000000'
+  const hex = commitment
+    .slice(0, 5)
+    .map((b) =>
+      Math.max(0, Math.min(255, Math.trunc(b))).toString(16).padStart(2, '0'),
+    )
+    .join('')
+  return `0x${hex}`
+}
 
 export function StatStrip() {
   const { t } = useLocale()
@@ -97,6 +119,14 @@ export function StatStrip() {
                 <p className="mt-1 font-mono tabular-nums text-base text-ink truncate">
                   {tileValue(tile.id)}
                 </p>
+                {tile.id === 'policy' && data?.policyCommitment ? (
+                  <p
+                    className="mt-0.5 font-mono text-[10px] tracking-tight pl-encrypted truncate"
+                    title="On-chain confidential policy commitment (first 5 bytes)"
+                  >
+                    {policyCipherSliver(data.policyCommitment)}
+                  </p>
+                ) : null}
               </article>
             ))}
           </div>

@@ -386,7 +386,11 @@ export type TranslationKey =
   | 'app.session.devnetWarning'
   | 'app.session.lostKeyNote'
   | 'app.action.regrant'
-  | 'app.action.regrant.loading';
+  | 'app.action.regrant.loading'
+  | 'app.session.presence.noActivity'
+  | 'app.session.presence.active'
+  | 'app.session.presence.ago'
+  | 'app.session.presence.idle';
 
 type Dictionary = Record<TranslationKey, string>;
 
@@ -759,7 +763,7 @@ const en: Dictionary = {
   'app.ledger.state.active': 'ACTIVE',
   'app.ledger.state.pending': 'PENDING',
   'app.ledger.empty.connectFirst': 'Connect a devnet wallet to begin.',
-  'app.console.rails.kicker': 'Operational rails',
+  'app.console.rails.kicker': 'Rails · Gated by policy',
   'app.rail.jupiter.disclaimer': 'DEVNET PREVIEW · NOT MAINNET',
   'app.rail.ika.disclaimer': 'PRE-ALPHA · NOT MPC SETTLEMENT',
 
@@ -831,6 +835,10 @@ const en: Dictionary = {
     'Session was granted before the persistence fix. Re-grant to download polet-agent.json.',
   'app.action.regrant': 'Re-grant for download',
   'app.action.regrant.loading': 'Re-granting…',
+  'app.session.presence.noActivity': 'no activity yet',
+  'app.session.presence.active': 'active',
+  'app.session.presence.ago': 'ago',
+  'app.session.presence.idle': 'idle',
 };
 
 // ---------------------------------------------------------------------------
@@ -1202,7 +1210,7 @@ const id: Dictionary = {
   'app.ledger.state.active': 'ACTIVE',
   'app.ledger.state.pending': 'PENDING',
   'app.ledger.empty.connectFirst': 'Hubungkan wallet devnet untuk mulai.',
-  'app.console.rails.kicker': 'Rail operasional',
+  'app.console.rails.kicker': 'Rail · Dijaga policy',
   'app.rail.jupiter.disclaimer': 'DEVNET PREVIEW · NOT MAINNET',
   'app.rail.ika.disclaimer': 'PRE-ALPHA · NOT MPC SETTLEMENT',
 
@@ -1274,6 +1282,10 @@ const id: Dictionary = {
     'Sesi di-grant sebelum fix persistensi. Re-grant untuk unduh polet-agent.json.',
   'app.action.regrant': 'Re-grant untuk unduh',
   'app.action.regrant.loading': 'Sedang re-grant…',
+  'app.session.presence.noActivity': 'belum ada aktivitas',
+  'app.session.presence.active': 'aktif',
+  'app.session.presence.ago': 'lalu',
+  'app.session.presence.idle': 'idle',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };
