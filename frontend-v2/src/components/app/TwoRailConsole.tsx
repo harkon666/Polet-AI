@@ -65,6 +65,10 @@ const RAILS: Rail[] = [
     allowActionLabelKey: 'app.rail.ika.action.allow',
     allowActionLoadingKey: 'app.rail.ika.action.allow.loading',
     allowHintKey: 'app.rail.action.allow.hint',
+    executeActionKey: 'ika-execute',
+    executeActionLabelKey: 'app.rail.ika.action.execute',
+    executeActionLoadingKey: 'app.rail.ika.action.execute.loading',
+    executeHintKey: 'app.rail.action.execute.hint',
   },
 ]
 
@@ -134,7 +138,7 @@ export function TwoRailConsole() {
                 onExecute={
                   rail.id === 'jupiter'
                     ? () => void actions.executeJupiter()
-                    : undefined
+                    : () => void actions.executeIka()
                 }
               />
             ))}

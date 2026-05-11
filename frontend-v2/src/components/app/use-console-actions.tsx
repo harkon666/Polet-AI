@@ -31,6 +31,7 @@ import {
   getIkaDwalletRegistration,
   getIkaGasDepositStatus,
   getIkaManagedFixtureStatus,
+  progressIkaLifecycle as apiProgressIkaLifecycle,
   type IkaManagedChain,
   type IkaManagedDwalletRegistration,
   type IkaManagedGasDepositSummary,
@@ -243,6 +244,7 @@ export type ActionKey =
   | 'fund-gas'
   | 'ika-enable-sui'
   | 'ika-enable-ethereum'
+  | 'ika-execute'
   | 'jupiter-block'
   | 'jupiter-allow'
   | 'jupiter-execute'
@@ -280,6 +282,7 @@ export type ConsoleActions = {
   runJupiterBlock: () => Promise<void>
   runJupiterAllow: () => Promise<void>
   executeJupiter: () => Promise<void>
+  executeIka: () => Promise<void>
   runIkaBlock: () => Promise<void>
   runIkaAllow: () => Promise<void>
 }
@@ -308,6 +311,19 @@ const ikaChainActionKey = (chain: IkaManagedChain): ActionKey =>
 
 const ikaCurveForChain = (chain: IkaManagedChain) =>
   chain === 'sui' ? 'curve25519' : 'secp256k1'
+
+const activeManagedIkaChain = (
+  registration: IkaManagedDwalletRegistration | null | undefined,
+): IkaManagedChain | null => {
+  if (!registration) return null
+  if (registration.label === 'managed-curve25519' || registration.curve === 2) {
+    return 'sui'
+  }
+  if (registration.label === 'managed-secp256k1' || registration.curve === 0) {
+    return 'ethereum'
+  }
+  return null
+}
 
 /**
  * Robust transaction confirmation with extended polling.
@@ -1418,6 +1434,222 @@ export function ConsoleStateProvider({
     [runIkaIntent],
   )
 
+  const executeIka = useCallback(async () => {
+    if (!publicKey) return
+    const sessionKey = findActiveSessionKey()
+    if (!sessionKey) {
+      setError('No active session. Grant an agent session first.')
+      emitReceipt({
+        action: 'PRECHECK FAILED',
+        description: 'No active session key.',
+        status: 'error',
+        body: 'Grant an agent session in the Setup ledger before running rails.',
+      })
+      return
+    }
+    if (!sessionKeypair) {
+      setError('Session keypair not in memory. Re-grant to populate storage.')
+      emitReceipt({
+        action: 'IKA EXECUTE BLOCKED',
+        description: 'Session keypair missing.',
+        status: 'error',
+        body: 'Session was granted before the persistence fix, or was wiped on refresh. Use Re-grant for download to mint a new keypair.',
+      })
+      return
+    }
+    const activeChain = activeManagedIkaChain(data?.ikaManaged?.registration)
+    if (activeChain !== 'sui') {
+      setError('Enable Sui devnet before executing the Ika rail.')
+      emitReceipt({
+        action: 'IKA EXECUTE BLOCKED',
+        description: 'Sui devnet signer is not active.',
+        status: 'error',
+        body: 'Enable Sui devnet in the Ika chain status strip before running the Sui destination lifecycle.',
+      })
+      return
+    }
+    if (data?.ikaManaged?.gas && data.ikaManaged.gas.passes !== true) {
+      setError('Ika GasDeposit is below the floor.')
+      emitReceipt({
+        action: 'IKA EXECUTE BLOCKED',
+        description: 'GasDeposit below floor.',
+        status: 'error',
+        body: data.ikaManaged.gas.reason ?? 'Enable chain again or fund the Ika GasDeposit before progressing lifecycle.',
+      })
+      return
+    }
+    if (!data?.ikaManaged?.gas) {
+      setError('Ika GasDeposit status is unknown.')
+      emitReceipt({
+        action: 'IKA EXECUTE BLOCKED',
+        description: 'GasDeposit status unknown.',
+        status: 'error',
+        body: 'Refresh the console or enable Sui devnet again before progressing lifecycle.',
+      })
+      return
+    }
+
+    setLoading('ika-execute')
+    setError(null)
+
+    try {
+      const result = await apiRunMultichainIntent({
+        owner: publicKey.toBase58(),
+        sessionKey,
+        sourceChain: 'solana',
+        sourceAsset: 'USDC',
+        targetChain: 'sui',
+        targetAsset: 'SUI',
+        amount: ALLOW_AMOUNT_USDC,
+        executionRail: 'ika',
+        strategy: 'dca',
+        slippageBps: 150,
+        maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
+      })
+
+      if (result.allowed !== true) {
+        emitReceipt({
+          action: `${ALLOW_AMOUNT_USDC} USDC BLOCKED (IKA EXECUTE)`,
+          description:
+            'Policy gate blocked execute at preview stage; no dWallet lifecycle started.',
+          status: 'blocked',
+          constraintRefs: {
+            numericLimit: 'fail',
+            scopeMatch: 'pass',
+            sessionActive: 'pass',
+          },
+          body:
+            result.reason ??
+            'Confidential policy would block this amount. Try a smaller run or raise the cap.',
+        })
+        return
+      }
+
+      const ikaRequest = result.ikaRequest
+      const approvalTxB64 = ikaRequest?.poletApprovalTransaction?.transaction
+      if (!ikaRequest || !approvalTxB64) {
+        emitReceipt({
+          action: 'IKA EXECUTE ABORTED',
+          description:
+            'Proxy did not return an unsigned Polet approval transaction.',
+          status: 'error',
+          body: 'The verdict was allowed but the approve_message transaction was missing. Re-run Ika preview to inspect.',
+        })
+        return
+      }
+
+      const approvalBroadcast = await broadcastSessionTx(
+        connection,
+        sessionKeypair,
+        approvalTxB64,
+      )
+      const approvalSlot = await connection.getSlot('confirmed').catch(() =>
+        ikaRequest.poletApprovalTransaction?.slot ?? 0,
+      )
+      const lifecycle = await apiProgressIkaLifecycle({
+        ikaRequest,
+        approvalTransactionSignature: approvalBroadcast.signature,
+        approvalTransactionSlot: approvalSlot,
+        managedFixture: true,
+        broadcast: { mode: 'auto' },
+      })
+
+      const broadcast = lifecycle.broadcast
+      const lifecycleOk = lifecycle.lifecycleStatus === 'signature-committed'
+      const bodyParts = [
+        `Lifecycle: ${lifecycle.lifecycleStatus}.`,
+        lifecycle.attemptedSteps?.length
+          ? `Steps: ${lifecycle.attemptedSteps.join(' → ')}.`
+          : null,
+        broadcast
+          ? broadcast.ok
+            ? `Destination broadcast ${broadcast.status}${broadcast.receipt?.explorerUrl ? ` — ${broadcast.receipt.explorerUrl}` : ''}.`
+            : `Destination broadcast ${broadcast.status}: ${broadcast.reason ?? broadcast.code ?? 'no reason'}.`
+          : 'Destination broadcast not returned.',
+      ].filter(Boolean)
+      const ikaProof: IkaProof = {
+        dwalletAccount:
+          lifecycle.dwalletAccount ?? ikaRequest.preAlphaSigning?.dwalletAccount,
+        messageApprovalPda:
+          lifecycle.messageApprovalPda ??
+          ikaRequest.preAlphaSigning?.messageApprovalPda,
+        cpiAuthorityPda: ikaRequest.preAlphaSigning?.cpiAuthorityPda,
+        ikaMessageHash:
+          ikaRequest.ikaMessageHash ??
+          ikaRequest.preAlphaSigning?.ikaMessageHash,
+        destinationDigest: ikaRequest.suiTransactionDigest
+          ? {
+              chain: 'sui',
+              digestBase58: ikaRequest.suiTransactionDigest.digestBase58,
+              digestHex: ikaRequest.suiTransactionDigest.digestHex,
+              hashScheme: 'blake2b-256',
+            }
+          : undefined,
+        signatureScheme: String(
+          lifecycle.signatureScheme ??
+            ikaRequest.preAlphaSigning?.signatureScheme ??
+            '',
+        ),
+        settlement: lifecycle.lifecycleStatus,
+        policyAttestationHash: ikaRequest.policyAttestation?.attestationHash,
+        poletApprovalSigners: ikaRequest.poletApprovalTransaction?.signers,
+        canonicalOrderHash: ikaRequest.canonicalOrderHash,
+      }
+
+      emitReceipt({
+        action: lifecycleOk
+          ? `${ALLOW_AMOUNT_USDC} USDC EXECUTED (IKA)`
+          : `${ALLOW_AMOUNT_USDC} USDC IKA LIFECYCLE FAILED`,
+        description: lifecycleOk
+          ? `Approval tx ${approvalBroadcast.signature.slice(0, 4)}…${approvalBroadcast.signature.slice(-4)} committed dWallet signature.`
+          : lifecycle.reason ?? 'Ika lifecycle did not commit a signature.',
+        signature: approvalBroadcast.signature,
+        status: lifecycleOk ? 'allowed' : lifecycle.lifecycleStatus === 'gas-floor-blocked' ? 'blocked' : 'error',
+        constraintRefs: {
+          numericLimit: 'pass',
+          scopeMatch: 'pass',
+          sessionActive: 'pass',
+        },
+        body: bodyParts.join(' '),
+        ikaProof,
+      })
+
+      await refresh()
+    } catch (err) {
+      if (err instanceof BroadcastError) {
+        setError(err.message)
+        emitReceipt({
+          action: 'IKA APPROVAL TX FAILED',
+          description: `${err.stage}: ${err.cause instanceof Error ? err.cause.message : String(err.cause)}`,
+          signature: err.signature ?? undefined,
+          status: 'error',
+          body:
+            err.stage === 'confirm'
+              ? 'Approval transaction broadcast but failed during confirmation. Check Solana Explorer for final status.'
+              : 'Approval transaction did not broadcast. No dWallet lifecycle was started.',
+        })
+      } else {
+        const message = describeError(err)
+        setError(message)
+        emitReceipt({
+          action: 'IKA EXECUTE ERROR',
+          description: message,
+          status: 'error',
+        })
+      }
+    } finally {
+      setLoading(null)
+    }
+  }, [
+    publicKey,
+    sessionKeypair,
+    data,
+    connection,
+    findActiveSessionKey,
+    emitReceipt,
+    refresh,
+  ])
+
   const value = useMemo(
     () => ({
       state: {
@@ -1444,6 +1676,7 @@ export function ConsoleStateProvider({
         runJupiterBlock,
         runJupiterAllow,
         executeJupiter,
+        executeIka,
         runIkaBlock,
         runIkaAllow,
       },
@@ -1470,6 +1703,7 @@ export function ConsoleStateProvider({
       runJupiterBlock,
       runJupiterAllow,
       executeJupiter,
+      executeIka,
       runIkaBlock,
       runIkaAllow,
     ],

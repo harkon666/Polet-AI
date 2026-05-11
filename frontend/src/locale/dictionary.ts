@@ -368,6 +368,8 @@ export type TranslationKey =
   | 'app.rail.ika.action.block.loading'
   | 'app.rail.ika.action.allow'
   | 'app.rail.ika.action.allow.loading'
+  | 'app.rail.ika.action.execute'
+  | 'app.rail.ika.action.execute.loading'
   | 'app.rail.action.block.hint'
   | 'app.rail.action.allow.hint'
   | 'app.rail.jupiter.action.execute'
@@ -844,6 +846,8 @@ const en: Dictionary = {
   'app.rail.ika.action.block.loading': 'Submitting…',
   'app.rail.ika.action.allow': 'Approve 5 USDC',
   'app.rail.ika.action.allow.loading': 'Preparing…',
+  'app.rail.ika.action.execute': 'Execute Ika lifecycle',
+  'app.rail.ika.action.execute.loading': 'Progressing…',
   'app.rail.action.block.hint': 'Over confidential cap',
   'app.rail.action.allow.hint': 'Within confidential cap',
   'app.rail.jupiter.action.execute': 'Execute 5 USDC',
@@ -1329,6 +1333,8 @@ const id: Dictionary = {
   'app.rail.ika.action.block.loading': 'Mengirim…',
   'app.rail.ika.action.allow': 'Setujui 5 USDC',
   'app.rail.ika.action.allow.loading': 'Menyiapkan…',
+  'app.rail.ika.action.execute': 'Eksekusi lifecycle Ika',
+  'app.rail.ika.action.execute.loading': 'Memproses…',
   'app.rail.action.block.hint': 'Melebihi cap rahasia',
   'app.rail.action.allow.hint': 'Dalam cap rahasia',
   'app.rail.jupiter.action.execute': 'Eksekusi 5 USDC',
