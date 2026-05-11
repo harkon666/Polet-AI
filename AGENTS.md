@@ -95,3 +95,17 @@ These apply to the landing page and the `/app` console.
 - For any new frontend string, add an i18n key — don't inline English.
 - Publish new issues with the `NNN-kebab-slug.md` convention (next free number).
 - Apply `needs-triage` on every new issue so `/triage` can pick it up.
+
+## Git conventions
+
+- **Commit author**: use the repo's existing `git config user.name`
+  (currently `deranaz`). Do NOT change `git config`.
+- **No agent attribution in commit messages**. Never add
+  `Generated with [Devin]...`, `Co-Authored-By: Devin ...`, or any other
+  agent / tool footer. Plain commit message body only. The repo's existing
+  history is the canonical style — match it.
+- **Commit message format**: `feat(scope): Phase N — short title` for phased
+  rollouts, mirroring `feat(landing-v2): Phase N — ...` and
+  `feat(portal): Phase N — ...`. Use `docs(...)`, `fix(...)`, `chore(...)`
+  prefixes per Conventional Commits where appropriate.
+- **Never push** unless the user explicitly asks.
