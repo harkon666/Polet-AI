@@ -4,7 +4,33 @@ Labels: `needs-triage`, `frontend`, `design`, `agent-runtime`
 
 Type: `AFK`
 
-Status: `TODO`
+Status: `DONE`
+
+## Shipped
+
+Commit `fa27387 feat(portal): Phase 2 — workspace home readiness, CTA, activity`.
+
+- `frontend-v2/src/components/app/selectors/console-selectors.ts` with
+  `deriveReadiness`, `nextBlockingStep`, `latestReceipt`,
+  `latestRailVerdict`, `isCustodyFunded`, `hasActiveSession`,
+  `isAgentGasFunded`, `getActiveIkaChain`, `getReadinessPills` — 33
+  unit tests across disconnected / wallet-only / custody-registered /
+  custody-funded / policy-sealed / session-active / gas-funded /
+  all-ready snapshots.
+- 4 new workspace components (`WorkspaceHero`, `ReadinessStrip`,
+  `ContinueCTA`, `ActivityLine`) live under
+  `frontend-v2/src/components/app/workspace/`.
+- `app.workspace.tsx` replaces the Phase 1 placeholder with the new
+  composition.
+- `PortalSidebar` runtime block wires Policy (`enc #<seq>`) and
+  Session (time-to-expiry glyph) live from `ConsoleState`. Proxy row
+  stays a placeholder per issue 100 notes.
+- 29 new `portal.workspace.*` / `portal.readiness.*` i18n keys, EN
+  canonical + ID mirror.
+- 8 new workspace state tests in `app.workspace.test.tsx` covering
+  every blocking step, the all-ready state, populated receipts, and
+  the ID locale mirror. Phase 1 smoke test updated to match.
+- `bun run typecheck` clean, 52/52 tests green, `bun run build` clean.
 
 ## Parent
 
