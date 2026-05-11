@@ -1,5 +1,8 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": [
+    "src/components/app/_archived/**"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

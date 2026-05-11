@@ -1,3 +1,21 @@
+/**
+ * ARCHIVED — Phase 7 (issue 105) moved this file out of the active
+ * Polet Portal tree on 2026-05-11. Replaced by the Polet Portal
+ * surface (issues 099-105). Kept on disk so future contributors can
+ * reference the previous shape.
+ *
+ * If you're looking for the new equivalent, see:
+ *   - components/app/portal/    chrome (sidebar, mobile bar, drawer)
+ *   - components/app/workspace/ /app/workspace
+ *   - components/app/gate/      /app/gate
+ *   - components/app/funds/     /app/funds
+ *   - components/app/proof/     /app/proof
+ *   - components/app/bridge/    /app/bridge
+ *   - components/app/selectors/console-selectors.ts (shared state derivations)
+ *
+ * Do not import from this file in new code. Mounted by:
+ *   git log --diff-filter=A -- frontend-v2/src/components/app/ReceiptLog.tsx
+ */
 import { useLocale } from '#shared/hooks/use-locale'
 import type { TranslationKey } from '#shared/locale/dictionary'
 import { useScrollReveal } from '../../hooks/useScrollReveal'

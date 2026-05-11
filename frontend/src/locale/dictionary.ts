@@ -642,6 +642,9 @@ export type TranslationKey =
   | 'portal.bridge.advanced.kicker'
   | 'portal.bridge.advanced.summary'
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
+  | 'portal.drawer.open'
+  | 'portal.drawer.close'
+  | 'portal.drawer.backdrop'
   ;
 
 type Dictionary = Record<TranslationKey, string>;
@@ -1391,6 +1394,9 @@ const en: Dictionary = {
   'portal.bridge.advanced.summary':
     'Legacy v1 console — recovery, shared quorum, Encrypt graph.',
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
+  'portal.drawer.open': 'Open portal navigation',
+  'portal.drawer.close': 'Close portal navigation',
+  'portal.drawer.backdrop': 'Dismiss portal navigation',
 };
 
 // ---------------------------------------------------------------------------
@@ -2138,6 +2144,9 @@ const id: Dictionary = {
   'portal.bridge.advanced.summary':
     'Konsol legacy v1 — recovery, shared quorum, Encrypt graph.',
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
+  'portal.drawer.open': 'Buka navigasi portal',
+  'portal.drawer.close': 'Tutup navigasi portal',
+  'portal.drawer.backdrop': 'Tutup navigasi portal',
 };
 
 const dictionaries: Record<Locale, Dictionary> = { en, id };

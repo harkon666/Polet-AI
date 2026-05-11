@@ -10,20 +10,16 @@ import { hasActiveSession } from '../selectors/console-selectors'
  * PortalSidebar, the left-rail navigation chrome for `/app/*`.
  *
  * Phase 1 (issue 099) shipped the layout and the nav items. Phase 2
- * (issue 100) now wires the bottom runtime block to live state:
- *   - Devnet: static "online" (devnet-only build, OK to hard-code).
- *   - Proxy:  placeholder "—" — live proxy ping lands in a later phase.
- *   - Policy: renders `enc #<seq>` when the confidential USDC DCA policy
- *     is enabled, or "—" when it isn't yet sealed.
- *   - Session: renders `<N>m` or `<N>h` remaining when at least one
- *     authorized session key hasn't expired, otherwise "—".
+ * (issue 100) wired the bottom runtime block to live state. Phase 7
+ * (issue 105) introduces a `variant` prop so the same component can
+ * render at desktop (sticky left rail, ≥ md) AND inside the mobile
+ * `<PortalDrawer>` (full-height panel, no sticky positioning).
+ *
+ *   - `variant="desktop"` (default) — `sticky top-0 h-screen hidden md:flex`.
+ *   - `variant="drawer"` — `flex h-full` inside a fixed drawer container.
  *
  * Active-route highlight is computed from `useLocation()` against
  * each link's `to` prop so the highlight tracks client-side navigation.
- *
- * Sticky positioning (`sticky top-0 h-screen`) keeps the sidebar
- * pinned while sub-pages scroll independently. Hidden below 960px;
- * `<PortalMobileBar>` covers that range.
  */
 
 type NavItem = {
@@ -68,7 +64,13 @@ function formatSessionRemaining(state: ReturnType<typeof useConsole>['state']): 
   return `${hr}h`
 }
 
-export function PortalSidebar() {
+export type PortalSidebarVariant = 'desktop' | 'drawer'
+
+export function PortalSidebar({
+  variant = 'desktop',
+}: {
+  variant?: PortalSidebarVariant
+} = {}) {
   const { t } = useLocale()
   const { pathname } = useLocation()
   const { state } = useConsole()
@@ -83,10 +85,19 @@ export function PortalSidebar() {
   const sessionLabel =
     sessionRemaining ?? t('portal.sidebar.runtime.placeholder')
 
+  // Outer wrapper varies by surface — the desktop sidebar pins
+  // sticky-style on the page edge; the drawer variant fills its
+  // fixed-position container without claiming any extra positioning.
+  const wrapperClass =
+    variant === 'drawer'
+      ? 'flex h-full flex-col bg-bg-deep px-4 py-6 backdrop-blur-md'
+      : 'sticky top-0 z-30 hidden h-screen flex-col border-r border-line bg-bg-deep/65 px-4 py-6 backdrop-blur-md md:flex'
+
   return (
     <aside
       aria-label="Polet Portal navigation"
-      className="sticky top-0 z-30 hidden h-screen flex-col border-r border-line bg-bg-deep/65 px-4 py-6 backdrop-blur-md md:flex"
+      data-variant={variant}
+      className={wrapperClass}
     >
       {/* Brand */}
       <Link

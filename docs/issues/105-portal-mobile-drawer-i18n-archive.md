@@ -4,7 +4,61 @@ Labels: `needs-triage`, `frontend`, `design`, `i18n`, `a11y`, `test`
 
 Type: `AFK`
 
-Status: `TODO`
+Status: `DONE`
+
+## Shipped
+
+- Mobile drawer:
+  - `frontend-v2/src/components/app/portal/PortalDrawerContext.tsx` —
+    `<PortalDrawerProvider>` + `usePortalDrawer()`. Owns `isOpen` state,
+    auto-closes on route change (via `useLocation()`), and binds an
+    ESC keydown listener while open.
+  - `frontend-v2/src/components/app/portal/PortalDrawer.tsx` — slide-in
+    modal (`< md` only). Backdrop dim at 60% black, `role="dialog"`,
+    `aria-modal="true"`. Focus moves into the drawer panel on open;
+    main shell gets the `inert` attribute so tab order stays inside.
+  - `<PortalSidebar>` accepts a `variant` prop (`"desktop"` default,
+    `"drawer"`) so the same component renders in both surfaces. The
+    drawer renders `<PortalSidebar variant="drawer" />`.
+  - `<PortalMobileBar>` adds a hamburger button on the left whose
+    `aria-label` flips between Open/Close based on `isOpen`. Glyph
+    flips between `≡` and `✕`.
+  - `<PortalShell>` mounts the `<PortalDrawerProvider>` and the
+    `<PortalDrawer>` alongside the sidebar + mobile bar.
+  - `.pl-portal-drawer` slide animation is disabled by the global
+    `@media (prefers-reduced-motion: reduce)` rule.
+
+- i18n sweep:
+  - 3 new `portal.drawer.*` keys (open / close / backdrop labels), EN
+    canonical + ID mirror.
+  - `app.i18n-parity.test.ts` asserts every `portal.*` key the
+    codebase calls resolves to a non-empty string in BOTH locales,
+    plus a sanity check that ≥30 keys actually differ between EN and
+    ID (catches accidental mirror-by-copy).
+
+- Test coverage:
+  - `app.drawer.test.tsx` — 5 tests: drawer starts closed, hamburger
+    toggles open/closed, backdrop click closes, main shell becomes
+    `inert` while open, drawer renders the `variant="drawer"` sidebar
+    nav, ID locale flips the hamburger `aria-label`.
+
+- Archive sweep:
+  - Moved (`git mv`) 9 legacy single-page components into
+    `frontend-v2/src/components/app/_archived/` preserving git history:
+    `AppHeader`, `MissionRibbon`, `StatStrip`, `SetupLedger`,
+    `TwoRailConsole`, `RailCard`, `ChainStatusStrip`, `ReceiptLog`,
+    `AgentIntegrationPanel`. Each got a top-of-file ARCHIVED JSDoc
+    note pointing at its replacement.
+  - Added `_archived/README.md` with the full old-to-new mapping
+    table.
+  - `WalletDashboard.tsx` is intentionally NOT archived — Phase 6
+    hosts it under the `/app/bridge` Advanced collapse for recovery /
+    shared quorum / Encrypt graph flows not yet ported.
+  - `tsconfig.json` excludes `src/components/app/_archived/**` so
+    archived files don't break typecheck if their relative imports
+    drift; they remain on disk for reference.
+
+- Verify: typecheck clean, 116/116 tests green (108 → 116), build clean.
 
 ## Parent
 

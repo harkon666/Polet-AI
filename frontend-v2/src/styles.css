@@ -1105,6 +1105,14 @@ body {
   .pl-flow-pulse {
     animation: none;
   }
+
+  /* Mobile drawer: snap open/closed instead of sliding. The pl-portal-
+     drawer wrapper still toggles `translate-x-0` ↔ `-translate-x-full`
+     in markup; this rule strips the transition so the snap is instant. */
+  .pl-portal-drawer,
+  .pl-portal-drawer-backdrop {
+    transition: none;
+  }
 }
 
 /* ============================================
