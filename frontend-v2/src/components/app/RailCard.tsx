@@ -20,6 +20,18 @@ export type Rail = {
   allowActionLabelKey: TranslationKey
   allowActionLoadingKey: TranslationKey
   allowHintKey: TranslationKey
+  /**
+   * Optional execute scenario action (Phase 2 of PRD 098). When set,
+   * the rail card renders a third button beneath the block/allow
+   * pair that runs the policy verdict AND signs+broadcasts the
+   * underlying smart-wallet tx with the BYO session keypair. Only
+   * Jupiter rail wires this in Phase 2; Ika gets it in Phase 6 once
+   * the lifecycle orchestrator lands.
+   */
+  executeActionKey?: ActionKey
+  executeActionLabelKey?: TranslationKey
+  executeActionLoadingKey?: TranslationKey
+  executeHintKey?: TranslationKey
 }
 
 type RailCardProps = {
@@ -30,8 +42,16 @@ type RailCardProps = {
   loading: ActionKey | null
   /** True when prerequisites met (wallet + custody + policy + active session). */
   enabled: boolean
+  /**
+   * True when sessionKeypair is in memory (Phase 2 needs it to sign).
+   * False if session was granted before the persistence fix or was
+   * wiped on refresh. Drives the Execute button enabled state +
+   * tooltip copy.
+   */
+  hasSessionKeypair: boolean
   onBlock: () => void
   onAllow: () => void
+  onExecute?: () => void
 }
 
 /**
@@ -67,14 +87,24 @@ export function RailCard({
   totalCount,
   loading,
   enabled,
+  hasSessionKeypair,
   onBlock,
   onAllow,
+  onExecute,
 }: RailCardProps) {
   const { t } = useLocale()
   const isLast = index >= totalCount - 1
   const blockLoading = loading === rail.blockActionKey
   const allowLoading = loading === rail.allowActionKey
+  const executeLoading = !!rail.executeActionKey && loading === rail.executeActionKey
   const anyLoading = loading !== null
+  const hasExecute =
+    !!onExecute &&
+    !!rail.executeActionKey &&
+    !!rail.executeActionLabelKey &&
+    !!rail.executeActionLoadingKey &&
+    !!rail.executeHintKey
+  const executeDisabled = !enabled || anyLoading || !hasSessionKeypair
 
   return (
     <article className="group relative flex flex-col p-8 md:p-10 hover:bg-surface/40 transition">
@@ -169,6 +199,44 @@ export function RailCard({
           </span>
         </button>
       </div>
+
+      {/* Phase 2 — Execute button (real on-chain broadcast).
+          Rendered when the rail wires executeActionKey + onExecute.
+          Disabled when prerequisites aren't met (session not active,
+          sessionKeypair not in memory, or another action in flight).
+          Coral-mid accent to distinguish from the preview pair —
+          this is the "actually swap" CTA. */}
+      {hasExecute ? (
+        <div className="mt-2.5">
+          <button
+            type="button"
+            onClick={onExecute}
+            disabled={executeDisabled}
+            title={
+              !enabled
+                ? 'Complete setup ledger first'
+                : !hasSessionKeypair
+                  ? 'Session keypair not in memory — re-grant first'
+                  : undefined
+            }
+            className="w-full flex flex-col items-center justify-center gap-0.5 rounded-lg border border-lagoon-bright bg-lagoon-bright/15 px-3 py-3 hover:bg-lagoon-bright/25 hover:border-lagoon-bright transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-lagoon-bright">
+              {executeLoading ? (
+                <Spinner size={11} />
+              ) : (
+                <span aria-hidden="true" className="font-mono">↗</span>
+              )}
+              {executeLoading
+                ? t(rail.executeActionLoadingKey as TranslationKey)
+                : t(rail.executeActionLabelKey as TranslationKey)}
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-lagoon-bright/80">
+              {t(rail.executeHintKey as TranslationKey)}
+            </span>
+          </button>
+        </div>
+      ) : null}
 
       {/* Pre-alpha disclaimer foot strip, NEW vs landing rails */}
       <p className="mt-auto pt-8 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-mute">

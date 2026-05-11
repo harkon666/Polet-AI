@@ -370,6 +370,9 @@ export type TranslationKey =
   | 'app.rail.ika.action.allow.loading'
   | 'app.rail.action.block.hint'
   | 'app.rail.action.allow.hint'
+  | 'app.rail.jupiter.action.execute'
+  | 'app.rail.jupiter.action.execute.loading'
+  | 'app.rail.action.execute.hint'
   | 'app.log.kicker'
   | 'app.log.tagline'
   | 'app.log.empty'
@@ -816,6 +819,9 @@ const en: Dictionary = {
   'app.rail.ika.action.allow.loading': 'Preparing…',
   'app.rail.action.block.hint': 'Over confidential cap',
   'app.rail.action.allow.hint': 'Within confidential cap',
+  'app.rail.jupiter.action.execute': 'Execute 5 USDC',
+  'app.rail.jupiter.action.execute.loading': 'Broadcasting…',
+  'app.rail.action.execute.hint': 'Sign + broadcast on devnet',
 
   // Receipt log (Day 11)
   'app.log.kicker': 'Receipt log',
@@ -1270,6 +1276,9 @@ const id: Dictionary = {
   'app.rail.ika.action.allow.loading': 'Menyiapkan…',
   'app.rail.action.block.hint': 'Melebihi cap rahasia',
   'app.rail.action.allow.hint': 'Dalam cap rahasia',
+  'app.rail.jupiter.action.execute': 'Eksekusi 5 USDC',
+  'app.rail.jupiter.action.execute.loading': 'Broadcasting…',
+  'app.rail.action.execute.hint': 'Sign + broadcast ke devnet',
 
   // Receipt log (Day 11)
   'app.log.kicker': 'Receipt log',

@@ -29,6 +29,10 @@ import {
   confirmFreshTransaction,
   prepareFreshTransaction,
 } from '#shared/lib/solana-transaction'
+import {
+  broadcastSessionTx,
+  BroadcastError,
+} from '../../lib/session-tx-broadcaster'
 
 /**
  * Polet console state + actions hook.
@@ -206,6 +210,7 @@ export type ActionKey =
   | 'regrant'
   | 'jupiter-block'
   | 'jupiter-allow'
+  | 'jupiter-execute'
   | 'ika-block'
   | 'ika-allow'
 
@@ -235,6 +240,7 @@ export type ConsoleActions = {
   regrantAgentSession: () => Promise<void>
   runJupiterBlock: () => Promise<void>
   runJupiterAllow: () => Promise<void>
+  executeJupiter: () => Promise<void>
   runIkaBlock: () => Promise<void>
   runIkaAllow: () => Promise<void>
 }
@@ -997,6 +1003,171 @@ export function ConsoleStateProvider({
     () => runJupiterIntent('jupiter-allow', ALLOW_AMOUNT_USDC),
     [runJupiterIntent],
   )
+
+  // Jupiter real execution — Phase 2 of PRD 098.
+  //
+  // The rail preview actions (runJupiterBlock / runJupiterAllow) hit
+  // `/intent/dca/run` and emit a receipt with the policy verdict
+  // plus the unsigned smart-wallet tx that the proxy prepared. They
+  // stop there. `executeJupiter` continues the flow: if the verdict
+  // is allowed AND the session keypair is in memory AND the proxy
+  // actually returned an unsigned tx, sign it with the session key
+  // via `broadcastSessionTx` and wait for on-chain confirmation. The
+  // resulting receipt carries a real Solana Explorer signature so
+  // judges can verify the swap independently.
+  //
+  // Failure modes emit a typed receipt (verdict-blocked, session-
+  // keypair-missing, tx-missing, broadcast-error) rather than a
+  // generic "Jupiter error" line so the operator can see exactly
+  // where the rail stopped.
+  const executeJupiter = useCallback(async () => {
+    if (!publicKey) return
+    const sessionKey = findActiveSessionKey()
+    if (!sessionKey) {
+      setError('No active session. Grant an agent session first.')
+      emitReceipt({
+        action: 'PRECHECK FAILED',
+        description: 'No active session key.',
+        status: 'error',
+        body: 'Grant an agent session in the Setup ledger before running rails.',
+      })
+      return
+    }
+    if (!sessionKeypair) {
+      setError('Session keypair not in memory. Re-grant to populate storage.')
+      emitReceipt({
+        action: 'EXECUTE BLOCKED',
+        description: 'Session keypair missing.',
+        status: 'error',
+        body: 'Session was granted before the persistence fix, or was wiped on refresh. Use Re-grant for download to mint a new keypair.',
+      })
+      return
+    }
+
+    setLoading('jupiter-execute')
+    setError(null)
+
+    try {
+      // 1. Ask proxy for policy verdict + unsigned smart-wallet tx
+      const result = await apiRunConfidentialDca({
+        owner: publicKey.toBase58(),
+        sessionKey,
+        amountUsdc: ALLOW_AMOUNT_USDC,
+        slippageBps: 100,
+        maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
+      })
+
+      if (result.allowed !== true) {
+        emitReceipt({
+          action: `${ALLOW_AMOUNT_USDC} USDC BLOCKED (JUPITER EXECUTE)`,
+          description:
+            'Policy gate blocked execute at preview stage; no tx broadcast.',
+          status: 'blocked',
+          constraintRefs: {
+            numericLimit: 'fail',
+            scopeMatch: 'pass',
+            sessionActive: 'pass',
+          },
+          body:
+            result.reason ??
+            'Confidential policy would block this amount. Try a smaller run or raise the cap.',
+        })
+        return
+      }
+
+      const unsignedTxB64 = result.transaction?.transaction
+      if (!unsignedTxB64) {
+        emitReceipt({
+          action: 'EXECUTE ABORTED',
+          description:
+            'Proxy did not return an unsigned transaction for Jupiter execute.',
+          status: 'error',
+          body: 'The verdict was allowed but the smart-wallet tx was missing from the response. Re-run preview to inspect.',
+        })
+        return
+      }
+
+      // 2. Sign + broadcast + confirm
+      const broadcast = await broadcastSessionTx(
+        connection,
+        sessionKeypair,
+        unsignedTxB64,
+      )
+
+      // 3. Emit success receipt with real signature
+      const jupiterProof: JupiterProof | undefined = result.jupiterPlan
+        ? {
+            executionPath: result.executionPath,
+            smartWalletAuthority: result.smartWalletAuthority,
+            inputToken: result.jupiterPlan?.inputToken,
+            outputToken: result.jupiterPlan?.outputToken,
+            quote: result.jupiterPlan?.quoteMetadata
+              ? {
+                  inputAmount: result.jupiterPlan.quoteMetadata.inputAmount,
+                  expectedOutput: result.jupiterPlan.quoteMetadata.expectedOutput,
+                  minimumOutput: result.jupiterPlan.quoteMetadata.minimumOutput,
+                  slippageBps: result.jupiterPlan.quoteMetadata.slippageBps,
+                  priceImpactPct: result.jupiterPlan.quoteMetadata.priceImpactPct,
+                  routeLabel: result.jupiterPlan.quoteMetadata.routeLabel,
+                }
+              : undefined,
+            routeSteps: result.jupiterPlan?.build?.routePlan?.length,
+            primaryDex: result.jupiterPlan?.build?.routePlan?.[0]?.swapInfo?.label,
+            approvalSigners: result.transaction?.signers,
+            txBlockHash: broadcast.blockhash,
+            txSlot: result.transaction?.slot,
+          }
+        : undefined
+
+      emitReceipt({
+        action: `${ALLOW_AMOUNT_USDC} USDC EXECUTED (JUPITER)`,
+        description: `Session-signed + broadcast — tx ${broadcast.signature.slice(0, 4)}…${broadcast.signature.slice(-4)}.`,
+        signature: broadcast.signature,
+        status: 'allowed',
+        constraintRefs: {
+          numericLimit: 'pass',
+          scopeMatch: 'pass',
+          sessionActive: 'pass',
+        },
+        body: 'Smart-wallet PDA executed the Jupiter swap on-chain. Session keypair signed; owner key not exposed.',
+        ...(jupiterProof && { jupiterProof }),
+      })
+
+      await refresh()
+    } catch (err) {
+      if (err instanceof BroadcastError) {
+        setError(err.message)
+        emitReceipt({
+          action: 'EXECUTE FAILED (JUPITER)',
+          description: `${err.stage}: ${err.cause instanceof Error ? err.cause.message : String(err.cause)}`,
+          signature: err.signature ?? undefined,
+          status: 'error',
+          body:
+            err.stage === 'confirm'
+              ? 'Transaction broadcast but failed during confirmation. Check Solana Explorer for final status.'
+              : 'Transaction did not broadcast. No on-chain side effect.',
+        })
+      } else {
+        const message = describeError(err)
+        setError(message)
+        emitReceipt({
+          action: 'JUPITER EXECUTE ERROR',
+          description: message,
+          status: 'error',
+        })
+      }
+    } finally {
+      setLoading(null)
+    }
+  }, [
+    publicKey,
+    sessionKeypair,
+    connection,
+    findActiveSessionKey,
+    emitReceipt,
+    refresh,
+  ])
+
   const runIkaBlock = useCallback(
     () => runIkaIntent('ika-block', BLOCK_AMOUNT_USDC),
     [runIkaIntent],
@@ -1027,6 +1198,7 @@ export function ConsoleStateProvider({
         regrantAgentSession,
         runJupiterBlock,
         runJupiterAllow,
+        executeJupiter,
         runIkaBlock,
         runIkaAllow,
       },
@@ -1048,6 +1220,7 @@ export function ConsoleStateProvider({
       regrantAgentSession,
       runJupiterBlock,
       runJupiterAllow,
+      executeJupiter,
       runIkaBlock,
       runIkaAllow,
     ],

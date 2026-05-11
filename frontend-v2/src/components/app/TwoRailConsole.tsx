@@ -43,6 +43,11 @@ const RAILS: Rail[] = [
     allowActionLabelKey: 'app.rail.jupiter.action.allow',
     allowActionLoadingKey: 'app.rail.jupiter.action.allow.loading',
     allowHintKey: 'app.rail.action.allow.hint',
+    // Phase 2 of PRD 098 — real on-chain Jupiter execution.
+    executeActionKey: 'jupiter-execute',
+    executeActionLabelKey: 'app.rail.jupiter.action.execute',
+    executeActionLoadingKey: 'app.rail.jupiter.action.execute.loading',
+    executeHintKey: 'app.rail.action.execute.hint',
   },
   {
     id: 'ika',
@@ -120,8 +125,14 @@ export function TwoRailConsole() {
                 totalCount={RAILS.length}
                 loading={state.loading}
                 enabled={enabled}
+                hasSessionKeypair={!!state.sessionKeypair}
                 onBlock={handlerFor(rail, 'block')}
                 onAllow={handlerFor(rail, 'allow')}
+                onExecute={
+                  rail.id === 'jupiter'
+                    ? () => void actions.executeJupiter()
+                    : undefined
+                }
               />
             ))}
           </div>
