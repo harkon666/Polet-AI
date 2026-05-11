@@ -58,6 +58,9 @@ Add the following to your agent's MCP configuration file (e.g., `claude_desktop_
 }
 ```
 
+> [!IMPORTANT]
+> If you are using a local clone of the repository instead of the `npm` package, you must run `cd sdk && bun run build` first to generate the necessary `dist/` binaries. In that case, you might need to point the `command` to `node` and the `args` to the absolute path of `sdk/dist/mcp-server/cli.js`.
+
 Once connected, the LLM can autonomously say: *"Execute a trade of 5 USDC to SOL"* and the MCP server will handle the complex transaction building and FHE verification.
 
 ---

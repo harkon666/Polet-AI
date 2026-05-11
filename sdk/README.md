@@ -24,6 +24,7 @@ Detailed guide: [`docs/INTEGRATION.md`](../docs/INTEGRATION.md). Summary:
 1. Start `proxy` + `frontend` locally.
 2. In the frontend, connect owner wallet → **Workspace** tab → **Authorize Agent Wallet** → paste Agent public key → **Authorize Agent**.
 3. `cd sdk && bun run build` to emit `dist/mcp-server/cli.js`.
+   > **Note:** If cloning from GitHub, this build step is mandatory to generate the `dist/` folder required by MCP clients.
 4. Point your agent (Claude/Cursor/Hermes) at the CLI and use the values from the dashboard (or `polet-agent.json`).
 5. In the agent runtime, ask: *"Check Polet status, then trade 5 USDC to SOL."*
 
