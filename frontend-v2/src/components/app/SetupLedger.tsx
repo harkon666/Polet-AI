@@ -352,9 +352,109 @@ function LedgerTable() {
                 />
               )
             ) : null}
+            {row.id === 'custody' && state === 'registered' ? (
+              <CustodyFundsStrip
+                balances={data?.custodyBalances}
+                loading={loading}
+                disabled={loading !== null}
+                onDepositUsdc={() => void actions.depositCustody('USDC', '5')}
+                onWithdrawUsdc={() => void actions.withdrawCustody('USDC', '1')}
+                onDepositSol={() => void actions.depositCustody('SOL', '0.05')}
+                onWithdrawSol={() => void actions.withdrawCustody('SOL', '0.01')}
+              />
+            ) : null}
           </Fragment>
         )
       })}
+    </div>
+  )
+}
+
+function CustodyFundsStrip({
+  balances,
+  loading,
+  disabled,
+  onDepositUsdc,
+  onWithdrawUsdc,
+  onDepositSol,
+  onWithdrawSol,
+}: {
+  balances: ConsoleData['custodyBalances']
+  loading: ActionKey | null
+  disabled: boolean
+  onDepositUsdc: () => void
+  onWithdrawUsdc: () => void
+  onDepositSol: () => void
+  onWithdrawSol: () => void
+}) {
+  const { t } = useLocale()
+  const buttons: Array<{
+    key: ActionKey
+    labelKey: TranslationKey
+    loadingKey: TranslationKey
+    tone: 'deposit' | 'withdraw'
+    onClick: () => void
+  }> = [
+    {
+      key: 'custody-deposit-usdc',
+      labelKey: 'app.custody.deposit.usdc',
+      loadingKey: 'app.custody.deposit.loading',
+      tone: 'deposit',
+      onClick: onDepositUsdc,
+    },
+    {
+      key: 'custody-withdraw-usdc',
+      labelKey: 'app.custody.withdraw.usdc',
+      loadingKey: 'app.custody.withdraw.loading',
+      tone: 'withdraw',
+      onClick: onWithdrawUsdc,
+    },
+    {
+      key: 'custody-deposit-sol',
+      labelKey: 'app.custody.deposit.sol',
+      loadingKey: 'app.custody.deposit.loading',
+      tone: 'deposit',
+      onClick: onDepositSol,
+    },
+    {
+      key: 'custody-withdraw-sol',
+      labelKey: 'app.custody.withdraw.sol',
+      loadingKey: 'app.custody.withdraw.loading',
+      tone: 'withdraw',
+      onClick: onWithdrawSol,
+    },
+  ]
+
+  return (
+    <div className="pl-reveal flex flex-col lg:flex-row lg:items-center gap-3 px-6 py-3 bg-bg-base/40 border-t border-line/40">
+      <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-mute">
+        <span className="text-lagoon-bright">{t('app.custody.strip.label')}</span>
+        <span aria-hidden="true" className="mx-2 text-line">·</span>
+        <span>
+          USDC {balances?.usdcUi ?? '—'} · SOL {balances?.nativeSolUi ?? '—'}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+        {buttons.map((button) => {
+          const isLoading = loading === button.key
+          const toneClass =
+            button.tone === 'deposit'
+              ? 'border-lagoon-bright/40 bg-lagoon-bright/10 text-lagoon-bright hover:bg-lagoon-bright/15 hover:border-lagoon-bright'
+              : 'border-coral/40 bg-coral/5 text-coral hover:bg-coral/10 hover:border-coral'
+          return (
+            <button
+              key={button.key}
+              type="button"
+              onClick={button.onClick}
+              disabled={disabled}
+              className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] transition disabled:opacity-50 disabled:cursor-not-allowed ${toneClass}`}
+            >
+              {isLoading ? <Spinner size={10} /> : null}
+              {isLoading ? t(button.loadingKey) : t(button.labelKey)}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

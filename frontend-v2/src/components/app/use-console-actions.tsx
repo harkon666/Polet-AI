@@ -25,6 +25,8 @@ import {
   runConfidentialDca as apiRunConfidentialDca,
   runMultichainIntent as apiRunMultichainIntent,
   fundAgentGas as apiFundAgentGas,
+  depositCustody as apiDepositCustody,
+  withdrawCustody as apiWithdrawCustody,
 } from '#shared/lib/api'
 import {
   confirmFreshTransaction,
@@ -83,6 +85,7 @@ const ALLOW_AMOUNT_USDC = '5'
 
 export type ReceiptStatus = 'info' | 'allowed' | 'blocked' | 'pending' | 'error'
 export type ConstraintCheck = 'pass' | 'fail' | 'unknown'
+export type CustodyAsset = 'USDC' | 'SOL'
 
 /**
  * Ika Pre-Alpha proof artifacts from a successful multichain run.
@@ -193,6 +196,17 @@ export type ConsoleData = {
     usdcMint?: string
     solMint?: string
   }
+  custodyBalances?: {
+    usdcUi?: string
+    usdcBaseUnits?: string
+    nativeSolUi?: string
+    nativeSolLamports?: string
+    tradableNativeSolUi?: string
+    tradableNativeSolLamports?: string
+    minNativeSolReserveUi?: string
+    minNativeSolReserveLamports?: string
+    funded?: boolean
+  }
   usdcDcaPolicy?: {
     enabled?: boolean
     encryptCiphertexts?: { configured?: boolean }
@@ -209,6 +223,10 @@ export type ActionKey =
   | 'policy'
   | 'session'
   | 'regrant'
+  | 'custody-deposit-usdc'
+  | 'custody-withdraw-usdc'
+  | 'custody-deposit-sol'
+  | 'custody-withdraw-sol'
   | 'fund-gas'
   | 'jupiter-block'
   | 'jupiter-allow'
@@ -240,6 +258,8 @@ export type ConsoleActions = {
   saveConfidentialPolicy: () => Promise<void>
   grantAgentSession: () => Promise<void>
   regrantAgentSession: () => Promise<void>
+  depositCustody: (asset: CustodyAsset, amount: string) => Promise<void>
+  withdrawCustody: (asset: CustodyAsset, amount: string) => Promise<void>
   fundAgentGas: (amountSol: string) => Promise<void>
   runJupiterBlock: () => Promise<void>
   runJupiterAllow: () => Promise<void>
@@ -257,6 +277,15 @@ const newId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+const shortAddress = (s: string) =>
+  s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s
+
+const custodyActionKey = (
+  action: 'deposit' | 'withdraw',
+  asset: CustodyAsset,
+): ActionKey =>
+  `custody-${action}-${asset.toLowerCase()}` as ActionKey
 
 /**
  * Robust transaction confirmation with extended polling.
@@ -801,6 +830,80 @@ export function ConsoleStateProvider({
     )
   }, [publicKey, data, runTxAction, emitReceipt])
 
+  const depositCustody = useCallback(
+    async (asset: CustodyAsset, amount: string) => {
+      if (!publicKey) return
+      await runTxAction(
+        custodyActionKey('deposit', asset),
+        () =>
+          apiDepositCustody({
+            owner: publicKey.toBase58(),
+            asset,
+            amount,
+            ...(asset === 'USDC'
+              ? {
+                  usdcMint: data?.demoCustody?.usdcMint ?? DEMO_USDC_MINT,
+                  custodyTokenAccount: data?.demoCustody?.usdcTokenAccount,
+                }
+              : {}),
+          }),
+        (result, signature) =>
+          emitReceipt({
+            action: `${amount} ${asset} DEPOSITED`,
+            description: `Owner funded PDA custody with ${amount} ${asset}.`,
+            signature,
+            status: 'info',
+            body: `Source ${shortAddress(result.source)}, destination ${shortAddress(result.destination)}, amount ${result.amountBaseUnits} ${asset === 'USDC' ? 'base units' : 'lamports'}. Boundary: ${result.boundary}.`,
+          }),
+        (err, signature) =>
+          emitReceipt({
+            action: 'CUSTODY DEPOSIT FAILED',
+            description: describeError(err),
+            signature,
+            status: 'error',
+          }),
+      )
+    },
+    [publicKey, data, runTxAction, emitReceipt],
+  )
+
+  const withdrawCustody = useCallback(
+    async (asset: CustodyAsset, amount: string) => {
+      if (!publicKey) return
+      await runTxAction(
+        custodyActionKey('withdraw', asset),
+        () =>
+          apiWithdrawCustody({
+            owner: publicKey.toBase58(),
+            asset,
+            amount,
+            ...(asset === 'USDC'
+              ? {
+                  usdcMint: data?.demoCustody?.usdcMint ?? DEMO_USDC_MINT,
+                  custodyTokenAccount: data?.demoCustody?.usdcTokenAccount,
+                }
+              : {}),
+          }),
+        (result, signature) =>
+          emitReceipt({
+            action: `${amount} ${asset} WITHDRAWN`,
+            description: `PDA custody returned ${amount} ${asset} to owner.`,
+            signature,
+            status: 'info',
+            body: `Source ${shortAddress(result.source)}, destination ${shortAddress(result.destination)}, amount ${result.amountBaseUnits} ${asset === 'USDC' ? 'base units' : 'lamports'}. Boundary: ${result.boundary}.`,
+          }),
+        (err, signature) =>
+          emitReceipt({
+            action: 'CUSTODY WITHDRAW FAILED',
+            description: describeError(err),
+            signature,
+            status: 'error',
+          }),
+      )
+    },
+    [publicKey, data, runTxAction, emitReceipt],
+  )
+
   // ────────────────────────────── Rail actions ──────────────────────────────
 
   // Pull the first authorized non-expired session, or null.
@@ -1255,6 +1358,8 @@ export function ConsoleStateProvider({
         saveConfidentialPolicy,
         grantAgentSession,
         regrantAgentSession,
+        depositCustody,
+        withdrawCustody,
         fundAgentGas,
         runJupiterBlock,
         runJupiterAllow,
@@ -1278,6 +1383,8 @@ export function ConsoleStateProvider({
       saveConfidentialPolicy,
       grantAgentSession,
       regrantAgentSession,
+      depositCustody,
+      withdrawCustody,
       fundAgentGas,
       runJupiterBlock,
       runJupiterAllow,

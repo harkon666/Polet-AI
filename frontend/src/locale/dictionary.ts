@@ -396,6 +396,13 @@ export type TranslationKey =
   | 'app.action.regrant.loading'
   | 'app.session.fundGas'
   | 'app.session.fundGas.loading'
+  | 'app.custody.strip.label'
+  | 'app.custody.deposit.usdc'
+  | 'app.custody.deposit.sol'
+  | 'app.custody.deposit.loading'
+  | 'app.custody.withdraw.usdc'
+  | 'app.custody.withdraw.sol'
+  | 'app.custody.withdraw.loading'
   | 'app.session.presence.noActivity'
   | 'app.session.presence.active'
   | 'app.session.presence.ago'
@@ -856,6 +863,13 @@ const en: Dictionary = {
   'app.action.regrant.loading': 'Re-granting…',
   'app.session.fundGas': '+ Fund 0.05 SOL gas',
   'app.session.fundGas.loading': 'Funding…',
+  'app.custody.strip.label': 'PDA custody funds',
+  'app.custody.deposit.usdc': '+ Deposit 5 USDC',
+  'app.custody.deposit.sol': '+ Deposit 0.05 SOL',
+  'app.custody.deposit.loading': 'Depositing…',
+  'app.custody.withdraw.usdc': 'Withdraw 1 USDC',
+  'app.custody.withdraw.sol': 'Withdraw 0.01 SOL',
+  'app.custody.withdraw.loading': 'Withdrawing…',
   'app.session.presence.noActivity': 'no activity yet',
   'app.session.presence.active': 'active',
   'app.session.presence.ago': 'ago',
@@ -1315,6 +1329,13 @@ const id: Dictionary = {
   'app.action.regrant.loading': 'Sedang re-grant…',
   'app.session.fundGas': '+ Isi 0.05 SOL gas',
   'app.session.fundGas.loading': 'Mengisi…',
+  'app.custody.strip.label': 'Dana custody PDA',
+  'app.custody.deposit.usdc': '+ Deposit 5 USDC',
+  'app.custody.deposit.sol': '+ Deposit 0.05 SOL',
+  'app.custody.deposit.loading': 'Deposit…',
+  'app.custody.withdraw.usdc': 'Tarik 1 USDC',
+  'app.custody.withdraw.sol': 'Tarik 0.01 SOL',
+  'app.custody.withdraw.loading': 'Menarik…',
   'app.session.presence.noActivity': 'belum ada aktivitas',
   'app.session.presence.active': 'aktif',
   'app.session.presence.ago': 'lalu',
