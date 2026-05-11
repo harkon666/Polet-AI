@@ -8,8 +8,7 @@ Status: `DONE`
 
 ## Shipped
 
-Commit pending under `feat(portal): Phase 3 — policy gate composer, flow,
-actions`.
+Commit `3926acb feat(portal): Phase 3 — policy gate composer, flow, actions`.
 
 - New `frontend-v2/src/components/app/gate/` directory:
   - `gate-state.ts` — shared `Rail`, `Scenario` types + pure helpers
