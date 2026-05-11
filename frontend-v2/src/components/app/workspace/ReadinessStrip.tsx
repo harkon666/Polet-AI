@@ -13,10 +13,16 @@ import { getReadinessPills } from '../selectors/console-selectors'
  *   - the localized slot label + state word ("ready", "needs funds",
  *     "pending").
  *
- * The strip is a read-only summary — clicking a pill does nothing
- * here (the `<ContinueCTA>` owns navigation). Pills scroll
- * horizontally on narrow viewports instead of wrapping so the
- * canonical order stays legible on mobile.
+ * The pill chrome is intentionally uniform (neutral surface +
+ * hairline border) so 5 pills in a row never feel like a rainbow.
+ * Only the DOT carries the semantic color (palm if done, sunset if
+ * needs attention, mute if not-yet-started), which matches the
+ * established app language where `palm` = ready, `sunset` = attention,
+ * and `coral` is reserved for destructive / error states
+ * (see `SetupLedger.tsx`, `ChainStatusStrip.tsx`, `ReceiptLog.tsx`).
+ *
+ * Pills scroll horizontally on narrow viewports instead of wrapping
+ * so the canonical order stays legible on mobile.
  */
 const LABEL_BY_SLOT: Record<ReadinessSlot, TranslationKey> = {
   wallet: 'portal.readiness.label.wallet',
@@ -32,17 +38,27 @@ const STATE_LABEL: Record<ReadinessValue, TranslationKey> = {
   pending: 'portal.readiness.state.pending',
 }
 
-/** Dot + text tone per readiness value — palm (done), coral (needs), mute (pending). */
-function toneClass(value: ReadinessValue): string {
-  if (value === 'done') return 'border-palm/40 bg-palm/10 text-palm'
-  if (value === 'needs') return 'border-coral/40 bg-coral/10 text-coral'
-  return 'border-line bg-surface/40 text-ink-mute'
+/**
+ * Dot colour per readiness value. Only the dot is coloured — the
+ * surrounding pill stays neutral so a row of 5 pills reads as one
+ * scannable line, not a rainbow.
+ */
+function dotClass(value: ReadinessValue): string {
+  if (value === 'done') return 'bg-palm shadow-[0_0_8px_rgba(52,211,153,0.45)]'
+  if (value === 'needs') return 'bg-sunset shadow-[0_0_8px_rgba(251,191,36,0.45)]'
+  return 'bg-ink-mute/60'
 }
 
-function dotClass(value: ReadinessValue): string {
-  if (value === 'done') return 'bg-palm shadow-[0_0_8px_rgba(74,222,128,0.5)]'
-  if (value === 'needs') return 'bg-coral shadow-[0_0_8px_rgba(239,68,68,0.5)]'
-  return 'bg-ink-mute/60'
+/**
+ * State-word colour — subtle tonal hint only (not the bright dot
+ * colour) so the row feels calm even when multiple states are
+ * blocked. Done stays palm because a small green word reinforces the
+ * "this is safe" signal without fighting the dot.
+ */
+function stateTextClass(value: ReadinessValue): string {
+  if (value === 'done') return 'text-palm'
+  if (value === 'needs') return 'text-sunset'
+  return 'text-ink-mute'
 }
 
 export function ReadinessStrip() {
@@ -60,16 +76,14 @@ export function ReadinessStrip() {
           key={slot}
           data-testid={`readiness-pill-${slot}`}
           data-state={value}
-          className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] ${toneClass(
-            value,
-          )}`}
+          className="inline-flex shrink-0 items-center gap-2 rounded-full border border-line bg-surface/40 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-soft"
         >
           <span className={`size-1.5 rounded-full ${dotClass(value)}`} aria-hidden="true" />
           <span className="text-ink">{t(LABEL_BY_SLOT[slot])}</span>
-          <span aria-hidden="true" className="text-ink-mute">
+          <span aria-hidden="true" className="text-ink-mute/60">
             ·
           </span>
-          <span>{t(STATE_LABEL[value])}</span>
+          <span className={stateTextClass(value)}>{t(STATE_LABEL[value])}</span>
         </span>
       ))}
     </div>

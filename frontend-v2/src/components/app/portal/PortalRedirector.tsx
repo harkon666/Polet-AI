@@ -31,12 +31,19 @@ export function PortalRedirector() {
     const isIndex = pathname === '/app' || pathname === '/app/'
     const isSubRoute = pathname.startsWith('/app/') && !isIndex
 
+    // The dev-only `/app/workspace-preview` route renders the workspace
+    // against fake state for visual review. It must stay reachable
+    // without a connected wallet, so we exempt it from the disconnect
+    // bounce. (It's also not in the sidebar nav, so production users
+    // won't accidentally land here.)
+    const isPreviewRoute = pathname.startsWith('/app/workspace-preview')
+
     if (connected && isIndex) {
       router.navigate({ to: '/app/workspace', replace: true })
       return
     }
 
-    if (!connected && isSubRoute) {
+    if (!connected && isSubRoute && !isPreviewRoute) {
       router.navigate({ to: '/app', replace: true })
     }
   }, [connected, pathname, router])

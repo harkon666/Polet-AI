@@ -13,6 +13,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
+import { Route as AppWorkspacePreviewRouteImport } from './routes/app.workspace-preview'
 import { Route as AppWorkspaceRouteImport } from './routes/app.workspace'
 import { Route as AppProofRouteImport } from './routes/app.proof'
 import { Route as AppGateRouteImport } from './routes/app.gate'
@@ -37,6 +38,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppWorkspacePreviewRoute = AppWorkspacePreviewRouteImport.update({
+  id: '/workspace-preview',
+  path: '/workspace-preview',
   getParentRoute: () => AppRoute,
 } as any)
 const AppWorkspaceRoute = AppWorkspaceRouteImport.update({
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/app/gate': typeof AppGateRoute
   '/app/proof': typeof AppProofRoute
   '/app/workspace': typeof AppWorkspaceRoute
+  '/app/workspace-preview': typeof AppWorkspacePreviewRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/app/gate': typeof AppGateRoute
   '/app/proof': typeof AppProofRoute
   '/app/workspace': typeof AppWorkspaceRoute
+  '/app/workspace-preview': typeof AppWorkspacePreviewRoute
   '/app': typeof AppIndexRoute
 }
 export interface FileRoutesById {
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/app/gate': typeof AppGateRoute
   '/app/proof': typeof AppProofRoute
   '/app/workspace': typeof AppWorkspaceRoute
+  '/app/workspace-preview': typeof AppWorkspacePreviewRoute
   '/app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/app/gate'
     | '/app/proof'
     | '/app/workspace'
+    | '/app/workspace-preview'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/app/gate'
     | '/app/proof'
     | '/app/workspace'
+    | '/app/workspace-preview'
     | '/app'
   id:
     | '__root__'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/app/gate'
     | '/app/proof'
     | '/app/workspace'
+    | '/app/workspace-preview'
     | '/app/'
   fileRoutesById: FileRoutesById
 }
@@ -167,6 +179,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/app/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/workspace-preview': {
+      id: '/app/workspace-preview'
+      path: '/workspace-preview'
+      fullPath: '/app/workspace-preview'
+      preLoaderRoute: typeof AppWorkspacePreviewRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/workspace': {
@@ -213,6 +232,7 @@ interface AppRouteChildren {
   AppGateRoute: typeof AppGateRoute
   AppProofRoute: typeof AppProofRoute
   AppWorkspaceRoute: typeof AppWorkspaceRoute
+  AppWorkspacePreviewRoute: typeof AppWorkspacePreviewRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -222,6 +242,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppGateRoute: AppGateRoute,
   AppProofRoute: AppProofRoute,
   AppWorkspaceRoute: AppWorkspaceRoute,
+  AppWorkspacePreviewRoute: AppWorkspacePreviewRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

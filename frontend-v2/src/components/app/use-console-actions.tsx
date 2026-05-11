@@ -287,7 +287,14 @@ export type ConsoleActions = {
   runIkaAllow: () => Promise<void>
 }
 
-const ConsoleContext = createContext<{
+/**
+ * Exported for dev-only preview routes + future test fixtures that
+ * want to render workspace components against custom state snapshots
+ * without spinning up the full wallet-adapter stack. Production
+ * callers should always use `useConsole()` inside a
+ * `<ConsoleStateProvider>`, which is the public API.
+ */
+export const ConsoleContext = createContext<{
   state: ConsoleState
   actions: ConsoleActions
 } | null>(null)

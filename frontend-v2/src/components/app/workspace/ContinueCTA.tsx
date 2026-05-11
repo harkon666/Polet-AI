@@ -78,7 +78,7 @@ export function ContinueCTA() {
         to={target}
         data-testid="workspace-continue-cta"
         data-target={target}
-        className="inline-flex items-center gap-2 rounded-full bg-lagoon-bright px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-bg-base transition-colors hover:bg-lagoon"
+        className="inline-flex items-center gap-2 rounded-full border border-lagoon-bright bg-lagoon-bright/15 px-5 py-2.5 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-lagoon-bright transition-colors hover:bg-lagoon-bright/25"
       >
         {t(labelKey)}
         <span aria-hidden="true">→</span>
