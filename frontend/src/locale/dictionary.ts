@@ -607,6 +607,22 @@ export type TranslationKey =
   | 'portal.funds.setup.authority.title'
   | 'portal.funds.setup.authority.sub'
   // === Phase 5 keys (issue 103 — Proof Trail). Insert below. ===
+  | 'portal.proof.kicker'
+  | 'portal.proof.title'
+  | 'portal.proof.sub'
+  | 'portal.proof.pill.empty'
+  | 'portal.proof.pill.singular'
+  | 'portal.proof.pill.plural'
+  | 'portal.proof.timeline.empty.title'
+  | 'portal.proof.timeline.empty.body'
+  | 'portal.proof.row.expand'
+  | 'portal.proof.row.collapse'
+  | 'portal.proof.row.explorer'
+  | 'portal.proof.tag.info'
+  | 'portal.proof.tag.allowed'
+  | 'portal.proof.tag.blocked'
+  | 'portal.proof.tag.pending'
+  | 'portal.proof.tag.error'
   // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
   ;
@@ -1315,6 +1331,24 @@ const en: Dictionary = {
   'portal.funds.setup.authority.title': 'Authority',
   'portal.funds.setup.authority.sub': 'Owner controls the wallet today; recovery rotation coming',
   // === Phase 5 keys (issue 103 — Proof Trail). Insert below. ===
+  'portal.proof.kicker': 'Proof Trail',
+  'portal.proof.title': 'Every receipt the agent has produced.',
+  'portal.proof.sub':
+    'Type-driven log, hairline rhythm. Allowed Jupiter and Ika receipts expand into the same proof grid the legacy receipt log used.',
+  'portal.proof.pill.empty': 'no receipts yet',
+  'portal.proof.pill.singular': 'receipt',
+  'portal.proof.pill.plural': 'receipts',
+  'portal.proof.timeline.empty.title': 'Latest activity',
+  'portal.proof.timeline.empty.body':
+    'No agent activity yet — preview the gate to leave a receipt.',
+  'portal.proof.row.expand': 'Expand proof',
+  'portal.proof.row.collapse': 'Collapse proof',
+  'portal.proof.row.explorer': 'View transaction on Solana Explorer',
+  'portal.proof.tag.info': 'INFO',
+  'portal.proof.tag.allowed': 'ALLOWED',
+  'portal.proof.tag.blocked': 'BLOCKED',
+  'portal.proof.tag.pending': 'PENDING',
+  'portal.proof.tag.error': 'ERROR',
   // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
 };
@@ -2021,6 +2055,24 @@ const id: Dictionary = {
   'portal.funds.setup.authority.title': 'Authority',
   'portal.funds.setup.authority.sub': 'Owner kontrol wallet hari ini; rotasi recovery menyusul',
   // === Phase 5 keys (issue 103 — Proof Trail). Insert below. ===
+  'portal.proof.kicker': 'Jejak Bukti',
+  'portal.proof.title': 'Setiap receipt yang dihasilkan agent.',
+  'portal.proof.sub':
+    'Log berbasis tipografi, ritme hairline. Receipt Jupiter dan Ika yang diloloskan bisa di-expand ke grid bukti yang sama dengan log lama.',
+  'portal.proof.pill.empty': 'belum ada receipt',
+  'portal.proof.pill.singular': 'receipt',
+  'portal.proof.pill.plural': 'receipts',
+  'portal.proof.timeline.empty.title': 'Aktivitas terbaru',
+  'portal.proof.timeline.empty.body':
+    'Belum ada aktivitas agent — preview gate untuk meninggalkan receipt.',
+  'portal.proof.row.expand': 'Buka bukti',
+  'portal.proof.row.collapse': 'Tutup bukti',
+  'portal.proof.row.explorer': 'Lihat transaksi di Solana Explorer',
+  'portal.proof.tag.info': 'INFO',
+  'portal.proof.tag.allowed': 'DILOLOSKAN',
+  'portal.proof.tag.blocked': 'DIBLOK',
+  'portal.proof.tag.pending': 'TERTUNDA',
+  'portal.proof.tag.error': 'ERROR',
   // === Phase 6 keys (issue 104 — Agent Bridge). Insert below. ===
   // === Phase 7 keys (issue 105 — Mobile drawer + i18n sweep). Insert below. ===
 };

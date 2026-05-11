@@ -4,7 +4,40 @@ Labels: `needs-triage`, `frontend`, `design`, `policy`, `jupiter`, `ika`
 
 Type: `AFK`
 
-Status: `TODO`
+Status: `DONE`
+
+## Shipped
+
+- New `frontend-v2/src/components/app/proof/`:
+  - `proof-format.ts` — pure formatters + URL builders
+    (`formatProofClock`, `formatPriceImpactPct`, `explorerTxUrl`,
+    `explorerAccountUrl`, `suiscanUrl`).
+  - `ProofRow.tsx` — shared key/value row used by both proof panels.
+  - `JupiterProofPanel.tsx` — extracted from `<ReceiptLog>`. Receives
+    `proof: JupiterProof`, renders the same proof grid the legacy log
+    rendered (tokens, route, slippage, price impact, signers, smart-
+    wallet authority, block hash).
+  - `IkaProofPanel.tsx` — extracted from `<ReceiptLog>`. Receives
+    `proof: IkaProof`, renders dWallet, MessageApproval, CPI authority,
+    message hash, destination digest with chain glyph + suiscan link
+    for Sui, signature scheme, settlement, attestation, canonical
+    order hash.
+  - `ProofTimeline.tsx` — calm typographic feed of every receipt
+    (chronological-reverse). Each row: 84px timestamp · title +
+    description + constraint refs · right-side status tag. Allowed/
+    blocked rail receipts have an expand chevron that reveals the
+    Jupiter/Ika panel inline. Solana Explorer link from
+    `entry.signature` rendered as a small mono link.
+- `app.proof.tsx` replaces the placeholder with a hero (kicker, title,
+  sub, count pill) plus `<ProofTimeline />`.
+- 16 new `portal.proof.*` i18n keys (EN canonical + ID mirror).
+- `app.proof.test.tsx`: 7 state-aware tests covering empty state, the
+  3 status tag tones, both panel expand affordances, the Solana
+  Explorer link, count pill, and ID locale mirror.
+- `app.proof-preview.tsx` dev route renders 3 canonical states (empty,
+  mixed allowed/blocked/info, ika allowed with full proof) for visual
+  audits.
+- Verify: typecheck clean, 100/100 tests green (93 → 100), build clean.
 
 ## Parent
 
