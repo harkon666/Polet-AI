@@ -35,7 +35,7 @@ describe('Confidential DCA execution path', () => {
         buildTransaction: async (request) => {
           expect(request.wallet).toBe(fixture.wallet.walletPda);
           expect(request.sessionKey).toBe(fixture.sessionKey);
-          expect(request.amount.toString()).toBe('5000000');
+          expect(request.sourceAmount.toString()).toBe('5000000');
           return mockBuiltTransaction(fixture.sessionKey);
         },
       }
@@ -259,16 +259,14 @@ describe('Confidential DCA execution path', () => {
           verifiedSlot: 999,
           graph: 'polet_policy_guardrail_graph',
         }),
-        buildTransaction: async () => {
-          throw new Error('Official Encrypt verified DCA must not build legacy masked-witness transactions');
-        },
+        buildTransaction: async () => mockBuiltTransaction(fixture.sessionKey),
       }
     );
 
     expect(result.allowed).toBe(true);
     if (result.allowed) {
       expect(result.encryptPolicy?.status).toBe('encrypt-verified-allowed');
-      expect(result.transaction).toBeUndefined();
+      expect(result.transaction).toBeDefined();
       expect(result.jupiterPlan.executionPath).toBe('swap-build-fallback');
     }
   });
@@ -294,16 +292,14 @@ describe('Confidential DCA execution path', () => {
           verifiedSlot: 999,
           graph: 'polet_policy_guardrail_graph',
         }),
-        buildTransaction: async () => {
-          throw new Error('Official Encrypt verified DCA must not build legacy masked-witness transactions');
-        },
+        buildTransaction: async () => mockBuiltTransaction(fixture.sessionKey),
       }
     );
 
     expect(result.allowed).toBe(true);
     if (result.allowed) {
       expect(result.encryptPolicy?.status).toBe('encrypt-verified-allowed');
-      expect(result.transaction).toBeUndefined();
+      expect(result.transaction).toBeDefined();
       expect(JSON.stringify(result)).not.toContain('maskedWitnessDevFixture');
     }
   });
@@ -526,6 +522,24 @@ function createFixture(options: {
           configured: true,
         },
       }),
+      enabled: true,
+    },
+    solTransferPolicy: {
+      policyCommitment: Array.from({ length: 32 }, () => 0),
+      encryptionWitnessHash: Array.from({ length: 32 }, () => 0),
+      encryptedMaxPerRun: 0n,
+      encryptedDailyCap: 0n,
+      encryptedDailySpent: 0n,
+      spentDayIndex: 0,
+      enabled: false,
+    },
+    usdcDcaPolicy: {
+      policyCommitment: policySetup.policyCommitment,
+      encryptionWitnessHash: policySetup.encryptionWitnessHash,
+      encryptedMaxPerRun: policySetup.encryptedMaxPerRun,
+      encryptedDailyCap: policySetup.encryptedDailyCap,
+      encryptedDailySpent: policySetup.encryptedDailySpent,
+      spentDayIndex: currentDayIndex(),
       enabled: true,
     },
     demoCustody: {

@@ -124,6 +124,9 @@ const PORTAL_KEYS = [
   'portal.gate.actions.authorizeSelf.kicker',
   'portal.gate.actions.authorizeSelf.body',
   'portal.gate.actions.authorizeSelf.button',
+  'portal.gate.actions.enableSui.kicker',
+  'portal.gate.actions.enableSui.body',
+  'portal.gate.actions.enableSui.button',
   'portal.gate.composer.amountLabel',
   // Phase 4 — Funds & Setup
   'portal.funds.kicker',

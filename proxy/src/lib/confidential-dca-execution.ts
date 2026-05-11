@@ -157,11 +157,9 @@ export async function runConfidentialDcaExecution(
         buildAllowed: async ({ wallet, prepared, encryptPolicy }) => {
           const smartWalletAuthority = wallet.walletPda || deriveWalletPda(request.owner);
           const destinationTokenAccount = request.destinationTokenAccount ?? wallet.demoCustody.solTokenAccount;
-          const shouldBuildLegacyWitnessTransaction = encryptPolicy?.status !== 'encrypt-verified-allowed';
           const quoteMetadata = prepared.quoteMetadata;
           const quoteIssuedSlot = BigInt(quoteMetadata?.freshness?.slot ?? (BigInt(wallet.lastRevokedSlot) + 1n));
-          const transaction = shouldBuildLegacyWitnessTransaction
-            ? await (deps.buildTransaction ?? buildPolicyGatedCustodyTradeSessionTransaction)(
+          const transaction = await (deps.buildTransaction ?? buildPolicyGatedCustodyTradeSessionTransaction)(
               {
                 wallet: smartWalletAuthority,
                 sessionKey: request.sessionKey,
@@ -180,8 +178,7 @@ export async function runConfidentialDcaExecution(
                 maskedWitnessDevFixture: request.maskedWitnessDevFixture ?? [],
               },
               PROGRAM_ID_STRING
-            )
-            : undefined;
+            );
 
           const usdcEquivalentBaseUnits = quoteMetadata
             ? computeUsdcEquivalentFromQuote(quoteMetadata, USDC_DECIMALS)

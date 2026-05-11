@@ -610,6 +610,9 @@ export type TranslationKey =
   | 'portal.gate.actions.authorizeSelf.kicker'
   | 'portal.gate.actions.authorizeSelf.body'
   | 'portal.gate.actions.authorizeSelf.button'
+  | 'portal.gate.actions.enableSui.kicker'
+  | 'portal.gate.actions.enableSui.body'
+  | 'portal.gate.actions.enableSui.button'
   | 'portal.gate.actions.disabledNoSession'
   | 'portal.gate.actions.disabledOwnerNotSession'
   | 'portal.gate.actions.disabledInvalidAmount'
@@ -1418,6 +1421,10 @@ const en: Dictionary = {
   'portal.gate.actions.authorizeSelf.body':
     'Your wallet is not yet registered as a Polet session. Authorize yourself so you can run trades from this page. AI agents still use their own session keys in parallel.',
   'portal.gate.actions.authorizeSelf.button': 'Authorize yourself',
+  'portal.gate.actions.enableSui.kicker': 'Needs · Sui signer',
+  'portal.gate.actions.enableSui.body':
+    'Ika dWallet on Sui devnet is not enabled for this wallet yet. Enable to unlock the Ika rail trade flow.',
+  'portal.gate.actions.enableSui.button': 'Enable Sui devnet',
   'portal.gate.actions.disabledNoSession':
     'Authorize an agent session before running the gate.',
   'portal.gate.actions.disabledOwnerNotSession':
@@ -2242,6 +2249,10 @@ const id: Dictionary = {
   'portal.gate.actions.authorizeSelf.body':
     'Wallet kamu belum terdaftar sebagai session Polet. Otorisasi diri sendiri supaya bisa jalankan trade dari halaman ini. AI agent tetap pakai session key mereka sendiri secara paralel.',
   'portal.gate.actions.authorizeSelf.button': 'Otorisasi diri sendiri',
+  'portal.gate.actions.enableSui.kicker': 'Butuh · Sui signer',
+  'portal.gate.actions.enableSui.body':
+    'Ika dWallet di Sui devnet belum aktif untuk wallet ini. Aktifkan supaya rail Ika bisa jalan.',
+  'portal.gate.actions.enableSui.button': 'Aktifkan Sui devnet',
   'portal.gate.actions.disabledNoSession':
     'Otorisasi session agent dulu sebelum jalankan gate.',
   'portal.gate.actions.disabledOwnerNotSession':

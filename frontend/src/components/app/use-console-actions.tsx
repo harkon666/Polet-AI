@@ -24,6 +24,10 @@ import {
   revokeSession as apiRevokeSession,
   requestPolicyValueDecryption as apiRequestPolicyValueDecryption,
   createEncryptDeposit as apiCreateEncryptDeposit,
+  executeEncryptPolicyGraph as apiExecuteEncryptPolicyGraph,
+  getEncryptCiphertextStatus as apiGetEncryptCiphertextStatus,
+  requestPendingAllowedOutputDecryption as apiRequestPendingAllowedOutputDecryption,
+  resolveEncryptPolicyDecision as apiResolveEncryptPolicyDecision,
   runConfidentialDca as apiRunConfidentialDca,
   runMultichainIntent as apiRunMultichainIntent,
   fundAgentGas as apiFundAgentGas,
@@ -49,6 +53,7 @@ import {
   ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
   ENCRYPT_PREALPHA_EVENT_AUTHORITY,
 } from '../../lib/official-encrypt-client'
+import { createOfficialEncryptExecutionCiphertexts } from '../../lib/official-encrypt-client'
 
 /**
  * Polet console state + actions hook.
@@ -150,6 +155,10 @@ export type JupiterProof = {
   approvalSigners?: string[]
   txBlockHash?: string
   txSlot?: number
+  /** Base64-encoded unsigned smart-wallet transaction — copy to sign/broadcast later. */
+  unsignedTxBase64?: string
+  /** Policy commitment hash proving the confidential policy was enforced. */
+  policyCommitment?: string
 }
 
 export type IkaProof = {
@@ -1396,6 +1405,221 @@ export function ConsoleStateProvider({
    * via Hermes / Claude / Cursor / SendAI call the SDK directly and
    * do not need this path.
    */
+
+  /**
+   * Minimal Encrypt policy-graph preflight for the owner-as-session
+   * frontend path. Mirrors `sdk/src/encrypt-preflight.ts` but runs
+   * inside the browser, signing with Phantom (wallet adapter's
+   * `sendTransaction`). Returns the verified execution ciphertext
+   * refs + allowedDecryptionRequest that `/intent/dca/run` and
+   * `/intent/multichain/run` require when the wallet has an Encrypt
+   * policy sealed.
+   *
+   * Steps (match the SDK):
+   *   1. Re-read wallet state so we have the current policy refs.
+   *   2. Ensure per-session Encrypt deposit exists.
+   *   3. Encrypt gRPC `createInput` for execution ciphertexts.
+   *   4. POST `/wallet/execute-encrypt-policy-graph` → sign + send.
+   *   5. Poll allowed-output ciphertext until verified.
+   *   6. POST `/wallet/request-pending-allowed-output-decryption` → sign + send.
+   *   7. Poll `/wallet/resolve-encrypt-policy-decision` until non-pending.
+   */
+  const runEncryptPreflight = useCallback(
+    async (params: {
+      ownerPubkey: string
+      sessionPubkey: string
+      amountUsdc: string
+    }): Promise<{
+      sourceAmountCiphertext: string
+      allowedOutputCiphertext: string
+      dailySpentOutputCiphertext: string
+      allowedDecryptionRequest?: string
+    }> => {
+      // 1. Fresh wallet read to pick up the latest policy refs.
+      const walletEnvelope = await getWalletData(params.ownerPubkey)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const walletAny = walletEnvelope as any
+      const walletPda = walletAny?.walletPda
+      const encryptCiphertexts =
+        walletAny?.confidentialPolicy?.encryptCiphertexts ??
+        walletAny?.usdcDcaPolicy?.encryptCiphertexts
+      if (!walletPda || !encryptCiphertexts?.maxPerRun || !encryptCiphertexts?.dailyCap || !encryptCiphertexts?.dailySpent) {
+        throw new Error(
+          'Confidential policy ciphertexts are missing. Seal the policy via Workspace → Policy Rules first.',
+        )
+      }
+      const policySeq = Number(walletAny?.policySeq ?? 0)
+      const lastRevokedSlot = Number(walletAny?.lastRevokedSlot ?? 0)
+
+      // 2. Per-session Encrypt deposit. Uses the session pubkey as
+      //    the payer slot so the deposit PDA matches what the graph
+      //    execution path expects.
+      const deposit = await apiCreateEncryptDeposit(
+        params.sessionPubkey,
+        params.ownerPubkey,
+      )
+      if (deposit.transaction) {
+        const { transaction, latestBlockhash } = await prepareFreshTransaction(
+          deposit.transaction,
+          connection,
+        )
+        const sig = await sendTransaction(transaction, connection)
+        await robustConfirm(connection, sig, latestBlockhash)
+        emitReceipt({
+          action: 'ENCRYPT DEPOSIT',
+          description: `Per-session Encrypt deposit PDA funded.`,
+          signature: sig,
+          status: 'info',
+        })
+      }
+
+      // 3. Encrypt gRPC createInput for execution ciphertexts.
+      const execution = await createOfficialEncryptExecutionCiphertexts({
+        amountUsdc: params.amountUsdc,
+      })
+
+      // 4. Execute policy graph on-chain.
+      const graphResult = await apiExecuteEncryptPolicyGraph({
+        owner: params.ownerPubkey,
+        wallet: walletPda,
+        sessionKey: params.sessionPubkey,
+        sourceAmountCiphertext: execution.sourceAmountCiphertext,
+        maxPerRunCiphertext: encryptCiphertexts.maxPerRun,
+        dailySpentCiphertext: encryptCiphertexts.dailySpent,
+        dailyCapCiphertext: encryptCiphertexts.dailyCap,
+        allowedOutputCiphertext: execution.allowedOutputCiphertext,
+        dailySpentOutputCiphertext: execution.dailySpentOutputCiphertext,
+        attestationSlot: lastRevokedSlot + 1,
+        attestationPolicySeq: policySeq,
+        encrypt: {
+          encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+          config: deposit.config || ENCRYPT_PREALPHA_CONFIG,
+          deposit: deposit.deposit,
+          networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+          eventAuthority: deposit.eventAuthority || ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+          payer: params.sessionPubkey,
+        },
+      })
+      {
+        const { transaction, latestBlockhash } = await prepareFreshTransaction(
+          graphResult.transaction,
+          connection,
+        )
+        const sig = await sendTransaction(transaction, connection)
+        await robustConfirm(connection, sig, latestBlockhash)
+        emitReceipt({
+          action: 'ENCRYPT GRAPH EXECUTED',
+          description:
+            'Confidential policy graph ran on-chain; awaiting verifier decision.',
+          signature: sig,
+          status: 'info',
+        })
+      }
+
+      // Refresh and pick up the pending ciphertexts the contract just
+      // wrote (may differ from our gRPC-returned ids if the graph
+      // executor normalises).
+      const postGraph = await getWalletData(params.ownerPubkey).catch(() => null)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pendingCipher = (postGraph as any)?.confidentialPolicy?.encryptCiphertexts
+      const pendingRefs = {
+        sourceAmountCiphertext:
+          pendingCipher?.pendingSourceAmount || execution.sourceAmountCiphertext,
+        allowedOutputCiphertext:
+          pendingCipher?.pendingAllowedOutput || execution.allowedOutputCiphertext,
+        dailySpentOutputCiphertext:
+          pendingCipher?.pendingDailySpentOutput || execution.dailySpentOutputCiphertext,
+      }
+
+      // 5. Poll allowed-output ciphertext until Encrypt network marks
+      //    it 'verified' (up to ~3 minutes, devnet is jittery).
+      let verified = false
+      for (let attempt = 0; attempt < 60 && !verified; attempt += 1) {
+        const status = await apiGetEncryptCiphertextStatus(
+          pendingRefs.allowedOutputCiphertext,
+          ENCRYPT_PREALPHA_PROGRAM_ID,
+        ).catch(() => null)
+        if (status?.status === 'verified') {
+          verified = true
+          break
+        }
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+      }
+      if (!verified) {
+        throw new Error(
+          'Encrypt verifier did not finalize the allowed-output ciphertext in time. Retry the trade in a moment.',
+        )
+      }
+
+      // 6. Request decryption of the pending allowed-output.
+      const requestKeypair = Keypair.generate()
+      const decryption = await apiRequestPendingAllowedOutputDecryption({
+        owner: params.ownerPubkey,
+        wallet: walletPda,
+        request: requestKeypair.publicKey.toBase58(),
+        encrypt: {
+          encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+          config: deposit.config || ENCRYPT_PREALPHA_CONFIG,
+          deposit: deposit.deposit,
+          networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+          eventAuthority:
+            deposit.eventAuthority || ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+          payer: params.sessionPubkey,
+        },
+      })
+      {
+        const { transaction, latestBlockhash } = await prepareFreshTransaction(
+          decryption.transaction,
+          connection,
+        )
+        transaction.partialSign(requestKeypair)
+        const sig = await sendTransaction(transaction, connection)
+        await robustConfirm(connection, sig, latestBlockhash)
+        emitReceipt({
+          action: 'ENCRYPT DECRYPTION REQUESTED',
+          description:
+            'Allowed-output decryption request landed on-chain; waiting for decryptor response.',
+          signature: sig,
+          status: 'info',
+        })
+      }
+
+      // 7. Poll resolve-encrypt-policy-decision until non-pending.
+      let decision: Awaited<ReturnType<typeof apiResolveEncryptPolicyDecision>> | null = null
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        const res = await apiResolveEncryptPolicyDecision({
+          owner: params.ownerPubkey,
+          allowedDecryptionRequest: decryption.request,
+          expectedPolicySeq: decryption.policySequence,
+        }).catch(() => null)
+        if (res && res.status !== 'pending-encrypt-execution') {
+          decision = res
+          break
+        }
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+      }
+      if (!decision) {
+        throw new Error(
+          'Encrypt decisioner did not finalize in time. Retry the trade in a moment.',
+        )
+      }
+      if (decision.status !== 'encrypt-verified-allowed') {
+        // Surface as blocked — the verifier said the policy rejects
+        // this amount. Caller will emit a policy-blocked receipt.
+        throw new Error('ENCRYPT_VERIFIED_BLOCKED: Over the private cap.')
+      }
+      return {
+        sourceAmountCiphertext: decision.sourceAmountCiphertext,
+        allowedOutputCiphertext: decision.allowedOutputCiphertext,
+        dailySpentOutputCiphertext: decision.dailySpentOutputCiphertext,
+        ...(decision.allowedDecryptionRequest && {
+          allowedDecryptionRequest: decision.allowedDecryptionRequest,
+        }),
+      }
+    },
+    [connection, sendTransaction, emitReceipt],
+  )
+
   const executeAsOwnerSession = useCallback(
     async (params: { rail: 'jupiter' | 'ika'; amountUsdc: string }) => {
       if (!publicKey) return
@@ -1433,15 +1657,87 @@ export function ConsoleStateProvider({
       let broadcastSignature: string | undefined
 
       try {
-        if (params.rail === 'jupiter') {
-          // 1. Evaluate + build
-          const result = await apiRunConfidentialDca({
+        // Helper to call the proxy rail endpoint with (optionally)
+        // verified Encrypt refs. Returns the raw proxy result.
+        const callRail = async (
+          officialEncrypt?: {
+            sourceAmountCiphertext: string
+            allowedOutputCiphertext: string
+            dailySpentOutputCiphertext: string
+            allowedDecryptionRequest?: string
+          },
+        ) => {
+          if (params.rail === 'jupiter') {
+            return apiRunConfidentialDca({
+              owner: ownerPubkey,
+              sessionKey: ownerPubkey,
+              amountUsdc: params.amountUsdc,
+              slippageBps: 100,
+              maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
+              ...(officialEncrypt && { officialEncrypt }),
+            })
+          }
+          return apiRunMultichainIntent({
             owner: ownerPubkey,
             sessionKey: ownerPubkey,
-            amountUsdc: params.amountUsdc,
-            slippageBps: 100,
+            sourceChain: 'solana',
+            sourceAsset: 'USDC',
+            targetChain: 'sui',
+            targetAsset: 'SUI',
+            amount: params.amountUsdc,
+            executionRail: 'ika',
+            strategy: 'dca',
+            slippageBps: 150,
             maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
+            ...(officialEncrypt && { officialEncrypt }),
           })
+        }
+
+        // First attempt. The proxy may reject with
+        // ENCRYPT_POLICY_GRAPH_NOT_EXECUTED or ENCRYPT_POLICY_PENDING
+        // when the confidential policy is sealed but the per-run
+        // Encrypt graph has not been run / not yet verified. In that
+        // case we kick off the preflight and retry once.
+        let result = await callRail()
+        const needsPreflight =
+          result.allowed !== true &&
+          (result.code === 'ENCRYPT_POLICY_GRAPH_NOT_EXECUTED' ||
+            result.code === 'ENCRYPT_POLICY_PENDING' ||
+            result.status === 'pending-encrypt-execution')
+        if (needsPreflight) {
+          emitReceipt({
+            action: 'ENCRYPT PREFLIGHT',
+            description:
+              'Running Encrypt policy graph so the proxy can evaluate this amount (approx. 30-90s).',
+            status: 'pending',
+          })
+          try {
+            const refs = await runEncryptPreflight({
+              ownerPubkey,
+              sessionPubkey: ownerPubkey,
+              amountUsdc: params.amountUsdc,
+            })
+            result = await callRail(refs)
+          } catch (preflightErr) {
+            const message = describeError(preflightErr)
+            const verifiedBlocked = message.startsWith('ENCRYPT_VERIFIED_BLOCKED')
+            emitReceipt({
+              action: verifiedBlocked
+                ? `${params.amountUsdc} USDC BLOCKED (${params.rail === 'jupiter' ? 'JUPITER' : 'IKA'})`
+                : 'ENCRYPT PREFLIGHT FAILED',
+              description: verifiedBlocked
+                ? 'Encrypt verifier blocked this trade — amount exceeds the private cap.'
+                : message,
+              status: verifiedBlocked ? 'blocked' : 'error',
+              body: verifiedBlocked
+                ? 'Confidential threshold stays sealed. Try a smaller amount.'
+                : undefined,
+            })
+            return
+          }
+        }
+
+        if (params.rail === 'jupiter') {
           if (result.allowed !== true) {
             emitReceipt({
               action: `${params.amountUsdc} USDC BLOCKED (JUPITER)`,
@@ -1457,7 +1753,9 @@ export function ConsoleStateProvider({
             })
             return
           }
-          const unsigned = result.transaction?.transaction
+          const unsigned =
+            (result as Awaited<ReturnType<typeof apiRunConfidentialDca>>).transaction
+              ?.transaction
           if (!unsigned) {
             emitReceipt({
               action: 'EXECUTE ABORTED',
@@ -1466,38 +1764,42 @@ export function ConsoleStateProvider({
             })
             return
           }
-          // 2. Sign + broadcast via Phantom
-          const { transaction, latestBlockhash } =
-            await prepareFreshTransaction(unsigned, connection)
-          broadcastSignature = await sendTransaction(transaction, connection)
-          await robustConfirm(connection, broadcastSignature, latestBlockhash)
           emitReceipt({
-            action: `${params.amountUsdc} USDC EXECUTED (JUPITER)`,
-            description: `Smart-wallet swap approved + broadcast. Tx ${broadcastSignature.slice(0, 4)}…${broadcastSignature.slice(-4)}.`,
-            signature: broadcastSignature,
+            action: `${params.amountUsdc} USDC APPROVED (JUPITER)`,
+            description: 'Policy allowed. Unsigned smart-wallet tx ready. Check Proof Trail for details.',
             status: 'allowed',
             constraintRefs: {
               numericLimit: 'pass',
               scopeMatch: 'pass',
               sessionActive: 'pass',
             },
-            body: 'Owner signed once (feePayer + session-signer role fulfilled by the same Phantom signature).',
+            body: 'Unsigned transaction prepared by proxy. Broadcast disabled for demo.',
+            jupiterProof: (() => {
+              const r = result as Awaited<ReturnType<typeof apiRunConfidentialDca>>
+              const qm = r.jupiterPlan?.quoteMetadata
+              return {
+                executionPath: r.executionPath,
+                smartWalletAuthority: r.smartWalletAuthority,
+                quote: qm ? {
+                  inputAmount: qm.inputAmount,
+                  expectedOutput: qm.expectedOutput,
+                  minimumOutput: qm.minimumOutput,
+                  slippageBps: qm.slippageBps,
+                  priceImpactPct: qm.priceImpactPct,
+                  routeLabel: qm.routeLabel,
+                } : undefined,
+                approvalSigners: r.transaction?.signers,
+                txBlockHash: r.transaction?.blockHash,
+                txSlot: r.transaction?.slot,
+                unsignedTxBase64: unsigned,
+                policyCommitment: data?.policyCommitment
+                  ? Array.from(data.policyCommitment).map(b => b.toString(16).padStart(2, '0')).join('')
+                  : undefined,
+              }
+            })(),
           })
         } else {
           // Ika rail
-          const result = await apiRunMultichainIntent({
-            owner: ownerPubkey,
-            sessionKey: ownerPubkey,
-            sourceChain: 'solana',
-            sourceAsset: 'USDC',
-            targetChain: 'sui',
-            targetAsset: 'SUI',
-            amount: params.amountUsdc,
-            executionRail: 'ika',
-            strategy: 'dca',
-            slippageBps: 150,
-            maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
-          })
           if (result.allowed !== true) {
             emitReceipt({
               action: `${params.amountUsdc} USDC BLOCKED (IKA)`,
@@ -1513,7 +1815,9 @@ export function ConsoleStateProvider({
             })
             return
           }
-          const ikaRequest = result.ikaRequest
+          const ikaRequest = (
+            result as Awaited<ReturnType<typeof apiRunMultichainIntent>>
+          ).ikaRequest
           const approvalTxB64 = ikaRequest?.poletApprovalTransaction?.transaction
           if (!ikaRequest || !approvalTxB64) {
             emitReceipt({
@@ -1585,6 +1889,7 @@ export function ConsoleStateProvider({
       sendTransaction,
       emitReceipt,
       refresh,
+      runEncryptPreflight,
     ],
   )
 

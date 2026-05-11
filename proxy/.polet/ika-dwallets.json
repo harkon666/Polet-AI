@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "updatedAt": "2026-05-10T09:16:40.359Z",
+  "updatedAt": "2026-05-11T21:39:19.262Z",
   "entries": [
     {
-      "owner": "ECFFvJe8yPaTSH2qdXP1CkQTxWfWy5B3fZ7HEcCQPhSn",
+      "owner": "BZiugeMWHFyL5BLuAo4fH6VgNzFLx2cFsP6tcA5e6HHe",
       "curve": 2,
-      "dwalletAccount": "EQ51wKkStDfof8NSdEpY8bJLnKvDV8TQKZtT4qiiovAK",
-      "dwalletPublicKeyHex": "bf4009a55f24048f9cb34c41d9d8605a30d987c99ebb85d147a30b5cb8d467c1",
-      "transferredAuthority": "BhXAUn1enbGhqCiwT69VueGzC4RsuZpauUUisc3JyVAu",
+      "dwalletAccount": "C2d5iNYnDPRSyEGDgdtK2n6LbxVJsnSZrkrbnSdQcdT6",
+      "dwalletPublicKeyHex": "cd3656883326996582e630fa66d4698fff7ca4d72023f09c68edf39254a7ed71",
+      "transferredAuthority": "B5tt88pShbCkcHbQospMHJd6uzW5wk8FeJE3kS1ZeH1n",
       "createdEpoch": "1",
       "label": "managed-curve25519",
       "source": "managed-demo-mode"

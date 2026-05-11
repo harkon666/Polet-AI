@@ -4,6 +4,7 @@ import { useConsole } from '../use-console-actions'
 import {
   getActiveIkaChain,
   hasActiveSession,
+  latestReceipt,
 } from '../selectors/console-selectors'
 import type { Rail } from './gate-state'
 
@@ -73,6 +74,8 @@ export function ActionsBar({
     state.loading ===
     (rail === 'jupiter' ? 'test-policy-jupiter' : 'test-policy-ika')
   const authorizeLoading = state.loading === 'session-byo'
+  const enableSuiLoading = state.loading === 'ika-enable-sui'
+  const ikaRailNeedsSui = rail === 'ika' && ikaChain !== 'sui'
 
   const amountNum = Number(amountUsdc)
   const amountValid = Number.isFinite(amountNum) && amountNum > 0
@@ -107,6 +110,10 @@ export function ActionsBar({
     })
   }
 
+  const handleEnableSui = () => {
+    void actions.enableIkaChain('sui')
+  }
+
   return (
     <div
       data-testid="gate-actions-bar"
@@ -136,6 +143,30 @@ export function ActionsBar({
         </div>
       ) : null}
 
+      {ikaRailNeedsSui && ownerIsSession ? (
+        <div
+          data-testid="gate-enable-sui-banner"
+          className="flex flex-col gap-3 rounded-xl border border-sunset/40 bg-sunset/10 p-4 md:flex-row md:items-center md:justify-between"
+        >
+          <p className="max-w-2xl font-sans text-sm leading-relaxed text-ink">
+            <span className="mr-2 font-mono text-[10px] uppercase tracking-[0.22em] text-sunset">
+              {t('portal.gate.actions.enableSui.kicker')}
+            </span>
+            {t('portal.gate.actions.enableSui.body')}
+          </p>
+          <button
+            type="button"
+            data-testid="gate-action-enable-sui"
+            onClick={handleEnableSui}
+            disabled={anyLoading}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-sunset/60 bg-sunset/20 px-4 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-sunset transition-colors hover:bg-sunset/30 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {enableSuiLoading ? <Spinner size={11} /> : null}
+            {t('portal.gate.actions.enableSui.button')}
+          </button>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <p className="max-w-2xl font-sans text-xs leading-relaxed text-ink-mute">
           {t('portal.gate.actions.footnote')}
@@ -153,6 +184,56 @@ export function ActionsBar({
           <span aria-hidden="true">→</span>
         </button>
       </div>
+
+      <LatestReceiptLine />
+    </div>
+  )
+}
+
+/**
+ * Compact single-line receipt preview below the Run button. Shows
+ * the last emitted receipt's status + action + signature link so the
+ * operator can inspect the tx on Solana Explorer without leaving the
+ * gate page. Falls back to `null` when no receipts yet.
+ */
+function LatestReceiptLine() {
+  const { state } = useConsole()
+  const entry = latestReceipt(state)
+  if (!entry) return null
+
+  const tone =
+    entry.status === 'allowed'
+      ? 'text-palm'
+      : entry.status === 'blocked' || entry.status === 'error'
+        ? 'text-coral'
+        : entry.status === 'pending'
+          ? 'text-sunset'
+          : 'text-lagoon-bright'
+
+  return (
+    <div
+      data-testid="gate-latest-receipt"
+      data-status={entry.status}
+      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-dashed border-line pt-4 font-mono text-[11px]"
+    >
+      <span className="uppercase tracking-[0.22em] text-ink-mute">Latest</span>
+      <span className={`uppercase tracking-[0.18em] ${tone}`}>
+        {entry.action}
+      </span>
+      {entry.description ? (
+        <span className="text-ink-soft">{entry.description}</span>
+      ) : null}
+      {entry.signature ? (
+        <a
+          data-testid="gate-latest-receipt-tx"
+          href={`https://explorer.solana.com/tx/${entry.signature}?cluster=devnet`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="tabular-nums text-lagoon-bright hover:text-lagoon"
+        >
+          {entry.signature.slice(0, 6)}…{entry.signature.slice(-4)} ↗
+        </a>
+      ) : null}
     </div>
   )
 }

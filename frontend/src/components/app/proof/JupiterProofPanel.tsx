@@ -107,7 +107,32 @@ export function JupiterProofPanel({ proof }: { proof: JupiterProof }) {
         {proof.txSlot !== undefined ? (
           <ProofRow label="slot" value={String(proof.txSlot)} mono />
         ) : null}
+        {proof.policyCommitment ? (
+          <ProofRow label="policy commitment" value={proof.policyCommitment} mono />
+        ) : null}
       </dl>
+      {proof.unsignedTxBase64 ? (
+        <div className="mt-3">
+          <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-lagoon-bright mb-1">
+            unsigned tx (base64)
+          </p>
+          <div className="relative">
+            <textarea
+              readOnly
+              value={proof.unsignedTxBase64}
+              rows={3}
+              className="w-full resize-none rounded border border-line/60 bg-bg-deep p-2 font-mono text-[10px] text-foam/80 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => void navigator.clipboard.writeText(proof.unsignedTxBase64!)}
+              className="absolute right-2 top-2 rounded bg-lagoon/20 px-2 py-0.5 font-mono text-[9px] text-lagoon-bright hover:bg-lagoon/40"
+            >
+              copy
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
