@@ -340,6 +340,9 @@ function LedgerTable() {
                 <SessionKeypairAffordance
                   owner={publicKey.toBase58()}
                   sessionKeypair={sessionKeypair}
+                  onFundGas={() => void actions.fundAgentGas('0.05')}
+                  isFundingGas={loading === 'fund-gas'}
+                  disabled={loading !== null}
                 />
               ) : (
                 <SessionLostKeyStrip
@@ -378,9 +381,15 @@ function LedgerTable() {
 function SessionKeypairAffordance({
   owner,
   sessionKeypair,
+  onFundGas,
+  isFundingGas,
+  disabled,
 }: {
   owner: string
   sessionKeypair: Keypair
+  onFundGas: () => void
+  isFundingGas: boolean
+  disabled: boolean
 }) {
   const { t } = useLocale()
   const [copied, setCopied] = useState<'public' | 'secret' | null>(null)
@@ -445,6 +454,17 @@ function SessionKeypairAffordance({
           className="inline-flex items-center gap-1.5 rounded border border-line px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft hover:border-line-strong hover:text-ink transition"
         >
           {copied === 'secret' ? t('app.session.copied') : t('app.session.copy.secret')}
+        </button>
+        <button
+          type="button"
+          onClick={onFundGas}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded border border-coral/40 bg-coral/5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-coral hover:bg-coral/10 hover:border-coral transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isFundingGas ? <Spinner size={10} /> : null}
+          {isFundingGas
+            ? t('app.session.fundGas.loading')
+            : t('app.session.fundGas')}
         </button>
         <button
           type="button"

@@ -394,6 +394,8 @@ export type TranslationKey =
   | 'app.session.lostKeyNote'
   | 'app.action.regrant'
   | 'app.action.regrant.loading'
+  | 'app.session.fundGas'
+  | 'app.session.fundGas.loading'
   | 'app.session.presence.noActivity'
   | 'app.session.presence.active'
   | 'app.session.presence.ago'
@@ -852,6 +854,8 @@ const en: Dictionary = {
     'Session was granted before the persistence fix. Re-grant to download polet-agent.json.',
   'app.action.regrant': 'Re-grant for download',
   'app.action.regrant.loading': 'Re-granting…',
+  'app.session.fundGas': '+ Fund 0.05 SOL gas',
+  'app.session.fundGas.loading': 'Funding…',
   'app.session.presence.noActivity': 'no activity yet',
   'app.session.presence.active': 'active',
   'app.session.presence.ago': 'ago',
@@ -1309,6 +1313,8 @@ const id: Dictionary = {
     'Sesi di-grant sebelum fix persistensi. Re-grant untuk unduh polet-agent.json.',
   'app.action.regrant': 'Re-grant untuk unduh',
   'app.action.regrant.loading': 'Sedang re-grant…',
+  'app.session.fundGas': '+ Isi 0.05 SOL gas',
+  'app.session.fundGas.loading': 'Mengisi…',
   'app.session.presence.noActivity': 'belum ada aktivitas',
   'app.session.presence.active': 'aktif',
   'app.session.presence.ago': 'lalu',

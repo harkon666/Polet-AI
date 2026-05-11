@@ -24,6 +24,7 @@ import {
   revokeSession as apiRevokeSession,
   runConfidentialDca as apiRunConfidentialDca,
   runMultichainIntent as apiRunMultichainIntent,
+  fundAgentGas as apiFundAgentGas,
 } from '#shared/lib/api'
 import {
   confirmFreshTransaction,
@@ -208,6 +209,7 @@ export type ActionKey =
   | 'policy'
   | 'session'
   | 'regrant'
+  | 'fund-gas'
   | 'jupiter-block'
   | 'jupiter-allow'
   | 'jupiter-execute'
@@ -238,6 +240,7 @@ export type ConsoleActions = {
   saveConfidentialPolicy: () => Promise<void>
   grantAgentSession: () => Promise<void>
   regrantAgentSession: () => Promise<void>
+  fundAgentGas: (amountSol: string) => Promise<void>
   runJupiterBlock: () => Promise<void>
   runJupiterAllow: () => Promise<void>
   executeJupiter: () => Promise<void>
@@ -812,6 +815,62 @@ export function ConsoleStateProvider({
     return String(found.key ?? '')
   }, [data])
 
+  // Fund agent gas — Phase 3 of PRD 098.
+  //
+  // The session keypair (Keypair.generate()) starts with 0 lamports.
+  // After Phase 2 landed, clicking Execute on the Jupiter rail asks
+  // the session key to sign + broadcast the smart-wallet tx, but the
+  // network rejects it with "Attempt to debit an account but found
+  // no record of a prior credit" — the session pubkey has no SOL to
+  // pay fees. This action covers that gap: the owner (via Phantom)
+  // signs a plain SOL transfer from their wallet to the session
+  // pubkey, giving the agent enough lamports to broadcast.
+  //
+  // Wraps the existing runTxAction helper because the tx is owner-
+  // signed (not session-signed). Trust boundary preserved: session
+  // keypair doesn't authorize the funding itself.
+  const fundAgentGas = useCallback(
+    async (amountSol: string) => {
+      if (!publicKey) return
+      const sessionKey = findActiveSessionKey()
+      if (!sessionKey) {
+        setError('No active session. Grant an agent session first.')
+        emitReceipt({
+          action: 'FUND GAS BLOCKED',
+          description: 'No active session key to fund.',
+          status: 'error',
+          body: 'Grant an agent session in the Setup ledger first.',
+        })
+        return
+      }
+      await runTxAction(
+        'fund-gas',
+        () =>
+          apiFundAgentGas({
+            owner: publicKey.toBase58(),
+            agentWallet: sessionKey,
+            amount: amountSol,
+          }),
+        (result, signature) =>
+          emitReceipt({
+            action: `${amountSol} SOL FUNDED TO AGENT`,
+            description: `Owner sent ${amountSol} SOL to session ${sessionKey.slice(0, 4)}…${sessionKey.slice(-4)}.`,
+            signature,
+            status: 'info',
+            body: `Agent gas tank topped up. Source ${result.source.slice(0, 4)}…${result.source.slice(-4)}, destination ${result.destination.slice(0, 4)}…${result.destination.slice(-4)}, amount ${result.amountUi} SOL (${result.amountLamports} lamports). The session key can now broadcast Jupiter Execute on devnet.`,
+          }),
+        (err, signature) =>
+          emitReceipt({
+            action: 'FUND GAS FAILED',
+            description: describeError(err),
+            signature,
+            status: 'error',
+          }),
+      )
+    },
+    [publicKey, findActiveSessionKey, runTxAction, emitReceipt],
+  )
+
   const runJupiterIntent = useCallback(
     async (key: ActionKey, amount: string) => {
       if (!publicKey) return
@@ -1196,6 +1255,7 @@ export function ConsoleStateProvider({
         saveConfidentialPolicy,
         grantAgentSession,
         regrantAgentSession,
+        fundAgentGas,
         runJupiterBlock,
         runJupiterAllow,
         executeJupiter,
@@ -1218,6 +1278,7 @@ export function ConsoleStateProvider({
       saveConfidentialPolicy,
       grantAgentSession,
       regrantAgentSession,
+      fundAgentGas,
       runJupiterBlock,
       runJupiterAllow,
       executeJupiter,
