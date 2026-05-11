@@ -75,13 +75,8 @@ export function AgentAccessSection() {
     }))
     .filter((s) => s.key)
 
-  const proxyUrl =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PROXY_URL) ||
-    'http://localhost:3001'
-  const rpcUrl =
-    (typeof import.meta !== 'undefined' &&
-      import.meta.env?.VITE_SOLANA_RPC_URL) ||
-    'https://api.devnet.solana.com'
+  const proxyUrl = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001'
+  const rpcUrl = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com'
 
   const buildPoletAgentJson = (sessionKey: string): string =>
     JSON.stringify(

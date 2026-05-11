@@ -163,7 +163,7 @@ export async function runDestinationBroadcastDemo(
       ok: false,
       status: 'broadcast-disabled',
       code: 'BROADCAST_DISABLED',
-      reason: 'Destination broadcast demo is disabled. Set POLET_DESTINATION_BROADCAST_DEMO=enabled for this narrow devnet proof path.',
+      reason: 'Destination broadcast demo is disabled (pre-alpha version)',
       demoPath: DESTINATION_BROADCAST_DEMO_PATH,
       transaction: {
         base64: unsigned.serialize({ requireAllSignatures: false, verifySignatures: false }).toString('base64'),

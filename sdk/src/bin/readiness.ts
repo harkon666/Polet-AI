@@ -93,7 +93,8 @@ async function main(): Promise<void> {
     detail: wallet?.confidentialPolicy?.enabled === true ? 'enabled' : 'not set',
   });
   const session = wallet?.sessions?.find((s) => s.key === sessionKey);
-  const sessionOk = Boolean(session?.authorized) && (session?.expiresAt ?? 0) > Date.now();
+  const nowSec = Math.floor(Date.now() / 1000);
+  const sessionOk = Boolean(session?.authorized) && (session?.expiresAt ?? 0) > nowSec;
   checks.push({
     name: 'session authorized',
     ok: sessionOk,

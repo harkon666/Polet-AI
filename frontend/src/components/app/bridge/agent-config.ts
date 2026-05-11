@@ -30,8 +30,8 @@ export const MCP_TOOLS: ReadonlyArray<{
   { name: 'polet_execute', descriptionKey: 'app.agent.tool.execute' },
 ]
 
-const DEFAULT_PROXY_URL = 'http://localhost:3001'
-const DEVNET_RPC_URL = 'https://api.devnet.solana.com'
+const DEFAULT_PROXY_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001'
+const DEVNET_RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com'
 
 /**
  * The `__POLET_PROXY_URL__` window override is what the existing

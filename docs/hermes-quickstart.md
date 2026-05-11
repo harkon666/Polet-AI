@@ -155,7 +155,7 @@ Every Polet tool returns a discriminated `status`. Hermes's LLM can reason about
 | `gas-floor-underfunded` | Ika GasDeposit under the proxy floor | Ask operator to top up |
 | `signer-required` | `POLET_AGENT_KEYPAIR` not wired | Fix config |
 | `lifecycle-error` | Presign/Sign/CommitSignature failed | Escalate; not automatically recoverable |
-| `broadcast-disabled` | Lifecycle succeeded, broadcast off | Report signature hex; operator decides |
+| `broadcast-disabled` | Lifecycle succeeded, broadcast off (pre-alpha) | Report signature hex; operator decides |
 | `broadcast-failed` | Destination RPC rejected | Retry later, maybe with different amount |
 
 Private policy thresholds never appear in any branch. Prompt injection cannot extract them through the MCP surface.

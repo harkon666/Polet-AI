@@ -19,13 +19,13 @@ npm install @polet-ai/sdk
 
 ## End-to-end in 5 steps (Hermes / Claude / Cursor)
 
-See [`docs/hermes-quickstart.md`](../docs/hermes-quickstart.md) for the zero-to-trading walkthrough. Summary:
+Detailed guide: [`docs/INTEGRATION.md`](../docs/INTEGRATION.md). Summary:
 
 1. Start `proxy` + `frontend` locally.
-2. In the frontend, connect the owner wallet → initialize Polet → set confidential policy → click **Generate agent keypair** + **Grant as Polet session** + **Download polet-agent.json**.
+2. In the frontend, connect owner wallet → **Workspace** tab → **Authorize Agent Wallet** → paste Agent public key → **Authorize Agent**.
 3. `cd sdk && bun run build` to emit `dist/mcp-server/cli.js`.
-4. Point Hermes / Claude Desktop / Cursor at the CLI via `node dist/mcp-server/cli.js` and paste the values from `polet-agent.json` into the env block (templates in [`docs/templates/`](../docs/templates/)).
-5. In the agent runtime, ask: *"Use Polet. Check status, then execute 5 USDC to SUI."* The agent discovers the Polet MCP tools and invokes `polet_execute`.
+4. Point your agent (Claude/Cursor/Hermes) at the CLI and use the values from the dashboard (or `polet-agent.json`).
+5. In the agent runtime, ask: *"Check Polet status, then trade 5 USDC to SOL."*
 
 Pre-run sanity check:
 
@@ -243,7 +243,7 @@ POLET_PROXY_URL=http://localhost:3001 \
 |---|---|
 | `POLET_OWNER` | Solana public key of the Polet smart wallet owner (human user). |
 | `POLET_SESSION_KEY` | Session key public key granted to this agent. Must match a live `session.key` on-chain. |
-| `POLET_AGENT_KEYPAIR` | Base58 or JSON-array secret key for the session signer (held by the agent). Autoloaded into `options.agentSigner`. |
+| `POLET_AGENT_KEYPAIR` | Base58 or JSON-array secret key for the Agent wallet (held locally by the agent). |
 | `POLET_PROXY_URL` | Polet proxy base URL. Defaults to `http://localhost:3001`. |
 | `POLET_RPC_URL` | Solana RPC URL. Defaults to `https://api.devnet.solana.com`. |
 

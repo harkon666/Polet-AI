@@ -25,8 +25,8 @@ interface BrowserAgentKeypair {
   secretKeyBase58: string;
 }
 
-const DEFAULT_PROXY = 'http://localhost:3001';
-const DEFAULT_RPC = 'https://api.devnet.solana.com';
+const DEFAULT_PROXY = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001';
+const DEFAULT_RPC = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 const DEFAULT_EXPIRES_HOURS = 24;
 const DEFAULT_LEGACY_LAMPORTS = 50_000_000; // 0.05 SOL — confidential policy is the real gate
 

@@ -101,7 +101,7 @@ export async function runDestinationBroadcast(
   const rpcFetch = input.config?.rpcFetch ?? (globalThis.fetch as typeof fetch | undefined);
 
   if (mode === 'disabled') {
-    return disabledResult(targetChain, 'Destination broadcast is disabled by configuration.');
+    return disabledResult(targetChain, 'Destination broadcast is disabled on proxy (pre-alpha version).');
   }
 
   if (mode === 'demo-memo') {

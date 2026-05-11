@@ -33,12 +33,8 @@ export function TemporalKeyManager({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedConfigKey, setExpandedConfigKey] = useState<string | null>(null);
 
-  const proxyUrl =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_PROXY_URL) ||
-    'http://localhost:3001';
-  const rpcUrl =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SOLANA_RPC_URL) ||
-    'https://api.devnet.solana.com';
+  const proxyUrl = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001';
+  const rpcUrl = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 
   const handleGrant = () => {
     if (!newAgentAddress.trim()) return;
