@@ -4,6 +4,7 @@ import { KickerLabel } from '../primitives/KickerLabel'
 import { ParticleField } from '../primitives/ParticleField'
 import { RailCard, type Rail } from './RailCard'
 import { useConsole } from './use-console-actions'
+import { ChainStatusStrip } from './ChainStatusStrip'
 
 /**
  * TwoRailConsole, /app's parallel rail cards.
@@ -108,6 +109,8 @@ export function TwoRailConsole() {
         <KickerLabel tone="accent" className="pl-reveal">
           {t('app.console.rails.kicker')}
         </KickerLabel>
+
+        <ChainStatusStrip />
 
         <div
           onMouseMove={handleMouseMove}

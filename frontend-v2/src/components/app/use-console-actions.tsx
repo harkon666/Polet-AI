@@ -27,6 +27,13 @@ import {
   fundAgentGas as apiFundAgentGas,
   depositCustody as apiDepositCustody,
   withdrawCustody as apiWithdrawCustody,
+  enableIkaChain as apiEnableIkaChain,
+  getIkaDwalletRegistration,
+  getIkaGasDepositStatus,
+  getIkaManagedFixtureStatus,
+  type IkaManagedChain,
+  type IkaManagedDwalletRegistration,
+  type IkaManagedGasDepositSummary,
 } from '#shared/lib/api'
 import {
   confirmFreshTransaction,
@@ -207,6 +214,12 @@ export type ConsoleData = {
     minNativeSolReserveLamports?: string
     funded?: boolean
   }
+  ikaManaged?: {
+    registration: IkaManagedDwalletRegistration | null
+    gas: (IkaManagedGasDepositSummary['status'] & { pda: string }) | null
+    fixtureAvailable: boolean | null
+    fixtureDisclosure: string | null
+  }
   usdcDcaPolicy?: {
     enabled?: boolean
     encryptCiphertexts?: { configured?: boolean }
@@ -228,6 +241,8 @@ export type ActionKey =
   | 'custody-deposit-sol'
   | 'custody-withdraw-sol'
   | 'fund-gas'
+  | 'ika-enable-sui'
+  | 'ika-enable-ethereum'
   | 'jupiter-block'
   | 'jupiter-allow'
   | 'jupiter-execute'
@@ -261,6 +276,7 @@ export type ConsoleActions = {
   depositCustody: (asset: CustodyAsset, amount: string) => Promise<void>
   withdrawCustody: (asset: CustodyAsset, amount: string) => Promise<void>
   fundAgentGas: (amountSol: string) => Promise<void>
+  enableIkaChain: (chain: IkaManagedChain) => Promise<void>
   runJupiterBlock: () => Promise<void>
   runJupiterAllow: () => Promise<void>
   executeJupiter: () => Promise<void>
@@ -286,6 +302,12 @@ const custodyActionKey = (
   asset: CustodyAsset,
 ): ActionKey =>
   `custody-${action}-${asset.toLowerCase()}` as ActionKey
+
+const ikaChainActionKey = (chain: IkaManagedChain): ActionKey =>
+  `ika-enable-${chain}` as ActionKey
+
+const ikaCurveForChain = (chain: IkaManagedChain) =>
+  chain === 'sui' ? 'curve25519' : 'secp256k1'
 
 /**
  * Robust transaction confirmation with extended polling.
@@ -507,7 +529,24 @@ export function ConsoleStateProvider({
     const owner = publicKey.toBase58()
     try {
       const result = await getWalletData(owner)
-      setData(result ?? null)
+      if (!result) {
+        setData(null)
+      } else {
+        const [registration, gas, fixture] = await Promise.all([
+          getIkaDwalletRegistration(owner).catch(() => null),
+          getIkaGasDepositStatus(owner).catch(() => null),
+          getIkaManagedFixtureStatus().catch(() => null),
+        ])
+        setData({
+          ...result,
+          ikaManaged: {
+            registration,
+            gas,
+            fixtureAvailable: fixture ? true : false,
+            fixtureDisclosure: fixture?.disclosure ?? null,
+          },
+        })
+      }
     } catch {
       setData(null)
     }
@@ -902,6 +941,46 @@ export function ConsoleStateProvider({
       )
     },
     [publicKey, data, runTxAction, emitReceipt],
+  )
+
+  const enableIkaChain = useCallback(
+    async (chain: IkaManagedChain) => {
+      if (!publicKey) return
+      setLoading(ikaChainActionKey(chain))
+      setError(null)
+      try {
+        const result = await apiEnableIkaChain({
+          owner: publicKey.toBase58(),
+          chain,
+          curve: ikaCurveForChain(chain),
+        })
+        const chainLabel = chain === 'sui' ? 'Sui devnet' : 'Ethereum Sepolia'
+        const gasAction = result.gasDeposit.action.replace(/-/g, ' ')
+        emitReceipt({
+          action: `${chainLabel.toUpperCase()} ENABLED (IKA)`,
+          description: `Managed ${result.curve} dWallet bound to owner.`,
+          signature: result.gasDeposit.subsidyTxSignature,
+          status: result.authorityVerification.ok ? 'info' : 'error',
+          body: `dWallet ${shortAddress(result.registry.dwalletAccount)}, gas deposit ${gasAction}. ${result.fixtureDisclosure}`,
+        })
+        await refresh()
+      } catch (err) {
+        const message = describeError(err)
+        setError(message)
+        emitReceipt({
+          action: 'IKA CHAIN ENABLE FAILED',
+          description: message,
+          status: 'error',
+          body:
+            chain === 'sui'
+              ? 'Sui devnet managed signer is not ready.'
+              : 'Ethereum Sepolia managed signer is not ready.',
+        })
+      } finally {
+        setLoading(null)
+      }
+    },
+    [publicKey, emitReceipt, refresh],
   )
 
   // ────────────────────────────── Rail actions ──────────────────────────────
@@ -1361,6 +1440,7 @@ export function ConsoleStateProvider({
         depositCustody,
         withdrawCustody,
         fundAgentGas,
+        enableIkaChain,
         runJupiterBlock,
         runJupiterAllow,
         executeJupiter,
@@ -1386,6 +1466,7 @@ export function ConsoleStateProvider({
       depositCustody,
       withdrawCustody,
       fundAgentGas,
+      enableIkaChain,
       runJupiterBlock,
       runJupiterAllow,
       executeJupiter,

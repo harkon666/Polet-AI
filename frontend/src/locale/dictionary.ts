@@ -373,6 +373,24 @@ export type TranslationKey =
   | 'app.rail.jupiter.action.execute'
   | 'app.rail.jupiter.action.execute.loading'
   | 'app.rail.action.execute.hint'
+  | 'app.chain.kicker'
+  | 'app.chain.note'
+  | 'app.chain.ready'
+  | 'app.chain.waitPolicy'
+  | 'app.chain.fixtureMissing'
+  | 'app.chain.sui'
+  | 'app.chain.ethereum'
+  | 'app.chain.enabled'
+  | 'app.chain.notEnabled'
+  | 'app.chain.curve'
+  | 'app.chain.dwallet'
+  | 'app.chain.gas'
+  | 'app.chain.gasReady'
+  | 'app.chain.gasNeedsFunding'
+  | 'app.chain.gasUnknown'
+  | 'app.chain.enable.sui'
+  | 'app.chain.enable.ethereum'
+  | 'app.chain.enable.loading'
   | 'app.log.kicker'
   | 'app.log.tagline'
   | 'app.log.empty'
@@ -831,6 +849,25 @@ const en: Dictionary = {
   'app.rail.jupiter.action.execute': 'Execute 5 USDC',
   'app.rail.jupiter.action.execute.loading': 'Broadcasting…',
   'app.rail.action.execute.hint': 'Sign + broadcast on devnet',
+  'app.chain.kicker': 'Ika chain status',
+  'app.chain.note':
+    'Managed demo mode maps one active dWallet curve at a time before real Ika lifecycle execution.',
+  'app.chain.ready': 'Ready to enable',
+  'app.chain.waitPolicy': 'Seal policy first',
+  'app.chain.fixtureMissing': 'Managed fixture missing',
+  'app.chain.sui': 'Sui devnet',
+  'app.chain.ethereum': 'Ethereum Sepolia',
+  'app.chain.enabled': 'Enabled',
+  'app.chain.notEnabled': 'Not enabled',
+  'app.chain.curve': 'Curve',
+  'app.chain.dwallet': 'dWallet',
+  'app.chain.gas': 'Gas',
+  'app.chain.gasReady': 'Gas deposit ready',
+  'app.chain.gasNeedsFunding': 'Gas needs funding',
+  'app.chain.gasUnknown': 'Gas unknown',
+  'app.chain.enable.sui': 'Enable Sui',
+  'app.chain.enable.ethereum': 'Enable Ethereum',
+  'app.chain.enable.loading': 'Enabling…',
 
   // Receipt log (Day 11)
   'app.log.kicker': 'Receipt log',
@@ -1297,6 +1334,25 @@ const id: Dictionary = {
   'app.rail.jupiter.action.execute': 'Eksekusi 5 USDC',
   'app.rail.jupiter.action.execute.loading': 'Broadcasting…',
   'app.rail.action.execute.hint': 'Sign + broadcast ke devnet',
+  'app.chain.kicker': 'Status chain Ika',
+  'app.chain.note':
+    'Mode demo managed memetakan satu curve dWallet aktif sebelum eksekusi lifecycle Ika nyata.',
+  'app.chain.ready': 'Siap diaktifkan',
+  'app.chain.waitPolicy': 'Seal policy dulu',
+  'app.chain.fixtureMissing': 'Fixture managed hilang',
+  'app.chain.sui': 'Sui devnet',
+  'app.chain.ethereum': 'Ethereum Sepolia',
+  'app.chain.enabled': 'Aktif',
+  'app.chain.notEnabled': 'Belum aktif',
+  'app.chain.curve': 'Curve',
+  'app.chain.dwallet': 'dWallet',
+  'app.chain.gas': 'Gas',
+  'app.chain.gasReady': 'Gas deposit siap',
+  'app.chain.gasNeedsFunding': 'Gas perlu funding',
+  'app.chain.gasUnknown': 'Gas belum diketahui',
+  'app.chain.enable.sui': 'Aktifkan Sui',
+  'app.chain.enable.ethereum': 'Aktifkan Ethereum',
+  'app.chain.enable.loading': 'Mengaktifkan…',
 
   // Receipt log (Day 11)
   'app.log.kicker': 'Receipt log',
