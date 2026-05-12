@@ -45,7 +45,9 @@ import * as path from 'node:path';
 import { DWALLET_CURVE, type DWalletCurveId } from './ika-grpc-schema';
 
 export const DEFAULT_MANAGED_FIXTURE_PATH = path.join(
-  process.cwd(),
+  __dirname,
+  '..',
+  '..',
   '.polet',
   'ika-managed-fixture.json'
 );
