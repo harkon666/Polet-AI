@@ -38,6 +38,9 @@ test-ledger/
 .kiro/
 .windsurf/
 
+# Docker local overrides
+docker-compose.override.yaml
+
 # Misc
 *.rs.bk
 *.swp

@@ -1,0 +1,233 @@
+name: Deploy Compose Stack
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'proxy/**'
+      - 'docker-compose.yaml'
+      - 'docker-compose.override.yaml'
+  workflow_dispatch:
+    inputs:
+      run_compose_up:
+        description: Run VPS deploy once. Requires POLET_DEPLOY_* variables/secrets in GitHub Actions.
+        required: true
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      run_compose_up:
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      POLET_DEPLOY_HOST:
+        required: false
+      POLET_DEPLOY_USER:
+        required: false
+      POLET_DEPLOY_PORT:
+        required: false
+      POLET_DEPLOY_PATH:
+        required: false
+      POLET_DEPLOY_SSH_KEY:
+        required: false
+      POLET_GHCR_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Compose Stack
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.run_compose_up) ||
+      github.event_name == 'workflow_call' ||
+      github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      deployed: ${{ steps.gate.outputs.deploy }}
+    env:
+      DEPLOY_HOST: ${{ vars.POLET_DEPLOY_HOST || secrets.POLET_DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.POLET_DEPLOY_USER || secrets.POLET_DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.POLET_DEPLOY_PORT || secrets.POLET_DEPLOY_PORT || '22' }}
+      DEPLOY_PATH: ${{ vars.POLET_DEPLOY_PATH || secrets.POLET_DEPLOY_PATH }}
+      DEPLOY_SSH_KEY: ${{ secrets.POLET_DEPLOY_SSH_KEY }}
+      GHCR_TOKEN: ${{ secrets.POLET_GHCR_TOKEN }}
+      GHCR_USER: ${{ github.actor }}
+      AUTO_DEPLOY: ${{ vars.POLET_COMPOSE_AUTO_DEPLOY || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect changed deploy surfaces
+        id: changes
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+
+          need_proxy=false
+          need_compose=false
+
+          if [[ "${BEFORE_SHA}" =~ ^0+$ ]]; then
+            files=$(gh api "/repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}" --jq '.files[].filename')
+          else
+            files=$(gh api "/repos/${GITHUB_REPOSITORY}/compare/${BEFORE_SHA}...${HEAD_SHA}" --jq '.files[].filename')
+          fi
+
+          printf 'Changed files for %s:\n%s\n' "${HEAD_SHA}" "${files}"
+
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            case "${file}" in
+              proxy/*)
+                need_proxy=true
+                ;;
+              docker-compose.yaml|docker-compose.override.yaml)
+                need_compose=true
+                ;;
+            esac
+          done <<< "${files}"
+
+          printf 'need_proxy=%s\n' "${need_proxy}" >> "${GITHUB_OUTPUT}"
+          printf 'need_compose=%s\n' "${need_compose}" >> "${GITHUB_OUTPUT}"
+          printf 'Deploy requirements: proxy=%s compose=%s\n' "${need_proxy}" "${need_compose}"
+
+      - name: Wait for proxy image build
+        if: github.event_name == 'push' && steps.changes.outputs.need_proxy == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+
+          for attempt in $(seq 1 80); do
+            runs=$(gh api \
+              "/repos/${GITHUB_REPOSITORY}/actions/workflows/build-proxy.yaml/runs?branch=main&event=push&per_page=50")
+
+            success_count=$(jq '[.workflow_runs[] | select(.head_sha == env.HEAD_SHA and .status == "completed" and .conclusion == "success")] | length' <<< "${runs}")
+            failed_count=$(jq '[.workflow_runs[] | select(.head_sha == env.HEAD_SHA and .status == "completed" and (.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out"))] | length' <<< "${runs}")
+
+            if [ "${success_count}" -gt 0 ]; then
+              printf 'Build Proxy Image is successful for %s.\n' "${HEAD_SHA}"
+              break
+            fi
+
+            if [ "${failed_count}" -gt 0 ]; then
+              printf '::error::Build Proxy Image failed for %s. Skipping compose deploy.\n' "${HEAD_SHA}"
+              exit 1
+            fi
+
+            printf 'Waiting for Build Proxy Image for %s (%s/80).\n' "${HEAD_SHA}" "${attempt}"
+            sleep 15
+          done
+
+      - name: Check compose deploy gate
+        id: gate
+        env:
+          FORCE_DEPLOY: ${{ inputs.run_compose_up }}
+        run: |
+          set -Eeuo pipefail
+
+          auto_deploy=$(printf '%s' "${AUTO_DEPLOY}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+
+          if [ "${FORCE_DEPLOY}" = "true" ] || [ "${auto_deploy}" = "true" ]; then
+            printf 'deploy=true\n' >> "${GITHUB_OUTPUT}"
+            printf 'Compose deploy gate is open.\n'
+          else
+            printf 'deploy=false\n' >> "${GITHUB_OUTPUT}"
+            printf 'Compose deploy gate is closed. Skipping VPS deployment.\n'
+          fi
+
+      - name: Validate deployment configuration
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          missing=()
+          [ -n "${DEPLOY_HOST}" ] || missing+=("POLET_DEPLOY_HOST")
+          [ -n "${DEPLOY_USER}" ] || missing+=("POLET_DEPLOY_USER")
+          [ -n "${DEPLOY_PATH}" ] || missing+=("POLET_DEPLOY_PATH")
+          [ -n "${DEPLOY_SSH_KEY}" ] || missing+=("POLET_DEPLOY_SSH_KEY")
+
+          if [ "${#missing[@]}" -ne 0 ]; then
+            printf '::error::Missing VPS deployment configuration: %s\n' "${missing[*]}"
+            exit 1
+          fi
+
+      - name: Configure SSH
+        if: steps.gate.outputs.deploy == 'true'
+        run: |
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/polet_deploy_key
+          chmod 0600 ~/.ssh/polet_deploy_key
+          ssh-keyscan -p "${DEPLOY_PORT}" -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
+
+      - name: Log in to GHCR on host
+        if: steps.gate.outputs.deploy == 'true' && env.GHCR_TOKEN != ''
+        run: |
+          printf '%s' "${GHCR_TOKEN}" \
+            | ssh -i ~/.ssh/polet_deploy_key -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+                "docker login ghcr.io -u '${GHCR_USER}' --password-stdin"
+
+      - name: Deploy via Docker Compose
+        if: steps.gate.outputs.deploy == 'true'
+        env:
+          NEED_PROXY: ${{ steps.changes.outputs.need_proxy }}
+          NEED_COMPOSE: ${{ steps.changes.outputs.need_compose }}
+        run: |
+          remote_env=$(
+            printf 'POLET_DEPLOY_PATH=%q GITHUB_EVENT_NAME=%q NEED_PROXY=%q NEED_COMPOSE=%q' \
+              "${DEPLOY_PATH}" "${GITHUB_EVENT_NAME}" "${NEED_PROXY:-false}" "${NEED_COMPOSE:-false}"
+          )
+
+          ssh -i ~/.ssh/polet_deploy_key -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "${remote_env} bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+
+          cd "${POLET_DEPLOY_PATH}"
+
+          git pull --ff-only
+
+          test -f docker-compose.yaml
+
+          if [ "${GITHUB_EVENT_NAME}" != "push" ]; then
+            NEED_PROXY=true
+            NEED_COMPOSE=true
+          fi
+
+          docker compose config --quiet
+
+          if [ "${NEED_PROXY}" = "true" ] || [ "${NEED_COMPOSE}" = "true" ]; then
+            docker compose pull polet-proxy
+            docker compose up -d --force-recreate --no-deps polet-proxy
+          else
+            printf 'No services need recreation for this deploy.\n'
+          fi
+
+          docker compose ps polet-proxy
+          REMOTE
+
+  notify:
+    name: Notify Status
+    needs: deploy
+    if: always() && needs.deploy.result != 'skipped' && (needs.deploy.result != 'success' || needs.deploy.outputs.deployed == 'true')
+    uses: ./.github/workflows/notify.yaml
+    with:
+      workflow_name: "Deploy Compose Stack"
+      status: ${{ needs.deploy.result }}
+      details: |
+        🚀 *Environment:* Production
+        📦 *Services:* polet-proxy
+    secrets:
+      telegram_bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      telegram_chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
