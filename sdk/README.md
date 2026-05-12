@@ -19,7 +19,16 @@ npm install @polet-ai/sdk
 
 ## End-to-end in 5 steps (Hermes / Claude / Cursor)
 
-Detailed guide: [`docs/INTEGRATION.md`](../docs/INTEGRATION.md). Summary:
+Detailed guide: [`docs/INTEGRATION.md`](../docs/INTEGRATION.md).
+
+> [!IMPORTANT]
+> **Prerequisite: Proxy Readiness**
+> Before using the SDK, ensure the Polet Proxy is fully configured. Specifically, you **must** run Step 3 in the [`proxy/README.md`](../proxy/README.md) to generate the `.polet/ika-managed-fixture.json`. Without this fixture, the Ika multi-chain signing rail will fail.
+>
+> ```bash
+> # Quick check in the proxy folder:
+> ls proxy/.polet/ika-managed-fixture.json
+> ```
 
 1. Start `proxy` + `frontend` locally.
 2. In the frontend, connect owner wallet → **Workspace** tab → **Authorize Agent Wallet** → paste Agent public key → **Authorize Agent**.
