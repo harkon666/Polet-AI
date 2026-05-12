@@ -40,17 +40,26 @@
  * dWallets must be DKG'd per-user with zero-trust encrypted shares.
  */
 
-import { promises as fs } from 'node:fs';
+import { promises as fs, existsSync } from 'node:fs';
 import * as path from 'node:path';
 import { DWALLET_CURVE, type DWalletCurveId } from './ika-grpc-schema';
 
-export const DEFAULT_MANAGED_FIXTURE_PATH = path.join(
-  __dirname,
-  '..',
-  '..',
-  '.polet',
-  'ika-managed-fixture.json'
-);
+export const DEFAULT_MANAGED_FIXTURE_PATH = (() => {
+  // 1. Path relative to source (works if running from src/lib)
+  const srcPath = path.join(__dirname, '..', '..', '.polet', 'ika-managed-fixture.json');
+  if (existsSync(srcPath)) return srcPath;
+
+  // 2. Absolute path for cloud deployments (Render, Railway, Docker typically use /app)
+  const cloudPath = '/app/proxy/.polet/ika-managed-fixture.json';
+  if (existsSync(cloudPath)) return cloudPath;
+
+  // 3. Fallback to process.cwd() (works if running directly inside proxy folder)
+  const cwdPath = path.join(process.cwd(), '.polet', 'ika-managed-fixture.json');
+  if (existsSync(cwdPath)) return cwdPath;
+
+  // Default fallback
+  return cloudPath; // Use cloudPath as default so the error log makes sense to the user if it fails
+})();
 
 export type ManagedCurveKey = 'curve25519' | 'secp256k1';
 
