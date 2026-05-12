@@ -741,11 +741,11 @@ const en: Dictionary = {
   'hero.kicker': 'Confidential wallet layer for AI agents',
   'hero.headline.line1': 'Give your agent a budget.',
   'hero.headline.line2': 'Not your wallet.',
-  'hero.headline.line2.a': 'Not your keys.',
+  'hero.headline.line2.a': 'Keep full control.',
   'hero.headline.line2.b': 'Hide the limits.',
-  'hero.headline.line2.c': 'Skip the seed.',
+  'hero.headline.line2.c': 'Sign on any chain.',
   'hero.subhead':
-    'Set a private spending limit on a Solana smart-wallet PDA. Grant a temporary session key. Jupiter DCA and Ika dWallet signings all pass the same on-chain policy gate, nothing leaks, nothing bypasses.',
+    'Set a private spending limit on a Solana smart-wallet PDA. Jupiter DCA and Ika dWallet signings all pass the same on-chain policy gate, nothing leaks, nothing bypasses.',
   'hero.cta.primary': 'Start building',
   'hero.cta.secondary': 'See the policy gate →',
   'hero.meta.devnet': 'Solana Devnet',
@@ -778,7 +778,7 @@ const en: Dictionary = {
 
   // Manifesto / Problem
   'manifesto.kicker': 'The delegation problem',
-  'manifesto.headlineLead': 'You built a DCA bot that works.',
+  'manifesto.headlineLead': 'You built an AI agent that works.',
   'manifesto.headlineRest': 'Now it needs signing power.',
   'manifesto.body':
     'Giving your agent a wallet means giving up everything, spending, allowlists, cross-chain signing, all under one key. Three structural problems every team rebuilds from scratch:',
@@ -797,7 +797,7 @@ const en: Dictionary = {
   'flow.headline.lead': 'One contract. One policy gate.',
   'flow.headline.rest': 'Two execution rails.',
   'flow.body':
-    'Owner deposits funds, sets a confidential policy, grants the AI agent a temporary session key. Every agent action, Solana DCA or cross-chain dWallet signing, passes through the same on-chain guardrail before execution.',
+    'Owner deposits funds and sets a confidential policy. Every agent action, Solana DCA or cross-chain dWallet signing, passes through the same on-chain guardrail before execution.',
   'flow.aria':
     'Polet AI architecture: owner sets confidential policy on a Solana smart wallet PDA, grants an AI agent a session key, then a policy gate enforces guardrails before either Jupiter DCA or Ika dWallet signing executes.',
   'flow.node.owner.label': 'Owner',
@@ -1377,7 +1377,7 @@ const en: Dictionary = {
   'portal.gate.flow.node1.title.jupiter': 'Buy SOL via Jupiter',
   'portal.gate.flow.node1.title.ika': 'Approve Ika dWallet message',
   'portal.gate.flow.node1.body.jupiter':
-    'The AI agent asks to spend custody USDC with a temporary session key, never the owner wallet.',
+    'The AI agent asks to spend custody USDC with their session key, never the owner wallet.',
   'portal.gate.flow.node1.body.ika':
     'The agent requests a dWallet message approval. Polet gates it before lifecycle progress and destination broadcast.',
   'portal.gate.flow.node1.row.amount': 'amount',
@@ -1569,11 +1569,11 @@ const id: Dictionary = {
   'hero.kicker': 'Lapisan wallet rahasia untuk AI agent',
   'hero.headline.line1': 'Kasih agent-mu budget.',
   'hero.headline.line2': 'Bukan wallet-mu.',
-  'hero.headline.line2.a': 'Wallet utuh.',
+  'hero.headline.line2.a': 'Pegang kendali.',
   'hero.headline.line2.b': 'Limit rahasia.',
-  'hero.headline.line2.c': 'Tanpa seed.',
+  'hero.headline.line2.c': 'Sign multi-chain.',
   'hero.subhead':
-    'Atur limit spending rahasia di smart-wallet PDA Solana. Kasih agent session key sementara. Jupiter DCA dan Ika dWallet signing lewat policy gate yang sama, tidak ada yang bocor, tidak ada yang bypass.',
+    'Atur limit spending rahasia di smart-wallet PDA Solana. Jupiter DCA dan Ika dWallet signing lewat policy gate yang sama, tidak ada yang bocor, tidak ada yang bypass.',
   'hero.cta.primary': 'Mulai bangun',
   'hero.cta.secondary': 'Lihat policy gate-nya →',
   'hero.meta.devnet': 'Solana Devnet',
@@ -1606,7 +1606,7 @@ const id: Dictionary = {
 
   // Manifesto / Problem
   'manifesto.kicker': 'Masalah delegasi',
-  'manifesto.headlineLead': 'Kamu bangun DCA bot yang berjalan.',
+  'manifesto.headlineLead': 'Kamu bangun AI agent yang berjalan.',
   'manifesto.headlineRest': 'Sekarang dia butuh signing power.',
   'manifesto.body':
     'Ngasih wallet ke agent berarti menyerahkan segalanya, spending, allowlist, signing cross-chain, semua di bawah satu kunci. Tiga masalah struktural yang tiap tim bangun ulang dari nol:',
@@ -1625,7 +1625,7 @@ const id: Dictionary = {
   'flow.headline.lead': 'Satu contract. Satu policy gate.',
   'flow.headline.rest': 'Dua rail eksekusi.',
   'flow.body':
-    'Owner deposit dana, set policy rahasia, kasih AI agent session key sementara. Setiap aksi agent, Solana DCA atau signing dWallet cross-chain, lewat guardrail on-chain yang sama sebelum dieksekusi.',
+    'Owner deposit dana dan set policy rahasia. Setiap aksi agent, Solana DCA atau signing dWallet cross-chain, lewat guardrail on-chain yang sama sebelum dieksekusi.',
   'flow.aria':
     'Arsitektur Polet AI: owner set policy rahasia di smart wallet PDA Solana, kasih AI agent session key, lalu policy gate menegakkan guardrail sebelum Jupiter DCA atau signing Ika dWallet dijalankan.',
   'flow.node.owner.label': 'Owner',
@@ -2205,7 +2205,7 @@ const id: Dictionary = {
   'portal.gate.flow.node1.title.jupiter': 'Beli SOL via Jupiter',
   'portal.gate.flow.node1.title.ika': 'Setujui pesan Ika dWallet',
   'portal.gate.flow.node1.body.jupiter':
-    'Agent AI minta memakai custody USDC dengan session key sementara, bukan wallet owner.',
+    'Agent AI minta memakai custody USDC dengan session key mereka, bukan wallet owner.',
   'portal.gate.flow.node1.body.ika':
     'Agent minta approval pesan dWallet. Polet menggate sebelum progres lifecycle dan broadcast destination.',
   'portal.gate.flow.node1.row.amount': 'jumlah',
