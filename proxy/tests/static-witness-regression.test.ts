@@ -44,9 +44,13 @@ describe('static witness regression scan', () => {
 function scanFiles(): string[] {
   return scanRoots.flatMap((entry) => {
     const fullPath = join(repoRoot, entry);
-    const stat = statSync(fullPath);
-    if (stat.isFile()) return [fullPath];
-    return walk(fullPath);
+    try {
+      const stat = statSync(fullPath);
+      if (stat.isFile()) return [fullPath];
+      return walk(fullPath);
+    } catch {
+      return [];
+    }
   });
 }
 

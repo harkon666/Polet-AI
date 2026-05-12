@@ -135,7 +135,7 @@ Avoid this wording:
 
 ## Notes
 
-- Do not reintroduce static `encryptionWitness: [1,2,3,...,32]` into the primary demo path.
+- Do not reintroduce static `encryptionWitness` arrays (e.g. `[1, 2, 3, ..., 32]`) into the primary demo path.
 - Do not claim production FHE, production privacy, production Ika MPC, bridgeless settlement, or mainnet Jupiter execution.
 - Do not sign/send transactions without explicit operator approval. Build unsigned transactions and record signer requirements first.
 

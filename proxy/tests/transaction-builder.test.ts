@@ -453,7 +453,7 @@ describe('Transaction Builder', () => {
 
       expect(metas.map((meta) => meta.pubkey.toString())).toEqual([
         request.wallet,
-        request.owner,
+        request.authority,
         request.request,
         request.ciphertext,
         request.encrypt.encryptProgram!,
@@ -544,8 +544,8 @@ describe('Transaction Builder', () => {
       const revealRequest = createPolicyRevealRequest();
       const revealBuilt = await buildRequestPolicyValueDecryptionTransaction(revealRequest);
       const revealTx = Transaction.from(Buffer.from(revealBuilt.transaction, 'base64'));
-      expect(revealBuilt.signers).toEqual([revealRequest.owner, revealRequest.encrypt.payer, revealRequest.request]);
-      expect(revealTx.feePayer?.toString()).toBe(revealRequest.owner);
+      expect(revealBuilt.signers).toEqual([revealRequest.authority, revealRequest.encrypt.payer, revealRequest.request]);
+      expect(revealTx.feePayer?.toString()).toBe(revealRequest.encrypt.payer);
       expect(revealTx.instructions[0].data).toEqual(buildRequestPolicyValueDecryptionInstructionData(revealRequest));
     });
 
@@ -805,6 +805,7 @@ function createPolicyRevealRequest(
   return {
     wallet: Keypair.generate().publicKey.toString(),
     owner: Keypair.generate().publicKey.toString(),
+    authority: Keypair.generate().publicKey.toString(),
     request: Keypair.generate().publicKey.toString(),
     kind: 'daily-cap' as const,
     ciphertext: Keypair.generate().publicKey.toString(),
