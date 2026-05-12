@@ -9,6 +9,7 @@ RUN bun install --frozen-lockfile
 
 COPY tsconfig.json ./
 COPY src ./src
+COPY polet-data ./polet-data
 
 RUN mkdir -p .polet && chown -R polet:polet /app
 

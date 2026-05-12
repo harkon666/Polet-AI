@@ -49,6 +49,10 @@ export const DEFAULT_MANAGED_FIXTURE_PATH = (() => {
   const srcPath = path.join(__dirname, '..', '..', 'polet-data', 'ika-managed-fixture.json');
   if (existsSync(srcPath)) return srcPath;
 
+  // 1b. Path relative to bundled output (works if running from dist/)
+  const distPath = path.join(__dirname, '..', 'polet-data', 'ika-managed-fixture.json');
+  if (existsSync(distPath)) return distPath;
+
   // 2. Absolute path for cloud deployments (Render, Railway, Docker typically use /app)
   const cloudPath = '/app/proxy/polet-data/ika-managed-fixture.json';
   if (existsSync(cloudPath)) return cloudPath;
