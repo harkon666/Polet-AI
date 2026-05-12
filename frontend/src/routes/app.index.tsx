@@ -24,7 +24,7 @@ export function AppIndexPage() {
   return (
     <section
       aria-label="Connect a wallet to enter the Polet Portal"
-      className="mx-auto flex min-h-[60vh] max-w-3xl flex-col justify-center gap-8"
+      className="mx-auto flex min-h-[40vh] max-w-3xl flex-col justify-start gap-8 pt-4 md:min-h-[60vh] md:justify-center md:pt-0"
     >
       <div>
         <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-lagoon-bright">

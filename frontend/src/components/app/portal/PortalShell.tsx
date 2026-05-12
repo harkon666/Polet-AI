@@ -24,15 +24,15 @@ import { PortalDrawerProvider } from './PortalDrawerContext'
 export function PortalShell({ children }: { children: ReactNode }) {
   return (
     <PortalDrawerProvider>
+      <PortalDrawer />
       <div className="pl-portal-ambient grid min-h-screen grid-cols-1 md:grid-cols-[268px_minmax(0,1fr)]">
         <PortalSidebar />
-        <PortalDrawer />
         <div
           data-testid="portal-shell-main"
           className="flex min-w-0 flex-col"
         >
           <PortalMobileBar />
-          <main className="min-w-0 flex-1 px-5 py-12 md:px-12 md:py-20">
+          <main className="min-w-0 flex-1 px-5 py-6 md:px-12 md:py-20">
             {children}
           </main>
         </div>
