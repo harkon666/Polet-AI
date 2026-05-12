@@ -46,15 +46,15 @@ import { DWALLET_CURVE, type DWalletCurveId } from './ika-grpc-schema';
 
 export const DEFAULT_MANAGED_FIXTURE_PATH = (() => {
   // 1. Path relative to source (works if running from src/lib)
-  const srcPath = path.join(__dirname, '..', '..', 'polet-data', 'ika-managed-fixture.json');
+  const srcPath = path.join(__dirname, '..', '..', '.polet', 'ika-managed-fixture.json');
   if (existsSync(srcPath)) return srcPath;
 
   // 2. Absolute path for cloud deployments (Render, Railway, Docker typically use /app)
-  const cloudPath = '/app/proxy/polet-data/ika-managed-fixture.json';
+  const cloudPath = '/app/proxy/.polet/ika-managed-fixture.json';
   if (existsSync(cloudPath)) return cloudPath;
 
   // 3. Fallback to process.cwd() (works if running directly inside proxy folder)
-  const cwdPath = path.join(process.cwd(), 'polet-data', 'ika-managed-fixture.json');
+  const cwdPath = path.join(process.cwd(), '.polet', 'ika-managed-fixture.json');
   if (existsSync(cwdPath)) return cwdPath;
 
   // Default fallback
