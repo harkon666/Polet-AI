@@ -161,6 +161,15 @@ function short(value: string) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }
 
+const PUBKEY_DEFAULT = '11111111111111111111111111111111';
+
+/** Reject default/empty pubkeys before they reach the proxy. */
+function isValidCiphertextId(value: string | undefined): boolean {
+  return typeof value === 'string'
+    && value.length > 0
+    && value !== PUBKEY_DEFAULT;
+}
+
 interface OfficialEncryptPolicyRefs {
   maxPerRun: string;
   dailyCap: string;
@@ -342,7 +351,14 @@ export function DemoTabContent({
   const canRunBlocked = Boolean(owner && custody && policySaved && hasAgent && strategyReady && !busy);
   const canRunAllowed = Boolean(canRunBlocked && hasBlockedRun);
   const canRequestIka = Boolean(owner && custody && policySaved && hasAgent && !busy);
-  const canRevealPolicy = Boolean(owner && officialEncryptPolicyRefs?.wallet && !busy);
+  const canRevealPolicy = Boolean(
+    owner
+    && officialEncryptPolicyRefs?.wallet
+    && isValidCiphertextId(officialEncryptPolicyRefs.maxPerRun)
+    && isValidCiphertextId(officialEncryptPolicyRefs.dailyCap)
+    && isValidCiphertextId(officialEncryptPolicyRefs.dailySpent)
+    && !busy
+  );
 
   const checklist = [
     { label: t.stepWallet, done: Boolean(walletPda), next: t.nextWallet },
@@ -523,7 +539,12 @@ export function DemoTabContent({
           if (sessionOptions.length > 0 && !sessionOptions.some((session) => session.key === agentAddress.trim())) {
             setAgentAddress(sessionOptions[0].key);
           }
-          if (encryptCiphertexts?.configured) {
+          if (
+            encryptCiphertexts?.configured
+            && isValidCiphertextId(encryptCiphertexts.maxPerRun)
+            && isValidCiphertextId(encryptCiphertexts.dailyCap)
+            && isValidCiphertextId(encryptCiphertexts.dailySpent)
+          ) {
             setPolicyMode('official');
             setOfficialEncryptPolicyRefs({
               maxPerRun: encryptCiphertexts.maxPerRun,
@@ -813,6 +834,17 @@ export function DemoTabContent({
   const readOfficialEncryptRefsFromWallet = (data: any): OfficialEncryptPolicyRefs | null => {
     const encryptCiphertexts = data?.confidentialPolicy?.encryptCiphertexts;
     if (!encryptCiphertexts?.configured) return null;
+    // Guard: reject default/uninitialized ciphertext pubkeys that the contract
+    // initializes to Pubkey::default() (11111...). This can happen when RPC
+    // returns stale data right after the policy-registration tx is confirmed.
+    if (
+      !isValidCiphertextId(encryptCiphertexts.maxPerRun)
+      || !isValidCiphertextId(encryptCiphertexts.dailyCap)
+      || !isValidCiphertextId(encryptCiphertexts.dailySpent)
+    ) {
+      console.warn('readOfficialEncryptRefsFromWallet: configured=true but ciphertext pubkeys are default/invalid, skipping');
+      return null;
+    }
     return {
       maxPerRun: encryptCiphertexts.maxPerRun,
       dailyCap: encryptCiphertexts.dailyCap,
@@ -880,6 +912,11 @@ export function DemoTabContent({
   const revealPolicyValue = async (kind: PolicyRevealKind) => {
     if (!owner || !officialEncryptPolicyRefs?.wallet) {
       recordError(t.policyRevealNeedsPolicy);
+      return;
+    }
+    const targetCiphertext = revealCiphertextForKind(kind, officialEncryptPolicyRefs);
+    if (!isValidCiphertextId(targetCiphertext)) {
+      recordError('Policy ciphertext is not initialized. Please re-save the Official Encrypt policy first.');
       return;
     }
     const refs = officialEncryptPolicyRefs;

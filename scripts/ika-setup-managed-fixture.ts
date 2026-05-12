@@ -37,7 +37,7 @@ import bs58 from 'bs58';
 import { createIkaClient } from '@ika.xyz/pre-alpha-solana-client/grpc';
 
 const IKA_DWALLET_PROGRAM_ID = new PublicKey('87W54kGYFQ1rgWqMeu4XTPHWXWmXSQCcjm8vCTfiq1oY');
-const DEFAULT_FIXTURE_REL_PATH = path.join('proxy', '.polet', 'ika-managed-fixture.json');
+const DEFAULT_FIXTURE_REL_PATH = path.join('proxy', 'polet-data', 'ika-managed-fixture.json');
 const DEFAULT_GRPC_URL = 'pre-alpha-dev-1.ika.ika-network.net:443';
 const CPI_AUTHORITY_SEED = Buffer.from('__ika_cpi_authority');
 const DWALLET_SEED = Buffer.from('dwallet');

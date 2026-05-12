@@ -1443,9 +1443,16 @@ export function ConsoleStateProvider({
       const encryptCiphertexts =
         walletAny?.confidentialPolicy?.encryptCiphertexts ??
         walletAny?.usdcDcaPolicy?.encryptCiphertexts
-      if (!walletPda || !encryptCiphertexts?.maxPerRun || !encryptCiphertexts?.dailyCap || !encryptCiphertexts?.dailySpent) {
+      const PUBKEY_DEFAULT = '11111111111111111111111111111111'
+      const isValidCt = (v: unknown) => typeof v === 'string' && v.length > 0 && v !== PUBKEY_DEFAULT
+      if (
+        !walletPda
+        || !isValidCt(encryptCiphertexts?.maxPerRun)
+        || !isValidCt(encryptCiphertexts?.dailyCap)
+        || !isValidCt(encryptCiphertexts?.dailySpent)
+      ) {
         throw new Error(
-          'Confidential policy ciphertexts are missing. Seal the policy via Workspace → Policy Rules first.',
+          'Confidential policy ciphertexts are missing or not initialized. Seal the policy via Workspace → Policy Rules first.',
         )
       }
       const policySeq = Number(walletAny?.policySeq ?? 0)
@@ -2028,10 +2035,13 @@ export function ConsoleStateProvider({
             ? refs.dailyCap
             : refs.dailySpent
       const walletPda = data.walletPda
-      if (!ciphertext || !walletPda) {
+      const PUBKEY_DEFAULT = '11111111111111111111111111111111'
+      if (!ciphertext || !walletPda || ciphertext === PUBKEY_DEFAULT) {
         emitReceipt({
           action: 'POLICY REVEAL FAILED',
-          description: 'Policy ciphertext not available. Seal the policy first.',
+          description: ciphertext === PUBKEY_DEFAULT
+            ? 'Policy ciphertext is not initialized (default Pubkey). Re-save the Official Encrypt policy first.'
+            : 'Policy ciphertext not available. Seal the policy first.',
           status: 'error',
         })
         return
@@ -2083,12 +2093,14 @@ export function ConsoleStateProvider({
           result.request,
         )
         let decoded: string | null = null
-        for (let attempt = 0; attempt < 15; attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1000))
+        // Encrypt pre-alpha devnet can take 30-60s to write plaintext.
+        for (let attempt = 0; attempt < 30; attempt += 1) {
           const info = await connection.getAccountInfo(requestPubkey, 'confirmed')
-          if (!info) continue
-          decoded = decodePolicyRevealUsdc(new Uint8Array(info.data))
-          if (decoded) break
+          if (info) {
+            decoded = decodePolicyRevealUsdc(new Uint8Array(info.data))
+            if (decoded) break
+          }
+          await new Promise((resolve) => setTimeout(resolve, 2000))
         }
         if (decoded) {
           setRevealedPolicyValues((prev) => ({ ...prev, [kind]: decoded! }))

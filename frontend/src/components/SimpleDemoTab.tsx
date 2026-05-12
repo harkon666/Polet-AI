@@ -136,7 +136,15 @@ export function SimpleDemoTab({ agentAddresses }: SimpleDemoTabProps) {
         setEditingSolPolicy(true);
       }
       const encryptCiphertexts = data?.usdcDcaPolicy?.encryptCiphertexts;
-      if (encryptCiphertexts?.configured && data?.walletPda) {
+      const isValidCt = (v: string | undefined) =>
+        typeof v === 'string' && v.length > 0 && v !== '11111111111111111111111111111111';
+      if (
+        encryptCiphertexts?.configured
+        && data?.walletPda
+        && isValidCt(encryptCiphertexts.maxPerRun)
+        && isValidCt(encryptCiphertexts.dailyCap)
+        && isValidCt(encryptCiphertexts.dailySpent)
+      ) {
         setEditingUsdcPolicy(false);
         setOfficialEncryptPolicyRefs({
           maxPerRun: encryptCiphertexts.maxPerRun,

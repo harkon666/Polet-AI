@@ -148,7 +148,7 @@ try {
   console.log('\n4. Sign via gRPC (with real DKG attestation + Solana ApprovalProof)...');
   const fs = await import('node:fs');
   const path = await import('node:path');
-  const fixturePath = path.resolve('proxy/.polet/ika-managed-fixture.json');
+  const fixturePath = path.resolve('proxy/polet-data/ika-managed-fixture.json');
   const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
   const entry = fixture.dwallets.curve25519;
   const attestationBytes = Buffer.from(entry.dwalletAttestation.attestationDataHex, 'hex');

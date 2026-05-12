@@ -1009,12 +1009,17 @@ walletRouter.post('/request-policy-value-decryption', async (c) => {
     const encryptProgram = encrypt?.encryptProgram ?? ENCRYPT_PREALPHA_PROGRAM_ID_STRING;
     const connection = getConnection();
     const ciphertextStatus = await readCiphertextStatus(connection, ciphertextPubkey);
+    if (ciphertextPubkey.toString() === '11111111111111111111111111111111') {
+      throw new Error(
+        `Policy ciphertext is the default Pubkey (${ciphertextPubkey.toString()}). This usually means the Official Encrypt policy was not saved successfully or the wallet data is stale. Please re-save the Official Encrypt ciphertext policy.`
+      );
+    }
     if (
       !ciphertextStatus.exists
       || ciphertextStatus.owner !== encryptProgram
       || ciphertextStatus.dataLength < 100
     ) {
-      throw new Error(`Policy ciphertext ${ciphertextPubkey.toString()} is not a valid official Encrypt ciphertext account`);
+      throw new Error(`Policy ciphertext ${ciphertextPubkey.toString()} is not a valid official Encrypt ciphertext account. Re-save the Official Encrypt ciphertext policy to create new ciphertext accounts.`);
     }
     const [encryptCpiAuthority] = deriveEncryptCpiAuthority();
     if (ciphertextStatus.authorized === encryptCpiAuthority.toString()) {
