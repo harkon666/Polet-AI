@@ -14,6 +14,7 @@
  *   POLET_AGENT_KEYPAIR    Base58 OR JSON-array secret key for the session signer.
  *   POLET_PROXY_URL        Polet proxy base URL (default https://api.polet.rifuki.dev).
  *   POLET_RPC_URL          Solana RPC URL (default https://api.devnet.solana.com).
+ *   POLET_MASKED_WITNESS_DEV_FIXTURE  JSON array of 32 bytes for policy witness (optional).
  *
  * Logs go to stderr so they never mix with the MCP JSON stream on stdout.
  */
@@ -30,6 +31,25 @@ function requireEnv(name: string): string {
     process.exit(1);
   }
   return value;
+}
+
+function parseMaskedWitness(raw?: string): number[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr) || arr.length !== 32) {
+      process.stderr.write(
+        '[polet-mcp] POLET_MASKED_WITNESS_DEV_FIXTURE must be a JSON array of 32 bytes — ignoring\n',
+      );
+      return undefined;
+    }
+    return arr;
+  } catch {
+    process.stderr.write(
+      '[polet-mcp] POLET_MASKED_WITNESS_DEV_FIXTURE could not be parsed as JSON — ignoring\n',
+    );
+    return undefined;
+  }
 }
 
 function resolveAgentSigner(): Signer | undefined {
@@ -54,6 +74,9 @@ function buildKit(): PoletAgentKit {
   const rpcUrl = process.env.POLET_RPC_URL ?? 'https://api.devnet.solana.com';
   const connection = new Connection(rpcUrl, 'confirmed');
   const signer = resolveAgentSigner();
+  const witness = parseMaskedWitness(
+    process.env.POLET_MASKED_WITNESS_DEV_FIXTURE,
+  );
 
   const kit = createPoletAgentKit({
     owner,
@@ -62,6 +85,7 @@ function buildKit(): PoletAgentKit {
     rpcUrl,
     connection,
     ...(signer && { agentSigner: signer }),
+    ...(witness && { maskedWitnessDevFixture: witness }),
   });
   return kit;
 }

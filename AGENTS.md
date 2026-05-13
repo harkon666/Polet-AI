@@ -5,14 +5,14 @@ under a smart-wallet PDA, confidential numeric policy stays private on-chain,
 AI agents get temporary session keys, and a single policy gate governs both
 Jupiter DCA and Ika dWallet signing rails. Devnet-only, pre-alpha.
 
-**Current focus: landing page upgrade for hackathon** (Colosseum Frontier ×
-Solana). See `docs/landing-upgrade-compass.md`.
+**Current focus: canonical frontend portal + landing for hackathon**
+(Colosseum Frontier × Solana). See `docs/landing-v2-compass.md`.
 
 ## Agent skills
 
 ### Issue tracker
 
-Local markdown at `docs/issues/NNN-kebab-slug.md`. 79 issues so far (001–079).
+Local markdown at `docs/issues/NNN-kebab-slug.md`. 105 issues so far (001–105).
 Sequential numbering, kebab-case slug. See
 [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
 
@@ -32,8 +32,8 @@ narrative. See [`docs/agents/domain.md`](docs/agents/domain.md).
 
 | Surface | Where | Tracker refs |
 |---|---|---|
-| **Landing upgrade (current)** | `frontend/src/routes/index.tsx` + siblings in `frontend/src/components/` | `docs/landing-upgrade-compass.md`, issues 080–093 |
-| Frontend app console (`/app`) | `frontend/src/routes/app.tsx`, `WalletDashboard`, `DemoTab` | issues 070–078 |
+| **Canonical frontend (current)** | `frontend/src/routes/index.tsx`, `frontend/src/routes/app*.tsx`, `frontend/src/components/` | `docs/landing-v2-compass.md`, issues 080–105 |
+| Portal app console (`/app`) | `frontend/src/components/app/{portal,workspace,gate,funds,proof,bridge}/` | issues 099–105 |
 | Contract | `contract/programs/` | issues 001–002, 014, 027, 050 |
 | Proxy | `proxy/src/` | issues 016–017, 028 |
 | SDK | `sdk/src/` | issues 006, 018, 029, 053 |
@@ -58,20 +58,23 @@ These apply to the landing page and the `/app` console.
   as a flat dot-namespaced key. EN is canonical; ID is a mirrored dictionary.
   Access via `const { t } = useLocale(); t('section.key')`. Never hard-code
   English in JSX.
-- **Design tokens**: CSS variables in `frontend/src/styles.css` — `--lagoon`,
-  `--foam`, `--sea-ink`, `--sea-ink-soft`, `--coral`, `--palm`, `--sand`,
-  `--sunset`, `--line`, `--line-strong`, `--bg-base`, `--surface`, etc. Class
-  prefix `qe-*` for landing-scoped styles (wordmark, pills, badges, cards,
-  buttons, reveal). Tailwind utility classes are fine for one-off spacing.
+- **Design tokens**: Tailwind v4 `@theme` tokens in `frontend/src/styles.css`
+  — `--color-bg-base`, `--color-bg-deep`, `--color-surface`,
+  `--color-line`, `--color-ink`, `--color-ink-soft`, `--color-lagoon`,
+  `--color-lagoon-bright`, `--color-coral`, `--font-sans`, `--font-mono`,
+  etc. Class prefix `pl-*` for landing/portal-scoped styles, motion, cards,
+  buttons, reveal, and app shell compatibility. Tailwind utility classes are
+  fine for one-off spacing.
 - **Motion**: always respect `@media (prefers-reduced-motion: reduce)`. Use
   `useScrollReveal()` for scroll-triggered reveals (see hook JSDoc for class
   names).
-- **Section pattern**: JSX sections live inline in the route file for clarity;
-  extract reusable primitives to `components/`. Dead code goes to
-  `components/_archived/`.
+- **Section pattern**: landing sections are extracted to `components/`; portal
+  sections live under `components/app/`. Dead portal code goes to
+  `components/app/_archived/`.
 - **Tests**: every landing section must have content assertions in
-  `frontend/src/routes/-index.test.tsx` — ideally in both locales. Unit-level
-  behaviour for extracted components gets its own test file.
+  `frontend/src/routes/-index.test.tsx` — ideally in both locales. Route tests
+  under `frontend/src/routes/` use the TanStack ignore prefix (`-*.test.*`).
+  Unit-level behaviour for extracted components gets its own test file.
 
 ## Project docs map
 
@@ -84,28 +87,14 @@ These apply to the landing page and the `/app` console.
 | `docs/agent-runtime.md` | Agent integration architecture |
 | `docs/ika-dwallet-prealpha-alignment.md` | Ika Pre-Alpha integration pinning |
 | `docs/jupiter-dx-report.md` | Jupiter API analysis |
-| `docs/landing-upgrade-compass.md` | **Current landing upgrade tracker** |
+| `docs/landing-v2-compass.md` | **Current canonical frontend tracker** |
 | `docs/issues/` | Local markdown issue tracker |
 
 ## How skills should approach this repo
 
 - Read `docs/prd.md` before touching product copy or domain terms.
-- Read `docs/landing-upgrade-compass.md` before picking up a landing issue so
+- Read `docs/landing-v2-compass.md` before picking up a frontend issue so
   dependencies and the slice goal are clear.
 - For any new frontend string, add an i18n key — don't inline English.
 - Publish new issues with the `NNN-kebab-slug.md` convention (next free number).
 - Apply `needs-triage` on every new issue so `/triage` can pick it up.
-
-## Git conventions
-
-- **Commit author**: use the repo's existing `git config user.name`
-  (currently `deranaz`). Do NOT change `git config`.
-- **No agent attribution in commit messages**. Never add
-  `Generated with [Devin]...`, `Co-Authored-By: Devin ...`, or any other
-  agent / tool footer. Plain commit message body only. The repo's existing
-  history is the canonical style — match it.
-- **Commit message format**: `feat(scope): Phase N — short title` for phased
-  rollouts, mirroring `feat(landing-v2): Phase N — ...` and
-  `feat(portal): Phase N — ...`. Use `docs(...)`, `fix(...)`, `chore(...)`
-  prefixes per Conventional Commits where appropriate.
-- **Never push** unless the user explicitly asks.
