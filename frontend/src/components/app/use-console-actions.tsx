@@ -20,6 +20,7 @@ import {
   initializeWallet as apiInitializeWallet,
   setupDemoCustody as apiSetupDemoCustody,
   setConfidentialPolicy as apiSetConfidentialPolicy,
+  setOfficialEncryptCiphertextPolicy as apiSetOfficialEncryptCiphertextPolicy,
   grantKey as apiGrantKey,
   revokeSession as apiRevokeSession,
   requestPolicyValueDecryption as apiRequestPolicyValueDecryption,
@@ -52,8 +53,9 @@ import {
   ENCRYPT_PREALPHA_CONFIG,
   ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
   ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+  createOfficialEncryptExecutionCiphertexts,
+  createOfficialEncryptPolicyCiphertexts,
 } from '../../lib/official-encrypt-client'
-import { createOfficialEncryptExecutionCiphertexts } from '../../lib/official-encrypt-client'
 
 /**
  * Polet console state + actions hook.
@@ -826,16 +828,37 @@ export function ConsoleStateProvider({
 
   const saveConfidentialPolicy = useCallback(async () => {
     if (!publicKey) return
+    const ownerPubkey = publicKey.toBase58()
     await runTxAction(
       'policy',
-      () =>
-        apiSetConfidentialPolicy({
-          owner: publicKey.toBase58(),
+      async () => {
+        const ciphertexts = await createOfficialEncryptPolicyCiphertexts({
           maxPerRunUsdc: DEMO_MAX_PER_RUN_USDC,
           dailyCapUsdc: DEMO_DAILY_CAP_USDC,
-          maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
-          policyScope: 'usdc-dca',
-        }),
+        })
+        const deposit = await apiCreateEncryptDeposit(ownerPubkey)
+        if (deposit.transaction) {
+          const { transaction: depositTx, latestBlockhash: depositBh } =
+            await prepareFreshTransaction(deposit.transaction, connection)
+          const depositSig = await sendTransaction(depositTx, connection)
+          await robustConfirm(connection, depositSig, depositBh)
+        }
+        return apiSetOfficialEncryptCiphertextPolicy({
+          owner: ownerPubkey,
+          maxPerRunCiphertext: ciphertexts.maxPerRunCiphertext,
+          dailyCapCiphertext: ciphertexts.dailyCapCiphertext,
+          dailySpentCiphertext: ciphertexts.dailySpentCiphertext,
+          policyCommitment: ciphertexts.policyCommitment,
+          encrypt: {
+            encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+            config: deposit.config || ENCRYPT_PREALPHA_CONFIG,
+            deposit: deposit.deposit,
+            networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+            eventAuthority: deposit.eventAuthority || ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+            payer: ownerPubkey,
+          },
+        })
+      },
       (_result, signature) =>
         emitReceipt({
           action: 'POLICY SEALED',
@@ -853,7 +876,7 @@ export function ConsoleStateProvider({
           status: 'error',
         }),
     )
-  }, [publicKey, runTxAction, emitReceipt])
+  }, [publicKey, connection, sendTransaction, emitReceipt, runTxAction])
 
   const grantAgentSession = useCallback(async () => {
     if (!publicKey) return
@@ -1906,16 +1929,37 @@ export function ConsoleStateProvider({
   const saveConfidentialPolicyCustom = useCallback(
     async (params: { maxPerRunUsdc: string; dailyCapUsdc: string }) => {
       if (!publicKey) return
+      const ownerPubkey = publicKey.toBase58()
       await runTxAction(
         'policy-custom',
-        () =>
-          apiSetConfidentialPolicy({
-            owner: publicKey.toBase58(),
+        async () => {
+          const ciphertexts = await createOfficialEncryptPolicyCiphertexts({
             maxPerRunUsdc: params.maxPerRunUsdc,
             dailyCapUsdc: params.dailyCapUsdc,
-            maskedWitnessDevFixture: DEMO_WITNESS_FIXTURE,
-            policyScope: 'usdc-dca',
-          }),
+          })
+          const deposit = await apiCreateEncryptDeposit(ownerPubkey)
+          if (deposit.transaction) {
+            const { transaction: depositTx, latestBlockhash: depositBh } =
+              await prepareFreshTransaction(deposit.transaction, connection)
+            const depositSig = await sendTransaction(depositTx, connection)
+            await robustConfirm(connection, depositSig, depositBh)
+          }
+          return apiSetOfficialEncryptCiphertextPolicy({
+            owner: ownerPubkey,
+            maxPerRunCiphertext: ciphertexts.maxPerRunCiphertext,
+            dailyCapCiphertext: ciphertexts.dailyCapCiphertext,
+            dailySpentCiphertext: ciphertexts.dailySpentCiphertext,
+            policyCommitment: ciphertexts.policyCommitment,
+            encrypt: {
+              encryptProgram: ENCRYPT_PREALPHA_PROGRAM_ID,
+              config: deposit.config || ENCRYPT_PREALPHA_CONFIG,
+              deposit: deposit.deposit,
+              networkEncryptionKey: ENCRYPT_PREALPHA_NETWORK_ENCRYPTION_KEY,
+              eventAuthority: deposit.eventAuthority || ENCRYPT_PREALPHA_EVENT_AUTHORITY,
+              payer: ownerPubkey,
+            },
+          })
+        },
         (_result, signature) =>
           emitReceipt({
             action: 'POLICY UPDATED',
@@ -1936,7 +1980,7 @@ export function ConsoleStateProvider({
       // rotated so any previously-revealed plaintext is stale.
       setRevealedPolicyValues({})
     },
-    [publicKey, runTxAction, emitReceipt],
+    [publicKey, connection, sendTransaction, emitReceipt, runTxAction],
   )
 
   const grantAgentSessionByo = useCallback(
