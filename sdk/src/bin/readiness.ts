@@ -54,7 +54,7 @@ interface FixtureEnvelope {
 async function main(): Promise<void> {
   const owner = requireEnv('POLET_OWNER');
   const sessionKey = requireEnv('POLET_SESSION_KEY');
-  const baseUrl = process.env.POLET_PROXY_URL ?? 'http://localhost:3001';
+  const baseUrl = process.env.POLET_PROXY_URL ?? 'https://api.polet.rifuki.dev';
 
   console.log(`→ Polet readiness check`);
   console.log(`  owner:       ${owner}`);

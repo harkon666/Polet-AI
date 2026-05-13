@@ -12,7 +12,7 @@
  *   POLET_OWNER            Solana owner public key of the Polet smart wallet.
  *   POLET_SESSION_KEY      Session key public key granted to this agent.
  *   POLET_AGENT_KEYPAIR    Base58 OR JSON-array secret key for the session signer.
- *   POLET_PROXY_URL        Polet proxy base URL (default http://localhost:3001).
+ *   POLET_PROXY_URL        Polet proxy base URL (default https://api.polet.rifuki.dev).
  *   POLET_RPC_URL          Solana RPC URL (default https://api.devnet.solana.com).
  *
  * Logs go to stderr so they never mix with the MCP JSON stream on stdout.
@@ -50,7 +50,7 @@ function resolveAgentSigner(): Signer | undefined {
 function buildKit(): PoletAgentKit {
   const owner = requireEnv('POLET_OWNER');
   const sessionKey = requireEnv('POLET_SESSION_KEY');
-  const baseUrl = process.env.POLET_PROXY_URL ?? 'http://localhost:3001';
+  const baseUrl = process.env.POLET_PROXY_URL ?? 'https://api.polet.rifuki.dev';
   const rpcUrl = process.env.POLET_RPC_URL ?? 'https://api.devnet.solana.com';
   const connection = new Connection(rpcUrl, 'confirmed');
   const signer = resolveAgentSigner();

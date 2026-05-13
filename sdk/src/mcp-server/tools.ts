@@ -179,7 +179,7 @@ function createEnableChainTool(kit: PoletAgentKit): PoletToolDefinition {
             reason: 'kit.status() did not return an owner. Check POLET_OWNER env.',
           };
         }
-        const baseUrl = proxyUrl ?? (process.env.POLET_PROXY_URL ?? 'http://localhost:3001');
+        const baseUrl = proxyUrl ?? (process.env.POLET_PROXY_URL ?? 'https://api.polet.rifuki.dev');
         const response = await fetch(new URL('/ika/enable-chain', normalizeBaseUrl(baseUrl)), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

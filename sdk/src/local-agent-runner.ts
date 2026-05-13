@@ -9,7 +9,7 @@ const env = (((globalThis as unknown as { Bun?: { env: RuntimeEnv }; process?: {
 async function main() {
   const owner = requiredEnv('POLET_OWNER');
   const sessionKey = requiredEnv('POLET_SESSION_KEY');
-  const proxyUrl = env.POLET_PROXY_URL ?? 'http://localhost:3001';
+  const proxyUrl = env.POLET_PROXY_URL ?? 'https://api.polet.rifuki.dev';
   const scenario = parseScenario(env.POLET_AGENT_SCENARIO);
   const amountUsdc = env.POLET_DCA_AMOUNT_USDC;
   const witness = parseMaskedWitnessDevFixture(env.POLET_MASKED_WITNESS_DEV_FIXTURE);
